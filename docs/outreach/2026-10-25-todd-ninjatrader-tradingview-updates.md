@@ -109,8 +109,8 @@ zerogex.io
   isn't there, he can add it from the app's Indicators search ("ZeroGEX Daily
   Gamma Levels") and re-enter the numbers.
 - **He trades ES or NQ overnight.** Those levels come from the SPX and NDX
-  options books, which price during U.S. hours, so overnight they hold at the
-  4 PM close plus overnight chain updates (`/help/platform/data-coverage`).
+  options books, which we price only in the regular session, so overnight they
+  hold at the 4 PM close until the 9:30 open (`/help/platform/data-coverage`).
 - **He uses Sierra Chart, SabrTrader or thinkorswim.** Sierra Chart and
   SabrTrader also auto-update on the Pro key. thinkorswim is manual like
   TradingView, but its study comes with that day's numbers already filled in.

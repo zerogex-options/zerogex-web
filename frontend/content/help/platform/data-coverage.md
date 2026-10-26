@@ -36,7 +36,7 @@ The session badge in the header confirms which window you're in.
 
 **ES and NQ run on the CME electronic session instead**, which is much wider: Sunday 6:00 PM ET straight through to Friday 5:00 PM ET, with a daily maintenance break from 5:00 to 6:00 PM ET. That covers the Asian and European sessions in full, and ES/NQ quotes are real-time CME. Overnight - from 6:00 PM ET until the 9:30 AM open, while the futures are trading - SPX and NDX show their future instead of the frozen cash index: the session badge reads "Futures" and the header price shows the future, with the change measured against the future's own 4:00 PM ET print.
 
-The dealer levels on a futures chart still come from the index options book, which prices during U.S. hours. So overnight you are watching live ES/NQ trade against the levels as they stood at the U.S. close, updated as overnight chain data publishes (see *Pre-market and after-hours* below); they do not recompute tick-by-tick at 3:00 AM ET. If a futures quote itself goes stale, the price carries a badge naming the measured lag.
+The dealer levels on a futures chart still come from the SPX and NDX options, which ZeroGEX prices only during the regular U.S. session. So overnight and before the open you are watching live ES/NQ trade against the levels as they stood at the 4:00 PM ET close. They are not recomputed until the regular session opens at 9:30 AM ET, which is also when the next session's open interest comes in. The only overnight change is a small step, once a day, in the carry used to convert them to futures prices. If a futures quote itself goes stale, the price carries a badge naming the measured lag.
 
 ## Refresh cadence by surface
 
@@ -62,7 +62,7 @@ During extended hours:
 
 - The header shows the last regular-session close and its change, with the live extended-hours price and its move since that close on a second line.
 - Signal scores continue to update where the data is sufficient. Some signals (EOD Pressure, 0DTE Position Imbalance) intentionally only compute during the regular session.
-- The GEX surface reflects the regular-session-close state plus any overnight chain updates - including the next session's cleared open interest once it publishes.
+- The GEX surface holds the positioning from the regular-session close. The next session's open interest is picked up around the open, not overnight. SPX and NDX levels, and the ES and NQ levels drawn from them, are not recomputed until the 9:30 AM ET open.
 
 ## When the market is closed
 

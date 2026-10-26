@@ -36,7 +36,7 @@ Le badge de séance dans l'en-tête confirme dans quelle plage horaire vous vous
 
 **ES et NQ suivent en revanche la séance électronique du CME**, bien plus large : du dimanche 18h00 ET jusqu'au vendredi 17h00 ET sans interruption, avec une pause de maintenance quotidienne de 17h00 à 18h00 ET. Cela couvre intégralement les séances asiatique et européenne, et les cotations ES/NQ sont du CME en temps réel. La nuit - de 18h00 ET jusqu'à l'ouverture de 9h30, tant que les futures se traitent - SPX et NDX affichent leur future à la place de l'indice au comptant figé : le badge de séance indique « Futures » et le prix dans l'en-tête montre le future, avec la variation mesurée par rapport à son propre cours de 16h00 ET.
 
-Les niveaux de dealers sur un graphique de futures proviennent toujours du carnet d'options de l'indice, qui se cote pendant les heures américaines. La nuit, vous observez donc l'ES/NQ se traiter en direct face aux niveaux tels qu'ils étaient à la clôture américaine, actualisés à mesure que les données de chaîne nocturnes sont publiées (voir *Pré-ouverture et après-clôture* plus bas) ; ils ne sont pas recalculés tick par tick à 3h00 ET. Si une cotation de future devient obsolète, le prix porte un badge indiquant le retard mesuré.
+Les niveaux de dealers sur un graphique de futures proviennent toujours des options SPX et NDX, que ZeroGEX ne valorise que pendant la séance régulière américaine. La nuit et avant l'ouverture, vous observez donc l'ES/NQ se traiter en direct face aux niveaux tels qu'ils étaient à la clôture de 16h00 ET. Ils ne sont recalculés qu'à l'ouverture de la séance régulière à 9h30 ET, moment où arrive aussi l'open interest de la nouvelle séance. La seule évolution pendant la nuit est un petit ajustement, une fois par jour, du carry qui sert à les convertir en prix de futures. Si une cotation de future devient obsolète, le prix porte un badge indiquant le retard mesuré.
 
 ## Fréquence de mise à jour par module
 
@@ -62,7 +62,7 @@ Pendant les heures étendues :
 
 - L'en-tête affiche la dernière clôture de la séance régulière et sa variation, avec sur une deuxième ligne le prix en direct des heures étendues et son mouvement depuis cette clôture.
 - Les scores de signaux continuent de se mettre à jour lorsque les données sont suffisantes. Certains signaux (EOD Pressure, 0DTE Position Imbalance) ne sont calculés intentionnellement que pendant la séance régulière.
-- La surface GEX reflète l'état de clôture de la séance régulière, plus les éventuelles mises à jour de la chaîne d'options survenues durant la nuit - y compris l'open interest compensé de la séance suivante, dès sa publication.
+- La surface GEX conserve le positionnement de la clôture de la séance régulière. L'open interest de la séance suivante est pris en compte autour de l'ouverture, pas pendant la nuit. Les niveaux SPX et NDX, ainsi que les niveaux ES et NQ qui en découlent, ne sont recalculés qu'à l'ouverture de 9h30 ET.
 
 ## Lorsque le marché est fermé
 

@@ -36,7 +36,7 @@ Il badge di sessione nell'header conferma in quale finestra ti trovi.
 
 **ES e NQ seguono invece la sessione elettronica del CME**, molto più ampia: dalla domenica alle 18:00 ET ininterrottamente fino al venerdì alle 17:00 ET, con una pausa di manutenzione giornaliera dalle 17:00 alle 18:00 ET. Questo copre per intero le sessioni asiatica ed europea, e le quotazioni ES/NQ sono CME in tempo reale. Durante la notte - dalle 18:00 ET fino all'apertura delle 9:30, mentre i futures sono in contrattazione - SPX e NDX mostrano il loro future al posto dell'indice a pronti congelato: il badge di sessione riporta «Futures» e il prezzo nell'intestazione mostra il future, con la variazione misurata rispetto al suo prezzo delle 16:00 ET.
 
-I livelli dei dealer su un grafico di futures continuano a derivare dal book di opzioni dell'indice, che quota durante l'orario statunitense. Di notte stai quindi osservando ES/NQ scambiare dal vivo contro i livelli così com'erano alla chiusura USA, aggiornati man mano che vengono pubblicati i dati notturni della chain (vedi *Pre-market e after-hours* più sotto); non vengono ricalcolati tick per tick alle 3:00 ET. Se una quotazione dei futures diventa obsoleta, il prezzo riporta un badge con il ritardo misurato.
+I livelli dei dealer su un grafico di futures continuano a derivare dalle opzioni su SPX e NDX, che ZeroGEX valuta solo durante la sessione regolare statunitense. Di notte e prima dell'apertura stai quindi osservando ES/NQ scambiare dal vivo contro i livelli così com'erano alla chiusura delle 16:00 ET. Vengono ricalcolati solo all'apertura della sessione regolare alle 9:30 ET, che è anche il momento in cui entra l'open interest della nuova sessione. L'unica variazione notturna è un piccolo scatto, una volta al giorno, nel carry usato per convertirli in prezzi dei futures. Se una quotazione dei futures diventa obsoleta, il prezzo riporta un badge con il ritardo misurato.
 
 ## Frequenza di aggiornamento per sezione
 
@@ -62,7 +62,7 @@ Durante gli orari estesi:
 
 - L'intestazione mostra l'ultima chiusura della sessione regolare e la sua variazione, con su una seconda riga il prezzo live degli orari estesi e il suo movimento da quella chiusura.
 - I punteggi dei segnali continuano ad aggiornarsi dove i dati sono sufficienti. Alcuni segnali (EOD Pressure, 0DTE Position Imbalance) vengono calcolati intenzionalmente solo durante la sessione regolare.
-- La superficie GEX riflette lo stato di chiusura della sessione regolare più eventuali aggiornamenti della catena durante la notte - incluso l'open interest compensato per la sessione successiva, non appena viene pubblicato.
+- La superficie GEX mantiene il posizionamento della chiusura della sessione regolare. L'open interest della sessione successiva viene recepito intorno all'apertura, non durante la notte. I livelli di SPX e NDX, e i livelli di ES e NQ che ne derivano, vengono ricalcolati solo all'apertura delle 9:30 ET.
 
 ## Quando il mercato è chiuso
 

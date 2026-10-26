@@ -36,7 +36,7 @@ Das Sitzungs-Badge im Header zeigt an, in welchem Zeitfenster du dich befindest.
 
 **ES und NQ laufen stattdessen in der elektronischen CME-Sitzung**, die deutlich weiter reicht: von Sonntag 18:00 Uhr ET durchgehend bis Freitag 17:00 Uhr ET, mit einer täglichen Wartungspause von 17:00 bis 18:00 Uhr ET. Damit sind die asiatische und die europäische Sitzung vollständig abgedeckt, und die ES/NQ-Kurse kommen in Echtzeit von der CME. Über Nacht - von 18:00 Uhr ET bis zur Eröffnung um 9:30 Uhr, solange die Futures gehandelt werden - zeigen SPX und NDX statt des eingefrorenen Kassaindex ihren Future: Das Sitzungs-Badge zeigt „Futures", und der Kurs in der Kopfzeile zeigt den Future, mit der Veränderung gegenüber dessen eigenem Kurs um 16:00 Uhr ET.
 
-Die Dealer-Level auf einem Futures-Chart stammen weiterhin aus dem Index-Optionsbuch, das während der US-Handelszeiten bepreist wird. Über Nacht siehst du also den live handelnden ES/NQ gegen die Level, wie sie zum US-Schluss standen, aktualisiert sobald nächtliche Chain-Daten veröffentlicht werden (siehe *Pre-Market und After-Hours* weiter unten); sie werden nicht tickweise um 3:00 Uhr ET neu berechnet. Veraltet eine Futures-Quote selbst, trägt der Preis ein Badge mit der gemessenen Verzögerung.
+Die Dealer-Level auf einem Futures-Chart stammen weiterhin aus den SPX- und NDX-Optionen, die ZeroGEX nur während der regulären US-Sitzung bepreist. Über Nacht und vor der Eröffnung siehst du also den live handelnden ES/NQ gegen die Level, wie sie zum Schluss um 16:00 Uhr ET standen. Neu berechnet werden sie erst, wenn die reguläre Sitzung um 9:30 Uhr ET eröffnet; dann kommt auch das Open Interest der neuen Sitzung hinzu. Über Nacht ändert sich nur der Carry, mit dem sie in Futures-Preise umgerechnet werden, einmal täglich um einen kleinen Schritt. Veraltet eine Futures-Quote selbst, trägt der Preis ein Badge mit der gemessenen Verzögerung.
 
 ## Aktualisierungsrhythmus nach Ansicht
 
@@ -62,7 +62,7 @@ Während der erweiterten Handelszeiten:
 
 - Die Kopfzeile zeigt den letzten Schlusskurs der regulären Sitzung und seine Veränderung, in einer zweiten Zeile darunter den Live-Kurs der erweiterten Handelszeit und seine Bewegung seit diesem Schluss.
 - Signal-Scores werden weiterhin aktualisiert, sofern ausreichend Daten vorliegen. Manche Signale (EOD Pressure, 0DTE Position Imbalance) werden bewusst nur während der regulären Sitzung berechnet.
-- Die GEX-Oberfläche spiegelt den Schlussstand der regulären Sitzung zuzüglich etwaiger nächtlicher Chain-Updates wider - einschließlich des abgerechneten Open Interest für die nächste Sitzung, sobald es veröffentlicht wird.
+- Die GEX-Oberfläche hält die Positionierung vom Schluss der regulären Sitzung. Das Open Interest der nächsten Sitzung wird um die Eröffnung herum übernommen, nicht über Nacht. Die Level von SPX und NDX und die daraus abgeleiteten ES- und NQ-Level werden erst zur Eröffnung um 9:30 Uhr ET neu berechnet.
 
 ## Wenn der Markt geschlossen ist
 
