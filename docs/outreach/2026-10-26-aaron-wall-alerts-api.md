@@ -8,7 +8,8 @@ works through the API from his own system (a Python app on a VPS that also
 takes TradingView webhooks; see `2026-10-12-aaron-1dte-levels-and-es-replay.md`).
 Reply in his thread "Here you go Michael".
 
-> **Status:** draft, unsent. Run "Confirm before sending" first.
+> **Status:** sent 2026-10-26, after "Confirm before sending" passed: the
+> stream printed `ready` through nginx with symbols SPY, QQQ, SPX, NDX.
 
 ## Thread since
 
