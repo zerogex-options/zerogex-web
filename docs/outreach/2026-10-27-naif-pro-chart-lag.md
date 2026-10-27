@@ -10,9 +10,34 @@ in chart updates during live trading hours". Asks for the cause, a fix, and a
 prompt reply. No page, browser, device or location named. "ZeroGamma" is his
 name for ZeroGEX; nothing on the site is called that.
 
-> **Status:** not sent. Send once check 0 below prints `MemoryHigh=infinity`
-> (the draft says the memory limit "has been removed"), and on a day you deploy
-> both branches after the close (it says the fix "goes live tonight").
+> **Status:** fixes live, reply not sent. Both branches deployed Tue Oct 27
+> after the close (website restarted 7:38 PM ET); the memory brake was already
+> off (`MemoryHigh=infinity`). Send the draft once `make gift-month` (below) has
+> credited his free month, since the draft says it has.
+>
+> **On the box, found during the deploy:** zerogex-oa's `.env` set
+> `LATEST_QUOTE_CACHE_TTL_SECONDS=5`, not the 1.5 in `.env.example`, so the API
+> held each price for 5 seconds on top of nginx's 5. Edited before the restart;
+> it should now read 0.1.
+>
+> **Verified from outside, 7:46 PM ET:** a request carrying `fresh=` comes back
+> `cache-control: no-store` and `X-Cache-Status: MISS` every time, an unmarked
+> one still caches, and the live chart's JavaScript builds its candle URL with
+> `withFresh`.
+
+## His account (`make diagnose-user`, Oct 27)
+
+Pro monthly at $59, upgraded from Basic on Oct 25 ($16.06 prorated). Trial Oct
+11 to 18; the $39 conversion charge was declined three times for insufficient
+funds and cleared Oct 24. $55.06 collected in all. Next charge $59 on Nov 18.
+His subscription has no `money_back=1` (a converted trial), so the 7-day
+guarantee doesn't apply; the free month is goodwill.
+
+**Free month:** `make gift-month EMAIL=na777knsa@gmail.com NOTE="chart lag" DRY_RUN=1`,
+then the same with `YES=1` in place of `DRY_RUN=1`. It credits one month of
+his plan ($59.00) to his Stripe balance, so the Nov 18 renewal is $0 and he is
+charged again Dec 18. `make diagnose-user EMAIL=na777knsa@gmail.com` then shows
+`Balance -$59.00` and `Upcoming invoice $0.00`.
 
 ## The read
 
@@ -109,11 +134,8 @@ five, which is only safe once the candle query is cheap.
    That lasts until the next restart; to make it stick, pull `release` (it
    carries `87271c89`) and run `make api-install-service`, which copies the
    edited unit file and reloads systemd without restarting the API.
-1. **Who he is**, any time: `make diagnose-user EMAIL=na777knsa@gmail.com` (in
-   `~/zerogex-web`). Confirms Pro, when he paid, and the country of his IPs. If
-   he asks for his money back: the guarantee covers 7 days from the first
-   payment when the subscription carries `money_back=1`, requested from the
-   Account page.
+1. **His free month landed**: `make diagnose-user EMAIL=na777knsa@gmail.com`
+   (in `~/zerogex-web`) shows `Balance -$59.00` and `Upcoming invoice $0.00`.
 2. **After deploying, during market hours**: `make quote-cadence` (in
    `~/zerogex-oa`). SPY and QQQ should show about 60 a minute with a median gap
    near 1.0 s. If they show long gaps, the feed itself stalled:
@@ -135,7 +157,9 @@ I found two causes today. The first was the freezing: a memory limit on our data
 
 The second was a lag that was there even when the server was running smoothly. A cache meant to reduce load was holding chart updates for up to five seconds, so the candles refreshed about every five seconds instead of every second, each new candle appeared a few seconds after its minute began, and on some connections the price itself lagged the same way.
 
-The fix for that goes live tonight after the market closes. I measured it before shipping: the price and the newest candle now move every second, and a new candle appears within a second of its minute starting.
+The fix for that is now live. I measured it before shipping: the price and the newest candle now move every second, and a new candle appears within a second of its minute starting.
+
+To make up for the trouble, I've added a free month to your account. Your November 18 renewal won't be charged, and your subscription continues as normal after that.
 
 If you see any lag tomorrow, reply with the page you were on, your browser, and roughly where you're connecting from, and I'll look into it the same day.
 
@@ -149,7 +173,8 @@ Founder, ZeroGEX
   ask for the same three things Mircea sent (`2026-09-28-trial-cancel-slow-page-mircea.md`):
   the Protocol column, one slow request's Timing tab, and five minutes on a
   phone hotspot.
-- **Wants a refund.** See check 1 for the guarantee terms.
+- **Wants a refund.** The guarantee doesn't cover him (see His account), so
+  it's your call; the free month is already on his balance.
 
 ## Worth knowing (not urgent)
 
