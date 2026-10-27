@@ -14,7 +14,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
@@ -32,6 +32,8 @@ import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 import { usePersistedChoice } from '@/hooks/usePersistedChoice';
+import { usePersistedText } from '@/hooks/usePersistedText';
+import { useMarketQuote } from '@/hooks/useApiData';
 import { FULLSCREEN_LAYER_STYLE, useChartFullscreen } from '@/hooks/useChartFullscreen';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { etTodayDateKey } from '@/core/utils';
@@ -39,7 +41,7 @@ import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersist
 import { flowSessionOptions, isFlowSessionDate, type FlowSession } from '@/core/flowSessions';
 import { FLOW_TIMEFRAME_LABELS, FLOW_TIMEFRAME_MINUTES, getETTimeTimestamp, type FlowTimeframe } from '@/core/flowSeriesCharts';
 import { ET_HM } from '@/core/technicalsCharts';
-import { strikeCellsByBar, type StrikeColorBy, type StrikeDotSize } from '@/core/flowStrikes';
+import { parseSizing, sizingKey, strikeCellsByBar, type StrikeDotSize } from '@/core/flowStrikes';
 import { fmtLevel } from '@/core/technicalsSession';
 import {
   FLOW_REGIME_LABEL,
@@ -77,10 +79,6 @@ const STRIKE_SIZE_BUTTONS: Array<{ value: StrikeDotSize; label: string; title: s
   { value: 'medium', label: 'Medium+', title: 'The medium and large dots: strikes with a bigger net flow' },
   { value: 'large', label: 'Large', title: 'Only the largest dots: the strikes pressed hardest' },
 ];
-// What a strike dot weighs: the page's own bought-and-sold sides, or calls
-// against puts the way some traders' own charts read a strike. Picked on the
-// chart itself, beside the price pane's label (components/FlowSessionChart).
-const STRIKE_COLORS: readonly StrikeColorBy[] = ['sides', 'callsPuts'];
 const EVENTS_COLLAPSED = 8;
 const BARS_COLLAPSED = 10;
 
@@ -184,6 +182,24 @@ const toggleStyle = (on: boolean): CSSProperties => ({
   borderRadius: 'var(--radius-control, 2px)',
   cursor: 'pointer',
 });
+
+/**
+ * The session chart with its newest price on the live quote. A component of
+ * its own so the second-by-second quote redraws the chart rather than the
+ * whole page. Only a live session asks for the quote; a quote older than the
+ * newest bar, or a stale futures feed, is left out.
+ */
+function LiveFlowSessionChart(props: ComponentProps<typeof FlowSessionChart>) {
+  const { bars, live, symbol, sessionEndMs } = props;
+  const { data: quote } = useMarketQuote(symbol, live ? 1000 : 0, live);
+  const newestMs = bars.length > 0 ? bars[bars.length - 1].ms : null;
+  const quoteMs = quote ? Date.parse(quote.timestamp) : NaN;
+  const livePrice =
+    live && quote && !quote.stale && Number.isFinite(quote.close) && newestMs != null && quoteMs >= newestMs && quoteMs <= sessionEndMs
+      ? quote.close
+      : null;
+  return <FlowSessionChart {...props} livePrice={livePrice} />;
+}
 
 export default function FlowAnalysisPage() {
   const { symbol } = useTimeframe();
@@ -329,7 +345,10 @@ export default function FlowAnalysisPage() {
   // current session only; the strike ribbon reads either bar size.
   const strikesAvailable = priceOn;
   const [strikeSize, setStrikeSize] = usePersistedChoice<StrikeDotSize>('zg.flow.strikes.size', STRIKE_SIZES, 'all');
-  const [strikeColorBy, setStrikeColorBy] = usePersistedChoice<StrikeColorBy>('zg.flow.strikes.color', STRIKE_COLORS, 'sides');
+  // The dot sizes, Auto or the reader's own contract counts, per symbol: SPY's
+  // and SPX's contract numbers have nothing in common.
+  const [sizingStored, setSizingStored] = usePersistedText(`zg.flow.strikes.sizes.${symbol}`, 'auto');
+  const strikeSizing = useMemo(() => parseSizing(sizingStored), [sizingStored]);
   const wallsAvailable = priceOn && flowSession === 'current';
   const layers: FlowChartLayers = {
     price: priceOn,
@@ -638,7 +657,7 @@ export default function FlowAnalysisPage() {
                 Every pane is switched off. Turn one back on above.
               </div>
             ) : (
-              <FlowSessionChart
+              <LiveFlowSessionChart
                 bars={bars}
                 sessionStartMs={sessionStartMs}
                 sessionEndMs={sessionEndMs}
@@ -651,8 +670,8 @@ export default function FlowAnalysisPage() {
                 symbol={symbol}
                 strikeCells={strikeCells}
                 strikeSize={strikeSize}
-                strikeColorBy={strikeColorBy}
-                onStrikeColorBy={setStrikeColorBy}
+                strikeSizing={strikeSizing}
+                onStrikeSizing={(next) => setSizingStored(sizingKey(next))}
                 levels={flowLevels}
                 ariaLabel={`${symbol} options flow for the session in ${barMinutes}-minute bars: price${layers.strikes ? ' with contracts bought and sold at each strike' : ''}${layers.walls ? ', the flip and the walls' : ''}, net premium with the call and put legs, contracts bought and sold each bar, and the put/call ratio`}
               />
@@ -660,9 +679,7 @@ export default function FlowAnalysisPage() {
           </div>
           <p className="zg-caption" style={{ margin: 0, padding: '8px 16px 12px', borderTop: `1px solid ${ruleColor}`, flex: 'none' }}>
             {layers.strikes &&
-              (strikeColorBy === 'callsPuts'
-                ? 'Strike dots: green where more calls than puts traded at that strike in that bar, red where more puts did; small, medium or large by the gap. Even strikes are left out. '
-                : 'Strike dots: green where the bullish side led at that strike in that bar, red where the bearish side led; small, medium or large by the net flow there. Two-way strikes are left out. ')}
+              'Strike dots: calls bought minus calls sold, plus puts sold minus puts bought, at that strike in that bar; green above zero, red below, and small, medium or large by that net. '}
             {layers.walls && 'Dashed lines are the flip and walls as they stand now. '}
             Up bars are the bullish side, calls bought with puts sold stacked lighter on top; down bars the bearish side, puts bought with calls sold. Numbered markers match the flow log.
           </p>

@@ -1,32 +1,37 @@
 // Unit tests for the Flow Analysis chart's strike ribbon (frontend/core/flowStrikes.ts).
 //
-// The contract: a /api/flow/by-strike row becomes a cell whose sides add up
-// the way the rest of the page adds them (calls bought + puts sold is the
-// bullish side); a strike leads one way only by a real margin; a tail read
-// replaces the bars it carries and keeps the rest; the hover finds a strike
-// only when the pointer is on its lane; the price window holds a dozen lanes
-// on a quiet day; and the ribbon is a handful of grouped paths of round dots
-// in three sizes by net flow, so one block print cannot shrink every other
-// dot to nothing, with two-way strikes left out, a filter for the small ones,
-// sizes that hold still under a zoom, and a calls-against-puts reading.
+// The contract: a /api/flow/by-strike row becomes a cell whose net is calls
+// bought minus calls sold plus puts sold minus puts bought, the way the rest
+// of the page adds the sides; any net leans its way and only sides that cancel
+// exactly draw nothing; a tail read replaces the bars it carries and keeps the
+// rest; the hover finds a strike only when the pointer is on its lane; the
+// price window holds a dozen lanes on a quiet day; and the ribbon is a handful
+// of grouped paths of round dots in three sizes, on Auto against the day's
+// flow (so one block print cannot shrink every other dot to nothing, and a
+// zoom never resizes them) or at the reader's own contract counts (so a
+// closed minute keeps its dot), with a filter for the small ones.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  STRIKE_EVEN_SHARE,
+  AUTO_SIZING,
   STRIKE_MIN_LANES,
-  STRIKE_SIZE_FLOOR,
+  autoSizeContracts,
   buildStrikeRibbon,
   cellNear,
-  cellNet,
+  cleanSizing,
   mergeStrikeRows,
+  parseSizing,
   ribbonPriceDomain,
   strikeCellShown,
   strikeCellsByBar,
   strikeDotRadius,
   strikeFullNet,
   strikeLean,
+  strikeTier,
+  sizingKey,
   type FlowStrikeRow,
+  type StrikeSizing,
 } from '../core/flowStrikes.ts';
 import { paneLayout } from '../core/flowAnalysis.ts';
 
@@ -47,27 +52,27 @@ test('cells add up the sides the way the page does', () => {
   assert.equal(c.bullish, 65); // calls bought + puts sold
   assert.equal(c.bearish, 15); // puts bought + calls sold
   assert.equal(c.net, 50);
-  // Calls against puts, whoever bought or sold them.
-  assert.equal(c.calls, 50);
-  assert.equal(c.puts, 30);
-  assert.equal(cellNet(c, 'callsPuts'), 20);
 });
 
-test('calls against puts reads a strike by what traded, not who crossed', () => {
-  // Heavy put selling: the bullish side by the page's count, but puts by the tape's.
-  const [c] = strikeCellsByBar([row(T0, 665, 10, 10, 5, 200)]).get(MS0) ?? [];
-  assert.ok(c);
-  assert.equal(strikeLean(c), 'bullish');
-  assert.equal(strikeLean(c, 'callsPuts'), 'bearish');
-  // Calls and puts level: two-way on that reading, whatever the sides did.
-  const [even] = strikeCellsByBar([row(T0, 666, 100, 0, 0, 100)]).get(MS0) ?? [];
-  assert.ok(even);
-  assert.equal(strikeLean(even), 'bullish');
-  assert.equal(strikeLean(even, 'callsPuts'), 'even');
-  // The ribbon follows the reading it is asked for.
-  const byBar = strikeCellsByBar([row(T0, 665, 10, 10, 5, 200)]);
-  assert.deepEqual(buildStrikeRibbon(byBar, [MS0], GEOM).paths.map((p) => p.lean), ['bullish']);
-  assert.deepEqual(buildStrikeRibbon(byBar, [MS0], GEOM, 'all', { by: 'callsPuts' }).paths.map((p) => p.lean), ['bearish']);
+test("a dot is calls bought minus sold plus puts sold minus bought, as a subscriber's rule has it", () => {
+  // 100 calls bought vs 50 calls sold: a green dot of 50.
+  const [calls] = strikeCellsByBar([row(T0, 665, 100, 50, 0, 0)]).get(MS0) ?? [];
+  assert.ok(calls);
+  assert.equal(calls.net, 50);
+  assert.equal(strikeLean(calls), 'bullish');
+  // 100 puts bought vs 200 puts sold: a green dot of 100.
+  const [puts] = strikeCellsByBar([row(T0, 665, 0, 0, 100, 200)]).get(MS0) ?? [];
+  assert.ok(puts);
+  assert.equal(puts.net, 100);
+  assert.equal(strikeLean(puts), 'bullish');
+  // Puts bought, calls sold: red.
+  const [red] = strikeCellsByBar([row(T0, 665, 0, 30, 70, 0)]).get(MS0) ?? [];
+  assert.ok(red);
+  assert.equal(red.net, -100);
+  assert.equal(strikeLean(red), 'bearish');
+  // Both at one strike in one bar add up into one dot.
+  const [both] = strikeCellsByBar([row(T0, 665, 100, 50, 100, 200)]).get(MS0) ?? [];
+  assert.equal(both?.net, 150);
 });
 
 test('cells are strike-ascending per bar, parse strings, and skip empty or broken rows', () => {
@@ -96,14 +101,11 @@ test('a repeated bar and strike is the newer read and replaces', () => {
   assert.equal(cells?.[0].callsBought, 9);
 });
 
-test('a strike leads one way only by a real margin', () => {
-  assert.equal(strikeLean({ net: 30, volume: 100 }), 'bullish');
-  assert.equal(strikeLean({ net: -30, volume: 100 }), 'bearish');
-  // Under the even share: two-way.
-  assert.equal(strikeLean({ net: 100 * STRIKE_EVEN_SHARE - 1, volume: 100 }), 'even');
-  // The 09:30 auction splits exactly even.
-  assert.equal(strikeLean({ net: 0, volume: 500 }), 'even');
-  assert.equal(strikeLean({ net: 0, volume: 0 }), 'even');
+test('any net leans its way; only sides that cancel exactly are even', () => {
+  assert.equal(strikeLean({ net: 1 }), 'bullish');
+  assert.equal(strikeLean({ net: -1 }), 'bearish');
+  // The 09:30 auction, which has no side to go on, splits exactly even.
+  assert.equal(strikeLean({ net: 0 }), 'even');
 });
 
 test('a tail read replaces the bars it carries and keeps the rest', () => {
@@ -174,16 +176,21 @@ test('the ribbon is a handful of grouped paths, not an element per orb', () => {
   for (let i = 1; i < layer.paths.length; i += 1) assert.ok(order[layer.paths[i - 1].tier] <= order[layer.paths[i].tier]);
 });
 
-test('two-way strikes draw nothing, and only drawn dots count', () => {
+test('a small net is dust on Auto but a dot at contract sizes; an even strike is never one', () => {
   const byBar = strikeCellsByBar([
-    row(T0, 665, 500, 0, 0, 0), // all bullish
-    row(T0, 666, 52, 48, 0, 0), // 52/48: two-way
+    row(T0, 665, 500, 0, 0, 0), // net 500
+    row(T0, 666, 52, 48, 0, 0), // net 4: under Auto's floor of a 500-lot bar
+    row(T0, 667, 50, 50, 0, 0), // net 0
   ]);
-  const layer = buildStrikeRibbon(byBar, [MS0], GEOM);
-  assert.equal(layer.count, 1);
-  const twoWay = byBar.get(MS0)?.find((c) => c.strike === 666);
-  assert.ok(twoWay);
-  assert.equal(strikeCellShown(twoWay, layer.fullNet), false);
+  const auto = buildStrikeRibbon(byBar, [MS0], GEOM);
+  assert.equal(auto.count, 1);
+  const own: StrikeSizing = { kind: 'contracts', small: 1, medium: 100, large: 400 };
+  const contracts = buildStrikeRibbon(byBar, [MS0], GEOM, 'all', { sizing: own });
+  assert.equal(contracts.count, 2);
+  const small = byBar.get(MS0)?.find((c) => c.strike === 666);
+  assert.ok(small);
+  assert.equal(strikeCellShown(small, auto), false);
+  assert.equal(strikeCellShown(small, contracts), true);
 });
 
 test('dots are round and sized by net flow, not by what traded', () => {
@@ -248,7 +255,49 @@ test('the size filter hides the smaller dots without resizing the rest', () => {
   assert.equal(all.fullNet, large.fullNet);
   const big = (l: typeof all) => l.paths.find((p) => p.tier === 'strong')?.d;
   assert.equal(big(all), big(large));
-  assert.ok(STRIKE_SIZE_FLOOR.all < STRIKE_SIZE_FLOOR.medium && STRIKE_SIZE_FLOOR.medium < STRIKE_SIZE_FLOOR.large);
+  // And the filter works the same on contract sizes.
+  const own: StrikeSizing = { kind: 'contracts', small: 50, medium: 200, large: 900 };
+  const counts = (['all', 'medium', 'large'] as const).map((f) => buildStrikeRibbon(byBar, [MS0], GEOM, f, { sizing: own }).count);
+  assert.deepEqual(counts, [3, 2, 1]);
+});
+
+test('at contract sizes a dot is its net alone, so a closed minute keeps it as the day goes on', () => {
+  const own: StrikeSizing = { kind: 'contracts', small: 100, medium: 500, large: 2000 };
+  assert.equal(strikeTier({ net: 99 }, { sizing: own, fullNet: 0 }), null);
+  assert.equal(strikeTier({ net: -100 }, { sizing: own, fullNet: 0 }), 'weak');
+  assert.equal(strikeTier({ net: 500 }, { sizing: own, fullNet: 0 }), 'mid');
+  assert.equal(strikeTier({ net: -2500 }, { sizing: own, fullNet: 0 }), 'strong');
+  // The 10:00 bar's dot, before and after a far bigger 11:00 bar arrives.
+  const early = strikeCellsByBar([row(T0, 665, 600, 0, 0, 0)]);
+  const later = strikeCellsByBar([row(T0, 665, 600, 0, 0, 0), row(T1, 665, 50_000, 0, 0, 0)]);
+  const dot = (byBar: ReturnType<typeof strikeCellsByBar>, sizing: StrikeSizing) =>
+    buildStrikeRibbon(byBar, [MS0], GEOM, 'all', { sizing, fullNet: sizing.kind === 'auto' ? undefined : 0 }).paths.map((p) => p.tier);
+  assert.deepEqual(dot(early, own), dot(later, own));
+  // On Auto the same minute steps down once the bigger bar sets full size.
+  const autoEarly = buildStrikeRibbon(early, [MS0], GEOM).paths.map((p) => p.tier);
+  const autoLater = buildStrikeRibbon(later, [MS0], GEOM, 'all', { fullNet: strikeFullNet(later, [MS0, MS1], GEOM.dMin, GEOM.dMax) }).paths.map((p) => p.tier);
+  assert.notDeepEqual(autoEarly, autoLater);
+});
+
+test('dot sizes as typed are cleaned up and stored', () => {
+  // Out of order: sorted. Fractions: whole contracts.
+  assert.deepEqual(cleanSizing(1000, 50, 250.4), { kind: 'contracts', small: 50, medium: 250, large: 1000 });
+  // Blank, zero or nonsense: Auto.
+  assert.deepEqual(cleanSizing(Number.NaN, 50, 250), AUTO_SIZING);
+  assert.deepEqual(cleanSizing(0, 50, 250), AUTO_SIZING);
+  // Stored and read back.
+  const own = cleanSizing(50, 250, 1000);
+  assert.equal(sizingKey(own), '50,250,1000');
+  assert.deepEqual(parseSizing(sizingKey(own)), own);
+  assert.deepEqual(parseSizing('auto'), AUTO_SIZING);
+  assert.deepEqual(parseSizing('garbage'), AUTO_SIZING);
+  assert.deepEqual(parseSizing(null), AUTO_SIZING);
+});
+
+test("the sizes editor starts from Auto's own cutoffs, in numbers someone would type", () => {
+  assert.deepEqual(autoSizeContracts(1234), { small: 62, medium: 190, large: 620 });
+  assert.deepEqual(autoSizeContracts(40), { small: 2, medium: 6, large: 20 });
+  assert.equal(autoSizeContracts(0), null);
 });
 
 test('strikes outside the price window and dust under the floor draw nothing', () => {
@@ -280,7 +329,7 @@ test('one block print does not shrink every other orb to a sliver', () => {
 
 test('nothing in view: an empty layer', () => {
   const layer = buildStrikeRibbon(new Map(), [], GEOM);
-  assert.deepEqual(layer, { paths: [], fullNet: 0, dotR: 0, strikeStep: null, count: 0 });
+  assert.deepEqual(layer, { paths: [], sizing: AUTO_SIZING, fullNet: 0, dotR: 0, strikeStep: null, count: 0 });
 });
 
 test('the price pane is sized for the ribbon whether or not it is drawn', () => {
