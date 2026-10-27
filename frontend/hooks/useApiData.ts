@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GEXHistoricalContext } from '@/core/types';
 import { isFresherServerTs } from '@/core/liveQuoteOrdering';
 import { httpOnlyQuoteFields } from '@/core/liveQuoteMerge';
+import { withFresh } from '@/core/liveFreshness';
 import { pollDecision, staleAfterMs } from '@/core/pollGate';
 import { sessionClosesLagBehind } from '@/core/sessionCloses';
 import type { GammaSurfaceResponse } from '@/core/gammaSurface';
@@ -926,7 +927,8 @@ async function fetchMarketQuote(symbol: string, force = false): Promise<void> {
   entry.inflightStartedAt = Date.now();
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-    const endpoint = `/api/market/quote?${symbolQuery(symbol)}`;
+    // `fresh`: past nginx's 5 s cache, or a 1 s poll moves only every ~5 s.
+    const endpoint = withFresh(`/api/market/quote?${symbolQuery(symbol)}`);
     const response = await fetch(`${baseUrl}${endpoint}`, { signal: controller.signal });
     if (controller.signal.aborted) return;
     if (!response.ok) {

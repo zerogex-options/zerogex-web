@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { hasTierAccess, normalizeTier } from '@/core/auth';
+import { mustNotStore } from '@/core/liveFreshness';
 import { requireSession } from '@/core/serverAuth';
 import { mintEndUserToken } from './endUserToken';
 import { isApiTierGateEnabled, requiredApiAccess } from './apiTierGate';
@@ -194,9 +195,15 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Upstream API unreachable' }, { status: 502 });
   }
 
+  const headers = buildResponseHeaders(upstream);
+  // A live poll marked `fresh` must reach the browser new every second, so
+  // nginx's 5 s cache may never store it. Decided by the URL alone, never the
+  // path: see core/liveFreshness.ts for the freeze that rule prevents.
+  if (mustNotStore(request.nextUrl.searchParams)) headers.set('Cache-Control', 'no-store');
+
   return new NextResponse(upstream.body, {
     status: upstream.status,
     statusText: upstream.statusText,
-    headers: buildResponseHeaders(upstream),
+    headers,
   });
 }

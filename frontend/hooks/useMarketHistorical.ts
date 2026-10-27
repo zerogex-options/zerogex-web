@@ -25,6 +25,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { withFresh } from '@/core/liveFreshness';
 import { pollDecision, STALE_POLL_FLOOR_MS } from '@/core/pollGate';
 
 export interface PriceBar {
@@ -180,7 +181,12 @@ function buildUrl(symbol: string, timeframe: string, windowUnits: number, allowF
   // allow_futures opts this series into the index→future display swap outside
   // the cash session (the candle chart). Omitted for index-keyed overlays.
   const futuresParam = allowFutures ? '&allow_futures=1' : '';
-  return `${baseUrl}/api/market/historical?symbol=${sym}&underlying=${sym}&timeframe=${tf}&window_units=${windowUnits}${futuresParam}`;
+  // `fresh` on every request, not just the 1 s tail: through nginx's 5 s cache
+  // the tail moved only every ~5 s, and a cached full reload could hand back an
+  // older close for the live bar than the tail had already shown.
+  return withFresh(
+    `${baseUrl}/api/market/historical?symbol=${sym}&underlying=${sym}&timeframe=${tf}&window_units=${windowUnits}${futuresParam}`,
+  );
 }
 
 async function fetchBars(symbol: string, timeframe: string, windowUnits: number, allowFutures = false): Promise<PriceBar[]> {
