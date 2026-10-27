@@ -11,9 +11,12 @@
  *      forever, with a random 0–5 min initial offset so simultaneously
  *      created caches don't all hit the API at the same instant.
  *   2. While ≥1 subscriber is attached → a 1-second foreground poll
- *      requests `interval=3` (just the most recent few bars) and
+ *      requests `intervals=3` (just the most recent few bars) and
  *      upserts those into the cache, so the live view updates in real
- *      time without re-fetching the whole session payload.
+ *      time without re-fetching the whole session payload. The API
+ *      ignores any other spelling: until 2026-10-27 this sent
+ *      `interval=3`, so every poll downloaded the whole session
+ *      (about 72 KB a second per open chart, measured 2026-09-29).
  *   3. Last subscriber leaves → 1-second poll stops, but the 5-minute
  *      background reload keeps the cache warm so re-subscribing later
  *      is instant.
@@ -145,7 +148,7 @@ function notifyListeners(entry: CacheEntry): void {
 function buildUrl(symbol: string, interval?: number): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
   const params = new URLSearchParams({ symbol, underlying: symbol });
-  if (interval != null) params.set('interval', String(interval));
+  if (interval != null) params.set('intervals', String(interval));
   return `${baseUrl}/api/technicals?${params.toString()}`;
 }
 
