@@ -24,7 +24,7 @@
  * where they are tested; this file only draws.
  */
 
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import ZoomCluster from '@/components/ChartZoomCluster';
 import { useChipInk, useLevelInk } from '@/hooks/useChartTheme';
 import { useChartReadout } from '@/hooks/useChartReadout';
@@ -47,18 +47,20 @@ import {
   type FlowTimeView,
 } from '@/core/flowChartView';
 import {
+  AUTO_SIZING,
+  autoSizeContracts,
   buildStrikeRibbon,
   cellNear,
-  cellNet,
+  cleanSizing,
   ribbonPriceDomain,
   strikeCellShown,
   strikeDotRadius,
   strikeFullNet,
   strikeLean,
   type StrikeCell,
-  type StrikeColorBy,
   type StrikeDotSize,
   type StrikeLean,
+  type StrikeSizing,
 } from '@/core/flowStrikes';
 import {
   bearishSide,
@@ -117,10 +119,12 @@ interface Props {
   strikeCells?: ReadonlyMap<number, readonly StrikeCell[]> | null;
   /** The ribbon's size filter: the smallest dot it shows. */
   strikeSize?: StrikeDotSize;
-  /** What a strike dot weighs: the bought and sold sides, or calls against puts. */
-  strikeColorBy?: StrikeColorBy;
+  /** How the strike dots are sized: Auto, or the reader's own contract sizes. */
+  strikeSizing?: StrikeSizing;
   /** Offered beside the price pane's label while the dots are drawn. */
-  onStrikeColorBy?: (next: StrikeColorBy) => void;
+  onStrikeSizing?: (next: StrikeSizing) => void;
+  /** The live quote, for the newest bar's price between series reads. */
+  livePrice?: number | null;
   levels?: FlowLevels | null;
 }
 
@@ -132,8 +136,9 @@ const TONE_STROKE: Record<FlowEventTone, string> = {
 
 const PANE_ORDER: FlowPaneKey[] = ['price', 'premium', 'contracts', 'pcr'];
 
-// The ribbon's inks: the page's sides. Two-way strikes draw no dot and the
-// readout skips them; the map covers every lean for the type's sake.
+// The ribbon's inks: the page's sides. A strike whose sides cancel exactly
+// draws no dot and the readout skips it; the map covers every lean for the
+// type's sake.
 const LEAN_FILL: Record<StrikeLean, string> = {
   bullish: 'var(--color-bull)',
   bearish: 'var(--color-bear)',
@@ -142,27 +147,25 @@ const LEAN_FILL: Record<StrikeLean, string> = {
 // A dot's size already says how hard a strike pressed, so its opacity only
 // steps down a little with it: the big dots read solid, overlaps stay visible.
 const DOT_TIER_OPACITY: Record<RibbonTier, number> = { strong: 0.85, mid: 0.72, weak: 0.58 };
-const LEAN_WORDS: Record<StrikeColorBy, Record<StrikeLean, string>> = {
-  sides: { bullish: 'bullish side led', bearish: 'bearish side led', even: 'two-way' },
-  callsPuts: { bullish: 'more calls traded', bearish: 'more puts traded', even: 'calls and puts even' },
+const LEAN_WORDS: Record<StrikeLean, string> = {
+  bullish: 'green: bullish',
+  bearish: 'red: bearish',
+  even: 'even',
 };
-
-// The dots' two readings, as the switch beside the price pane's label names
-// them: the page's own sides, or calls against puts whoever bought or sold.
-const COLOR_CHOICES: Array<{ value: StrikeColorBy; label: string; short: string; title: string }> = [
-  {
-    value: 'sides',
-    label: 'Bought vs sold',
-    short: 'Sides',
-    title: 'Green where calls bought and puts sold led at a strike, red where puts bought and calls sold did',
-  },
-  {
-    value: 'callsPuts',
-    label: 'Calls vs puts',
-    short: 'Calls/puts',
-    title: 'Green where more calls than puts traded at a strike, red where more puts did, whoever bought or sold them',
-  },
-];
+// Where the dot sizes editor starts when nothing is known yet.
+const SIZE_FALLBACK = { small: 50, medium: 250, large: 1000 };
+const EDITOR_BTN: CSSProperties = {
+  flex: 1,
+  minHeight: 30,
+  padding: '0 10px',
+  fontFamily: MONO,
+  fontSize: 11,
+  color: 'var(--text-secondary)',
+  background: 'transparent',
+  border: '1px solid var(--border-default)',
+  borderRadius: 'var(--radius-control, 2px)',
+  cursor: 'pointer',
+};
 
 // The zoom is held in ms rather than bars, so switching between 5- and
 // 1-minute bars keeps the same stretch of the session on screen.
@@ -257,7 +260,7 @@ function withZeroCrossings(pts: Array<{ x: number; v: number }>): Array<{ x: num
 }
 
 export default function FlowSessionChart({
-  bars,
+  bars: seriesBars,
   sessionStartMs,
   sessionEndMs,
   barMs,
@@ -270,8 +273,9 @@ export default function FlowSessionChart({
   ariaLabel,
   strikeCells = null,
   strikeSize = 'all',
-  strikeColorBy = 'sides',
-  onStrikeColorBy,
+  strikeSizing = AUTO_SIZING,
+  onStrikeSizing,
+  livePrice = null,
   levels = null,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -304,6 +308,34 @@ export default function FlowSessionChart({
   const pinchRef = useRef<{ d0: number; time: FlowTimeView | null; anchor: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const wheelRef = useRef<(e: WheelEvent) => void>(() => {});
+  // The dot sizes editor: the boxes as typed while it is open, null when shut.
+  const [sizeDraft, setSizeDraft] = useState<{ small: string; medium: string; large: string } | null>(null);
+  const sizesRef = useRef<HTMLDivElement | null>(null);
+  const sizesOpen = sizeDraft != null;
+  useEffect(() => {
+    if (!sizesOpen) return;
+    const onPress = (e: PointerEvent) => {
+      if (sizesRef.current && e.target instanceof Node && sizesRef.current.contains(e.target)) return;
+      setSizeDraft(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSizeDraft(null);
+    };
+    document.addEventListener('pointerdown', onPress, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPress, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [sizesOpen]);
+
+  // On a live session the newest bar's price follows the live quote between
+  // series reads, so the line's end and its tag move every second.
+  const bars = useMemo(() => {
+    const newest = seriesBars[seriesBars.length - 1];
+    if (!live || livePrice == null || !Number.isFinite(livePrice) || !newest || newest.price === livePrice) return seriesBars;
+    return [...seriesBars.slice(0, -1), { ...newest, price: livePrice }];
+  }, [seriesBars, live, livePrice]);
 
   useLayoutEffect(() => {
     const el = wrapRef.current;
@@ -392,32 +424,46 @@ export default function FlowSessionChart({
     [shownKey, panesTop, panesBottom, PANE_GAP],
   );
 
-  // The size a dot is full at, over the whole session.
+  // On Auto, the size a dot is full at, over the whole session. Keyed on the
+  // scale's numbers rather than its object, which a live price tick renews.
+  const sessionMin = sessionDomains.price?.min ?? null;
+  const sessionMax = sessionDomains.price?.max ?? null;
   const ribbonFull = useMemo(() => {
-    const d = sessionDomains.price;
-    if (!ribbonOn || !strikeCells || !d) return 0;
-    return strikeFullNet(strikeCells, bars.map((b) => b.ms), d.min, d.max, strikeColorBy);
-  }, [ribbonOn, strikeCells, bars, sessionDomains.price, strikeColorBy]);
+    if (!ribbonOn || !strikeCells || sessionMin == null || sessionMax == null) return 0;
+    return strikeFullNet(strikeCells, seriesBars.map((b) => b.ms), sessionMin, sessionMax);
+  }, [ribbonOn, strikeCells, seriesBars, sessionMin, sessionMax]);
+
+  // The bar starts on screen, from the series bars: a live price tick moves
+  // the price line, not which bars the dots are in.
+  const windowStarts = useMemo(() => {
+    const starts = seriesBars.map((b) => b.ms);
+    if (!zoomed) return starts;
+    return starts.filter((ms) => {
+      const slot = (ms - sessionStartMs) / barMs;
+      return slot >= winStart - 1 && slot <= winEnd + 1;
+    });
+  }, [zoomed, seriesBars, sessionStartMs, barMs, winStart, winEnd]);
 
   // The ribbon, built once per data or layout change rather than on every
-  // hover: a session of SPX strikes is thousands of orbs.
+  // hover or price tick: a session of SPX strikes is thousands of orbs.
+  const priceMin = domains.price?.min ?? null;
+  const priceMax = domains.price?.max ?? null;
   const ribbon = useMemo(() => {
-    const d = domains.price;
     const band = bands.find((b) => b.key === 'price');
-    if (!ribbonOn || !strikeCells || !d || !band || band.height <= 0 || plotW <= 0) return null;
+    if (!ribbonOn || !strikeCells || priceMin == null || priceMax == null || !band || band.height <= 0 || plotW <= 0) return null;
     return buildStrikeRibbon(
       strikeCells,
-      visibleBars.map((b) => b.ms),
+      windowStarts,
       {
         x: (ms) => AXIS_W + ((ms - sessionStartMs) / barMs + 0.5 - winStart) * slotW,
-        yPrice: (v) => band.top + ((d.max - v) / (d.max - d.min)) * band.height,
-        dMin: d.min,
-        dMax: d.max,
+        yPrice: (v) => band.top + ((priceMax - v) / (priceMax - priceMin)) * band.height,
+        dMin: priceMin,
+        dMax: priceMax,
       },
       strikeSize,
-      { by: strikeColorBy, fullNet: ribbonFull },
+      { sizing: strikeSizing, fullNet: ribbonFull },
     );
-  }, [ribbonOn, strikeCells, visibleBars, domains.price, bands, plotW, slotW, AXIS_W, sessionStartMs, barMs, winStart, strikeSize, strikeColorBy, ribbonFull]);
+  }, [ribbonOn, strikeCells, windowStarts, priceMin, priceMax, bands, plotW, slotW, AXIS_W, sessionStartMs, barMs, winStart, strikeSize, strikeSizing, ribbonFull]);
 
   // ── Zoom and pan ────────────────────────────────────────────────────────
   const toHeldTime = (next: FlowTimeView | null): HeldZoom['time'] =>
@@ -621,19 +667,21 @@ export default function FlowSessionChart({
     }
   };
   const hover = hoverIdx != null && !dragging ? bars[hoverIdx] ?? null : null;
-  // Only a dot that is drawn answers the pointer: a two-way strike, or one the
-  // size filter hides, reads as empty lane.
+  // Only a dot that is drawn answers the pointer: an even strike, dust under
+  // the smallest size, or one the size filter hides reads as empty lane.
   const hoverCell =
     hover && ribbonOn && hoverPrice != null && ribbon
       ? cellNear(
-          strikeCells?.get(hover.ms)?.filter((c) => strikeCellShown(c, ribbon.fullNet, strikeSize, strikeColorBy)),
+          strikeCells?.get(hover.ms)?.filter((c) => strikeCellShown(c, ribbon, strikeSize)),
           hoverPrice,
           strikeStep,
         )
       : null;
-  const byCallsPuts = strikeColorBy === 'callsPuts';
-  const hoverLean: StrikeLean = hoverCell ? strikeLean(hoverCell, strikeColorBy) : 'even';
-  const hoverNet = hoverCell ? cellNet(hoverCell, strikeColorBy) : 0;
+  const hoverLean: StrikeLean = hoverCell ? strikeLean(hoverCell) : 'even';
+  // Each side of the chain on its own, as the dot's rule reads them: calls
+  // bought less sold count for the dot, puts bought less sold against it.
+  const hoverCallNet = hoverCell ? hoverCell.callsBought - hoverCell.callsSold : 0;
+  const hoverPutNet = hoverCell ? hoverCell.putsBought - hoverCell.putsSold : 0;
 
   // ── Panes ───────────────────────────────────────────────────────────────
   // A backing behind the label's own text, so a level or a ribbon lane that
@@ -958,7 +1006,7 @@ export default function FlowSessionChart({
             <line x1={x(hover.ms)} x2={x(hover.ms)} y1={panesTop - 4} y2={axisTop} stroke="var(--text-muted)" strokeOpacity={0.6} strokeWidth={1} strokeDasharray="3 3" />
             {yPrice && hover.price != null && <circle cx={x(hover.ms)} cy={yPrice(hover.price)} r={3} fill="var(--text-primary)" />}
             {yPrice && hoverCell && ribbon && (
-              <circle cx={x(hover.ms)} cy={yPrice(hoverCell.strike)} r={strikeDotRadius(hoverCell, ribbon, strikeColorBy) + 3} fill="none" stroke="var(--text-primary)" strokeWidth={1.2} />
+              <circle cx={x(hover.ms)} cy={yPrice(hoverCell.strike)} r={strikeDotRadius(hoverCell, ribbon) + 3} fill="none" stroke="var(--text-primary)" strokeWidth={1.2} />
             )}
             {yPrem && <circle cx={x(hover.ms)} cy={yPrem(hover.netPremium)} r={3} fill="var(--text-primary)" />}
             {yPcr && hover.putCallRatio != null && <circle cx={x(hover.ms)} cy={yPcr(hover.putCallRatio)} r={3} fill="var(--color-info)" />}
@@ -1023,7 +1071,7 @@ export default function FlowSessionChart({
             fontFamily: MONO,
             fontSize: 11,
             fontVariantNumeric: 'tabular-nums',
-            minWidth: compact ? 176 : 210,
+            minWidth: compact ? 196 : 232,
             boxShadow: 'var(--shadow-pop)',
           }}
         >
@@ -1032,26 +1080,31 @@ export default function FlowSessionChart({
               <div style={{ marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid var(--border-subtle)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                   <span style={{ color: 'var(--text-primary)' }}>At {fmtStrike(hoverCell.strike)}</span>
-                  <span style={{ color: hoverLean === 'even' ? 'var(--text-muted)' : LEAN_FILL[hoverLean] }}>{LEAN_WORDS[strikeColorBy][hoverLean]}</span>
+                  <span style={{ color: hoverLean === 'even' ? 'var(--text-muted)' : LEAN_FILL[hoverLean] }}>{LEAN_WORDS[hoverLean]}</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: byCallsPuts ? '1fr auto auto auto' : '1fr auto auto', columnGap: 10, marginTop: 2 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', columnGap: 10, marginTop: 2 }}>
                   <span />
                   <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>bought</span>
                   <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>sold</span>
-                  {byCallsPuts && <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>traded</span>}
+                  <span style={{ color: 'var(--text-muted)', textAlign: 'right' }}>net</span>
                   <span style={{ color: 'var(--text-secondary)' }}>Calls</span>
                   <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.callsBought)}</span>
                   <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.callsSold)}</span>
-                  {byCallsPuts && <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.calls)}</span>}
+                  <span style={{ textAlign: 'right', color: hoverCallNet > 0 ? 'var(--color-bull)' : hoverCallNet < 0 ? 'var(--color-bear)' : undefined }}>
+                    {fmtContracts(hoverCallNet, true)}
+                  </span>
                   <span style={{ color: 'var(--text-secondary)' }}>Puts</span>
                   <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.putsBought)}</span>
                   <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.putsSold)}</span>
-                  {byCallsPuts && <span style={{ textAlign: 'right' }}>{fmtContracts(hoverCell.puts)}</span>}
+                  {/* Puts bought are the bearish side, so a positive put net reads red. */}
+                  <span style={{ textAlign: 'right', color: hoverPutNet > 0 ? 'var(--color-bear)' : hoverPutNet < 0 ? 'var(--color-bull)' : undefined }}>
+                    {fmtContracts(hoverPutNet, true)}
+                  </span>
                 </div>
                 <Row
-                  k={byCallsPuts ? 'Calls − puts' : 'Net flow'}
-                  v={fmtContracts(hoverNet, true)}
-                  color={hoverNet > 0 ? 'var(--color-bull)' : hoverNet < 0 ? 'var(--color-bear)' : undefined}
+                  k="Dot: calls net − puts net"
+                  v={fmtContracts(hoverCell.net, true)}
+                  color={hoverCell.net > 0 ? 'var(--color-bull)' : hoverCell.net < 0 ? 'var(--color-bear)' : undefined}
                   top
                 />
               </div>
@@ -1076,57 +1129,138 @@ export default function FlowSessionChart({
         </div>
       )}
 
-      {/* The dots' reading: on the price pane's label line, beside the dots it
-          changes, so the toolbar above keeps its length at every width. */}
-      {ribbonOn && priceBand && onStrikeColorBy && (
+      {/* The dot sizes: on the price pane's label line, beside the dots they
+          size, so the toolbar above keeps its length at every width. */}
+      {ribbonOn && priceBand && onStrikeSizing && (
         <div
-          role="group"
-          aria-label="Strike dot colors"
-          style={{
-            position: 'absolute',
-            left: AXIS_W + 1 + `PRICE · ${symbol}`.length * 6.3 + 6 + 4,
-            top: priceBand.top + 1,
-            height: 13,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '0 5px',
-            zIndex: 2,
-            background: 'color-mix(in srgb, var(--bg-card) 88%, transparent)',
-            fontFamily: MONO,
-            fontSize: 9,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}
+          ref={sizesRef}
+          style={{ position: 'absolute', left: AXIS_W + 1 + `PRICE · ${symbol}`.length * 6.3 + 6 + 4, top: priceBand.top + 1, zIndex: 3 }}
         >
-          <span style={{ color: 'var(--text-muted)' }}>Dots</span>
-          {COLOR_CHOICES.map((c) => {
-            const on = strikeColorBy === c.value;
-            return (
-              <button
-                key={c.value}
-                type="button"
-                aria-pressed={on}
-                onClick={() => onStrikeColorBy(c.value)}
-                title={c.title}
-                style={{
-                  font: 'inherit',
-                  letterSpacing: 'inherit',
-                  textTransform: 'inherit',
-                  background: 'none',
-                  border: 'none',
-                  padding: '2px 0',
-                  cursor: 'pointer',
-                  color: on ? 'var(--text-primary)' : 'var(--text-muted)',
-                  fontWeight: on ? 700 : 400,
-                  textDecoration: on ? 'underline' : 'none',
-                  textUnderlineOffset: 3,
-                }}
-              >
-                {compact ? c.short : c.label}
-              </button>
-            );
-          })}
+          <button
+            type="button"
+            aria-expanded={sizesOpen}
+            aria-haspopup="dialog"
+            onClick={() => {
+              if (sizesOpen) {
+                setSizeDraft(null);
+                return;
+              }
+              const start =
+                strikeSizing.kind === 'contracts' ? strikeSizing : (autoSizeContracts(ribbonFull) ?? SIZE_FALLBACK);
+              setSizeDraft({ small: String(start.small), medium: String(start.medium), large: String(start.large) });
+            }}
+            title="Set the dot sizes in net contracts, or leave them on Auto"
+            style={{
+              height: 13,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '0 5px',
+              border: 'none',
+              cursor: 'pointer',
+              background: 'color-mix(in srgb, var(--bg-card) 88%, transparent)',
+              fontFamily: MONO,
+              fontSize: 9,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <span>Dot sizes</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+              {strikeSizing.kind === 'contracts'
+                ? [strikeSizing.small, strikeSizing.medium, strikeSizing.large].map((v) => fmtContracts(v)).join(' · ')
+                : 'Auto'}
+            </span>
+          </button>
+          {sizeDraft && (
+            <form
+              role="dialog"
+              aria-label="Dot sizes"
+              className="zg-panel"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const next = cleanSizing(Number(sizeDraft.small), Number(sizeDraft.medium), Number(sizeDraft.large));
+                onStrikeSizing(next);
+                setSizeDraft(null);
+              }}
+              style={{
+                position: 'absolute',
+                top: 18,
+                left: 0,
+                width: compact ? 214 : 236,
+                padding: '10px 12px',
+                boxShadow: 'var(--shadow-pop)',
+                fontFamily: MONO,
+                fontSize: 11,
+                display: 'grid',
+                gap: 6,
+              }}
+            >
+              <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                Dot sizes, in net contracts
+              </div>
+              {(
+                [
+                  ['small', 'Small from'],
+                  ['medium', 'Medium from'],
+                  ['large', 'Large from'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
+                  {label}
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    step={1}
+                    value={sizeDraft[key]}
+                    onChange={(e) => setSizeDraft({ ...sizeDraft, [key]: e.target.value })}
+                    style={{
+                      width: 92,
+                      padding: '3px 6px',
+                      fontFamily: MONO,
+                      fontSize: 12,
+                      textAlign: 'right',
+                      color: 'var(--text-primary)',
+                      background: 'var(--bg-subtle)',
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-control)',
+                    }}
+                  />
+                </label>
+              ))}
+              <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                {/* The page's own toggle look: Apply as the pressed one. */}
+                <button
+                  type="submit"
+                  className="zg-btn"
+                  style={{
+                    ...EDITOR_BTN,
+                    color: 'var(--text-primary)',
+                    fontWeight: 600,
+                    background: 'color-mix(in srgb, var(--color-navy, var(--color-info)) 18%, transparent)',
+                  }}
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  className="zg-btn"
+                  onClick={() => {
+                    onStrikeSizing(AUTO_SIZING);
+                    setSizeDraft(null);
+                  }}
+                  style={EDITOR_BTN}
+                >
+                  Auto
+                </button>
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 10, lineHeight: 1.45 }}>
+                Your own sizes keep each minute&apos;s dot once it closes. Auto measures against the day&apos;s flow, so a dot can shrink as bigger flow arrives.
+              </div>
+            </form>
+          )}
         </div>
       )}
 
