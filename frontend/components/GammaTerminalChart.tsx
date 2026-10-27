@@ -34,7 +34,8 @@ import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { resolvePriceSession } from "@/core/sessionCloses";
 import { futuresDelayLabel, futuresFeedBehind } from "@/core/futuresDataStatus";
-import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etDateKeyFor, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, isWithinTradingHoursForSymbol, etDateKeyFor, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
+import { overlayLiveTick } from "@/core/liveTipCandle";
 import { SYMBOLS } from "@/core/symbols";
 import { wheelAction } from "@/core/wheelZoom";
 import ZoomCluster from "@/components/ChartZoomCluster";
@@ -1481,29 +1482,26 @@ export default function GammaTerminalChart({
     return aggregateBars(normalized.rows, intervalMinutes, POOL);
   }, [data, intervalMinutes, symbol]);
 
-  // Stage 2 — overlay the live tick onto the tip bar (same bucket-scoped,
-  // history-authoritative rules proven out in UnderlyingCandlesChart). This is
-  // the full pool; the visible window is sliced from it below.
+  // Stage 2 — overlay the live tick onto the tip bar, and open the next bar the
+  // second a tick lands in it rather than when the next candle poll does
+  // (core/liveTipCandle.ts). History stays authoritative: the next poll
+  // replaces either. This is the full pool; the visible window is sliced from
+  // it below. A new bar opens only where the historical bars would show one:
+  // intraday, inside the symbol's trading hours.
+  const quoteOpen = snapshot ? null : quote?.open ?? null;
+  const quoteHigh = snapshot ? null : quote?.high ?? null;
+  const quoteLow = snapshot ? null : quote?.low ?? null;
   const allBars = useMemo(() => {
-    if (historicalBars.length === 0) return historicalBars;
     if (delayed || rewindActive || liveClose == null || !session || session === "closed") return historicalBars;
-    const tip = historicalBars[historicalBars.length - 1];
-    const bucketMs = intervalMinutes * 60 * 1000;
-    const tipStartMs = new Date(tip.timestamp).getTime();
-    if (!Number.isFinite(tipStartMs)) return historicalBars;
-    const tipEndMs = tipStartMs + bucketMs;
-    const quoteTsMs = quoteTs ? new Date(quoteTs).getTime() : NaN;
-    if (!Number.isFinite(quoteTsMs) || quoteTsMs < tipStartMs || quoteTsMs >= tipEndMs) return historicalBars;
-    if (liveClose === tip.close) return historicalBars;
-    const patched = historicalBars.slice();
-    patched[patched.length - 1] = {
-      ...tip,
-      close: liveClose,
-      high: Math.max(tip.high, liveClose),
-      low: Math.min(tip.low, liveClose),
-    };
-    return patched;
-  }, [historicalBars, liveClose, session, quoteTs, intervalMinutes, delayed, rewindActive]);
+    const canOpenNext =
+      shouldOmitClosedMarketTimes(intervalMinutes) && quoteTs != null && isWithinTradingHoursForSymbol(quoteTs, symbol);
+    return overlayLiveTick(
+      historicalBars,
+      { close: liveClose, timestamp: quoteTs, open: quoteOpen, high: quoteHigh, low: quoteLow },
+      intervalMinutes * 60 * 1000,
+      canOpenNext,
+    );
+  }, [historicalBars, liveClose, session, quoteTs, quoteOpen, quoteHigh, quoteLow, intervalMinutes, symbol, delayed, rewindActive]);
 
   // ── Zoom + pan: derive the visible window from the view state. `offset` is
   // how many bars are hidden to the RIGHT of the view (0 = live edge, so the
