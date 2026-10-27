@@ -191,6 +191,8 @@ const config = {
     // /premium-heatmap). They are left alone here deliberately: changing what
     // Google indexes for ten unrelated tools is not this change's call.
     '/hedging-flow',
+    // Basic-gated, unlisted beta.
+    '/fuseline-radar',
     '/gamma-exposure',
     '/max-pain',
     '/greeks-gex',
