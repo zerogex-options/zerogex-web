@@ -14,6 +14,9 @@ name for ZeroGEX; nothing on the site is called that.
 > the reply. Both branches deployed Tue Oct 27 after the close (website
 > restarted 7:38 PM ET); the memory brake was already off
 > (`MemoryHigh=infinity`). Free month credited the same evening (His account).
+> The chart still moved only every 5 to 40 seconds on Wed Oct 28: the price
+> feed itself was slow. Fixed and deployed mid-session the same day; every
+> symbol now updates about once a second (Follow-up, Oct 28).
 >
 > **On the box, found during the deploy:** zerogex-oa's `.env` set
 > `LATEST_QUOTE_CACHE_TTL_SECONDS=5`, not the 1.5 in `.env.example`, so the API
@@ -127,6 +130,32 @@ five, which is only safe once the candle query is cheap.
   downloaded the whole day (about 72 KB a second per open chart). It now sends
   `intervals=3`.
 
+## Follow-up, Oct 28: the price feed itself was slow
+
+The first session after the deploy, the candles still moved only about every
+5 seconds. `make quote-cadence` at 9:44 AM ET: SPY 3 updates a minute, QQQ 4,
+NDX 2, SPX 1, NVDA 8. The website and API were passing each price on within a
+second; the collectors that fetch prices from ThetaData were not producing
+them. Last night's measurement used a stand-in feed that ticked every second,
+so it never saw this.
+
+- **They fetched every 5 seconds.** The every-second setting,
+  `THETADATA_BAR_POLL_SECONDS`, was never added to the box's `.env`, and when
+  unset it fell back to the 5-second options cadence.
+- **They saved one price per options pass.** Each collector stored the newest
+  price once per pass over its option chain, and with the collector service
+  pinned at its CPU limit a pass took 17 to 19 s for SPY and QQQ and 36 to 39 s
+  for SPX and NDX.
+
+**Fixed** in zerogex-oa `c3687f07`: the poll defaults to every second, and each
+price is saved and pushed to the WebSocket the moment it is fetched, on its own
+thread, whatever the options pass is doing. Deployed with a collector restart
+mid-session; at 11:24 AM ET `make quote-cadence` read 57 to 59 updates a minute
+for every symbol, median gap 1.0 s, and no failed ThetaData requests. The
+collector's CPU limit then went from 1.5 to 3 cores (`6adda930`, applied without
+a restart) to speed up the options passes. The database server has 2 CPUs and
+serves the API too, so watch it after any further raise.
+
 ## Checks
 
 0. **The memory brake is off**, now, during the session:
@@ -139,11 +168,13 @@ five, which is only safe once the candle query is cheap.
 1. **His free month landed**: done (His account). To look again,
    `make diagnose-user EMAIL=na777knsa@gmail.com` (in `~/zerogex-web`) should
    show `Balance -$59.00` and `Upcoming invoice $0.00`.
-2. **After deploying, during market hours**: `make quote-cadence` (in
-   `~/zerogex-oa`). SPY and QQQ should show about 60 a minute with a median gap
-   near 1.0 s. If they show long gaps, the feed itself stalled:
-   `sudo journalctl -u zerogex-oa-ingestion --since "30 min ago" | grep -cE "thetadata (bar )?poll( for [A-Z]+)? failed"`
-   counts failed price polls (each failure backs off 2 to 16 seconds).
+2. **During market hours**: `make quote-cadence` (in `~/zerogex-oa`). Every
+   symbol should show about 60 a minute with a median gap near 1.0 s (57 to 59
+   on Oct 28 after the follow-up fix). If one falls short, count failed polls:
+   `sudo journalctl -u zerogex-oa-ingestion --since "30 min ago" --no-pager | grep -cE "bar poll for [^ ]+ failed|bar listener for [^ ]+ failed"`.
+   Each failed poll backs off 2 to 16 seconds. Zero failures with long gaps
+   means a collector is not fetching or saving often enough, which was the
+   Oct 28 cause, not a feed outage.
 3. **In your own browser**: Gamma Terminal, DevTools Network. The
    `market/quote` and `market/historical` requests carry `fresh=` and their
    response headers say `X-Cache-Status: MISS`.
