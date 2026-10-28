@@ -10,15 +10,15 @@ in chart updates during live trading hours". Asks for the cause, a fix, and a
 prompt reply. No page, browser, device or location named. "ZeroGamma" is his
 name for ZeroGEX; nothing on the site is called that.
 
-> **Status:** fixes live, reply not sent. Both branches deployed Tue Oct 27
-> after the close (website restarted 7:38 PM ET); the memory brake was already
-> off (`MemoryHigh=infinity`). Send the draft once `make gift-month` (below) has
-> credited his free month, since the draft says it has.
+> **Status:** fixed, deployed, and his free month credited; the draft below is
+> the reply. Both branches deployed Tue Oct 27 after the close (website
+> restarted 7:38 PM ET); the memory brake was already off
+> (`MemoryHigh=infinity`). Free month credited the same evening (His account).
 >
 > **On the box, found during the deploy:** zerogex-oa's `.env` set
 > `LATEST_QUOTE_CACHE_TTL_SECONDS=5`, not the 1.5 in `.env.example`, so the API
 > held each price for 5 seconds on top of nginx's 5. Edited before the restart;
-> it should now read 0.1.
+> reads 0.1 (checked the same evening).
 >
 > **Verified from outside, 7:46 PM ET:** a request carrying `fresh=` comes back
 > `cache-control: no-store` and `X-Cache-Status: MISS` every time, an unmarked
@@ -33,11 +33,13 @@ funds and cleared Oct 24. $55.06 collected in all. Next charge $59 on Nov 18.
 His subscription has no `money_back=1` (a converted trial), so the 7-day
 guarantee doesn't apply; the free month is goodwill.
 
-**Free month:** `make gift-month EMAIL=na777knsa@gmail.com NOTE="chart lag" DRY_RUN=1`,
-then the same with `YES=1` in place of `DRY_RUN=1`. It credits one month of
-his plan ($59.00) to his Stripe balance, so the Nov 18 renewal is $0 and he is
-charged again Dec 18. `make diagnose-user EMAIL=na777knsa@gmail.com` then shows
-`Balance -$59.00` and `Upcoming invoice $0.00`.
+**Free month: done**, evening of Oct 27, with
+`make gift-month EMAIL=na777knsa@gmail.com NOTE="chart lag" YES=1` after a dry
+run. One month of his plan, $59.00, credited to his Stripe balance (balance
+transaction `cbtxn_1UVMFV4AOiqteMYYAwwXtXwh`, "Goodwill: 1 free month (chart
+lag)", tag `goodwill-2026-10-27`). Its output: balance -$59.00, and the Nov 18
+invoice at $0.00 due. He is charged again Dec 18. Don't run it again: the
+same-day guard would not stop a second gift on a later day.
 
 ## The read
 
@@ -134,8 +136,9 @@ five, which is only safe once the candle query is cheap.
    That lasts until the next restart; to make it stick, pull `release` (it
    carries `87271c89`) and run `make api-install-service`, which copies the
    edited unit file and reloads systemd without restarting the API.
-1. **His free month landed**: `make diagnose-user EMAIL=na777knsa@gmail.com`
-   (in `~/zerogex-web`) shows `Balance -$59.00` and `Upcoming invoice $0.00`.
+1. **His free month landed**: done (His account). To look again,
+   `make diagnose-user EMAIL=na777knsa@gmail.com` (in `~/zerogex-web`) should
+   show `Balance -$59.00` and `Upcoming invoice $0.00`.
 2. **After deploying, during market hours**: `make quote-cadence` (in
    `~/zerogex-oa`). SPY and QQQ should show about 60 a minute with a median gap
    near 1.0 s. If they show long gaps, the feed itself stalled:
