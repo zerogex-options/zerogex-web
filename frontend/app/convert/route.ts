@@ -3,7 +3,8 @@ import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { getStripe, priceIdToSku } from '@/core/stripe';
 import { verifyConvertToken } from '@/core/retentionToken';
-import { resolveSaveCoupon, stackCoupon, subscriptionCouponIds, SAVE_PERCENT } from '@/core/retentionOffer';
+import { resolveSaveCoupon, SAVE_PERCENT } from '@/core/retentionOffer';
+import { attachedCouponIds, readAttachedDiscounts, stackedDiscountsParam } from '@/core/subscriptionDiscounts';
 import { canClaimTrialConversionOffer, shouldStackTrialDiscount } from '@/core/trialOffer';
 
 // Pre-trial-end CONVERSION offer.
@@ -140,6 +141,10 @@ const ALREADY_DISCOUNTED_PAGE = shell(
   'Your rate is already locked in',
   `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">You already have an introductory rate on your account, so you&rsquo;re getting the deal\u00a0- no need to stack another. Your trial converts automatically at that rate, so there&rsquo;s nothing for you to do.</p>`,
 );
+const APPLY_FAILED_PAGE = shell(
+  'Something went wrong',
+  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the offer just now. Please try again in a minute, or reply to your trial-reminder email and I&rsquo;ll take care of it.</p>`,
+);
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -222,7 +227,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const currentCoupons = subscriptionCouponIds(subscription);
+  // Read with its discounts expanded above; if it somehow is not, stop rather
+  // than take "no coupons we can see" for "no coupons".
+  const attached = readAttachedDiscounts(subscription);
+  if (!attached) return htmlResponse(APPLY_FAILED_PAGE, 502);
+  const currentCoupons = attachedCouponIds(attached);
 
   // Already carries a promo / founding / referral coupon: they have an intro
   // rate, so don't stack a second (no over-discount). Don't consume the one-shot
@@ -258,18 +267,12 @@ export async function POST(request: NextRequest) {
 
   try {
     await stripe.subscriptions.update(subscription.id, {
-      discounts: stackCoupon(currentCoupons, coupon).map((c) => ({ coupon: c })),
+      discounts: stackedDiscountsParam(coupon, attached),
       // Never prorate/charge mid-trial; the discount rides the trial-end invoice.
       proration_behavior: 'none',
     });
   } catch {
-    return htmlResponse(
-      shell(
-        'Something went wrong',
-        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the offer just now. Please try again in a minute, or reply to your trial-reminder email and I&rsquo;ll take care of it.</p>`,
-      ),
-      502,
-    );
+    return htmlResponse(APPLY_FAILED_PAGE, 502);
   }
 
   // Latch the one-shot offer (COALESCE keeps the first claim instant on a

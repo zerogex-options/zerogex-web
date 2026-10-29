@@ -90,6 +90,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 import { previewNextInvoice } from '../core/stripeInvoicePreview.ts';
+import { attachedCouponIds, discountsParam, readAttachedDiscounts } from '../core/subscriptionDiscounts.ts';
 
 const AUDIT_TYPE = 'billing_winback_discount_honored';
 
@@ -528,19 +529,25 @@ if (!sku) {
   process.exit(1);
 }
 
-// Coupon ids currently on the subscription, de-duplicated in order, with meta
-// for labeling. These are ALL preserved — we stack, never strip.
+// The discounts on the subscription (expanded above), with their discount ids so
+// the coupons that stay are written back by reference rather than redeemed
+// again (core/subscriptionDiscounts.ts). These are ALL preserved except a
+// superseded win-back grant (below) — we stack, never strip. A bare 'di_' id
+// hides its coupon, and skipping it would strip that discount on write, so an
+// unreadable set is a refusal, not a guess.
+const attached = readAttachedDiscounts(subscription);
+if (!attached) {
+  console.error(`Error: could not read the discounts on ${subscription.id} (not expanded). Aborting.`);
+  process.exit(1);
+}
+const currentCouponIds = attachedCouponIds(attached);
+// The coupon objects, for labeling and the win-back family check.
 const discountsRaw = ((subscription as unknown as { discounts?: ExpandedDiscount[] }).discounts ??
   []) as ExpandedDiscount[];
-const currentCouponIds: string[] = [];
 const couponMeta = new Map<string, CouponShape>();
 for (const d of discountsRaw) {
-  if (typeof d === 'string') continue; // a bare discount id (di_...), not a coupon — skip
-  const c = d?.coupon;
-  const id = typeof c === 'string' ? c : c?.id ?? null;
-  if (!id || currentCouponIds.includes(id)) continue;
-  currentCouponIds.push(id);
-  if (c && typeof c !== 'string') couponMeta.set(id, c);
+  const c = typeof d === 'string' ? null : d?.coupon;
+  if (c && typeof c !== 'string' && c.id && !couponMeta.has(c.id)) couponMeta.set(c.id, c);
 }
 
 // --- Resolve (or create) the coupon to STACK ---------------------------------
@@ -864,7 +871,10 @@ if (!cliArgs.yes) {
 
 try {
   await stripe.subscriptions.update(subscription.id, {
-    discounts: resultingCouponIds.map((coupon) => ({ coupon })),
+    // Coupons that stay go back by their existing discount, so a repeating promo
+    // keeps its end date (and an expired or capped one can't fail the write);
+    // only the new coupon is redeemed. A superseded grant is left out: removed.
+    discounts: discountsParam(resultingCouponIds, attached),
     ...(willClearCancel ? { cancel_at_period_end: false } : {}),
     // A discount add must never prorate or charge anything mid-period; the
     // stacked discounts apply to the next (conversion/renewal) invoice only.

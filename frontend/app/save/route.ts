@@ -8,9 +8,8 @@ import {
   resolvePriceSaveCoupon,
   resolveSaveCoupon,
   SAVE_PERCENT,
-  stackCoupon,
-  subscriptionCouponIds,
 } from '@/core/retentionOffer';
+import { readAttachedDiscounts, stackedDiscountsParam } from '@/core/subscriptionDiscounts';
 
 // Self-serve retention SAVE. The cancellation email carries a one-click
 // "keep my access + claim your discount" link (buildSaveUrl, signed by
@@ -145,6 +144,10 @@ const NOT_CANCELLING_PAGE = shell(
   'Nothing to restore',
   `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">Your subscription isn&rsquo;t scheduled to cancel, so there&rsquo;s nothing to undo here. If you meant to make a change, manage your plan from your account page.</p>`,
 );
+const APPLY_FAILED_PAGE = shell(
+  'Something went wrong',
+  `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the offer just now. Please try again in a minute, or reply to your cancellation email and I&rsquo;ll take care of it.</p>`,
+);
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -257,26 +260,23 @@ export async function POST(request: NextRequest) {
   }
 
   // Preserve any coupon already on the sub — STACK the win-back one, never strip
-  // (mirrors scripts/honor-winback-discount.mts). Dedup so a re-submit can't add
-  // it twice.
-  const resultingCouponIds = stackCoupon(subscriptionCouponIds(subscription), winbackCoupon);
+  // (mirrors scripts/honor-winback-discount.mts). The discounts already there go
+  // back by id, so a repeating promo keeps its end date, and a re-submit can't
+  // add the save twice. Read expanded above; if it somehow is not, stop rather
+  // than rewrite coupons we cannot see.
+  const attached = readAttachedDiscounts(subscription);
+  if (!attached) return htmlResponse(APPLY_FAILED_PAGE, 502);
 
   try {
     await stripe.subscriptions.update(subscription.id, {
-      discounts: resultingCouponIds.map((coupon) => ({ coupon })),
+      discounts: stackedDiscountsParam(winbackCoupon, attached),
       cancel_at_period_end: false,
       // Never prorate/charge mid-period; the stacked discount rides the next
       // (conversion/renewal) invoice only.
       proration_behavior: 'none',
     });
   } catch {
-    return htmlResponse(
-      shell(
-        'Something went wrong',
-        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the offer just now. Please try again in a minute, or reply to your cancellation email and I&rsquo;ll take care of it.</p>`,
-      ),
-      502,
-    );
+    return htmlResponse(APPLY_FAILED_PAGE, 502);
   }
 
   // Mirror the change locally (the webhook reconciles to the same values later,

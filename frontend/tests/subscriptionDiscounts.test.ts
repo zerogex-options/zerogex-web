@@ -11,6 +11,7 @@ import {
   describeDiscountsParam,
   discountsParam,
   readAttachedDiscounts,
+  stackedDiscountsParam,
 } from '../core/subscriptionDiscounts.ts';
 
 // A real stripe-node client whose transport records the form body it would send.
@@ -88,4 +89,38 @@ test('expanded discounts are read as (discount, coupon) pairs', () => {
     { discountId: 'di_2', couponId: 'REF' },
   ]);
   assert.deepEqual(attachedCouponIds(attached ?? []), ['PROMO', 'REF']);
+});
+
+test('a retention save stacks onto a repeating promo without redeeming the promo again', async () => {
+  // A member months into $10 off for 12 months takes the 25% save. The promo
+  // goes back as the same discount, so its end date stands; as { coupon } it
+  // would restart all 12 months, or fail the save once the promo has expired.
+  const attached = readAttachedDiscounts({
+    discounts: [
+      { id: 'di_promo', coupon: { id: 'ZGX_MONTHLY_10_OFF_12M', duration: 'repeating', duration_in_months: 12 } },
+    ],
+  } as never);
+  assert.ok(attached);
+  const param = stackedDiscountsParam('winback-25pct-1yr-monthly', attached);
+  assert.deepEqual(param, [{ discount: 'di_promo' }, { coupon: 'winback-25pct-1yr-monthly' }]);
+
+  const { stripe, bodies } = recordingClient();
+  await stripe.subscriptions.update('sub_1', { discounts: param, cancel_at_period_end: false, proration_behavior: 'none' });
+  assert.equal(
+    decodeURIComponent(bodies[0]),
+    'discounts[0][discount]=di_promo&discounts[1][coupon]=winback-25pct-1yr-monthly' +
+      '&cancel_at_period_end=false&proration_behavior=none',
+  );
+});
+
+test('stacking a coupon that is already on redeems nothing, and stacking onto none adds just it', () => {
+  const attached = [
+    { discountId: 'di_promo', couponId: 'ZGX_MONTHLY_10_OFF_12M' },
+    { discountId: 'di_save', couponId: 'winback-25pct-1yr-monthly' },
+  ];
+  assert.deepEqual(stackedDiscountsParam('winback-25pct-1yr-monthly', attached), [
+    { discount: 'di_promo' },
+    { discount: 'di_save' },
+  ]);
+  assert.deepEqual(stackedDiscountsParam('winback-25pct-1yr-monthly', []), [{ coupon: 'winback-25pct-1yr-monthly' }]);
 });

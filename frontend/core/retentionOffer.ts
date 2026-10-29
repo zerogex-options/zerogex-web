@@ -1,14 +1,15 @@
 // Shared retention-offer machinery: the self-serve SAVE discount (25% off for a
-// year) and the coupon-stacking helpers, extracted so BOTH the email-driven
-// /save route (app/save/route.ts) and the in-app cancellation flow
-// (app/api/billing/cancel-flow/route.ts) apply the exact same coupon the exact
-// same way — one Stripe object, one stacking rule, no drift.
+// year), extracted so BOTH the email-driven /save route (app/save/route.ts) and
+// the in-app cancellation flow (app/api/billing/cancel-flow/route.ts) apply the
+// exact same coupon the exact same way — one Stripe object, one stacking rule,
+// no drift.
 //
-// The pure helpers (subscriptionCouponIds / stackCoupon) do the discount-shape
-// juggling Stripe webhook payloads require (a discount's coupon may be an
-// expanded object or a bare id) and never strip an existing coupon — a member's
-// founding/promo/referral discount rides ALONGSIDE the save coupon, exactly as
-// scripts/honor-winback-discount.mts does by hand.
+// The stacking rule is stackedDiscountsParam in core/subscriptionDiscounts.ts,
+// beside the reader it depends on. It never strips an existing coupon — a
+// member's founding/promo/referral discount rides ALONGSIDE the save coupon,
+// exactly as scripts/honor-winback-discount.mts does by hand — and it keeps
+// that discount by its id instead of redeeming the coupon again, so a
+// repeating promo's months don't restart.
 
 import type Stripe from 'stripe';
 import { getStripe, getWinbackCouponId, type Sku } from '@/core/stripe';
@@ -85,28 +86,4 @@ async function ensureYearCoupon(
     if ((err as { code?: string } | undefined)?.code === 'resource_already_exists') return id;
     throw err;
   }
-}
-
-// The coupon ids currently attached to a subscription's discounts, de-duplicated
-// and in order. A discount on a (possibly expanded) subscription payload may be
-// an expanded coupon object or a bare id — handle both.
-type ExpandedDiscount = { coupon?: string | { id?: string } | null } | string;
-export function subscriptionCouponIds(subscription: Stripe.Subscription): string[] {
-  const raw = ((subscription as unknown as { discounts?: ExpandedDiscount[] }).discounts ??
-    []) as ExpandedDiscount[];
-  const ids: string[] = [];
-  for (const d of raw) {
-    if (typeof d === 'string') continue;
-    const c = d?.coupon;
-    const id = typeof c === 'string' ? c : c?.id ?? null;
-    if (id && !ids.includes(id)) ids.push(id);
-  }
-  return ids;
-}
-
-// STACK a coupon onto the existing ids — never strip, dedup so a re-submit can't
-// add it twice. Returns the same array reference when the coupon is already
-// present so callers can cheaply detect a no-op.
-export function stackCoupon(currentIds: string[], couponId: string): string[] {
-  return currentIds.includes(couponId) ? currentIds : [...currentIds, couponId];
 }

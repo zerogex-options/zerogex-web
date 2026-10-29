@@ -63,6 +63,14 @@ export function discountsParam(couponIds: readonly string[], attached: readonly 
   });
 }
 
+// The `discounts` param that STACKS one coupon onto everything already attached
+// and never strips. What is there goes back by its discount id, so a repeating
+// promo keeps its end date; a coupon already on is kept, not redeemed twice.
+// Never '' (that would clear the set): the stacked coupon is always in it.
+export function stackedDiscountsParam(couponId: string, attached: readonly AttachedDiscount[]): DiscountsParam {
+  return discountsParam([...attachedCouponIds(attached), couponId], attached);
+}
+
 // For a log line: what the param means, in coupon ids.
 export function describeDiscountsParam(param: DiscountsParam, attached: readonly AttachedDiscount[]): string {
   if (param === '') return 'none';

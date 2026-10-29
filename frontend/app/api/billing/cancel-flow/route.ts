@@ -6,11 +6,10 @@ import { getStripe, priceIdToSku } from '@/core/stripe';
 import {
   resolvePriceSaveCoupon,
   resolveSaveCoupon,
-  stackCoupon,
-  subscriptionCouponIds,
   PRICE_SAVE_PERCENT,
   SAVE_PERCENT,
 } from '@/core/retentionOffer';
+import { readAttachedDiscounts, stackedDiscountsParam } from '@/core/subscriptionDiscounts';
 import { canOfferRetentionDiscount, discountAuditType } from '@/core/cancelRetention';
 import { sanitizeCancellationComment, validateCancelFeedback } from '@/core/cancellationReason';
 import { clampPauseMonths, computeResumesAtUnix } from '@/core/subscriptionPause';
@@ -173,11 +172,21 @@ export async function POST(request: NextRequest) {
     // which audit event we write (win-back offset vs. plain acceptance) so the
     // growth-rate dashboard stays honest. See core/cancelRetention.
     const wasCancelling = Number(row.cancel_at_period_end) === 1;
-    const nextCouponIds = stackCoupon(subscriptionCouponIds(subscription), coupon);
+    // Read with its discounts expanded above, so this is the real set; if it
+    // somehow is not, stop rather than rewrite coupons we cannot see.
+    const attached = readAttachedDiscounts(subscription);
+    if (!attached) {
+      return NextResponse.json(
+        { error: "Couldn't apply the offer just now. Please try again in a minute." },
+        { status: 502 },
+      );
+    }
 
     try {
       await stripe.subscriptions.update(subscription.id, {
-        discounts: nextCouponIds.map((c) => ({ coupon: c })),
+        // The discounts already on the sub go back by id, so a repeating promo
+        // keeps its end date (core/subscriptionDiscounts.ts); the save stacks on.
+        discounts: stackedDiscountsParam(coupon, attached),
         // Un-cancel (a no-op if they weren't canceling). Never prorate/charge
         // mid-period; the stacked discount rides the next invoice only.
         cancel_at_period_end: false,
