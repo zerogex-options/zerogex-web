@@ -36,6 +36,9 @@
 //     with classifyExclusion() after the query; the output names each one.
 //   - users.winback_email_sent_at IS NULL         (one-shot dedupe; the webhook
 //     clears this on re-subscribe so a future re-churn re-qualifies)
+//   - users.marketing_unsubscribed_at IS NULL     (a discount pitch is
+//     marketing, so the opt-out holds). Checked after the query, like the
+//     exclusions above, so the output and the review digest name each one.
 //   - a stripe_subscription_deleted audit event exists AND its MAX(created_at)
 //     falls in [now - LOOKBACK_DAYS, now - LAG_DAYS] (defaults 60d / 30d).
 //     LAG_DAYS is the "wait about a month" floor; LOOKBACK_DAYS is the ceiling
@@ -53,7 +56,10 @@
 //     offer it doesn't make.
 //
 // Side effects on send:
-//   - Resend email via core/mailer.ts sendWinbackEmail() in the resolved variant.
+//   - Resend email via core/mailer.ts sendWinbackEmail() in the resolved
+//     variant, carrying the member's signed one-click unsubscribe link
+//     (core/unsubToken.ts buildUnsubUrl) in the footer and the
+//     List-Unsubscribe header.
 //   - Stamps users.winback_email_sent_at = now (dedupe latch).
 //   - Writes a `winback_email_sent` row into audit_events.
 
@@ -66,14 +72,17 @@ import {
   renderWinbackEmail,
   sendWinbackDigestEmail,
   sendWinbackEmail,
+  type WinbackEmailOptions,
   type WinbackHighlight,
 } from '../core/mailer.ts';
 import {
   classifyExclusion,
+  EXCLUSION_REASON_LABEL,
   exclusionCandidateSql,
   type ExclusionCandidate,
   type ExclusionReason,
 } from '../core/excludedAccounts.ts';
+import { buildUnsubUrl } from '../core/unsubToken.ts';
 
 // Public limited-time promo deadline. Resolved at script-load from
 // PROMO_END_AT — kept local to this script so it doesn't import the
@@ -229,6 +238,8 @@ Eligibility mirrors list-public-cohort.mjs's churned bucket:
     core/excludedAccounts.ts). Each one skipped is listed.
   - users.winback_email_sent_at IS NULL
   - users.deleted_at IS NULL          (self-deleted accounts opt out of all mail)
+  - users.marketing_unsubscribed_at IS NULL  (unsubscribed from marketing).
+    Each one skipped is listed.
   - MAX(stripe_subscription_deleted audit event) in
     [now - LOOKBACK_DAYS, now - LAG_DAYS] (defaults ${DEFAULT_LOOKBACK_DAYS}d / ${DEFAULT_LAG_DAYS}d).
     The wide default lookback means the weekly job catches EVERY 30+-day churner
@@ -250,9 +261,13 @@ Options:
       --preview-mode <mode>    Force the preview variant: auto | promo | none.
   -h, --help                   Show this help.
 
+Every send carries a signed one-click unsubscribe: a footer link and the
+List-Unsubscribe header.
+
 Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL, PROMO_END_AT,
-STRIPE_COUPON_WINBACK_* and WINBACK_DISCOUNT_LABEL from env or .env.local. Set
-AUTH_DB_PATH to override the default DB path.`);
+STRIPE_COUPON_WINBACK_*, WINBACK_DISCOUNT_LABEL and
+ZEROGEX_END_USER_TOKEN_SECRET (to sign the unsubscribe link) from env or
+.env.local. Set AUTH_DB_PATH to override the default DB path.`);
 }
 
 function ensureSqlite3Cli() {
@@ -336,6 +351,23 @@ if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
 if (envLocal.PROMO_END_AT && !process.env.PROMO_END_AT) {
   process.env.PROMO_END_AT = envLocal.PROMO_END_AT;
 }
+// buildUnsubUrl() (core/unsubToken.ts) signs with this secret, read from
+// process.env — surface it from .env.local so cron runs (shell env only) see it.
+if (!process.env.ZEROGEX_END_USER_TOKEN_SECRET && envLocal.ZEROGEX_END_USER_TOKEN_SECRET) {
+  process.env.ZEROGEX_END_USER_TOKEN_SECRET = envLocal.ZEROGEX_END_USER_TOKEN_SECRET;
+}
+
+// The unsubscribe link must be signable before we send anything, or every
+// recipient's send would fail on it. Fail fast. The digest doesn't need it:
+// its embedded draft carries an unsigned placeholder link.
+if ((cliArgs.yes || cliArgs.previewTo) && !process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
+  console.error('Error: ZEROGEX_END_USER_TOKEN_SECRET must be set to sign the unsubscribe link.');
+  process.exit(1);
+}
+
+// Same fallback as core/mailer.ts getAppUrl(), so the unsubscribe link names
+// the same host as every other link in the email.
+const appUrl = NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 const envValue = (key: string): string =>
   (process.env[key] || envLocal[key] || '').trim();
@@ -409,19 +441,22 @@ const resolvedMode: WinbackMode = winbackAutoAvailable
 
 // Map a mode to the sendWinbackEmail opts. Promo mode needs a live deadline
 // label; if it's somehow requested without one (a forced preview), the mailer
-// drops the discount paragraph on its own.
-function optsForMode(mode: WinbackMode) {
+// drops the discount paragraph on its own. The unsubscribe link is the
+// caller's: signed per member on a real send, a placeholder on a preview or in
+// the digest's draft.
+function optsForMode(mode: WinbackMode, unsubUrl: string): WinbackEmailOptions {
   if (mode === 'auto') {
     return {
       winbackAutoApply: true,
       discountLabel: WINBACK_DISCOUNT_LABEL,
       highlights: winbackHighlights,
+      unsubUrl,
     };
   }
   if (mode === 'promo') {
-    return { promoDeadlineLabel, discountLabel: WINBACK_DISCOUNT_LABEL, highlights: winbackHighlights };
+    return { promoDeadlineLabel, discountLabel: WINBACK_DISCOUNT_LABEL, highlights: winbackHighlights, unsubUrl };
   }
-  return { discountLabel: WINBACK_DISCOUNT_LABEL, highlights: winbackHighlights };
+  return { discountLabel: WINBACK_DISCOUNT_LABEL, highlights: winbackHighlights, unsubUrl };
 }
 
 if (cliArgs.previewTo) {
@@ -432,8 +467,13 @@ if (cliArgs.previewTo) {
     );
   }
   console.log(`Sending preview to ${cliArgs.previewTo} (variant: ${mode})...`);
-  await sendWinbackEmail(cliArgs.previewTo, optsForMode(mode));
-  console.log('Preview sent.');
+  // Signed for a placeholder account, as send-return-intent.mts previews: the
+  // footer link and the one-click header work end to end, and no user has this
+  // id, so using them opts nobody out.
+  await sendWinbackEmail(cliArgs.previewTo, optsForMode(mode, buildUnsubUrl(appUrl, 'preview-user')));
+  console.log(
+    'Preview sent. Its unsubscribe link is signed for a "preview-user" account that does not exist, so clicking it shows the confirmation page and changes nothing.',
+  );
   process.exit(0);
 }
 
@@ -456,6 +496,7 @@ const lowIso = new Date(nowMs - cliArgs.lookbackDays * DAY_MS).toISOString();
 type UserRow = ExclusionCandidate & {
   id: string;
   email: string;
+  marketing_unsubscribed_at: string | null;
   churned_at: string;
 };
 
@@ -469,6 +510,7 @@ const candidates = querySqlite<UserRow>(
   dbPath,
   `SELECT u.id,
           u.email,
+          u.marketing_unsubscribed_at,
           MAX(a.created_at) AS churned_at,
           ${exclusionCandidateSql('u')}
    FROM users AS u
@@ -487,12 +529,16 @@ const candidates = querySqlite<UserRow>(
 );
 
 // Held out in code rather than in the WHERE clause so the rule stays the one
-// core/excludedAccounts.ts defines, and so the run can say whom it skipped.
+// core/excludedAccounts.ts defines, and so the run can say whom it skipped. The
+// marketing opt-out is held out the same way: those members are customers, and
+// the operator should see that each one was skipped, not just a smaller count.
 const eligible: UserRow[] = [];
 const notCustomers: Array<{ user: UserRow; reason: ExclusionReason }> = [];
+const unsubscribed: UserRow[] = [];
 for (const user of candidates) {
   const reason = classifyExclusion(user);
   if (reason) notCustomers.push({ user, reason });
+  else if (user.marketing_unsubscribed_at != null) unsubscribed.push(user);
   else eligible.push(user);
 }
 
@@ -523,6 +569,13 @@ if (notCustomers.length > 0) {
   }
 }
 
+if (unsubscribed.length > 0) {
+  console.log('\nSkipped, unsubscribed from marketing (users.marketing_unsubscribed_at):');
+  for (const user of unsubscribed) {
+    console.log(`  - ${user.email}: unsubscribed ${user.marketing_unsubscribed_at}, churned ${user.churned_at}`);
+  }
+}
+
 if (eligible.length === 0) {
   console.log('\nNothing to do.');
   process.exit(0);
@@ -538,16 +591,31 @@ if (cliArgs.digest) {
     );
     process.exit(1);
   }
-  const draft = renderWinbackEmail(optsForMode(resolvedMode));
+  // The embedded draft uses a tokenless placeholder unsub, as the reactivation
+  // digest does: it's a preview to the founder, so it must never carry a
+  // working opt-out for a real member.
+  const previewUnsub = `${appUrl.replace(/\/+$/, '')}/unsubscribe`;
+  const draft = renderWinbackEmail(optsForMode(resolvedMode, previewUnsub));
   const sendCommand = 'make winback YES=1';
+  const skipped = [
+    ...notCustomers.map(({ user, reason }) => ({
+      email: user.email,
+      reason: `not a customer (${EXCLUSION_REASON_LABEL[reason]})`,
+    })),
+    ...unsubscribed.map((user) => ({
+      email: user.email,
+      reason: `unsubscribed from marketing on ${String(user.marketing_unsubscribed_at).slice(0, 10)}`,
+    })),
+  ];
   await sendWinbackDigestEmail(digestTo, {
     recipients: eligible.map((u) => u.email),
+    skipped,
     mode: resolvedMode,
     sendCommand,
     draft,
   });
   console.log(
-    `\n[digest] Review email sent to ${digestTo}: ${eligible.length} recipient(s) listed, draft embedded. No user emails sent — run \`${sendCommand}\` to deliver.`,
+    `\n[digest] Review email sent to ${digestTo}: ${eligible.length} recipient(s) and ${skipped.length} skipped listed, draft embedded. No user emails sent — run \`${sendCommand}\` to deliver.`,
   );
   process.exit(0);
 }
@@ -567,11 +635,9 @@ if (!cliArgs.yes) {
 let successCount = 0;
 let failCount = 0;
 
-const sendOpts = optsForMode(resolvedMode);
-
 for (const user of eligible) {
   try {
-    await sendWinbackEmail(user.email, sendOpts);
+    await sendWinbackEmail(user.email, optsForMode(resolvedMode, buildUnsubUrl(appUrl, user.id)));
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends
     // doesn't re-send to anyone who already received. Audit row is best-effort;

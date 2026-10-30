@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // The lapsed-member emails (win-back, return-intent, reactivation, the
 // cancel-reason follow-up and the product-update campaign's cancelled audience)
@@ -14,6 +14,11 @@ import { fileURLToPath } from 'node:url';
 // runs the real scripts with --dry-run against a seeded DB and reads what they
 // say they would do. A leak here does not throw. It emails a partner a discount
 // to come back.
+//
+// Nor may they reach a member who unsubscribed from marketing
+// (users.marketing_unsubscribed_at). All of them are promotional, and the
+// win-back is a discount offer: a leak there sends a discount pitch to someone
+// who asked for no more of them.
 
 const hasSqliteCli = spawnSync('sqlite3', ['-version'], { stdio: 'ignore' }).status === 0;
 const needsCli = hasSqliteCli ? false : 'needs the sqlite3 CLI on PATH, as the scripts do';
@@ -83,6 +88,10 @@ churnedMember('expired_partner', {
 churnedMember('comped', { tier: 'pro' });
 audit('billing_member_comped', daysAgo(39), 'Comped onto pro', 'comped');
 churnedMember('admin', { tier: 'admin' });
+// A customer like the first, except they clicked Unsubscribe on a marketing
+// email two days ago. Nothing in core/excludedAccounts.ts holds them out, so
+// the opt-out is the only thing keeping them from the win-back's discount.
+churnedMember('opted_out', { tier: 'public', marketing_unsubscribed_at: daysAgo(2) });
 
 const HELD_OUT = ['partner', 'expired_partner', 'comped', 'admin'];
 
@@ -131,11 +140,51 @@ function dryRun(script: string, args: string[] = [], cwd = dir): string {
   );
 }
 
+/** Split a run's output at a heading: [what it reports before, the rest]. */
+function splitAt(out: string, heading: string): [string, string] {
+  const at = out.indexOf(heading);
+  assert.ok(at >= 0, `no "${heading}" in:\n${out}`);
+  return [out.slice(0, at), out.slice(at)];
+}
+
 /** Split a run's output at the held-out list: [what it reports before, the list]. */
 function splitAtHeldOut(out: string): [string, string] {
-  const at = out.indexOf('Skipped, not customers');
-  assert.ok(at >= 0, `no held-out list in:\n${out}`);
-  return [out.slice(0, at), out.slice(at)];
+  return splitAt(out, 'Skipped, not customers');
+}
+
+type CapturedEmail = { to: string | string[]; subject: string; text: string; html: string };
+
+// The weekly timer runs `make winback DIGEST=1`, which emails the founder the
+// recipient list and a draft instead of emailing members. The email-audit
+// Resend stub is preloaded, so the digest is captured to a file, not sent.
+function winbackDigest(): CapturedEmail {
+  const capturePath = path.join(dir, 'winback-digest.ndjson');
+  fs.rmSync(capturePath, { force: true });
+  execFileSync(
+    process.execPath,
+    [
+      '--experimental-strip-types',
+      '--no-warnings',
+      `--import=${pathToFileURL(path.join(scriptsDir, 'email-audit', 'stub-resend.mts')).href}`,
+      path.join(scriptsDir, 'send-winback.mts'),
+      '--digest',
+      'founder@example.test',
+    ],
+    {
+      cwd: dir,
+      env: {
+        ...process.env,
+        AUTH_DB_PATH: dbPath,
+        RESEND_API_KEY: 're_test_key',
+        RESEND_FROM_EMAIL: 'ZeroGEX <hello@example.test>',
+        CAPTURE_OUT: capturePath,
+      },
+      encoding: 'utf8',
+    },
+  );
+  const sent = fs.readFileSync(capturePath, 'utf8').trim().split('\n');
+  assert.equal(sent.length, 1, 'the digest is one email, to the founder');
+  return JSON.parse(sent[0]) as CapturedEmail;
 }
 
 test('win-back names the partners, the comped member and the admin as skipped', { skip: needsCli }, () => {
@@ -151,6 +200,40 @@ test('win-back names the partners, the comped member and the admin as skipped', 
   assert.match(heldOut, /^ {2}- comped@example\.test: comped, churned /m);
   assert.match(heldOut, /^ {2}- admin@example\.test: admin, churned /m);
   assert.ok(!heldOut.includes('customer@example.test'), out);
+});
+
+test('win-back names a member who unsubscribed from marketing as skipped', { skip: needsCli }, () => {
+  const out = dryRun('send-winback.mts');
+  const [report, optedOut] = splitAt(out, 'Skipped, unsubscribed from marketing');
+
+  assert.match(report, /^Eligible users: +1$/m, out);
+  assert.ok(!report.includes('opted_out@example.test'), `opted_out is not eligible:\n${out}`);
+
+  assert.match(optedOut, /^ {2}- opted_out@example\.test: unsubscribed 20\d\d-\d\d-\d\dT[^,]+, churned /m, out);
+  assert.ok(!optedOut.includes('customer@example.test'), out);
+});
+
+test('the win-back digest lists only the customer, and says who was skipped and why', { skip: needsCli }, () => {
+  const digest = winbackDigest();
+
+  assert.deepEqual([digest.to].flat(), ['founder@example.test']);
+  assert.match(digest.subject, /Win-back review — 1 churned member ready/);
+
+  const [, afterRecipients] = splitAt(digest.text, 'Recipients (1):');
+  const [recipients, afterSkipped] = splitAt(afterRecipients, 'Skipped (5), not emailed:');
+  const [skipped, draft] = splitAt(afterSkipped, 'DRAFT that will be sent');
+
+  assert.equal(recipients.trim(), 'Recipients (1):\n  - customer@example.test');
+  assert.match(skipped, /^ {2}- opted_out@example\.test: unsubscribed from marketing on 20\d\d-\d\d-\d\d$/m);
+  for (const id of HELD_OUT) assert.match(skipped, new RegExp(`^ {2}- ${id}@example\\.test: not a customer \\(`, 'm'));
+  assert.ok(!skipped.includes('customer@example.test'), digest.text);
+
+  // The embedded draft is for the founder to read. Its unsubscribe link is the
+  // real footer, but unsigned: a click in the founder's inbox must not opt a
+  // member out.
+  assert.match(draft, /Unsubscribe from emails like this:\nhttps?:\/\/\S+\/unsubscribe$/m);
+  assert.doesNotMatch(digest.text, /unsubscribe\?/);
+  assert.doesNotMatch(digest.html, /unsubscribe\?/);
 });
 
 test('return-intent counts and names them as skipped', { skip: needsCli }, () => {

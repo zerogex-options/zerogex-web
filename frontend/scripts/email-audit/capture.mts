@@ -84,7 +84,9 @@ const CHURN_ALERT = buildChurnAlert(
   },
   '2026-09-15T18:25:00.000Z',
 );
-const WINBACK_DRAFT = M.renderWinbackEmail({ winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS });
+// The cron's digest draft carries an unsigned placeholder unsubscribe link
+// (scripts/send-winback.mts), so this one does too.
+const WINBACK_DRAFT = M.renderWinbackEmail({ winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS, unsubUrl: `${APP_URL}/unsubscribe` });
 const REACTIVATION_DRAFT = M.renderReactivationEmail({ trialDays: 30, unsubUrl: UNSUB });
 const RETURN_INTENT_DRAFT = M.renderReturnIntentEmail({ angle: 'price', highlights: HIGHLIGHTS, freshCount: 3, foundingMember: false, unsubUrl: UNSUB });
 
@@ -136,9 +138,9 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   { id: 'cancellation-ack', variant: 'with save link', run: () => capture(() => M.sendCancellationEmail(TO, { periodEndIso: PERIOD_END, saveUrl: SAVE_URL })) },
   { id: 'cancellation-ack', variant: 'conversion charge pending', run: () => capture(() => M.sendCancellationEmail(TO, { periodEndIso: PERIOD_END, saveUrl: SAVE_URL, conversionChargePending: true })) },
   { id: 'money-back-refund', variant: 'default', run: () => capture(() => M.sendMoneyBackRefundEmail(TO, { amountFormatted: '$115.00', planLabel: 'Pro (quarterly)', cardBrand: 'visa', cardLast4: '4242' })) },
-  { id: 'winback', variant: 'auto (win-back coupon configured)', run: () => capture(() => M.sendWinbackEmail(TO, { winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS })) },
-  { id: 'winback', variant: 'promo (public promo live)', run: () => capture(() => M.sendWinbackEmail(TO, { promoDeadlineLabel: 'October 1, 2026', highlights: HIGHLIGHTS })) },
-  { id: 'winback', variant: 'none (no coupon configured)', run: () => capture(() => M.sendWinbackEmail(TO, { highlights: HIGHLIGHTS })) },
+  { id: 'winback', variant: 'auto (win-back coupon configured)', run: () => capture(() => M.sendWinbackEmail(TO, { winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS, unsubUrl: UNSUB })) },
+  { id: 'winback', variant: 'promo (public promo live)', run: () => capture(() => M.sendWinbackEmail(TO, { promoDeadlineLabel: 'October 1, 2026', highlights: HIGHLIGHTS, unsubUrl: UNSUB })) },
+  { id: 'winback', variant: 'none (no coupon configured)', run: () => capture(() => M.sendWinbackEmail(TO, { highlights: HIGHLIGHTS, unsubUrl: UNSUB })) },
   { id: 'return-intent', variant: 'price objection, 3 new', run: () => capture(() => M.sendReturnIntentEmail(TO, { angle: 'price', highlights: HIGHLIGHTS, freshCount: 3, foundingMember: false, unsubUrl: UNSUB })) },
   { id: 'return-intent', variant: 'neutral, nothing new', run: () => capture(() => M.sendReturnIntentEmail(TO, { angle: 'neutral', highlights: [], freshCount: 0, foundingMember: false, unsubUrl: UNSUB })) },
 
@@ -153,7 +155,7 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   { id: 'cancellation-alert', variant: 'clicked Cancel (still has access)', run: () => capture(() => M.sendCancellationAlertEmail(OPS, CHURN_ALERT)) },
   { id: 'money-back-alert', variant: 'refund issued', run: () => capture(() => M.sendMoneyBackOperatorAlertEmail(OPS, { kind: 'issued', email: TO, planLabel: 'Pro (quarterly)', amountFormatted: '$115.00', source: 'self_serve', reason: 'too_expensive', comment: 'More than I need right now.', problems: [], subscriptionId: 'sub_123', refundIds: ['re_123'] })) },
   { id: 'money-back-alert', variant: 'action needed', run: () => capture(() => M.sendMoneyBackOperatorAlertEmail(OPS, { kind: 'attention', email: TO, planLabel: 'Pro (annual)', amountFormatted: '$299.00', source: 'self_serve', reason: null, comment: null, problems: ['The refund went through but Stripe did not cancel sub_456. Cancel it in the Dashboard, or the member is billed again at renewal.'], subscriptionId: 'sub_456', refundIds: ['re_456'] })) },
-  { id: 'winback-digest', variant: 'default', run: () => capture(() => M.sendWinbackDigestEmail(OPS, { recipients: [TO, 'another@example.com'], mode: 'auto', sendCommand: 'make winback YES=1', draft: WINBACK_DRAFT })) },
+  { id: 'winback-digest', variant: 'default', run: () => capture(() => M.sendWinbackDigestEmail(OPS, { recipients: [TO, 'another@example.com'], skipped: [{ email: 'optedout@example.com', reason: 'unsubscribed from marketing on 2026-09-02' }], mode: 'auto', sendCommand: 'make winback YES=1', draft: WINBACK_DRAFT })) },
   { id: 'reactivation-digest', variant: 'default', run: () => capture(() => M.sendReactivationDigestEmail(OPS, { recipients: [TO, 'another@example.com'], sendCommand: 'make reactivation YES=1', trialDays: 30, draft: REACTIVATION_DRAFT })) },
   { id: 'return-intent-digest', variant: 'default', run: () => capture(() => M.sendReturnIntentDigestEmail(OPS, { recipients: [{ email: TO, angle: 'price', lastLoginAt: '2026-09-15T09:12:00.000Z', churnedAt: '2026-08-14T12:00:00.000Z' }], sendCommand: 'make return-intent YES=1', draft: RETURN_INTENT_DRAFT })) },
 ];
