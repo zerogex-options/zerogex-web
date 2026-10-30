@@ -50,7 +50,7 @@ ZeroGEX Basic monthly starts with a 7-day free trial, and every other ZeroGEX pl
 ## Where MenthorQ is the stronger choice
 
 - **Breadth.** Stocks, ETFs, indices, futures, forex, and crypto. ZeroGEX covers six symbols.
-- **More platforms.** Integrations with TradingView, NinjaTrader, Sierra Chart, Bookmap, ATAS, Quantower, MotiveWave, Tickblaze, and TrendSpider. ZeroGEX works with four: TradingView, thinkorswim, NinjaTrader, and Sierra Chart.
+- **More platforms.** Integrations with TradingView, NinjaTrader, Sierra Chart, Bookmap, ATAS, Quantower, MotiveWave, Tickblaze, and TrendSpider. ZeroGEX works with five: TradingView, thinkorswim, NinjaTrader, Sierra Chart, and SabrTrader, which draws MenthorQ's levels too.
 - **Learning and coaching.** An academy with 350+ lessons, 350+ guides, and webinars and podcasts, and on Pro, live trading sessions, weekly mentorship meetings, and a monthly strategy session. ZeroGEX has education articles and a help center, and no coaching.
 - **More models.** 20+ trading models, including Blind Spot levels and the Q-Score, and QUIN, an AI assistant that screens setups and compares assets across its metrics. ZeroGEX's AI access is its free MCP server, which puts the levels in assistants like Claude and ChatGPT.
 

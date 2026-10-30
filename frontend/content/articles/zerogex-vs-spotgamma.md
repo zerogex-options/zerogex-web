@@ -64,7 +64,7 @@ The trials and refunds differ too. ZeroGEX Basic monthly starts with a 7-day fre
 - **Research and commentary.** The Founder's Note before the open and after the close every trading day, on every plan, plus live weekly webinars, a Discord community, and on Alpha, live daily training sessions. ZeroGEX has education articles and a help center, and no daily note.
 - **Breadth.** Daily GEX levels for more than 3,500 US stocks, indices, and ETFs in its Equity Hub, and on Alpha, HIRO across more than 3,000 stocks. ZeroGEX covers six symbols.
 - **Its own positioning model and levels.** SGOI, its estimate of market-maker and buyside positioning, and the Volatility Trigger and Risk Pivot. ZeroGEX uses the standard convention and publishes no equivalent of either level.
-- **More platforms.** SpotGamma lists integrations with TradingView, thinkorswim, NinjaTrader, Sierra Chart, Bookmap, TrendSpider, Jigsaw, eSignal, and EdgePro. ZeroGEX works with four: TradingView, thinkorswim, NinjaTrader, and Sierra Chart.
+- **More platforms.** SpotGamma lists integrations with TradingView, thinkorswim, NinjaTrader, Sierra Chart, Bookmap, TrendSpider, Jigsaw, eSignal, and EdgePro. ZeroGEX works with five: TradingView, thinkorswim, NinjaTrader, Sierra Chart, and SabrTrader.
 
 ## Where ZeroGEX is the stronger choice
 

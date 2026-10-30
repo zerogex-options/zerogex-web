@@ -182,13 +182,22 @@ make grant-partner-pro EMAIL=<their-email> PROMO_CODE=SABRTRADER COMMISSION_BPS=
   or join, so our levels are described the way `/methodology` describes them:
   a model of positioning, not a measurement of dealer inventory.
 
-## To do on our side
+## Done on our side (Oct 30, branch `claude/sabrtrader-article-mentions`)
 
-Content-only, no rush, and neither depends on Erwin's answer:
+This is what the reply's "I'll add that, with SabrTrader in the list" refers to.
 
-- Add a bullet to the "What ZeroGEX brings" section of
-  `/education/best-gex-tools`, in all five locales, listing where the levels
-  plot: TradingView and thinkorswim scripts (free), NinjaTrader 8 and Sierra
-  Chart studies (auto-updating on Pro), and SabrTrader (built in).
-- In `/education/zerogex-vs-menthorq`, change "works with four" to five, and
-  say SabrTrader connects MenthorQ too, so the comparison stays fair.
+- `/education/best-gex-tools`, all five locales: a "Levels on your own
+  charts" bullet in "What ZeroGEX brings", after the MCP server. It lists the
+  TradingView and thinkorswim scripts (free, updated by hand), the
+  NinjaTrader 8 and Sierra Chart indicators (auto-updating on Pro), and
+  SabrTrader (built into its paid plans, runs on a Pro key). It stays in
+  ZeroGEX's own section, not the buckets.
+- `/education/zerogex-vs-menthorq`: "works with four" is now five, with
+  SabrTrader, "which draws MenthorQ's levels too". SabrTrader's Gamma Levels
+  page: "MenthorQ connects the same way, and its Q-Levels draw with the Menthor
+  Q-Levels indicator." The "Levels where you already chart" bullet under
+  "Where ZeroGEX is the stronger choice" stays at four: SabrTrader isn't an
+  edge over MenthorQ.
+- `/education/zerogex-vs-spotgamma` had the same "works with four" line, now
+  five. SabrTrader doesn't list SpotGamma as a provider, so no note there.
+- `dateModified` moved to 2026-10-30 on all three in `core/articleRegistry.ts`.
