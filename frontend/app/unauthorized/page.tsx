@@ -1,10 +1,15 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ArrowRight, BarChart2, BookOpen, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowRight, BarChart2, BookOpen, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react';
 
+import { BLOG_IMAGE_DIMENSIONS } from '@/core/blogImageManifest';
+import { getDb } from '@/core/db';
+import { hasPriorMoneyBackRefund } from '@/core/moneyBackServer';
 import { navItemLabel } from '@/core/navigation';
+import { PRO_FEATURES, proPagePitch, proWallCopy, proWallTerms, type ProWallTerms } from '@/core/proWall';
 import { requireSession } from '@/core/serverAuth';
-import { skuHasFreeTrial } from '@/core/stripe';
+import { priceIdToSku, skuHasFreeTrial } from '@/core/stripe';
 import { pricingHrefFor, resolveWall } from '@/core/returningMember';
 import { getChurnContext } from '@/core/returningMemberServer';
 import { selectHighlightsSince } from '@/core/winbackHighlights';
@@ -17,6 +22,32 @@ export const metadata: Metadata = {
 // Reads the session cookie to tell a returning member from a newcomer, so it can
 // never be statically rendered or cached across visitors.
 export const dynamic = 'force-dynamic';
+
+// What switching to Pro would mean for this member right now, from the synced
+// users row that the pricing page and change-plan read too. Outside the
+// component so the render reads no clock.
+function proWallTermsFor(userId: string, email: string): ProWallTerms {
+  const row = getDb()
+    .prepare(
+      'SELECT stripe_subscription_id, stripe_price_id, subscription_status, current_period_end FROM users WHERE id = ?',
+    )
+    .get(userId) as
+    | {
+        stripe_subscription_id: string | null;
+        stripe_price_id: string | null;
+        subscription_status: string | null;
+        current_period_end: string | null;
+      }
+    | undefined;
+  const subscribed = !!row?.stripe_subscription_id;
+  return proWallTerms({
+    status: subscribed ? (row?.subscription_status ?? null) : null,
+    current: subscribed && row?.stripe_price_id ? priceIdToSku(row.stripe_price_id) : null,
+    periodEndIso: subscribed ? (row?.current_period_end ?? null) : null,
+    guaranteeUsed: hasPriorMoneyBackRefund({ userId, email, cardFingerprint: null, subscriptionId: '' }),
+    nowMs: Date.now(),
+  });
+}
 
 type UnauthorizedPageProps = {
   searchParams: Promise<{
@@ -45,7 +76,6 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   });
 
   const current = actor?.user.tier ?? params.current ?? 'public';
-  const tierLabel = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const requiredLabel = required === 'pro' ? 'Pro' : 'Basic';
   // Name the page they were actually reaching for, straight from the menu, so
   // renaming a feature renames this sentence too. Undefined for anything not in
@@ -201,25 +231,104 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
     );
   }
 
-  const needsUpgrade = wall.audience === 'upgrade';
-  let heading: string;
-  let message: string;
-  if (needsUpgrade) {
-    heading = 'Upgrade to unlock';
-    message = wantedLabel
-      ? `${wantedLabel} is not included with your ${tierLabel(current)} plan. Upgrade to ${tierLabel(required)} to unlock it.`
-      : `Your current ${tierLabel(current)} plan does not include this page. Upgrade to ${tierLabel(required)} to unlock it.`;
-  } else {
-    heading = 'Access denied';
-    message = 'Your current tier does not grant permission for this page.';
+  // ---------------------------------------------------------------------------
+  // A Basic member on a Pro page: what it does, what Pro costs next to Basic,
+  // what switching would mean for them today, and one button to the switch
+  // (core/proWall.ts). `actor` is necessarily set here: resolveWall only
+  // answers 'upgrade' for a session on Basic.
+  // ---------------------------------------------------------------------------
+  if (wall.audience === 'upgrade' && actor) {
+    const pitch = proPagePitch(params.path);
+    const copy = proWallCopy(proWallTermsFor(actor.user.id, actor.user.email));
+    const shot = pitch.image ? BLOG_IMAGE_DIMENSIONS[pitch.image.src] : undefined;
+
+    return (
+      <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
+        <div className="w-full max-w-3xl space-y-6">
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-brand-primary)]">
+              <Sparkles size={13} /> Pro
+            </div>
+            <h1 className="text-3xl font-bold">{wantedLabel ?? 'This page'} is part of Pro</h1>
+            <p className="mt-3 text-[var(--color-text-secondary)]">{pitch.pitch}</p>
+
+            <div className="mt-6 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3">
+              <p className="font-semibold text-[var(--color-text-primary)]">{copy.priceLine}</p>
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{copy.termsLine}</p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-4 text-sm">
+              <Link
+                href={copy.cta.href}
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--text-inverse)]"
+              >
+                {copy.cta.label} <ArrowRight size={16} />
+              </Link>
+              <Link href="/pricing?plan=pro" className="text-[var(--color-brand-primary)] hover:underline">
+                Compare plans
+              </Link>
+              <Link href="/dashboard" className="text-[var(--color-brand-primary)] hover:underline">
+                Back to the dashboard
+              </Link>
+            </div>
+
+            {copy.annual && (
+              <p className="mt-5 text-sm text-[var(--color-text-secondary)]">
+                {copy.annual.line}{' '}
+                <Link href={copy.annual.href} className="font-semibold text-[var(--color-brand-primary)] hover:underline">
+                  See Pro annual
+                </Link>
+              </p>
+            )}
+          </section>
+
+          {pitch.image && shot && (
+            <figure className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+              <Image
+                src={pitch.image.src}
+                alt={pitch.image.alt}
+                width={shot.width}
+                height={shot.height}
+                sizes="(max-width: 816px) 100vw, 768px"
+                className="h-auto w-full"
+              />
+              <figcaption className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">
+                {wantedLabel ?? 'Pro'} on a past session: an example reading, not today&rsquo;s.
+              </figcaption>
+            </figure>
+          )}
+
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+            <h2 className="text-lg font-semibold">Everything in Basic, plus</h2>
+            <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
+              {PRO_FEATURES.map((feature) => (
+                <li key={feature} className="flex items-start gap-2">
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[var(--color-brand-primary)]" />
+                  <span>{feature}</span>
+                </li>
+              ))}
+            </ul>
+            {pitch.helpHref && (
+              <p className="mt-4 text-sm">
+                <Link href={pitch.helpHref} className="text-[var(--color-brand-primary)] hover:underline">
+                  How {wantedLabel ?? 'it'} works
+                </Link>
+              </p>
+            )}
+          </section>
+        </div>
+      </main>
+    );
   }
 
+  // Signed in, on a plan this page is not for, and nothing to buy that would
+  // open it (an admin page, say).
   return (
     <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <div className="w-full max-w-3xl space-y-6">
         <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
-          <h1 className="text-3xl font-bold">{heading}</h1>
-          <p className="mt-4 text-[var(--color-text-secondary)]">{message}</p>
+          <h1 className="text-3xl font-bold">Access denied</h1>
+          <p className="mt-4 text-[var(--color-text-secondary)]">Your current tier does not grant permission for this page.</p>
 
           <dl className="mt-6 space-y-2 text-sm">
             <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
@@ -237,28 +346,12 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
           </dl>
 
           <div className="mt-8 flex flex-wrap items-center gap-4 text-sm">
-            {needsUpgrade ? (
-              <>
-                <Link href="/pricing" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-[var(--text-inverse)] font-semibold">
-                  Upgrade your plan
-                </Link>
-                <Link href="/login" className="text-[var(--color-brand-primary)] hover:underline">
-                  Sign in as a different user
-                </Link>
-                <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
-                  Back to Landing
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-[var(--text-inverse)] font-semibold">
-                  Sign in as a different user
-                </Link>
-                <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
-                  Back to Landing
-                </Link>
-              </>
-            )}
+            <Link href="/login" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-[var(--text-inverse)] font-semibold">
+              Sign in as a different user
+            </Link>
+            <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
+              Back to Landing
+            </Link>
           </div>
         </section>
 
