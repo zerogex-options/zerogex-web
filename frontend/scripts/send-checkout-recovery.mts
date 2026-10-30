@@ -31,9 +31,14 @@
 //   - users.email_verified_at IS NOT NULL (don't email addresses that
 //     never proved ownership — bounce rate hurts the domain).
 //   - users.tier != 'admin'.
+//   - users.marketing_unsubscribed_at IS NULL (a sales email, so the
+//     marketing opt-out holds). Checked after the query, like the checked-out
+//     rule above, so every run counts them and a dry run names them.
 //
 // Side effects on send:
-//   - Resend email via core/mailer.ts sendCheckoutRecoveryEmail().
+//   - Resend email via core/mailer.ts sendCheckoutRecoveryEmail(), carrying the
+//     member's signed one-click unsubscribe link (core/unsubToken.ts
+//     buildUnsubUrl) in the footer and the List-Unsubscribe header.
 //   - Stamps users.checkout_recovery_email_sent_at = now (permanent latch).
 //   - Writes a `checkout_recovery_email_sent` row into audit_events.
 
@@ -49,6 +54,7 @@ import {
   FOUNDING_LOCKIN_DEADLINE_ISO,
   FOUNDING_LOCKIN_DEADLINE_LABEL,
 } from '../core/foundingLockin.ts';
+import { buildUnsubUrl } from '../core/unsubToken.ts';
 
 // Public limited-time promo deadline. Resolved at script-load from
 // PROMO_END_AT — kept local to this script so it doesn't import the
@@ -163,10 +169,15 @@ Eligibility:
   - users.checkout_recovery_email_sent_at IS NULL
   - users.email_verified_at IS NOT NULL
   - users.tier != 'admin'
+  - users.marketing_unsubscribed_at IS NULL
+
+Every send carries a signed one-click unsubscribe: a footer link and the
+List-Unsubscribe header.
 
 Options:
       --dry-run                Print eligible users, and who was skipped for
-                               finishing checkout; no email, no DB writes.
+                               finishing checkout or for unsubscribing from
+                               marketing; no email, no DB writes.
   -y, --yes                    Send emails and stamp users.
       --lag-hours N            Hours to wait after the start event before
                                we'll email (default ${DEFAULT_LAG_HOURS}).
@@ -178,7 +189,8 @@ Options:
       --preview-founding       Use the founding-deadline copy when previewing.
   -h, --help                   Show this help.
 
-Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL from env or
+Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL and
+ZEROGEX_END_USER_TOKEN_SECRET (to sign the unsubscribe link) from env or
 .env.local. Set AUTH_DB_PATH to override the default DB path.`);
 }
 
@@ -264,6 +276,18 @@ if (envLocal.PROMO_END_AT && !process.env.PROMO_END_AT) {
   process.env.PROMO_END_AT = envLocal.PROMO_END_AT;
 }
 
+// buildUnsubUrl() signs with ZEROGEX_END_USER_TOKEN_SECRET, which the
+// .env.local hydration above has already surfaced. It must be signable before
+// we send anything, or every recipient's send would fail on it. Fail fast.
+if ((cliArgs.yes || cliArgs.previewTo) && !process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
+  console.error('Error: ZEROGEX_END_USER_TOKEN_SECRET must be set to sign the unsubscribe link.');
+  process.exit(1);
+}
+
+// Same fallback as core/mailer.ts getAppUrl(), so the unsubscribe link names
+// the same host as every other link in the email.
+const appUrl = NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
 // Founding deadline is a hard cutoff: after it passes we never use the
 // founding-deadline copy regardless of the user's founding_eligible flag,
 // because the offer they'd be invited back to no longer exists.
@@ -309,8 +333,13 @@ if (cliArgs.previewTo) {
     foundingDeadlineLabel: useFounding ? FOUNDING_LOCKIN_DEADLINE_LABEL : null,
     promoDeadlineLabel: useFounding ? null : promoDeadlineLabel,
     promoPricing: useFounding ? null : promoPricing,
+    // Signed for a placeholder account, as scripts/send-winback.mts previews:
+    // the link works end to end, and no user has this id.
+    unsubUrl: buildUnsubUrl(appUrl, 'preview-user'),
   });
-  console.log('Preview sent.');
+  console.log(
+    'Preview sent. Its unsubscribe link is signed for a "preview-user" account that does not exist, so clicking it shows the confirmation page and changes nothing.',
+  );
   process.exit(0);
 }
 
@@ -333,6 +362,7 @@ type UserRow = {
   id: string;
   email: string;
   founding_eligible: number;
+  marketing_unsubscribed_at: string | null;
   last_started_at: string;
   last_subscribed_at: string | null;
 };
@@ -355,6 +385,7 @@ const candidates = querySqlite<UserRow>(
   `SELECT u.id,
           u.email,
           COALESCE(u.founding_eligible, 0) AS founding_eligible,
+          u.marketing_unsubscribed_at,
           MAX(a.created_at) AS last_started_at,
           (SELECT MAX(s.created_at)
            FROM audit_events AS s
@@ -371,14 +402,18 @@ const candidates = querySqlite<UserRow>(
      AND u.email_verified_at IS NOT NULL
      AND u.tier != 'admin'
      AND u.deleted_at IS NULL
-   GROUP BY u.id, u.email, u.founding_eligible
+   GROUP BY u.id, u.email, u.founding_eligible, u.marketing_unsubscribed_at
    ORDER BY last_started_at ASC;`,
 );
 
 const checkedOutSinceStart = (u: UserRow) =>
   u.last_subscribed_at != null && u.last_subscribed_at > u.last_started_at;
-const eligible = candidates.filter((u) => !checkedOutSinceStart(u));
 const checkedOut = candidates.filter(checkedOutSinceStart);
+// The opt-out is held out here rather than in the WHERE clause for the same
+// reason as checkedOut: so the run can say how many it skipped, and who.
+const notCheckedOut = candidates.filter((u) => !checkedOutSinceStart(u));
+const unsubscribed = notCheckedOut.filter((u) => u.marketing_unsubscribed_at != null);
+const eligible = notCheckedOut.filter((u) => u.marketing_unsubscribed_at == null);
 
 console.log(`Auth DB:          ${dbPath}`);
 console.log(`Window:           ${lowIso}  →  ${highIso}`);
@@ -388,6 +423,12 @@ console.log(`Checked out:      ${checkedOut.length} (finished checkout after sta
 if (cliArgs.dryRun) {
   for (const u of checkedOut) {
     console.log(`  - ${u.email}: started ${u.last_started_at}, subscription last seen ${u.last_subscribed_at}`);
+  }
+}
+console.log(`Unsubscribed:     ${unsubscribed.length} (opted out of marketing email; skipped)`);
+if (cliArgs.dryRun) {
+  for (const u of unsubscribed) {
+    console.log(`  - ${u.email}: started ${u.last_started_at}, unsubscribed ${u.marketing_unsubscribed_at}`);
   }
 }
 console.log(`Eligible users:   ${eligible.length}`);
@@ -432,6 +473,7 @@ for (const user of eligible) {
       foundingDeadlineLabel: useFounding ? FOUNDING_LOCKIN_DEADLINE_LABEL : null,
       promoDeadlineLabel: usePromo ? promoDeadlineLabel : null,
       promoPricing: usePromo ? promoPricing : null,
+      unsubUrl: buildUnsubUrl(appUrl, user.id),
     });
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends

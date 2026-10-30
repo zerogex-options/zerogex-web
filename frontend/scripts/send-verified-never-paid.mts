@@ -30,9 +30,15 @@
 //   - users.stripe_subscription_id IS NULL (belt-and-suspenders for tier=public)
 //   - users.verified_never_paid_email_sent_at IS NULL (one-shot dedupe)
 //   - users.created_at in [now - LOOKBACK_HOURS, now - LAG_HOURS]
+//   - users.marketing_unsubscribed_at IS NULL (a sales pitch, so the marketing
+//     opt-out holds). Checked after the query and before --limit cuts the
+//     batch, so every run counts them, a dry run names them, and they never
+//     take a slot in a capped batch.
 //
 // Side effects on send:
-//   - Resend email via core/mailer.ts sendVerifiedNeverPaidEmail().
+//   - Resend email via core/mailer.ts sendVerifiedNeverPaidEmail(), carrying
+//     the member's signed one-click unsubscribe link (core/unsubToken.ts
+//     buildUnsubUrl) in the footer and the List-Unsubscribe header.
 //   - Stamps users.verified_never_paid_email_sent_at = now (permanent latch).
 //   - Writes a `verified_never_paid_email_sent` row into audit_events.
 
@@ -43,6 +49,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import { sendVerifiedNeverPaidEmail } from '../core/mailer.ts';
 import { isFoundingLockinOpen } from '../core/foundingLockin.ts';
+import { buildUnsubUrl } from '../core/unsubToken.ts';
 
 // 2h lag matches the user-facing intent: give someone a chance to click
 // through the verification link, browse a bit, and either bounce or start
@@ -169,9 +176,14 @@ Eligibility mirrors list-public-cohort.mjs's verified-never-paid bucket:
   - users.stripe_subscription_id IS NULL
   - users.verified_never_paid_email_sent_at IS NULL
   - users.created_at in [now - LOOKBACK, now - LAG] (defaults ${DEFAULT_LOOKBACK_HOURS}h / ${DEFAULT_LAG_HOURS}h)
+  - users.marketing_unsubscribed_at IS NULL
+
+Every send carries a signed one-click unsubscribe: a footer link and the
+List-Unsubscribe header.
 
 Options:
-      --dry-run              Print eligible users; no email, no DB writes.
+      --dry-run              Print eligible users, and who was skipped for
+                             unsubscribing from marketing; no email, no DB writes.
   -y, --yes                  Send emails and stamp users.
       --lag-hours N          Hours to wait after signup before we'll email
                              (default ${DEFAULT_LAG_HOURS}).
@@ -184,7 +196,8 @@ Options:
                              No DB writes.
   -h, --help                 Show this help.
 
-Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL from env or
+Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL and
+ZEROGEX_END_USER_TOKEN_SECRET (to sign the unsubscribe link) from env or
 .env.local. Set AUTH_DB_PATH to override the default DB path.`);
 }
 
@@ -256,11 +269,31 @@ if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL
 if (RESEND_API_KEY) process.env.RESEND_API_KEY = RESEND_API_KEY;
 if (RESEND_FROM_EMAIL) process.env.RESEND_FROM_EMAIL = RESEND_FROM_EMAIL;
 if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
+// buildUnsubUrl() (core/unsubToken.ts) signs with this secret, read from
+// process.env — surface it from .env.local so cron runs (shell env only) see it.
+if (!process.env.ZEROGEX_END_USER_TOKEN_SECRET && envLocal.ZEROGEX_END_USER_TOKEN_SECRET) {
+  process.env.ZEROGEX_END_USER_TOKEN_SECRET = envLocal.ZEROGEX_END_USER_TOKEN_SECRET;
+}
+
+// The unsubscribe link must be signable before we send anything, or every
+// recipient's send would fail on it. Fail fast.
+if ((cliArgs.yes || cliArgs.previewTo) && !process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
+  console.error('Error: ZEROGEX_END_USER_TOKEN_SECRET must be set to sign the unsubscribe link.');
+  process.exit(1);
+}
+
+// Same fallback as core/mailer.ts getAppUrl(), so the unsubscribe link names
+// the same host as every other link in the email.
+const appUrl = NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 if (cliArgs.previewTo) {
   console.log(`Sending preview to ${cliArgs.previewTo}...`);
-  await sendVerifiedNeverPaidEmail(cliArgs.previewTo);
-  console.log('Preview sent.');
+  // Signed for a placeholder account, as scripts/send-winback.mts previews: the
+  // link works end to end, and no user has this id.
+  await sendVerifiedNeverPaidEmail(cliArgs.previewTo, { unsubUrl: buildUnsubUrl(appUrl, 'preview-user') });
+  console.log(
+    'Preview sent. Its unsubscribe link is signed for a "preview-user" account that does not exist, so clicking it shows the confirmation page and changes nothing.',
+  );
   process.exit(0);
 }
 
@@ -283,6 +316,7 @@ type UserRow = {
   id: string;
   email: string;
   created_at: string;
+  marketing_unsubscribed_at: string | null;
 };
 
 // Classification matches list-public-cohort.mjs's classify(): a user is in
@@ -299,9 +333,9 @@ const foundingOpen = isFoundingLockinOpen();
 const foundingCarveOut = foundingOpen
   ? 'AND NOT (COALESCE(founding_eligible, 0) = 1 AND founding_member_started_at IS NULL)'
   : '';
-const eligible = querySqlite<UserRow>(
+const candidates = querySqlite<UserRow>(
   dbPath,
-  `SELECT id, email, created_at
+  `SELECT id, email, created_at, marketing_unsubscribed_at
    FROM users
    WHERE tier = 'public'
      AND email_verified_at IS NOT NULL
@@ -315,6 +349,13 @@ const eligible = querySqlite<UserRow>(
    ORDER BY created_at ASC;`,
 );
 
+// Held out in code rather than in the WHERE clause so the run can say how many
+// it skipped, and who. Done before --limit cuts the batch below: an opted-out
+// signup is never stamped, so if it counted toward the cap it would take a
+// slot on every run.
+const unsubscribed = candidates.filter((u) => u.marketing_unsubscribed_at != null);
+const eligible = candidates.filter((u) => u.marketing_unsubscribed_at == null);
+
 console.log(`Auth DB:          ${dbPath}`);
 console.log(`Signup window:    ${lowIso}  →  ${highIso}`);
 console.log(
@@ -324,6 +365,12 @@ console.log(
       : 'LIFTED (deadline passed; founding-eligible-never-redeemed now eligible here)'
   }`,
 );
+console.log(`Unsubscribed:     ${unsubscribed.length} (opted out of marketing email; skipped)`);
+if (cliArgs.dryRun) {
+  for (const u of unsubscribed) {
+    console.log(`  - ${u.email}: signed up ${u.created_at}, unsubscribed ${u.marketing_unsubscribed_at}`);
+  }
+}
 console.log(`Eligible users:   ${eligible.length}`);
 
 if (eligible.length === 0) {
@@ -374,7 +421,7 @@ for (const user of batch) {
       await new Promise((resolve) => setTimeout(resolve, cliArgs.throttleMs));
     }
     sentInRun += 1;
-    await sendVerifiedNeverPaidEmail(user.email);
+    await sendVerifiedNeverPaidEmail(user.email, { unsubUrl: buildUnsubUrl(appUrl, user.id) });
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends
     // doesn't re-send to anyone who already received. Audit row is best-

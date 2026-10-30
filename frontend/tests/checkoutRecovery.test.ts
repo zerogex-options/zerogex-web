@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // scripts/send-checkout-recovery.mts, run with --dry-run against a throwaway
 // database on the real schema. The nudge says "pick up where you left off", so
@@ -12,6 +12,11 @@ import { fileURLToPath } from 'node:url';
 // included, and never reach a member who did finish and has since lost the
 // subscription. The 7-day money-back refund is the usual way that happens, and
 // it leaves the users row looking exactly like an abandoned checkout.
+//
+// It is also a sales email, so it skips anyone who unsubscribed from marketing
+// (users.marketing_unsubscribed_at) and carries a one-click unsubscribe. The
+// timer sends it with YES=1 and nobody reviews the batch, so the last test runs
+// a real send through the email-audit Resend stub.
 //
 // The script reads the database through the sqlite3 CLI, so this skips where
 // that isn't installed.
@@ -23,10 +28,17 @@ const sqlite3Missing =
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zgx-checkout-recovery-'));
 const dbPath = path.join(dir, 'auth.db');
 process.env.AUTH_DB_PATH = dbPath;
+// Read at call time by the mailer and core/unsubToken.ts. Resend itself is
+// never reached: every send below goes through a stub.
+process.env.RESEND_API_KEY = 're_test_key';
+process.env.RESEND_FROM_EMAIL = 'ZeroGEX <hello@zerogex.test>';
+process.env.ZEROGEX_END_USER_TOKEN_SECRET = 'test-secret';
 
 // Dynamic import: core/db.ts reads AUTH_DB_PATH at module load, so the
 // assignment above has to land first. A static import would be hoisted past it.
 const { getDb } = await import('../core/db.ts');
+const { sendCheckoutRecoveryEmail } = await import('../core/mailer.ts');
+const { verifyUnsubToken } = await import('../core/unsubToken.ts');
 const db = getDb();
 
 const HOUR = 3_600_000;
@@ -100,6 +112,12 @@ firstPayment(cameBack, hoursAgo(149.9), 'sub_first');
 ended(cameBack, hoursAgo(130), 'sub_first');
 started(cameBack, hoursAgo(30));
 
+// Opened checkout and left, three days after unsubscribing from a marketing
+// email.
+const optedOut = member('opted-out@example.com');
+db.prepare('UPDATE users SET marketing_unsubscribed_at = ? WHERE id = ?').run(hoursAgo(120), optedOut);
+started(optedOut, hoursAgo(48));
+
 const script = fileURLToPath(new URL('../scripts/send-checkout-recovery.mts', import.meta.url));
 
 function dryRun(): string {
@@ -171,9 +189,118 @@ test('a member who comes back after a refund and abandons again is nudged for th
   assert.equal(listedUnder('Checked out:').has('came-back@example.com'), false);
 });
 
-test('the dry run counts both groups', { skip: sqlite3Missing }, () => {
+test('someone who unsubscribed from marketing is skipped, and named on a dry run', { skip: sqlite3Missing }, () => {
+  assert.equal(listedUnder('Eligible users:').has('opted-out@example.com'), false);
+  assert.equal(
+    listedUnder('Unsubscribed:').get('opted-out@example.com'),
+    `started ${hoursAgo(48)}, unsubscribed ${hoursAgo(120)}`,
+  );
+});
+
+test('the dry run counts all three groups', { skip: sqlite3Missing }, () => {
   assert.match(stdout, /^Checked out: +2 \(/m);
+  assert.match(stdout, /^Unsubscribed: +1 \(/m);
   assert.match(stdout, /^Eligible users: +3$/m);
   assert.equal(listedUnder('Checked out:').size, 2);
+  assert.equal(listedUnder('Unsubscribed:').size, 1);
   assert.equal(listedUnder('Eligible users:').size, 3);
+});
+
+type SentEmail = { to: string | string[]; subject: string; text: string; html: string; headers?: Record<string, string> };
+
+const UNSUB = 'https://zerogex.test/unsubscribe?u=user_x&t=token';
+
+// Same technique as tests/welcomeEmailApiKey.test.ts: stub the Resend SDK's
+// fetch and read the payload that would have gone on the wire.
+async function capture(send: () => Promise<void>): Promise<SentEmail> {
+  const realFetch = globalThis.fetch;
+  let sent: SentEmail | null = null;
+  globalThis.fetch = (async (_input: unknown, init?: { body?: unknown }) => {
+    sent = JSON.parse(String(init?.body ?? '{}')) as SentEmail;
+    return new Response(JSON.stringify({ id: 'email_test' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof globalThis.fetch;
+  try {
+    await send();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.ok(sent, 'expected the mailer to issue a send request');
+  return sent;
+}
+
+test('every variant carries the unsubscribe link and the one-click headers', async () => {
+  const variants = {
+    plain: { foundingDeadlineLabel: null },
+    founding: { foundingDeadlineLabel: 'October 1, 2026' },
+    promo: {
+      foundingDeadlineLabel: null,
+      promoDeadlineLabel: 'October 1, 2026',
+      promoPricing: { basicMonthly: '$29.00', proMonthly: '$49.00' },
+    },
+  };
+  for (const [name, variant] of Object.entries(variants)) {
+    const sent = await capture(() => sendCheckoutRecoveryEmail('member@zerogex.test', { ...variant, unsubUrl: UNSUB }));
+
+    assert.deepEqual(
+      sent.headers,
+      { 'List-Unsubscribe': `<${UNSUB}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+      name,
+    );
+    assert.match(
+      sent.text,
+      /^You're receiving this because you created a ZeroGEX account\. Unsubscribe from emails like this:\nhttps:\/\/zerogex\.test\/unsubscribe\?u=user_x&t=token$/m,
+      name,
+    );
+    assert.match(
+      sent.html,
+      /<a href="https:\/\/zerogex\.test\/unsubscribe\?u=user_x&amp;t=token"[^>]*>Unsubscribe from emails like this<\/a>/,
+      name,
+    );
+  }
+});
+
+// Last on purpose: a real send stamps the latch, and the dry-run tests above
+// read output captured before any of this ran.
+test('a real send mails each eligible member their own unsubscribe link, and never the opted-out one', { skip: sqlite3Missing }, () => {
+  const capturePath = path.join(dir, 'sent.ndjson');
+  const stub = pathToFileURL(fileURLToPath(new URL('../scripts/email-audit/stub-resend.mts', import.meta.url))).href;
+  const result = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', `--import=${stub}`, script, '--yes'], {
+    cwd: dir,
+    env: {
+      PATH: process.env.PATH ?? '',
+      AUTH_DB_PATH: dbPath,
+      NODE_ENV: 'test',
+      RESEND_API_KEY: 're_test_key',
+      RESEND_FROM_EMAIL: 'ZeroGEX <hello@zerogex.test>',
+      NEXT_PUBLIC_APP_URL: 'https://zerogex.test',
+      ZEROGEX_END_USER_TOKEN_SECRET: 'test-secret',
+      CAPTURE_OUT: capturePath,
+    },
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+
+  const sent = fs.readFileSync(capturePath, 'utf8').trim().split('\n').map((line) => JSON.parse(line) as SentEmail);
+  const idOf = (email: string) => (db.prepare('SELECT id FROM users WHERE email = ?').get(email) as { id: string }).id;
+  assert.deepEqual(sent.map((e) => [e.to].flat().join()).sort(), [
+    'abandoned@example.com',
+    'came-back@example.com',
+    'declined@example.com',
+  ]);
+  for (const email of sent) {
+    const to = [email.to].flat().join();
+    const link = new URL(String(email.headers?.['List-Unsubscribe']).slice(1, -1));
+    assert.equal(link.origin + link.pathname, 'https://zerogex.test/unsubscribe', to);
+    assert.equal(link.searchParams.get('u'), idOf(to), to);
+    assert.ok(verifyUnsubToken(idOf(to), link.searchParams.get('t') ?? ''), `${to}: the /unsubscribe route accepts the token`);
+    assert.ok(email.text.includes(link.href), `${to}: the footer carries the same link`);
+  }
+
+  const stamped = db
+    .prepare('SELECT checkout_recovery_email_sent_at AS at FROM users WHERE email = ?')
+    .get('opted-out@example.com') as { at: string | null };
+  assert.equal(stamped.at, null, 'skipping a member must not mark them as sent');
 });

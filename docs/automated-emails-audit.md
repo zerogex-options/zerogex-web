@@ -401,9 +401,13 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 
 ### 3.4 Conversion nudges
 
-**Checkout recovery** — `sendCheckoutRecoveryEmail(to, { foundingDeadlineLabel, promoDeadlineLabel?, promoPricing? })`
+**Checkout recovery** — `sendCheckoutRecoveryEmail(to, { foundingDeadlineLabel, promoDeadlineLabel?, promoPricing?, unsubUrl })`
 - **Subject (3 variants):** founding → `Your ZeroGEX founding rate is still available — only until {date}`; promo → `Your ZeroGEX limited-time offer is still open — only until {date}`; plain → `Pick up where you left off at ZeroGEX`
 - Founding wins precedence over promo. All variants link to `/pricing`. No FOH footer.
+- A sales email, so it carries a real marketing unsubscribe footer **and** the one-click
+  `List-Unsubscribe` / `List-Unsubscribe-Post` headers (RFC 8058), and honors
+  `marketing_unsubscribed_at`: every run counts the opted-out members it skipped, and
+  a dry run names them.
 
 **Founding final call** — `sendFoundingFinalCallEmail(to, { deadlineLabel, foundingHref, billingStartLabel, pricing? })`
 - **Subject:** `Final reminder: ZeroGEX founding rate closes tomorrow, {deadlineLabel}`
@@ -415,10 +419,14 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 - For users who registered but never clicked verify. Freshly-minted 24h verify link;
   copy is about verification (which unlocks checkout + trial), not a discount.
 
-**Verified, never paid** — `sendVerifiedNeverPaidEmail(to)`
+**Verified, never paid** — `sendVerifiedNeverPaidEmail(to, { unsubUrl })`
 - **Subject:** `Quick note from Michael at ZeroGEX`
 - Founder note to verified signups who never opened checkout; pitches the 7-day trial,
   no discount. Links `/pricing?trial=1`.
+- Carries a real marketing unsubscribe footer **and** the one-click `List-Unsubscribe` /
+  `List-Unsubscribe-Post` headers (RFC 8058), and honors `marketing_unsubscribed_at`.
+  Opted-out signups are skipped before `--limit` cuts the batch, so they never use up a
+  slot.
 
 **Reactivation (extended trial)** — `sendReactivationEmail(to, { trialDays, unsubUrl })`
 - **Subject:** `I extended your ZeroGEX free trial to {trialDays} days`
