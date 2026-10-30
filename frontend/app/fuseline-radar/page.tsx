@@ -1,18 +1,26 @@
 'use client';
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
 import PanelSurface from '@/components/layout/Panel';
 import { FilterBar, FilterChip, FilterDivider, FilterGroup, FilterToggle } from '@/components/controls/Filters';
-import RadarChart, { type LadderRow } from '@/components/fuseline/RadarChart';
+import GammaTerminalChart, {
+  type ChartExtraBand,
+  type ChartExtraLevel,
+  type ChartOverlayKey,
+  type ChartSideColumnContext,
+  type RewindState,
+} from '@/components/GammaTerminalChart';
+import LadderColumn, { type LadderRow } from '@/components/fuseline/LadderColumn';
 import StrikeDrawer from '@/components/fuseline/StrikeDrawer';
 import PlanInputs from '@/components/fuseline/PlanInputs';
-import { useApiData } from '@/hooks/useApiData';
-import { useMarketHistorical } from '@/hooks/useMarketHistorical';
+import { TimeframeSymbolScope } from '@/core/TimeframeContext';
+import { useApiData, useMarketQuote } from '@/hooks/useApiData';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useStrikeProfileTimeseries, type StrikeProfileBucket } from '@/hooks/useStrikeProfileTimeseries';
-import { useRadarSettings, type UpdateMode } from '@/hooks/useRadarSettings';
+import { useRadarSettings, type LayerView, type UpdateMode } from '@/hooks/useRadarSettings';
 import { etTodayDateKey } from '@/core/utils';
 import { safeTimeLabel } from '@/core/flowSeriesCharts';
 import {
@@ -21,6 +29,7 @@ import {
   anchorCrossed,
   buildTerrain,
   describeBasisSource,
+  fitPricesFor,
   formatGamma,
   formatSizeDelta,
   formatStrike,
@@ -28,14 +37,12 @@ import {
   planLevels,
   planProblems,
   provisionalThreshold,
-  rollCandles,
   routeReady,
   routeZone,
   sessionBounds,
   sizeContext,
   strikeChange,
   targetPassed,
-  viewRange,
   type ChangeWindow,
   type Instrument,
   type PlanLevels,
@@ -46,11 +53,14 @@ import {
  * Fuseline Radar: Plus3 Forecasting's trade-centered view of the gamma
  * terrain, Layout A.
  *
- * One trade at a time: a Fuse, a direction, one or two targets. The candles
- * stay a conventional chart; the plan is drawn on them; the ladder to the
- * right shares the price scale and shows, per strike, how big the modeled net
- * gamma is and how it changed over the chosen window. A click opens one
- * strike's history underneath.
+ * One trade at a time: a Fuse, a direction, one or two targets. The chart is
+ * the dashboard's own (its timeframes, chart types, volume, expiry, zoom, save,
+ * full screen, levels, regime band, bar timer, expected range and rewind),
+ * minus the instruments the ladder replaces: the gamma rail, ribbons, GEX King
+ * and centroids. The plan is drawn on it as its own layer, and the ladder sits
+ * in the rail's column on the chart's exact price scale, showing per strike
+ * how big the modeled net gamma is and how it changed over the chosen window.
+ * A click opens one strike's history underneath.
  *
  * Price is always live. The gamma terrain updates on the trader's chosen
  * cadence and can be paused for inspection, and the page says plainly which
@@ -61,8 +71,14 @@ const MODE_MS: Record<UpdateMode, number> = { manual: 0, '1m': 60_000, '5m': 300
 const MODE_TEXT: Record<UpdateMode, string> = { manual: 'Manual', '1m': 'Live, every 1 min', '5m': 'Live, every 5 min' };
 /** One-minute buckets fetched per read: the 20-minute window plus slack. */
 const TERRAIN_MINUTES = 25;
-const CANDLE_MINUTES = 4;
 const MIN = 60_000;
+/** The ladder's column, in chart units: narrower on a phone, so the candles keep the width. */
+const LADDER_WIDTH = 230;
+const LADDER_WIDTH_PHONE = 104;
+/** What the ladder replaces, so the chart never draws it twice. */
+const RADAR_FORCED_OFF: ChartOverlayKey[] = ['ribbons', 'king', 'centroids', 'sessionLevels'];
+const LAYER_TEXT: Record<LayerView, string> = { fuse: 'Fuse', levels: 'Levels', both: 'Both' };
+const PLAN_COLOR = 'var(--color-king)';
 
 interface SummaryWithProjection {
   projection?: {
@@ -95,10 +111,15 @@ const timeEt = (ms: number | null) => (ms == null ? '--:--' : safeTimeLabel(new 
 export default function FuselineRadarPage() {
   const [settings, update] = useRadarSettings();
   const visible = usePageVisible();
+  const isMobile = useIsMobile();
   const clock = useClock(30_000);
   const [paused, setPaused] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [refreshedFor, setRefreshedFor] = useState<number | null>(null);
+  // Only whether the chart is rewound: a stable setter and a boolean, so the
+  // chart's per-step rewind reports cannot re-render the page on every tick.
+  const [rewound, setRewound] = useState(false);
+  const onRewind = useCallback((s: RewindState) => setRewound(s.active), []);
 
   // ---- The ES/SPX ratio: the API's own, from a projected ES read. ----
   const { data: esSummary } = useApiData<SummaryWithProjection>('/api/gex/summary?symbol=ES', {
@@ -113,8 +134,8 @@ export default function FuselineRadarPage() {
   const display: Instrument = settings.display === 'ES' && ratio != null ? 'ES' : 'SPX';
   const toDisplay = (spx: number) => (display === 'ES' && ratio != null ? spx * ratio : spx);
 
-  // ---- Price: always live, in the display instrument. ----
-  const { rows: bars, loading: barsLoading } = useMarketHistorical(display, '1min', false, visible);
+  // ---- Spot: the live quote the chart itself polls (one shared cache). ----
+  const { data: quote } = useMarketQuote(display, 1000, visible);
 
   // ---- Terrain: per-strike net gamma, one-minute buckets, on the chosen cadence. ----
   const terrainQ = useApiData<StrikeProfileBucket[]>(
@@ -141,14 +162,14 @@ export default function FuselineRadarPage() {
   // The selected strike's session history, five-minute buckets.
   const history = useStrikeProfileTimeseries('SPX', '5min', 'all', paused, selected != null && visible);
 
-  // ---- The session clock and candles. ----
-  const lastBarT = bars.length ? Date.parse(bars[bars.length - 1].timestamp) : null;
-  const { open, close } = sessionBounds(lastBarT ?? nowT ?? clock);
-  const candles = useMemo(() => rollCandles(bars, open, close, CANDLE_MINUTES), [bars, open, close]);
-  const lastCandle = candles.length ? candles[candles.length - 1] : null;
-  const spot = lastCandle?.c ?? (latestBucket?.close != null ? toDisplay(Number(latestBucket.close)) : null);
-  const xFrom = open;
-  const xTo = Math.min(close, Math.max(open + 90 * MIN, (lastCandle?.t ?? open) + 30 * MIN));
+  // ---- The session clock and spot. ----
+  const quoteT = quote?.timestamp ? Date.parse(quote.timestamp) : null;
+  const { open, close } = sessionBounds(quoteT ?? nowT ?? clock);
+  const quoteClose = quote?.close != null ? Number(quote.close) : null;
+  const spot =
+    quoteClose != null && Number.isFinite(quoteClose)
+      ? quoteClose
+      : latestBucket?.close != null ? toDisplay(Number(latestBucket.close)) : null;
 
   // ---- The plan, in display coordinates. ----
   const plan = settings.plan;
@@ -196,20 +217,19 @@ export default function FuselineRadarPage() {
     return out;
   })();
 
-  // Reference levels from the newest bucket: names live here, change lives in the ladder.
-  const refs = (
-    [
-      ['Gamma flip', latestBucket?.gamma_flip],
-      ['Call wall', latestBucket?.call_wall],
-      ['Put wall', latestBucket?.put_wall],
-      ['Pin', latestBucket?.pin_strike],
-    ] as [string, unknown][]
-  )
-    .map(([name, v]) => ({ name, value: v == null || v === '' ? null : Number(v) }))
-    .filter((r): r is { name: string; value: number } => r.value != null && Number.isFinite(r.value))
-    .map((r) => ({ name: r.name, price: toDisplay(r.value) }));
-
-  const yRange = viewRange(settings.view, levels, spot ?? rows[Math.floor(rows.length / 2)]?.price ?? 0, direction, settings.widePoints);
+  // ---- The plan as the chart's own layer. ----
+  const planOn = settings.layers !== 'levels';
+  const ready = routeReady(plan);
+  const extraLevels: ChartExtraLevel[] = !planOn
+    ? []
+    : [
+        levels.fuse != null ? { key: 'fuse', label: 'FUSE', value: levels.fuse, color: PLAN_COLOR, dash: '' } : null,
+        ready && levels.t1 != null ? { key: 't1', label: 'T1', value: levels.t1, color: PLAN_COLOR, dash: '7 4' } : null,
+        ready && levels.t2 != null ? { key: 't2', label: 'T2', value: levels.t2, color: PLAN_COLOR, dash: '7 4' } : null,
+      ].filter((l): l is ChartExtraLevel => l != null);
+  const extraBands: ChartExtraBand[] =
+    planOn && route ? [{ key: 'fuse-zone', from: route.fuse, to: route.spot, color: PLAN_COLOR, opacity: 0.12 }] : [];
+  const fitPrices = planOn ? fitPricesFor(settings.view, levels, direction, settings.widePoints) : [];
 
   const coordPair = (k: number) =>
     ratio == null
@@ -218,26 +238,35 @@ export default function FuselineRadarPage() {
         ? `ES ${(k * ratio).toFixed(2)} · SPX ${k} strike`
         : `SPX ${k} strike · ES ${(k * ratio).toFixed(2)}`;
 
-  const describeRow = (r: LadderRow) => {
+  const describeRow = (r: LadderRow): string[] => {
     const word =
       r.state === 'strengthening' ? '▲ strengthening' : r.state === 'weakening' ? '▼ weakening' : r.state === 'steady' ? 'within the threshold' : 'change unavailable';
     const rank = ctx.rank.get(r.k);
     const share = ctx.share.get(r.k) ?? 0;
     const zone = route ? ROUTE_ZONE_TEXT[routeZone(r.price, route, direction)] : null;
-    return (
-      <>
-        <div className="font-semibold">{coordPair(r.k)}</div>
-        <div>Modeled net gamma <span className="tabular-nums">{formatGamma(r.now)}</span></div>
-        <div style={{ color: 'var(--color-text-secondary)' }}>
-          {settings.window} min: {r.sizeDelta != null ? `${formatSizeDelta(r.sizeDelta)} in size, ` : ''}{word}
-        </div>
-        <div style={{ color: 'var(--color-text-secondary)' }}>
-          {rank ? `#${rank} of ${ctx.rank.size} today · ` : ''}{Math.round(share * 100)}% of gross
-        </div>
-        <div style={{ color: 'var(--color-text-secondary)' }}>{zone ? `${zone} · ` : ''}Click for history</div>
-      </>
-    );
+    return [
+      coordPair(r.k),
+      `Modeled net gamma ${formatGamma(r.now)}`,
+      `${settings.window} min: ${r.sizeDelta != null ? `${formatSizeDelta(r.sizeDelta)} in size, ` : ''}${word}`,
+      `${rank ? `#${rank} of ${ctx.rank.size} today · ` : ''}${Math.round(share * 100)}% of gross`,
+      `${zone ? `${zone} · ` : ''}Click for history`,
+    ];
   };
+
+  const ladderOn = settings.showLadder;
+  const renderLadder = (c: ChartSideColumnContext) => (
+    <LadderColumn
+      ctx={c}
+      rows={rows}
+      maxAbs={ctx.maxAbs}
+      windowMin={settings.window}
+      display={display}
+      selected={selected}
+      onSelect={setSelected}
+      describe={describeRow}
+      dimmed={rewound}
+    />
+  );
 
   // ---- The selected strike's drawer. ----
   const drawer = (() => {
@@ -365,8 +394,40 @@ export default function FuselineRadarPage() {
               ))}
             </FilterGroup>
             <FilterDivider />
-            <FilterToggle active={settings.showReference} onChange={(v) => update({ showReference: v })}>Reference levels</FilterToggle>
             <FilterToggle active={settings.showLadder} onChange={(v) => update({ showLadder: v })}>Ladder</FilterToggle>
+          </FilterBar>
+          <FilterBar>
+            <FilterGroup label="On the chart">
+              {(['fuse', 'levels', 'both'] as const).map((v) => (
+                <FilterChip
+                  key={v}
+                  active={settings.layers === v}
+                  onClick={() => update({ layers: v })}
+                  title={
+                    v === 'fuse'
+                      ? 'Only the Fuse, the targets and the Fuse-to-spot zone'
+                      : v === 'levels'
+                        ? 'Only the call wall, put wall, gamma flip, max pain, VWAP and pin strike'
+                        : 'Your plan and the levels together'
+                  }
+                >
+                  {LAYER_TEXT[v]}
+                </FilterChip>
+              ))}
+            </FilterGroup>
+            <FilterDivider />
+            <FilterToggle
+              active={settings.labels}
+              onChange={(v) => update({ labels: v })}
+              title="Name tags on the lines. The price tags on the right axis always stay."
+            >
+              Labels
+            </FilterToggle>
+            <FilterDivider />
+            <FilterGroup label="Height">
+              <FilterChip active={!settings.tall} onClick={() => update({ tall: false })}>Standard</FilterChip>
+              <FilterChip active={settings.tall} onClick={() => update({ tall: true })}>Tall</FilterChip>
+            </FilterGroup>
           </FilterBar>
           <p className="text-xs" style={{ color: esUnavailable || (ratio != null && basisSource.flag) ? 'var(--color-warning)' : 'var(--color-text-secondary)' }}>
             {coordLine}
@@ -428,42 +489,34 @@ export default function FuselineRadarPage() {
         {terrainQ.error && <span style={{ color: 'var(--color-warning)' }}>Gamma data unavailable: {terrainQ.error}</span>}
       </div>
 
-      <PanelSurface className="mt-4">
-        <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
-          <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm align-[-1px]" style={{ backgroundColor: 'var(--color-gamma-pos)' }} />Positive gamma</span>
-          <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm align-[-1px]" style={{ backgroundColor: 'var(--color-gamma-neg)' }} />Negative gamma</span>
-          <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm border align-[-1px]" style={{ borderColor: 'var(--color-text-secondary)' }} />{settings.window} min ago</span>
-          <span>▲▼ strengthening / weakening</span>
-          <span><i className="mr-1.5 inline-block h-0.5 w-3.5 align-[3px]" style={{ backgroundColor: 'var(--color-king)' }} />Your plan</span>
-          {settings.showReference && <span>Dotted: reference levels</span>}
-          <span>{CANDLE_MINUTES}-min candles · {display}</span>
-        </div>
-        {!lastCandle && !barsLoading && !terrainQ.loading ? (
-          <p className="py-10 text-center text-sm italic" style={{ color: 'var(--color-text-secondary)' }}>
-            No regular-session bars yet. The radar fills in from 09:30 ET.
-          </p>
-        ) : (
-          <RadarChart
-            candles={candles}
-            xFrom={xFrom}
-            xTo={xTo}
-            nowT={nowT}
-            candleMinutes={CANDLE_MINUTES}
-            yRange={yRange}
-            levels={levels}
-            spot={spot}
-            refs={settings.showReference ? refs : []}
-            rows={rows}
-            maxAbs={ctx.maxAbs}
-            showLadder={settings.showLadder}
-            windowMin={settings.window}
-            display={display}
-            selected={selected}
-            onSelect={setSelected}
-            describeRow={describeRow}
-          />
-        )}
-      </PanelSurface>
+      <div className="mt-4 mb-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+        <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>Ladder</span>
+        <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm align-[-1px]" style={{ backgroundColor: 'var(--color-gamma-pos)' }} />Positive gamma</span>
+        <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm align-[-1px]" style={{ backgroundColor: 'var(--color-gamma-neg)' }} />Negative gamma</span>
+        <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm border align-[-1px]" style={{ borderColor: 'var(--color-text-secondary)' }} />{settings.window} min ago</span>
+        <span>▲▼ strengthening / weakening</span>
+        <span><i className="mr-1.5 inline-block h-2 w-2 rounded-full align-[0px]" style={{ backgroundColor: PLAN_COLOR }} />Next relevant strike</span>
+        <span>All expiries · {display} strikes</span>
+      </div>
+      <TimeframeSymbolScope symbol={display}>
+        <GammaTerminalChart
+          storageScope="radar"
+          hideSymbolPicker
+          splitGammaLevels
+          forceOffOverlays={RADAR_FORCED_OFF}
+          sideColumn={ladderOn ? renderLadder : null}
+          railWidth={ladderOn ? (isMobile ? LADDER_WIDTH_PHONE : LADDER_WIDTH) : null}
+          hideRail={!ladderOn}
+          fullscreenWithoutRail
+          hideStandardLevels={settings.layers === 'fuse'}
+          hideLevelNames={!settings.labels}
+          extraLevels={extraLevels}
+          extraBands={extraBands}
+          fitPrices={fitPrices}
+          tall={settings.tall}
+          onRewind={onRewind}
+        />
+      </TimeframeSymbolScope>
 
       {drawer}
 

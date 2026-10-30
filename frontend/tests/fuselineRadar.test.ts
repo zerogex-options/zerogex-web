@@ -17,19 +17,17 @@ import {
   formatGamma,
   formatSizeDelta,
   formatStrike,
+  fitPricesFor,
   nextRelevantStrike,
-  niceStep,
   planLevels,
   planProblems,
   provisionalThreshold,
-  rollCandles,
   routeReady,
   routeZone,
   sessionBounds,
   sizeContext,
   strikeChange,
   targetPassed,
-  viewRange,
   type RadarPlan,
 } from '../core/fuselineRadar.ts';
 
@@ -122,37 +120,26 @@ test('crossing the Fuse and passing a target depend on direction', () => {
   assert.equal(targetPassed(6770, 6768, 'down'), false);
 });
 
-// ---- The visible range ------------------------------------------------------
+// ---- What the chart keeps on screen -----------------------------------------
 
-test('A to B frames the Fuse through Target 1 and keeps spot on screen', () => {
-  const [lo, hi] = viewRange('AB', { fuse: 6745, t1: 6768, t2: 6790 }, 6755, 'up');
-  assert.ok(lo < 6745 && hi > 6768 && hi < 6790);
+const LV = { fuse: 6745, t1: 6768, t2: 6790 };
+
+test('A to B keeps the Fuse and Target 1 in the fit', () => {
+  assert.deepEqual(fitPricesFor('AB', LV, 'up'), [6745, 6768]);
 });
 
-test('A to B to C reaches Target 2, and falls back to A to B without one', () => {
-  const [, hi] = viewRange('ABC', { fuse: 6745, t1: 6768, t2: 6790 }, 6755, 'up');
-  assert.ok(hi > 6790);
-  assert.deepEqual(
-    viewRange('ABC', { fuse: 6745, t1: 6768, t2: null }, 6755, 'up'),
-    viewRange('AB', { fuse: 6745, t1: 6768, t2: null }, 6755, 'up'),
-  );
+test('A to B to C adds Target 2, and falls back to A to B without one', () => {
+  assert.deepEqual(fitPricesFor('ABC', LV, 'up'), [6745, 6768, 6790]);
+  assert.deepEqual(fitPricesFor('ABC', { ...LV, t2: null }, 'up'), [6745, 6768]);
 });
 
-test('Wide runs the set distance in the trade direction', () => {
-  const [lo, hi] = viewRange('WIDE', { fuse: 6745, t1: 6768, t2: null }, 6755, 'up', 100);
-  assert.equal(hi, 6845);
-  assert.ok(lo < 6745 && lo > 6720);
-  const [dlo] = viewRange('WIDE', { fuse: 6745, t1: 6730, t2: null }, 6740, 'down', 100);
-  assert.equal(dlo, 6645);
+test('Wide reaches the set distance in the trade direction', () => {
+  assert.deepEqual(fitPricesFor('WIDE', LV, 'up', 100), [6745, 6845]);
+  assert.deepEqual(fitPricesFor('WIDE', { fuse: 6745, t1: 6730, t2: null }, 'down', 100), [6745, 6645]);
 });
 
-test('without a route the view centers on spot', () => {
-  assert.deepEqual(viewRange('AB', { fuse: null, t1: null, t2: null }, 6755, 'up'), [6725, 6785]);
-});
-
-test('grid steps stay round', () => {
-  assert.equal(niceStep(35), 5);
-  assert.equal(niceStep(115), 20);
+test('without a route nothing is forced into the fit', () => {
+  assert.deepEqual(fitPricesFor('AB', { fuse: null, t1: null, t2: null }, 'up'), []);
 });
 
 // ---- Terrain and change -----------------------------------------------------
@@ -224,7 +211,7 @@ test('the next relevant strike is ahead of spot, on the route, and sizable', () 
   assert.equal(nextRelevantStrike(strikes, UP, 'up'), 6730);
 });
 
-// ---- Candles and the clock --------------------------------------------------
+// ---- The session clock --------------------------------------------------
 
 test('the ET offset follows daylight saving', () => {
   assert.equal(etOffsetMinutes(Date.parse('2026-07-01T16:00:00Z')), -240);
@@ -236,18 +223,6 @@ test('the session runs 09:30 to 16:00 ET in both seasons', () => {
   assert.equal(new Date(summer.open).toISOString(), '2026-07-01T13:30:00.000Z');
   const winter = sessionBounds(Date.parse('2026-12-01T16:00:00Z'));
   assert.equal(new Date(winter.close).toISOString(), '2026-12-01T21:00:00.000Z');
-});
-
-test('one-minute bars roll into four-minute candles from the open', () => {
-  const { open, close } = sessionBounds(Date.parse('2026-10-26T15:00:00Z'));
-  const bars = [-1, 0, 1, 2, 3, 4].map((i) => ({
-    timestamp: new Date(open + i * MIN).toISOString(),
-    open: 100 + i, high: 101 + i, low: 99 + i, close: 100.5 + i,
-  }));
-  const candles = rollCandles(bars, open, close, 4);
-  assert.equal(candles.length, 2); // the pre-open bar is dropped
-  assert.deepEqual(candles[0], { t: open, o: 100, h: 104, l: 99, c: 103.5 });
-  assert.equal(candles[1].t, open + 4 * MIN);
 });
 
 // ---- Formatting ---------------------------------------------------------------

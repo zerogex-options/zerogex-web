@@ -25,6 +25,8 @@ import {
  */
 
 export type UpdateMode = 'manual' | '1m' | '5m';
+/** What the chart draws on top of price: the plan, the market levels, or both. */
+export type LayerView = 'fuse' | 'levels' | 'both';
 
 export interface RadarSettings {
   plan: RadarPlan;
@@ -32,7 +34,11 @@ export interface RadarSettings {
   view: ViewMode;
   widePoints: number;
   window: ChangeWindow;
-  showReference: boolean;
+  layers: LayerView;
+  /** Name tags on the chart's lines; the right-axis price tags always stay. */
+  labels: boolean;
+  /** Twice the standard chart height. */
+  tall: boolean;
   showLadder: boolean;
   mode: UpdateMode;
 }
@@ -43,7 +49,9 @@ export const DEFAULT_SETTINGS: RadarSettings = {
   view: 'AB',
   widePoints: DEFAULT_WIDE_POINTS,
   window: 4,
-  showReference: true,
+  layers: 'both',
+  labels: true,
+  tall: false,
   showLadder: true,
   mode: '1m',
 };
@@ -100,7 +108,9 @@ export function parseSettings(raw: string | null): RadarSettings {
       return w != null && w >= 10 && w <= 1000 ? w : d.widePoints;
     })(),
     window: pick(obj.window, [1, 4, 20] as const, d.window),
-    showReference: typeof obj.showReference === 'boolean' ? obj.showReference : d.showReference,
+    layers: pick(obj.layers, ['fuse', 'levels', 'both'] as const, d.layers),
+    labels: typeof obj.labels === 'boolean' ? obj.labels : d.labels,
+    tall: typeof obj.tall === 'boolean' ? obj.tall : d.tall,
     showLadder: typeof obj.showLadder === 'boolean' ? obj.showLadder : d.showLadder,
     mode: pick(obj.mode, ['manual', '1m', '5m'] as const, d.mode),
   };

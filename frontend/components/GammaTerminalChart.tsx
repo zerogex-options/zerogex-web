@@ -146,6 +146,49 @@ interface OverlayState {
   volume: boolean; // volume pane under the tape; off hands its height to the price pane
   sessionLevels: boolean; // prior-day high/low/close + pre-market high/low lines (the top row always shows the numbers)
   centroids: boolean; // call / put centroids: where the session's option trading is centered, through time
+  // Per-line switches for the three gamma levels. Read only on a surface that
+  // passes `splitGammaLevels`; everywhere else the one `levels` pill rules.
+  flipLine: boolean;
+  callWallLine: boolean;
+  putWallLine: boolean;
+}
+
+/** An overlay a surface can force off (and drop the pill for). */
+export type ChartOverlayKey = keyof OverlayState;
+
+/** A level a surface adds to the chart: a line, a name chip and a right-axis tag. */
+export interface ChartExtraLevel {
+  key: string;
+  label: string;
+  value: number;
+  color: string;
+  /** SVG dash pattern; empty for a solid line. */
+  dash: string;
+}
+
+/** A shaded price band a surface adds under the tape. */
+export interface ChartExtraBand {
+  key: string;
+  from: number;
+  to: number;
+  color: string;
+  opacity: number;
+}
+
+/**
+ * What a surface's own side column (see `sideColumn`) needs to draw on the
+ * chart's exact price scale: the column's x span and the live price mapping,
+ * which already carries the reader's zoom and pan.
+ */
+export interface ChartSideColumnContext {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  yPrice: (price: number) => number;
+  priceForY: (y: number) => number;
+  /** The phone-sized canvas: less room, smaller type. */
+  compact: boolean;
 }
 
 const DEFAULT_OVERLAYS: OverlayState = {
@@ -175,6 +218,9 @@ const DEFAULT_OVERLAYS: OverlayState = {
   sessionLevels: false,
   // Off like King: four more lines through the tape is a lot to add unasked.
   centroids: false,
+  flipLine: true,
+  callWallLine: true,
+  putWallLine: true,
 };
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
@@ -747,6 +793,17 @@ export default function GammaTerminalChart({
   railControlsTarget = null,
   railWidth = null,
   onRailWidthChange,
+  sideColumn = null,
+  forceOffOverlays,
+  splitGammaLevels = false,
+  hideStandardLevels = false,
+  hideLevelNames = false,
+  extraLevels,
+  extraBands,
+  fitPrices,
+  tall = false,
+  hideSymbolPicker = false,
+  fullscreenWithoutRail = false,
 }: {
   className?: string;
   snapshot?: ChartSnapshot | null;
@@ -826,6 +883,34 @@ export default function GammaTerminalChart({
    * handle and the rail is the canvas's own width.
    */
   onRailWidthChange?: (width: number | null) => void;
+  /**
+   * Draw THIS in the inline rail's column instead of the gamma rail: a
+   * surface's own per-strike instrument (the Fuseline Radar's ladder) on the
+   * chart's exact price scale, so it follows every zoom and pan and goes to
+   * full screen with the tape. The rail, its pill and its view controls stand
+   * down. Null (the default) keeps the rail.
+   */
+  sideColumn?: ((ctx: ChartSideColumnContext) => ReactNode) | null;
+  /** Overlays held off on this surface, with their pills removed. */
+  forceOffOverlays?: ReadonlyArray<ChartOverlayKey>;
+  /** One pill each for the flip, call wall and put wall instead of "Gamma Levels". */
+  splitGammaLevels?: boolean;
+  /** Hide the standard levels (flip, walls, max pain, pin, VWAP) whatever their pills say. */
+  hideStandardLevels?: boolean;
+  /** Hide the levels' name chips; the right-axis price tags stay. */
+  hideLevelNames?: boolean;
+  /** Extra levels drawn like the standard ones: line, chip and axis tag. */
+  extraLevels?: ReadonlyArray<ChartExtraLevel>;
+  /** Extra shaded bands under the tape. */
+  extraBands?: ReadonlyArray<ChartExtraBand>;
+  /** Prices the auto-fit always keeps on screen (a surface's own key levels). */
+  fitPrices?: ReadonlyArray<number>;
+  /** About twice the standard height, for more room between price levels. */
+  tall?: boolean;
+  /** Hide the symbol buttons on a surface that pins the symbol itself. */
+  hideSymbolPicker?: boolean;
+  /** Keep Full screen when `hideRail` drops the column (no panel is left behind). */
+  fullscreenWithoutRail?: boolean;
 }) {
   const delayed = delayedProp || !!snapshot;
   const live = !delayed;
@@ -900,7 +985,16 @@ export default function GammaTerminalChart({
   const coarsePointer = useCoarsePointer();
   // A phone or touch screen: the gesture grammar and the touch copy apply.
   const touchUi = isMobile || coarsePointer;
-  const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults }));
+  // A surface's forced-off overlays, applied over the defaults AND over any
+  // restored preference, so a saved "ribbons on" from another visit cannot
+  // bring back a layer this surface has no pill for.
+  const forcedOffKey = (forceOffOverlays ?? []).join(",");
+  const forcedOff = useMemo(
+    () => Object.fromEntries((forcedOffKey ? forcedOffKey.split(",") : []).map((k) => [k, false])) as Partial<OverlayState>,
+    [forcedOffKey],
+  );
+  const isForcedOff = (k: ChartOverlayKey) => forcedOff[k] === false;
+  const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults, ...forcedOff }));
   const baseCanvas = useMemo(() => {
     if (!box || box.w <= 0) return DESKTOP_CANVAS;
     if (box.w < (touchUi ? COMPACT_MAX_WIDTH : DESKTOP_MIN_WIDTH)) {
@@ -908,10 +1002,14 @@ export default function GammaTerminalChart({
       // good share of the height: full screen only ever makes it taller, and
       // a window too short for that scrolls the layer instead.
       const resting = compactCanvas(box.w, box.landscape);
-      return fill != null && fill > resting.VH ? compactCanvas(box.w, box.landscape, fill) : resting;
+      const want = fill ?? (tall ? resting.VH * 2 : null);
+      return want != null && want > resting.VH ? compactCanvas(box.w, box.landscape, want) : resting;
     }
+    // Tall: the full-screen board's stacking at twice the resting height, so
+    // the extra room goes to the price pane, not the volume pane or the axes.
+    if (fill == null && tall) return desktopCanvas(box.w, desktopCanvas(box.w).VH * 2);
     return desktopCanvas(box.w, fill);
-  }, [box, touchUi, fill]);
+  }, [box, touchUi, fill, tall]);
   // Volume off: the pane (and the gap above it) collapses onto its bottom edge
   // and the price pane grows down to fill it, so hiding volume gives the tape
   // the room rather than leaving a blank strip.
@@ -925,7 +1023,11 @@ export default function GammaTerminalChart({
   const [railDragWidth, setRailDragWidth] = useState<number | null>(null);
   // Only while the inline rail is drawn: with the Gamma Rail overlay off, a
   // dragged width would hold open a blank column with no edge left to drag.
-  const requestedRailWidth = hideRail || !overlays.rail ? null : (railDragWidth ?? railWidth);
+  const requestedRailWidth = hideRail
+    ? null
+    : sideColumn
+      ? railWidth
+      : !overlays.rail ? null : (railDragWidth ?? railWidth);
   const canvas = useMemo(
     () => (requestedRailWidth == null ? volumeCanvas : withRailWidth(volumeCanvas, requestedRailWidth)),
     [volumeCanvas, requestedRailWidth],
@@ -1041,7 +1143,7 @@ export default function GammaTerminalChart({
   // Inline, the rail is an overlay the reader toggles off. Panelled, it IS the
   // panel — the page's own view switch put it there, so an overlay pill that
   // could empty the panel would be a second, contradictory control.
-  const railOn = inPanel || (overlays.rail && !hideRail);
+  const railOn = inPanel || (overlays.rail && !hideRail && !sideColumn);
   // The strike panel's hover: the price under the pointer (snapped to a strike
   // at render, so the card keeps up with the book as it updates), where the
   // pointer sits in the panel, for placing the card, and whether a finger put
@@ -1165,7 +1267,7 @@ export default function GammaTerminalChart({
   // Full screen is for the chart standing on its own. A tile is sized by its
   // footprint and the board owns its corners, and the Terminal's chart works
   // with the panel beside it, which full screen would leave behind.
-  const canFullscreen = !inDashboardWidget && !hideRail && !strikePanelTarget;
+  const canFullscreen = !inDashboardWidget && (!hideRail || fullscreenWithoutRail) && !strikePanelTarget;
   const [railExpSym, setRailExpSym] = useState(symbol);
   if (railExpSym !== symbol) {
     setRailExpSym(symbol);
@@ -1191,7 +1293,7 @@ export default function GammaTerminalChart({
   useEffect(() => {
     try {
       const rawO = localStorage.getItem(overlayKey);
-      if (rawO) setOverlays((cur) => ({ ...cur, ...JSON.parse(rawO) }));
+      if (rawO) setOverlays((cur) => ({ ...cur, ...JSON.parse(rawO), ...forcedOff }));
       const rawS = localStorage.getItem(styleKey);
       if (rawS === "candles" || rawS === "line" || rawS === "area") setStyle(rawS);
       const rawV = localStorage.getItem(volumeModeKey);
@@ -1217,7 +1319,7 @@ export default function GammaTerminalChart({
       /* ignore malformed prefs */
     }
     setHydrated(true);
-  }, [overlayKey, styleKey, volumeModeKey, erKey, railKey, ribbonOpacityKey]);
+  }, [overlayKey, styleKey, volumeModeKey, erKey, railKey, ribbonOpacityKey, forcedOff]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -1979,6 +2081,8 @@ export default function GammaTerminalChart({
   const centerSpot = centerPriceOnSpot ? (liveClose ?? (bars.length ? bars[bars.length - 1].close : null)) : null;
 
   // ── Domain / scales ──────────────────────────────────────────────────────
+  // As a string, so a new array with the same prices does not refit the tape.
+  const fitPricesKey = (fitPrices ?? []).join(",");
   const layout = useMemo(() => {
     if (bars.length === 0) return null;
     const lows = bars.map((b) => b.low);
@@ -2004,6 +2108,13 @@ export default function GammaTerminalChart({
         dMin = Math.min(dMin, v);
         dMax = Math.max(dMax, v);
       }
+    }
+    // A surface's own key levels (the radar's Fuse and targets) are in the fit
+    // whatever their distance: they are the reason that surface exists.
+    for (const v of fitPricesKey ? fitPricesKey.split(",").map(Number) : []) {
+      if (!Number.isFinite(v)) continue;
+      dMin = Math.min(dMin, v);
+      dMax = Math.max(dMax, v);
     }
     const pad = (dMax - dMin) * 0.06 || dMax * 0.01;
     dMin -= pad;
@@ -2072,7 +2183,7 @@ export default function GammaTerminalChart({
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
     return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, sessionLinesOn, sessionLevels, centroidSpan, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
+  }, [bars, flip, callWall, putWall, vwap, sessionLinesOn, sessionLevels, centroidSpan, fitPricesKey, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
 
   // A chart that joins a linked rewind before its bars have loaded (added to
   // the board mid-replay, or given a new timeframe) had no window to freeze on
@@ -3290,7 +3401,7 @@ export default function GammaTerminalChart({
   // `hollow`: an outlined price tag instead of a filled one (the PD / PM set).
   type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean; hollow?: boolean };
   const levelDefs: LevelDef[] = [
-    { key: "flip", label: "FLIP", value: flip, color: "var(--color-flip)", dash: "7 4", show: overlays.levels },
+    { key: "flip", label: "FLIP", value: flip, color: "var(--color-flip)", dash: "7 4", show: !hideStandardLevels && (splitGammaLevels ? overlays.flipLine : overlays.levels) },
     // Walls are colored by what the LEVEL does, not by the instrument behind
     // it: the call wall is resistance (bear) and the put wall is support
     // (bull). That matches the articles ("Why the call wall acts as
@@ -3299,12 +3410,12 @@ export default function GammaTerminalChart({
     // all already draw the walls this way. The instrument convention (calls
     // green / puts red) still applies where a mark means call-vs-put
     // QUANTITY, such as the gamma rail below and GexWallsChart.
-    { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bear)", dash: "3 4", show: overlays.levels },
-    { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
-    { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-maxpain)", dash: "1 5", show: overlays.maxPain },
+    { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bear)", dash: "3 4", show: !hideStandardLevels && (splitGammaLevels ? overlays.callWallLine : overlays.levels) },
+    { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bull)", dash: "3 4", show: !hideStandardLevels && (splitGammaLevels ? overlays.putWallLine : overlays.levels) },
+    { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-maxpain)", dash: "1 5", show: !hideStandardLevels && overlays.maxPain },
     { key: "king", label: "GEX KING", value: gexKing, color: "var(--color-king)", dash: "5 3", show: overlays.king },
-    { key: "pin", label: pinLabel, value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: overlays.pin },
-    { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: overlays.vwap },
+    { key: "pin", label: pinLabel, value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: !hideStandardLevels && overlays.pin },
+    { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: !hideStandardLevels && overlays.vwap },
     { key: "er-high", label: "ER HIGH", value: erModel?.high ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
     { key: "er-low", label: "ER LOW", value: erModel?.low ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
     // Prior day and pre-market. These are where price has BEEN, not where
@@ -3327,6 +3438,16 @@ export default function GammaTerminalChart({
           hollow: true,
         }))
       : []),
+    // A surface's own levels (the radar's plan), drawn like the rest so they
+    // get a line, a chip and a decluttered axis tag.
+    ...(extraLevels ?? []).map((l) => ({
+      key: `extra-${l.key}`,
+      label: l.label,
+      value: l.value,
+      color: l.color,
+      dash: l.dash,
+      show: true,
+    })),
   ];
 
   // Confluence: is spot pinned to a level (within 0.12%)? Emphasize if so.
@@ -3346,6 +3467,8 @@ export default function GammaTerminalChart({
   // of each other. Only in-domain levels get a chip; out-of-range levels are
   // shown by their arrowed axis tag alone.
   const chipPlacements = (() => {
+    // A surface with names switched off draws no chips; the axis tags stay.
+    if (hideLevelNames) return [];
     const CHIP_H = 16;
     // Two coincident levels (a Pin sitting exactly on the Call Wall, say) land
     // on one row as "CALL WALL" "PIN · WEAK", and at 5px they read as a single
@@ -3990,7 +4113,7 @@ export default function GammaTerminalChart({
               so we show an unlock CTA instead. */}
           {live ? (
             <>
-              {compact ? (
+              {hideSymbolPicker ? null : compact ? (
                 // Seven symbols as buttons are a row of their own on a phone;
                 // the native picker is one control, and the platform's wheel.
                 <SymbolSelect value={symbol as UnderlyingSymbol} onChange={(s) => setSymbol(s)} ariaLabel="Symbol" />
@@ -4088,11 +4211,19 @@ export default function GammaTerminalChart({
   const overlayControls = (
     <>
           {/* Overlay pills */}
-          <OverlayPill label="Gamma Levels" color="var(--color-flip)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
-          {!hideRail && (
+          {splitGammaLevels ? (
+            <>
+              <OverlayPill label="Gamma Flip" color="var(--color-flip)" active={overlays.flipLine} onClick={() => setOverlays((o) => ({ ...o, flipLine: !o.flipLine }))} />
+              <OverlayPill label="Call Wall" color="var(--color-bear)" active={overlays.callWallLine} onClick={() => setOverlays((o) => ({ ...o, callWallLine: !o.callWallLine }))} />
+              <OverlayPill label="Put Wall" color="var(--color-bull)" active={overlays.putWallLine} onClick={() => setOverlays((o) => ({ ...o, putWallLine: !o.putWallLine }))} />
+            </>
+          ) : (
+            <OverlayPill label="Gamma Levels" color="var(--color-flip)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
+          )}
+          {!hideRail && !sideColumn && !isForcedOff("rail") && (
             <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
           )}
-          {live && (
+          {live && !isForcedOff("ribbons") && (
             <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons&nbsp;- per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
           )}
           {live && overlays.ribbons && (
@@ -4101,15 +4232,17 @@ export default function GammaTerminalChart({
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
           {/* Centroids — live intraday only (see centroidsOn). */}
-          {live && timeframe !== "1day" && (
+          {live && timeframe !== "1day" && !isForcedOff("centroids") && (
             <OverlayPill label="Centroids" color="var(--color-bull)" active={overlays.centroids} onClick={() => setOverlays((o) => ({ ...o, centroids: !o.centroids }))} title="Call &amp; put centroids&nbsp;- the average strike of the calls traded (green) and of the puts traded (red), weighted by contracts. Crisp lines = the last 15 minutes; wide soft lines = the session so far. Calls trade mostly above the price and puts below it, so the lines bracket the tape and show where the day's trading is centered. Not a forecast. Live, intraday timeframes only." />
           )}
           {/* Prior day + pre-market lines — live ETFs only (see sessionLevelsSupported). */}
-          {sessionLevelsSupported && (
+          {sessionLevelsSupported && !isForcedOff("sessionLevels") && (
             <OverlayPill label="PD/PM Levels" color="var(--text-secondary)" active={overlays.sessionLevels} onClick={() => setOverlays((o) => ({ ...o, sessionLevels: !o.sessionLevels }))} title="Prior day and pre-market levels&nbsp;- PDH / PDL / PDC (the previous regular session's high, low and close) and PMH / PML (today's pre-market high and low), drawn as gray dashed lines. The numbers are always in the row above the chart." />
           )}
           <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
-          <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
+          {!isForcedOff("king") && (
+            <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
+          )}
           <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
           {/* Bar Timer — live-only. The delayed public snapshot is a frozen tip,
               so a countdown on it would be counting down someone else's candle. */}
@@ -4711,6 +4844,15 @@ export default function GammaTerminalChart({
 
             {!inPanel && railGroup}
 
+            {/* A surface's own shaded bands, under the tape so the candles
+                stay crisp on top of them. */}
+            {(extraBands ?? []).map((b) => {
+              const yHi = clamp(yPrice(Math.max(b.from, b.to)), PAD_TOP, PRICE_BOTTOM);
+              const yLo = clamp(yPrice(Math.min(b.from, b.to)), PAD_TOP, PRICE_BOTTOM);
+              if (!(yLo - yHi > 0)) return null;
+              return <rect key={`band-${b.key}`} x={PLOT_LEFT} y={yHi} width={plotRight - PLOT_LEFT} height={yLo - yHi} fill={b.color} opacity={b.opacity} pointerEvents="none" />;
+            })}
+
             {/* ── Price series ──────────────────────────────────────────── */}
             <g clipPath={`url(#${PLOT_CLIP_ID})`}>
               {style === "area" && <path d={areaPath} fill={`url(#${AREA_GRADIENT_ID})`} />}
@@ -4985,6 +5127,22 @@ export default function GammaTerminalChart({
                 </g>
               );
             })()}
+            {/* A surface's own column in the rail's place, on this chart's
+                price scale (see `sideColumn`). Drawn last, so the hover card
+                it draws over the tape sits above the levels and their tags. */}
+            {sideColumn && !hideRail && !inPanel && layout && (
+              <g>
+                {sideColumn({
+                  left: RAIL_LEFT,
+                  right: RAIL_RIGHT,
+                  top: PAD_TOP,
+                  bottom: PRICE_BOTTOM,
+                  yPrice: layout.yPrice,
+                  priceForY: layout.priceForY,
+                  compact,
+                })}
+              </g>
+            )}
           </svg>
           {/* ── Rail edge ──────────────────────────────────────────────────
                On My Dashboard (onRailWidthChange) the inline rail's left edge

@@ -169,48 +169,27 @@ export function targetPassed(spot: number, target: number, direction: Direction)
 }
 
 // ---------------------------------------------------------------------------
-// The visible price range
+// What the chart keeps on screen
 // ---------------------------------------------------------------------------
 
 /**
- * The y-range for a view. A to B frames the Fuse through Target 1, A to B to C
- * through Target 2 (A to B when there is none), and Wide runs a set distance
- * in the trade's direction with a small margin behind the Fuse. Spot is always
- * kept on screen. With no route yet, the view centers on spot.
+ * The prices a view asks the chart to keep in its fit. The chart still owns
+ * the scale (and the reader's zoom and pan win over it): A to B keeps the Fuse
+ * and Target 1 in view, A to B to C adds Target 2 (A to B when there is none),
+ * and Wide reaches a set distance in the trade's direction from the Fuse.
+ * Without a route there is nothing to keep, and the chart fits price alone.
  */
-export function viewRange(
+export function fitPricesFor(
   view: ViewMode,
   levels: PlanLevels,
-  spot: number,
   direction: Direction,
   widePoints: number = DEFAULT_WIDE_POINTS,
-): [number, number] {
+): number[] {
   const { fuse, t1, t2 } = levels;
-  let lo: number;
-  let hi: number;
-  if (fuse == null || t1 == null) {
-    lo = spot - 30;
-    hi = spot + 30;
-  } else if (view === 'WIDE') {
-    const margin = Math.max(10, widePoints * 0.15);
-    if (direction === 'up') { lo = fuse - margin; hi = fuse + widePoints; }
-    else { lo = fuse - widePoints; hi = fuse + margin; }
-  } else {
-    const far = view === 'ABC' && t2 != null ? t2 : t1;
-    const span = Math.abs(far - fuse);
-    const m = Math.max(6, span * (far === t1 ? 0.25 : 0.15));
-    lo = Math.min(fuse, far) - m;
-    hi = Math.max(fuse, far) + m;
-  }
-  lo = Math.min(lo, spot - 3);
-  hi = Math.max(hi, spot + 3);
-  return [lo, hi];
-}
-
-/** A round grid step that gives at most eight lines across the span. */
-export function niceStep(span: number): number {
-  for (const s of [1, 2.5, 5, 10, 20, 25, 50, 100]) if (span / s <= 8) return s;
-  return 250;
+  if (fuse == null || t1 == null) return [];
+  if (view === 'WIDE') return [fuse, fuse + (direction === 'up' ? widePoints : -widePoints)];
+  if (view === 'ABC' && t2 != null) return [fuse, t1, t2];
+  return [fuse, t1];
 }
 
 // ---------------------------------------------------------------------------
@@ -368,25 +347,8 @@ export function nextRelevantStrike(
 }
 
 // ---------------------------------------------------------------------------
-// Candles and the session clock
+// The session clock
 // ---------------------------------------------------------------------------
-
-export interface Bar {
-  timestamp: string;
-  open?: number | null;
-  high?: number | null;
-  low?: number | null;
-  close?: number | null;
-}
-
-export interface Candle {
-  /** Epoch ms of the candle's opening minute. */
-  t: number;
-  o: number;
-  h: number;
-  l: number;
-  c: number;
-}
 
 /**
  * ET's UTC offset in minutes at an instant (-240 in summer, -300 in winter),
@@ -412,28 +374,6 @@ export function sessionBounds(ms: number): { open: number; close: number } {
   const open = Date.UTC(y, mo, d, 9, 30) - offset * 60_000;
   const close = Date.UTC(y, mo, d, 16, 0) - offset * 60_000;
   return { open, close };
-}
-
-/**
- * Roll one-minute bars into `minutes`-long candles aligned to the session
- * open, keeping only bars inside [open, close). Four minutes by default, which
- * matches the Fuse chart.
- */
-export function rollCandles(bars: Bar[], open: number, close: number, minutes = 4): Candle[] {
-  const size = minutes * 60_000;
-  const out = new Map<number, Candle>();
-  const rows = bars
-    .map((b) => ({ t: Date.parse(b.timestamp), o: num(b.open), h: num(b.high), l: num(b.low), c: num(b.close) }))
-    .filter((b) => Number.isFinite(b.t) && b.t >= open && b.t < close && b.c != null)
-    .sort((a, b) => a.t - b.t);
-  for (const b of rows) {
-    const slot = open + Math.floor((b.t - open) / size) * size;
-    const o = b.o ?? b.c!; const h = b.h ?? b.c!; const l = b.l ?? b.c!; const c = b.c!;
-    const cur = out.get(slot);
-    if (!cur) out.set(slot, { t: slot, o, h, l, c });
-    else { cur.h = Math.max(cur.h, h); cur.l = Math.min(cur.l, l); cur.c = c; }
-  }
-  return [...out.values()];
 }
 
 // ---------------------------------------------------------------------------

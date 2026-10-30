@@ -102,7 +102,11 @@ test("the ribbons are available under both views", () => {
   assert.equal((surface.match(/storageScope=/g) ?? []).length, 1);
   assert.equal((surface.match(/overlayDefaults=/g) ?? []).length, 1);
   // The pill itself is gated on `live` only — never on the rail or the view.
-  assert.match(chart, /\{live && \(\s*<OverlayPill label="Ribbons"/);
+  // The one other gate is a surface's own forced-off list (the Fuseline
+  // Radar's, where the ladder does the ribbons' job), and the Terminal passes
+  // none, so here the pill is still there under both views.
+  assert.match(chart, /\{live && !isForcedOff\("ribbons"\) && \(\s*<OverlayPill label="Ribbons"/);
+  assert.doesNotMatch(surface, /forceOffOverlays=/);
   assert.match(chart, /\{live && overlays\.ribbons && \(\s*<RibbonOpacityControl/);
 });
 
@@ -161,7 +165,9 @@ test("the rail's geometry follows it out of the chart's column", () => {
   assert.doesNotMatch(railSrc, /RAIL_CENTER|RAIL_HALF/);
   // Inline, the rail is still an overlay the reader can switch off; panelled,
   // the page's view switch already put it there.
-  assert.match(chart, /const railOn = inPanel \|\| \(overlays\.rail && !hideRail\);/);
+  // A surface's own side column (the Fuseline Radar's ladder) takes the
+  // column instead, and only there does the rail stand down.
+  assert.match(chart, /const railOn = inPanel \|\| \(overlays\.rail && !hideRail && !sideColumn\);/);
 });
 
 // The rail's four views and its labels pill are controls over the rail, so they
