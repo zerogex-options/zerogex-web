@@ -76,7 +76,7 @@ help:
 	@echo "  make daily-levels        - Send the free pre-open levels digest to confirmed levels-email subscribers. Sends nothing without YES=1. DRY_RUN=1 prints the per-symbol freshness verdict + the rendered body, PREVIEW_TO=<email> mails one sample, FORCE=1 skips the 08:30-09:25 ET window (not the trading-day or freshness guards), LIMIT=<n> / THROTTLE_MS=<n> (default 250 ms between Resend calls) bound a run. Safe to re-run: anyone already sent that day's digest is skipped, so after a partial failure YES=1 FORCE=1 mails only the people it missed"
 	@echo "  make levels-subscribers  - Read-only readout of the free levels email list: the double opt-in rate, the funnel, and the split by preferred symbol and signup page. JSON=1 for machine-readable output"
 	@echo "  make verify-reminders - Send the founder-voice 'finish verifying to unlock the trial' nudge to users who signed up but never confirmed their email (mints a fresh 24h verify link; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
-	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure). DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (weekly review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; PREVIEW_MODE=auto|promo|none forces a variant; LAG_DAYS/LOOKBACK_DAYS override the window"
+	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure). Skips anyone unsubscribed from marketing and names them; each email carries a one-click unsubscribe. DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (weekly review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; PREVIEW_MODE=auto|promo|none forces a variant; LAG_DAYS/LOOKBACK_DAYS override the window"
 	@echo "  make cancel-reason-followup - One email to members who canceled in the last DAYS (default 7) saying \"Too expensive\" (50% off for 12 months: a one-click save if they still have access, a come-back link if it has ended) or \"Too complex\" (My Dashboard + the Education hub). Once per member, ever. DRY_RUN=1 lists who gets which email and why others were skipped; PREVIEW_TO=<email> sends you all four versions; YES=1 sends; LIMIT=N caps a run"
 	@echo "  make return-intent - Answer churned members who logged back in on their own (no discount, no trial claim; per-reason copy from their cancel survey). DIGEST=1 [DIGEST_TO=<email>] emails you the list + draft and sends nothing (the daily default); YES=1 delivers; DRY_RUN=1 previews with a per-member skip tally; PREVIEW_TO=<email> sends one sample; COOLDOWN_DAYS/QUIET_HOURS/MAX_LOGIN_AGE_DAYS tune the windows; LIMIT caps a run"
 	@echo "  make reactivation - Send the second-touch reactivation email (extended free trial) to cold verified-never-paid signups who signed up >=21d ago. DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; LAG_DAYS/LOOKBACK_DAYS override the 21d/3650d window; LIMIT=<n> caps the drip (default 50; 0=unlimited)"
@@ -876,13 +876,17 @@ verify-reminders:
 
 # Send the ~1-month-after-churn win-back email to every lapsed subscriber
 # (subscription_lapsed=1, verified, no active sub) whose most-recent departure
-# landed inside the [now-LOOKBACK_DAYS, now-LAG_DAYS] window (defaults 60d/30d).
-# The copy leads with what's new since they left, then makes a discount offer —
-# the live public promo (PROMO_END_AT) when one is running, otherwise the
-# evergreen "reply 'discount' for 25% off your first year". Idempotent via
+# landed inside the [now-LOOKBACK_DAYS, now-LAG_DAYS] window (defaults
+# 3650d/30d). The copy leads with what's new since they left, then makes a
+# discount offer only when one applies itself at checkout: the
+# STRIPE_COUPON_WINBACK_* coupon, else the live public promo (PROMO_END_AT),
+# else none. Idempotent via
 # users.winback_email_sent_at (the Stripe webhook clears it on re-subscribe so a
 # future re-churn re-qualifies). Never mails the admin, a creator partner or a
-# comped member (core/excludedAccounts.ts); every run lists the ones it skipped.
+# comped member (core/excludedAccounts.ts), or anyone who unsubscribed from
+# marketing (users.marketing_unsubscribed_at); every run, and the DIGEST=1
+# review email, lists the ones it skipped. Each email carries a signed one-click
+# unsubscribe (footer link + List-Unsubscribe header).
 # Pass DRY_RUN=1 to preview eligible users, YES=1 to actually send.
 # PREVIEW_TO=<email> renders one sample (PREVIEW_PROMO=1 for
 # a forced variant via PREVIEW_MODE=auto|promo|none; no DB writes).

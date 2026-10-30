@@ -2797,9 +2797,14 @@ export async function sendCancelReasonFollowupEmail(to: string, opts: CancelReas
 // discountLabel (e.g. "25% off your first year") is shown in the auto copy and
 // MUST match the actual STRIPE_COUPON_WINBACK_* value.
 //
-// Every send carries a plain-language opt-out footer ("you're receiving this
-// because you created a ZeroGEX account… delete your account here"), where the
-// opt-out mechanism is self-service account deletion (/account#delete-account).
+// A discount pitch to someone who left is marketing, so it carries a real
+// marketing unsubscribe, like the reactivation and return-intent sends: a
+// footer opt-out link plus the one-click List-Unsubscribe header (RFC 8058).
+// `unsubUrl` is the signed per-user link the caller builds via
+// core/unsubToken.ts buildUnsubUrl(); scripts/send-winback.mts skips anyone
+// already opted out (users.marketing_unsubscribed_at) and names them. The
+// footer used to point at self-service account deletion instead, so the only
+// way out of this email was closing the account.
 
 export type WinbackHighlight = { title: string; body: string };
 
@@ -2836,32 +2841,31 @@ export type WinbackEmailOptions = {
   promoDeadlineLabel?: string | null;
   // Override the "what's new" bullets (evergreen list from the caller).
   highlights?: WinbackHighlight[];
+  // Signed per-user opt-out link (core/unsubToken.ts buildUnsubUrl).
+  unsubUrl: string;
 };
 
 // Pure render — no network. Returns the subject + text + html so the same
 // content can be sent to a churner (sendWinbackEmail) or embedded in the
 // founder's weekly review digest (sendWinbackDigestEmail) without drift.
-export function renderWinbackEmail(opts?: WinbackEmailOptions): {
+export function renderWinbackEmail(opts: WinbackEmailOptions): {
   subject: string;
   text: string;
   html: string;
 } {
-  const auto = opts?.winbackAutoApply === true;
+  const auto = opts.winbackAutoApply === true;
   // Promo copy is a fallback only — the automated win-back coupon always wins
   // when it's configured, since it's the targeted per-user offer.
-  const promo = !auto ? opts?.promoDeadlineLabel ?? null : null;
-  const label = opts?.discountLabel?.trim() || '25% off your first year';
+  const promo = !auto ? opts.promoDeadlineLabel ?? null : null;
+  const label = opts.discountLabel?.trim() || '25% off your first year';
   const highlights =
-    opts?.highlights && opts.highlights.length > 0 ? opts.highlights : DEFAULT_WINBACK_HIGHLIGHTS;
+    opts.highlights && opts.highlights.length > 0 ? opts.highlights : DEFAULT_WINBACK_HIGHLIGHTS;
 
   // Auto variant sends them through the ?winback=1 link so the coupon attaches
   // at checkout; the other variants land on plain /pricing.
   const ctaHref = auto ? `${getAppUrl()}/pricing?winback=1` : `${getAppUrl()}/pricing`;
   const safeCtaHref = escapeHtml(ctaHref);
-
-  // Opt-out target: self-service account deletion is the unsubscribe mechanism.
-  const accountUrl = `${getAppUrl()}/account#delete-account`;
-  const safeAccountUrl = escapeHtml(accountUrl);
+  const safeUnsubUrl = escapeHtml(opts.unsubUrl);
 
   const subject = auto
     ? `A lot has changed at ZeroGEX - and your discount's ready`
@@ -2889,9 +2893,6 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
       ? 'Come back\u00a0- see the new pricing'
       : 'See what you\'ve missed';
 
-  const footerText =
-    "You're receiving this because you created a ZeroGEX account. If you'd rather not hear from us, you can delete your account here (this cancels any subscription and closes your account):";
-
   const text = [
     'Hello,',
     '',
@@ -2915,8 +2916,8 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
     'Founder, ZeroGEX',
     '',
     '—',
-    footerText,
-    accountUrl,
+    "You're receiving this because you created a ZeroGEX account. Unsubscribe from emails like this:",
+    opts.unsubUrl,
   ].join('\n');
 
   const highlightsHtml = highlights
@@ -2943,7 +2944,8 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
       <p>If anything specific pushed you away\u00a0- a missing feature, a bug, a pricing thing\u00a0- just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       <p style="font-size: 12px; color: #999; margin-top: 28px; border-top: 1px solid #eee; padding-top: 14px; line-height: 1.5;">
-        You're receiving this because you created a ZeroGEX account. If you'd rather not hear from us, you can <a href="${safeAccountUrl}" style="color: #999; text-decoration: underline;">delete your account</a>\u00a0- that cancels any subscription and closes the account.
+        You're receiving this because you created a ZeroGEX account.
+        <a href="${safeUnsubUrl}" style="color: #999; text-decoration: underline;">Unsubscribe from emails like this</a>.
       </p>
     </div>
   `.trim();
@@ -2951,7 +2953,7 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
   return { subject, text, html };
 }
 
-export async function sendWinbackEmail(to: string, opts?: WinbackEmailOptions) {
+export async function sendWinbackEmail(to: string, opts: WinbackEmailOptions) {
   const { subject, text, html } = renderWinbackEmail(opts);
 
   const client = getClient();
@@ -2961,6 +2963,13 @@ export async function sendWinbackEmail(to: string, opts?: WinbackEmailOptions) {
     subject,
     text,
     html,
+    // One-click unsubscribe (RFC 8058), same as the reactivation and
+    // return-intent sends: this is a discount pitch, so opting out must be one
+    // tap for the recipient and machine-readable for the mailbox provider.
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
   });
 
   if (result.error) {
@@ -3164,14 +3173,17 @@ export async function sendCancellationAlertEmail(to: string, alert: ChurnAlert) 
 }
 
 // Weekly review digest to the founder (scripts/send-winback.mts --digest). It
-// lists exactly who the win-back WOULD go to this run and embeds the rendered
-// draft, but sends nothing to those users — the actual send is a separate,
-// deliberate `make winback YES=1`. This is the "email me the draft + the list
-// it will be sent to before it goes" step.
+// lists exactly who the win-back WOULD go to this run, and who it skipped and
+// why, and embeds the rendered draft, but sends nothing to those users — the
+// actual send is a separate, deliberate `make winback YES=1`. This is the
+// "email me the draft + the list it will be sent to before it goes" step.
 export async function sendWinbackDigestEmail(
   to: string,
   opts: {
     recipients: string[];
+    // Churned members the run held out, with the reason in words: opted out of
+    // marketing, or not a customer (core/excludedAccounts.ts).
+    skipped: Array<{ email: string; reason: string }>;
     // 'none' is scripts/send-winback.mts's ranking when neither the automated
     // coupon nor a live public promo is configured. Rendered as a label only.
     mode: 'auto' | 'promo' | 'manual' | 'none';
@@ -3179,7 +3191,7 @@ export async function sendWinbackDigestEmail(
     draft: { subject: string; text: string; html: string };
   },
 ) {
-  const { recipients, mode, sendCommand, draft } = opts;
+  const { recipients, skipped, mode, sendCommand, draft } = opts;
   const count = recipients.length;
   const subject = `[ZeroGEX] Win-back review — ${count} churned member${count === 1 ? '' : 's'} ready (${mode})`;
 
@@ -3188,12 +3200,15 @@ export async function sendWinbackDigestEmail(
     `${count} churned member${count === 1 ? '' : 's'} are eligible for the win-back email this week.`,
     `Discount variant: ${mode}.`,
     '',
-    'Nothing has been sent yet. To send to everyone below, run:',
+    'Nothing has been sent yet. To send to the recipients below, run:',
     `  ${sendCommand}`,
     '',
     `Recipients (${count}):`,
     listText,
     '',
+    ...(skipped.length > 0
+      ? [`Skipped (${skipped.length}), not emailed:`, ...skipped.map((s) => `  - ${s.email}: ${s.reason}`), '']
+      : []),
     '======================================================',
     'DRAFT that will be sent (subject + body):',
     `Subject: ${draft.subject}`,
@@ -3206,16 +3221,24 @@ export async function sendWinbackDigestEmail(
     recipients.length > 0
       ? recipients.map((e) => `<li style="margin:2px 0;">${escapeHtml(e)}</li>`).join('')
       : '<li style="margin:2px 0; color:#999;">(none)</li>';
+  const skippedHtml =
+    skipped.length > 0
+      ? `<h2 style="font-size: 14px; margin: 18px 0 6px;">Skipped (${skipped.length}), not emailed</h2>
+      <ul style="padding-left: 18px; margin: 0 0 20px; font-size: 13px; color: #333;">${skipped
+        .map((s) => `<li style="margin:2px 0;">${escapeHtml(s.email)}: ${escapeHtml(s.reason)}</li>`)
+        .join('')}</ul>`
+      : '';
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 640px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <h1 style="font-size: 18px; margin: 0 0 6px;">Win-back review — ${count} eligible</h1>
       <p style="margin: 0 0 4px; color: #444;">Discount variant: <strong>${escapeHtml(mode)}</strong>. Nothing has been sent yet.</p>
-      <p style="margin: 0 0 16px; color: #444;">To send to everyone listed, run:<br>
+      <p style="margin: 0 0 16px; color: #444;">To send to the recipients listed, run:<br>
         <code style="display:inline-block; margin-top:6px; background:#f5f5f5; padding:6px 10px; border-radius:6px; font-size:13px;">${escapeHtml(sendCommand)}</code>
       </p>
       <h2 style="font-size: 14px; margin: 18px 0 6px;">Recipients (${count})</h2>
       <ul style="padding-left: 18px; margin: 0 0 20px; font-size: 13px; color: #333;">${safeList}</ul>
+      ${skippedHtml}
       <div style="border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden;">
         <div style="background: #f5b400; color: #000; font-weight: 700; font-size: 13px; padding: 8px 12px;">
           DRAFT PREVIEW &mdash; Subject: ${escapeHtml(draft.subject)}

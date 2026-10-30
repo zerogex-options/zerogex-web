@@ -465,8 +465,13 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 - ~1 month after a sub actually lapses. Discount precedence **auto > promo > none**,
   and both surviving variants redeem themselves at checkout.
   "What's new" bullets come from `content/winback-highlights.json` (falls back to
-  `DEFAULT_WINBACK_HIGHLIGHTS`). Plain-language opt-out footer pointing at self-service
-  account deletion.
+  `DEFAULT_WINBACK_HIGHLIGHTS`).
+- Carries a real marketing unsubscribe footer **and** the one-click
+  `List-Unsubscribe` / `List-Unsubscribe-Post` headers (RFC 8058), signed per member
+  (`core/unsubToken.ts`), and honors `marketing_unsubscribed_at`: an opted-out member
+  is skipped, and the dry run and the digest name them. The footer used to point at
+  self-service account deletion, so the only way out of a discount pitch was closing
+  the account, and members who had unsubscribed from marketing still got it.
 - **No reply-for-discount fallback.** The third variant used to be a manual offer
   ("reply 'discount' and I'll set it up by hand"), which put that member on different
   terms from everyone else and promised a coupon precisely when the coupon plumbing was
@@ -522,10 +527,13 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   real rendered email** rather than a synthetic sample, so the reviewer sees
   what will actually go out. **Sends nothing to members.**
 
-**Win-back founder digest** — `sendWinbackDigestEmail(to, { recipients, mode, sendCommand, draft })`
+**Win-back founder digest** — `sendWinbackDigestEmail(to, { recipients, skipped, mode, sendCommand, draft })`
 - **Subject:** `[ZeroGEX] Win-back review — N churned members ready (mode)`
 - Weekly "here's exactly who it would go to + the rendered draft" review email to the
-  founder. **Sends nothing to users** — the real send is a separate `make winback YES=1`.
+  founder, plus who was skipped and why (unsubscribed from marketing, or not a
+  customer). **Sends nothing to users** — the real send is a separate `make winback YES=1`.
+  The embedded draft's unsubscribe link is an unsigned placeholder, so a click in the
+  founder's inbox opts no member out.
 
 **Reactivation founder digest** — `sendReactivationDigestEmail(to, { recipients, sendCommand, trialDays, draft })`
 - **Subject:** `[ZeroGEX] Reactivation review — N cold signups ready (N-day trial)`
