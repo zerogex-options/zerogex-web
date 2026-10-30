@@ -12,6 +12,8 @@
 //                     basil:  invoice.parent.subscription_details.subscription
 //   line price id     acacia: line.price.id
 //                     basil:  line.pricing.price_details.price
+//   charge's invoice  acacia: charge.invoice
+//                     basil:  removed outright (see readChargeInvoice)
 //
 // Reading only the acacia shape means a basil-rendered event silently yields
 // null — and null is indistinguishable from "this invoice has no subscription",
@@ -373,6 +375,30 @@ export function readInvoicePaidAtUnix(invoice: unknown): number | null {
   const paidAt = transitions ? num(transitions.paid_at) : null;
   if (paidAt != null) return paidAt;
   return num(inv.created);
+}
+
+export type ChargeInvoiceRead =
+  | { kind: 'invoice'; invoiceId: string }
+  | { kind: 'none' }
+  | { kind: 'unknown' };
+
+// The invoice a CHARGE paid, as far as the charge in hand can say.
+//
+// Three answers rather than an id-or-null, because basil did not move
+// `charge.invoice`, it removed it: a basil-rendered charge has nothing to read,
+// and taking that silence as "no invoice" is how every subscription refund
+// reaching the webhook got logged as a one-off charge with its partner
+// commission left accrued. acacia and earlier always render the field, so a
+// null there is a real answer — the charge was not for an invoice — and only
+// that null counts as 'none'. A missing field, or one holding something
+// unreadable, is 'unknown': re-read the charge through our pinned client
+// (core/chargeInvoice.ts) instead of guessing.
+export function readChargeInvoice(charge: unknown): ChargeInvoiceRead {
+  const ch = obj(charge);
+  if (!ch || !('invoice' in ch)) return { kind: 'unknown' };
+  const invoiceId = idOf(ch.invoice as Expandable);
+  if (invoiceId) return { kind: 'invoice', invoiceId };
+  return ch.invoice === null ? { kind: 'none' } : { kind: 'unknown' };
 }
 
 export type LateDiscountFix =

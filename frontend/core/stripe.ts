@@ -55,7 +55,10 @@ let cachedClient: Stripe | null = null;
 // silently change the API version and with it the shape of objects we depend on
 // — e.g. subscription.current_period_end moved from the subscription to the
 // subscription item in a 2024 version (see getCurrentPeriodEndUnix), and
-// pending_setup_intent gating (webhook) assumes the current shapes. stripe-node
+// pending_setup_intent gating (webhook) assumes the current shapes. The refund
+// and dispute webhooks read a charge's `invoice` through this client; basil
+// removed that field (events no longer carry it, see core/chargeInvoice.ts), so
+// moving past acacia here would lose it for them too. stripe-node
 // types `apiVersion` as its LATEST known version, so when a newer SDK drops this
 // literal from that type, tsc fails HERE — turning an otherwise-silent
 // API-version drift into a deliberate, reviewed upgrade. This value is the one
