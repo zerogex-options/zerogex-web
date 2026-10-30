@@ -18,9 +18,13 @@ times this morning, all asking for the $39 back:
 The cancel survey at 6:37 AM ET said: "This was taken from my bank card without
 my permission".
 
-> **Status:** not refunded, reply not sent. Lee asked for the refund today. Run
-> the commands below first, then send the reply, so everything it says is
-> already true when Lee reads it.
+> **Status:** done, Fri Oct 30. Plan canceled at 9:38 AM ET
+> (`make cancel-subscription`), marketing email turned off at 9:39, full $39
+> refunded in the Stripe Dashboard at 9:40 (charge
+> `ch_3USZ4q4AOiqteMYY1IXBe21i`), then the reply below went out.
+> `make diagnose-user` afterward: tier `public`, `refund_issued` for 3900 of
+> 3900, not counted as a subscriber. If a dispute arrives, answer it with that
+> refund.
 
 ## Lee's account (`make diagnose-user`, morning of Oct 30)
 
@@ -162,3 +166,14 @@ Founder, ZeroGEX
   access ended, on a trial that got the dormant reminder. If more "I never
   subscribed" emails follow late recoveries like this one, that's the pattern to
   look at. One case isn't a pattern yet.
+- **Refunds are logged without their invoice, so partner commissions never
+  reverse.** Lee's refund was logged as `Full refund on charge
+  ch_3USZ4q4AOiqteMYY1IXBe21i: 3900 of 3900 usd charged (no invoice — one-off
+  charge)`, though that charge paid invoice `in_1USY8W4AOiqteMYYmxKBvPVZ`. The
+  `charge.refunded` handler in `frontend/app/api/webhooks/stripe/route.ts`
+  reads `charge.invoice` off the event. Events arrive in the webhook endpoint's
+  API version, and Stripe removed that field there (basil; see the header of
+  `frontend/core/stripeInvoice.ts`). For Lee it's only a wrong label, since
+  there's no referrer. For a creator partner's referral, the commission on a
+  refunded invoice stays `accrued`, money-back refunds included. Queued as a
+  separate task.
