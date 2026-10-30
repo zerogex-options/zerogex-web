@@ -333,6 +333,26 @@ test("both ladders follow the chart's rewind clock", () => {
   assert.match(hook, /positioningKind: "rewind" as const/);
 });
 
+// A rewind draws the last-price line where the live chart drew it at that
+// moment. Rewind pins the window's right edge to the replay clock's candle, so
+// that candle's close is the price the line, its axis tag and the dot mark,
+// the same price the headline prints. The pool tip, which the live chart reads
+// so a pan into history keeps the line on the current price, would hold all
+// three on today's quote while every frame moved underneath them.
+test("the last-price line, tag and dot follow the rewind clock", () => {
+  assert.match(chart, /const viewEnd = rewindEdgeIdx != null \? Math\.min\(total, rewindEdgeIdx \+ 1\)/);
+  assert.match(chart, /const lastPrice = rewindActive \? lastBar\.close : liveTip\.close;/);
+  assert.match(chart, /const spot = rewindActive \? lastBar\.close :/);
+  assert.equal((chart.match(/yPrice\(lastPrice\)/g) ?? []).length, 2, "the line and the tag");
+  assert.match(chart, /value: fmtPrice\(lastPrice\),/);
+  assert.doesNotMatch(chart, /(?:yPrice|fmtPrice)\(liveTip\.close\)/, "nothing on the tape is pinned to the pool tip");
+  // The dot rides the replayed edge candle too, but never pings: the ping says
+  // the bar is trading now, and the feed is never live while rewinding.
+  assert.match(chart, /\{\(atLiveEdge \|\| rewindActive\) && <circle className=\{isLive \? "zg-gc-dot" : ""\}/);
+  assert.match(chart, /\{atLiveEdge && isLive && <circle className="zg-gc-ping"/);
+  assert.match(chart, /const feedIsLive = !delayed && !rewindActive && /);
+});
+
 // The ribbons' opacity is user-adjustable and persisted, with the default a
 // notch under the tuned look.
 test("ribbon opacity is adjustable, persisted per surface, and defaults to 90%", () => {

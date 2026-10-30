@@ -3220,6 +3220,11 @@ export default function GammaTerminalChart({
   // tag so they stay anchored to the current price even when panned into
   // history, where the last *visible* bar is older.
   const liveTip = allBars[allBars.length - 1] ?? lastBar;
+  // The price that line, its tag and the dot mark. While rewinding, "current"
+  // is the replay clock's: the right-edge candle, which playback builds up to
+  // the clock, so the line moves with every frame and sits where the live
+  // chart drew it at that moment. The pool tip would hold it on today's price.
+  const lastPrice = rewindActive ? lastBar.close : liveTip.close;
   // Clamp to the visible range: a zoom can shrink bars.length while a stale
   // hover index from the previous (wider) window is still set, and indexing
   // bars[activeIdx - 1] out of range below would otherwise throw.
@@ -4807,7 +4812,7 @@ export default function GammaTerminalChart({
 
             {/* ── Last-price line + live cursor (tag drawn in declutter pass) ── */}
             {(() => {
-              const y = clamp(yPrice(liveTip.close), PAD_TOP, PRICE_BOTTOM);
+              const y = clamp(yPrice(lastPrice), PAD_TOP, PRICE_BOTTOM);
               const x = xForIndex(lastIdx);
               // feedStale: the pinging dot asserts "this bar is trading right now".
               // On a delayed feed the tip is the newest bar we have, not the newest
@@ -4817,9 +4822,12 @@ export default function GammaTerminalChart({
                 <g>
                   <line x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
                   {/* The dot marks the live bar — only shown when it's on screen
-                      (i.e. at the live edge, not scrolled back into history). */}
+                      (i.e. at the live edge, not scrolled back into history). A
+                      rewind's right edge is the replayed moment's live bar, so
+                      the dot rides it too, without the ping: nothing in a replay
+                      is trading now (feedIsLive is false while rewinding). */}
                   {atLiveEdge && isLive && <circle className="zg-gc-ping" cx={x} cy={y} r={4} fill="none" stroke="var(--color-accent-hot)" strokeWidth={1.5} />}
-                  {atLiveEdge && <circle className={isLive ? "zg-gc-dot" : ""} cx={x} cy={y} r={3.4} fill="var(--color-accent-hot)" />}
+                  {(atLiveEdge || rewindActive) && <circle className={isLive ? "zg-gc-dot" : ""} cx={x} cy={y} r={3.4} fill="var(--color-accent-hot)" />}
                 </g>
               );
             })()}
@@ -4842,8 +4850,8 @@ export default function GammaTerminalChart({
                   })),
                 {
                   key: "last",
-                  y: clamp(yPrice(liveTip.close), PAD_TOP, PRICE_BOTTOM),
-                  value: fmtPrice(liveTip.close),
+                  y: clamp(yPrice(lastPrice), PAD_TOP, PRICE_BOTTOM),
+                  value: fmtPrice(lastPrice),
                   bg: "var(--color-accent-hot)",
                   strong: true,
                   hollow: false,
