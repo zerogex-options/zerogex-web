@@ -70,8 +70,8 @@ const SECTIONS: Section[] = [
       { feature: 'GEX Summary', basic: true, pro: true },
       { feature: 'GEX Strike Profile', basic: true, pro: true },
       { feature: 'GEX Heatmap', basic: true, pro: true },
-      { feature: 'Gamma Shift (beta)', basic: true, pro: true },
-      { feature: 'Pair Comparison (beta)', basic: true, pro: true },
+      { feature: 'Gamma Shift', basic: true, pro: true },
+      { feature: 'Pair Comparison', basic: true, pro: true },
       { feature: 'Max Pain', basic: true, pro: true },
     ],
   },
@@ -79,10 +79,10 @@ const SECTIONS: Section[] = [
     heading: 'Metrics: Options Flow',
     rows: [
       { feature: 'Flow Analysis', basic: true, pro: true },
-      { feature: 'Hedging Flow (beta)', basic: true, pro: true },
-      { feature: 'Forced Flow (beta)', basic: true, pro: true },
+      { feature: 'Hedging Flow', basic: true, pro: true },
+      { feature: 'Forced Flow', basic: true, pro: true },
       { feature: 'Smart Money', basic: true, pro: true },
-      { feature: 'Market Tide (beta)', basic: true, pro: true },
+      { feature: 'Market Tide', basic: true, pro: true },
     ],
   },
   {
@@ -98,7 +98,7 @@ const SECTIONS: Section[] = [
     rows: [
       { feature: 'Strategy Builder (options pricing & P&L)', basic: true, pro: true },
       { feature: 'Live Options Quotes', basic: true, pro: true },
-      { feature: 'Premium Surface (beta)', basic: true, pro: true },
+      { feature: 'Premium Surface', basic: true, pro: true },
     ],
   },
   {

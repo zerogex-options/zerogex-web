@@ -3,7 +3,6 @@
 import { useState } from 'react';
 
 import SectionHead from '@/components/layout/SectionHead';
-import BetaBadge from '@/components/BetaBadge';
 import SymbolPicker from '@/components/SymbolPicker';
 import { CASH_SYMBOLS, type PickerSymbol } from '@/core/symbols';
 import type { HedgingFlowPayload } from '@/hooks/useHedgingFlow';
@@ -59,12 +58,7 @@ export default function DatedHedgingFlow({
     <>
       <SectionHead
         eyebrow="Options Flow · Past session"
-        title={
-          <span className="inline-flex items-center gap-2.5">
-            Hedging Flow
-            <BetaBadge size="md" />
-          </span>
-        }
+        title="Hedging Flow"
         sub={
           <>
             {symbol} · {humanDate}. Estimated dealer hedging pressure from that session&rsquo;s

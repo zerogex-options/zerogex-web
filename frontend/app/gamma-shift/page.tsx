@@ -72,7 +72,6 @@ export default function GammaShiftPage() {
     <PageShell>
       <PageHeader
         title="Gamma Shift"
-        beta
         sub={
           <>
             Not where dealer gamma sits, but how it <strong>changed</strong>&nbsp;- a book{' '}

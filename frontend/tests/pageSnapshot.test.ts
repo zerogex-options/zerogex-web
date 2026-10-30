@@ -203,12 +203,12 @@ test('flattenSnapshotCss skips empty declaration blocks and honours the budget',
 });
 
 test('resolveSnapshotTitle prefers the menu label over the heading', () => {
-  // `<h2>Hedging Flow<BetaBadge/></h2>` reads out of the DOM as one run of
-  // text. A frame printing "Hedging FlowBeta" looks broken rather than beta,
+  // `<h2>Volatility<BetaBadge/></h2>` reads out of the DOM as one run of
+  // text. A frame printing "VolatilityBeta" looks broken rather than beta,
   // so the curated menu label leads.
   assert.equal(
-    resolveSnapshotTitle({ headingText: 'Hedging FlowBeta', navLabel: 'Hedging Flow' }),
-    'Hedging Flow',
+    resolveSnapshotTitle({ headingText: 'VolatilityBeta', navLabel: 'Volatility' }),
+    'Volatility',
   );
   assert.equal(
     resolveSnapshotTitle({ headingText: '  Scrub through\n  any past session  ' }),

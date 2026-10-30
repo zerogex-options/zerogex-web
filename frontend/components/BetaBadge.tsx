@@ -6,7 +6,7 @@ interface BetaBadgeProps {
 
 /**
  * Small "BETA" pill used to flag features that are still under active
- * development (e.g. Backtesting, the Premium Heat Map). Uses the brand
+ * development (e.g. Backtesting, Volatility). Uses the brand
  * accent so it reads as informational rather than a warning.
  */
 export default function BetaBadge({ size = "sm", className = "" }: BetaBadgeProps) {

@@ -133,8 +133,8 @@ export const NAV_GROUPS: NavGroup[] = [
           { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
           { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
           { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
-          { id: '/gamma-shift', label: 'Gamma Shift', requiredTier: 'basic', beta: true },
-          { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic', beta: true },
+          { id: '/gamma-shift', label: 'Gamma Shift', requiredTier: 'basic' },
+          { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic' },
           { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
         ],
       },
@@ -142,10 +142,10 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Options Flow',
         items: [
           { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
-          { id: '/hedging-flow', label: 'Hedging Flow', requiredTier: 'basic', beta: true },
-          { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
+          { id: '/hedging-flow', label: 'Hedging Flow', requiredTier: 'basic' },
+          { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic' },
           { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
-          { id: '/market-tide', label: 'Market Tide', requiredTier: 'basic', beta: true },
+          { id: '/market-tide', label: 'Market Tide', requiredTier: 'basic' },
         ],
       },
       {
@@ -164,7 +164,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/options-calculator', label: 'Strategy Builder', labelKey: 'nav.strategyBuilder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', labelKey: 'nav.liveOptionsQuotes', requiredTier: 'basic' },
-      { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
+      { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic' },
     ],
   },
   // ── Receipts ──────────────────────────────────────────────────────────────

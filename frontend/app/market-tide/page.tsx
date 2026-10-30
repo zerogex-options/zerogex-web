@@ -327,7 +327,6 @@ export default function MarketTidePage() {
     <PageShell width="wide" className="space-y-6">
       <PageHeader
         title="Market Tide"
-        beta
         sub="Where market-wide option money is flowing, and whether dealer gamma will amplify or absorb it."
         tooltip="Every other page here reads one symbol. This reads every index we track at once and scores the aggregate on a −100 to +100 scale, then adjusts that score for the dealer gamma regime behind it&nbsp;- the same flow means something different when dealers are short gamma and amplifying moves than when they are long it and pinning. Breadth says how much of the market agrees with the headline number; participation says how much of it is reporting at all, which is the figure to check first when a reading looks extreme. The window sets how much recent tape the score is computed over."
         actions={

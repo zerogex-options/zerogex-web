@@ -19,10 +19,11 @@ import {
 const page = readFileSync(new URL("../app/market-tide/page.tsx", import.meta.url), "utf8");
 const navigation = readFileSync(new URL("../core/navigation.ts", import.meta.url), "utf8");
 
-test("Market Tide is a standalone Basic Metrics route with a Beta nav item", () => {
+test("Market Tide is a standalone Basic Metrics route, out of beta", () => {
   assert.match(page, /export default function MarketTidePage/);
   const metrics = navigation.slice(navigation.indexOf("label: 'Metrics'"), navigation.indexOf("label: 'Strategy Tools'"));
-  assert.match(metrics, /id: '\/market-tide'.*label: 'Market Tide'.*requiredTier: 'basic'.*beta: true/);
+  assert.match(metrics, /id: '\/market-tide'.*label: 'Market Tide'.*requiredTier: 'basic'/);
+  assert.doesNotMatch(metrics, /id: '\/market-tide'.*beta: true/);
 });
 
 test("all supported window buttons feed the endpoint query", () => {

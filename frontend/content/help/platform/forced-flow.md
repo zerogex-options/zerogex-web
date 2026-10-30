@@ -10,7 +10,7 @@ Every other flow surface on ZeroGEX measures something that already traded. Forc
 
 It then finds the **zero-flow level**: the price at which, carried to today's close, the book would owe no hedging at all.
 
-Forced Flow is a Basic page and is marked **Beta**. For the concepts behind it, with a worked example, read [Forced Flow and Zero Flow Explained](/education/forced-flow-and-zero-flow-explained). This page is the panel-by-panel reference.
+Forced Flow is a Basic page. For the concepts behind it, with a worked example, read [Forced Flow and Zero Flow Explained](/education/forced-flow-and-zero-flow-explained). This page is the panel-by-panel reference.
 
 ## Units, sign and the assumption underneath
 

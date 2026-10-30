@@ -25,7 +25,6 @@ export default function ForcedFlowPage() {
     <PageShell>
       <PageHeader
         title="Forced Flow"
-        beta
         sub={
           <>
             The stock dealers must trade to stay hedged if spot, time or vol moves.

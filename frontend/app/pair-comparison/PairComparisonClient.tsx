@@ -311,7 +311,6 @@ export default function PairComparisonClient() {
     <PageShell width="wide">
       <PageHeader
         title="Pair Comparison"
-        beta
         sub="Two strike-aligned Net GEX ladders side by side, so you can see where the books disagree."
         tooltip={INFO_TEXT}
       />

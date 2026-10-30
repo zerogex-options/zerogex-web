@@ -5,7 +5,6 @@ import { ChevronLeft } from 'lucide-react';
 
 import PageShell from '@/components/layout/PageShell';
 import SectionHead from '@/components/layout/SectionHead';
-import BetaBadge from '@/components/BetaBadge';
 import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import SymbolPicker from '@/components/SymbolPicker';
 import DataUnavailable from '@/components/DataUnavailable';
@@ -210,12 +209,7 @@ export default async function HedgingFlowSessionPage({
   const emptyHeader = (
     <SectionHead
       eyebrow="Options Flow · Past session"
-      title={
-        <span className="inline-flex items-center gap-2.5">
-          Hedging Flow
-          <BetaBadge size="md" />
-        </span>
-      }
+      title="Hedging Flow"
       sub={
         <>
           {sym} · {human}.

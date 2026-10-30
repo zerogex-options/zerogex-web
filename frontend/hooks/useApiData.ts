@@ -795,7 +795,7 @@ export function useGammaSurface(
   );
 }
 
-// ── Options premium (extrinsic-value) surface — Beta ──
+// ── Options premium (extrinsic-value) surface ──
 // x = strike, y = expiration (DTE), z = extrinsic (premium − intrinsic,
 // clamped ≥ 0). Backed by /api/gex/premium_surface.
 export interface PremiumSurfaceStrike {

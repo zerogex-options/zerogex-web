@@ -225,7 +225,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // Strategy tools — included with Basic.
   { pattern: '/options-calculator', minimumTier: 'basic' },
   { pattern: '/option-contracts', minimumTier: 'basic' },
-  // Premium Surface (beta) — a Basic entitlement per the pricing page. Without
+  // Premium Surface — a Basic entitlement per the pricing page. Without
   // this rule the page had no gate at all: the middleware treats "no matching
   // rule" as open, so it leaked to anonymous visitors while the nav hid it
   // only via a hard-coded special case.

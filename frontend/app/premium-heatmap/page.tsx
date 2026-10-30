@@ -10,7 +10,6 @@ import { colors } from '@/core/colors';
 import { moveToBreakevenPct } from '@/core/premiumBreakeven';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import BetaBadge from '@/components/BetaBadge';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -212,7 +211,6 @@ export default function PremiumHeatmapPage() {
     <PageShell>
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <h1 className="text-3xl font-bold">Premium Surface</h1>
-        <BetaBadge size="md" />
         <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>

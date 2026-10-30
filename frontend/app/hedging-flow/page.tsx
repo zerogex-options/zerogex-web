@@ -51,7 +51,6 @@ export default function HedgingFlowPage() {
     <PageShell>
       <PageHeader
         title="Hedging Flow"
-        beta
         sub={
           <>
             Estimated dealer hedging pressure from today&rsquo;s option trades, on

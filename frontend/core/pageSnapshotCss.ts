@@ -261,8 +261,8 @@ export function flattenSnapshotCss(rules: SnapshotRule[], options: FlattenOption
  *      standfirst, so it is trimmed at its first separator
  *
  * The nav label leads rather than the heading because a heading is markup, not
- * text: `<h2>Hedging Flow<BetaBadge/></h2>` reads out of the DOM as "Hedging
- * FlowBeta", and a frame that prints that looks broken rather than beta.
+ * text: `<h2>Volatility<BetaBadge/></h2>` reads out of the DOM as
+ * "VolatilityBeta", and a frame that prints that looks broken rather than beta.
  */
 export function resolveSnapshotTitle(sources: {
   headingText?: string | null;
