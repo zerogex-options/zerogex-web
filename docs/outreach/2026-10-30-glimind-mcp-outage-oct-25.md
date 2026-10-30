@@ -55,14 +55,53 @@ The window matches, to the minute, the night the site moved to Node 22.23.4
 - **Keep the cause general.** "Maintenance" and "a restart that hung" are true
   and enough. Don't name the Node security fix: there's no reason to tell an
   outside party the box ran a Node version with a published code-execution bug.
-- **Pass on the claim link.** A web search on Oct 30 found nothing about
-  Glimind, so it's new or obscure. It appears to watch every server in the
-  official MCP registry (its links name our listing,
-  `mcp-registry/io.zerogex/gamma-levels`) and email the owners. "Verify for
-  free" is its sign-up. An alert wouldn't have helped on Oct 24 anyway, because
-  you were the one at the keyboard. If you ever want outside alerts for when
-  you're not, a mainstream uptime service watching the homepage and `/mcp` is
-  the better home for them. That can wait.
+- **Pass on the claim link.** Glimind is a newer outfit that grades every MCP
+  server it can find and emails the owners. Its footer says "a subsidiary of
+  Dunn Enterprises Inc.", it names no people, and a web search on Oct 30 found
+  nothing about it. "Verify for free" is its sign-up, and it switches on their
+  alerts. An alert wouldn't have helped on Oct 24, because you were the one at
+  the keyboard. For the market-hours timeouts below, an uptime monitor of your
+  own on the homepage is the better tool. That can wait.
+
+## Glimind's public status page (read Oct 30)
+
+<https://glimind.com/status/mcp-registry%2Fio.zerogex%2Fgamma-levels>, public,
+no sign-in. It checks `/mcp` about every 5 minutes, from one region, with the
+handshake and the tool list, never a tool call. Our listing is unclaimed, so
+none of the incidents carries a note from us. It shows 30-day uptime of 99.88%,
+and handshake time of 363 ms typical, 2.6 s at the slow end (p95).
+
+It lists 13 outages since Sep 10, about two hours in all. Converted to ET:
+
+| When (ET) | Length | Kind | Read |
+|---|---|---|---|
+| Wed Oct 28, 3:02 PM | 2 min | timeout | market hours |
+| Tue Oct 27, 11:16 and 11:20 PM | 1 to 2 min each | timeout | |
+| Sat Oct 24, 10:45 PM | 25 min | 5xx | the Node upgrade, above |
+| Thu Oct 15, 1:05 PM and 3:39 PM | 7 min each | timeout | market hours |
+| Mon Oct 5, 1:55 PM | 7 min | timeout | market hours |
+| Tue Sep 29, 12:28 PM | 8 min | timeout | market hours |
+| Tue Sep 29, 3:00 AM | 7 min | 5xx | the automatic security-update reboot runs at 3:00 AM ET, so probably that |
+| Mon Sep 28, 10:54 AM | 22 min | timeout | market hours |
+| Mon Sep 21, 11:02 AM | 24 min | timeout | market hours |
+| Tue Sep 15, 4:38 PM | 4 min | timeout | just after the close |
+| Thu Sep 10, 8:25 PM | 6 min | 5xx | |
+
+- **A timeout means the site answered too slowly, not that it errored.** The
+  handshake never touches the data backend, so a timeout points at the website
+  process or the path to it (Cloudflare, nginx), not at the data. If the
+  market-hours ones were real stalls of the website, every page was slow at
+  the same moment.
+- **I couldn't tie them to anything.** This checkout's history only goes back
+  to Oct 20. The Oct 28 one isn't that day's mid-session collector deploy
+  (11:23 AM ET). Neither slowness complaint lines up: Mircea's was 2:04 to 2:20
+  PM ET on Sep 28 (their HTTP/3), and Naif's was the price feed.
+- **Treat it as a lead, not proof.** Glimind's own numbers don't add up in
+  places. Its "90 days" uptime covers 37 days, three listed outages are missing
+  from its uptime figures, its "mean" time to recover is the median, and 5,551
+  checks in 30 days is one every 8 minutes, not 5.
+- **Fewer lately, so it can wait.** Six of the seven market-hours ones were on
+  or before Oct 15, and the one since lasted 2 minutes.
 
 ## Draft reply
 
