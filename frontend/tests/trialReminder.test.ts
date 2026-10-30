@@ -253,3 +253,35 @@ test('neither line appears when there is nothing true to say', () => {
   assert.doesNotMatch(text, /available on the day/i);
   assert.doesNotMatch(text, /statement it will read/i);
 });
+
+// The two-day Pro upgrade (core/trialProUpgrade.ts): this email opens the
+// window, so it tells an engaged Basic trialer they can switch and keep the
+// rest of the trial free. It must stay a billing notice first.
+
+const PRO_UPGRADE = {
+  switchUrl: 'https://zerogex.io/login?next=%2Fpricing%3Fswitch%3Dpro',
+  proMonthlyPrice: '$59',
+};
+
+test('the Pro offer names the price, keeps the free days and the way out, and links to the switch', () => {
+  const { text, html } = buildTrialReminderEmail({ trialEndIso: TRIAL_END_EDT, proUpgrade: PRO_UPGRADE });
+
+  assert.match(text, /Want Pro instead\?/);
+  assert.match(text, /the rest of it stays free/);
+  assert.match(text, /your first payment on September 14, 2026 at 6:03 AM EDT becomes Pro's \$59 a month instead/);
+  assert.match(text, /you can still cancel any time before then/);
+  assert.ok(text.includes(`Switch to Pro: ${PRO_UPGRADE.switchUrl}`));
+  assert.ok(html.includes(`href="${PRO_UPGRADE.switchUrl}"`));
+  // After the "nothing you need to do" line and before the way out.
+  assert.ok(text.indexOf('nothing you need to do') < text.indexOf('Want Pro instead?'));
+  assert.ok(text.indexOf('Want Pro instead?') < text.indexOf("If it isn't the right fit"));
+  // Full price, like the rest of this email.
+  assert.doesNotMatch(text, /% off|discount/i);
+});
+
+test('no Pro offer unless the caller passes one, and never in the dormant copy', () => {
+  assert.doesNotMatch(buildTrialReminderEmail({ trialEndIso: TRIAL_END_EDT }).text, /Want Pro instead/);
+  const dormant = buildTrialReminderEmail({ trialEndIso: TRIAL_END_EDT, dormant: true, proUpgrade: PRO_UPGRADE });
+  assert.doesNotMatch(dormant.text, /Want Pro instead/);
+  assert.doesNotMatch(dormant.html, /Switch to Pro/);
+});

@@ -771,6 +771,20 @@ export type TrialReminderEmailOptions = {
   // Omitted or false gives the ordinary reminder, so an unclassifiable member
   // never receives dormant copy by accident.
   dormant?: boolean;
+  // The two-day Pro upgrade (core/trialProUpgrade.ts): this email opens the
+  // window in which a Basic monthly trialer can switch to Pro and keep the
+  // rest of the trial free, so it says so. The caller passes it only for a
+  // Basic monthly trial inside that window whose member has not opted out of
+  // marketing email. Never with `dormant`: someone who has not used Basic is
+  // not shopping for Pro, and that variant asks nothing of them. Full price,
+  // like everything else here (see the NOTE above on discounts).
+  proUpgrade?: {
+    // Signed-in link to the pricing page with the Pro switch open
+    // (proSwitchPath('trial_reminder'), through /login).
+    switchUrl: string;
+    // Pro's monthly list price, e.g. "$59".
+    proMonthlyPrice: string;
+  } | null;
 };
 
 // Pure builder for the ~48h trial-end reminder: assembles subject + HTML + text
@@ -789,6 +803,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   const trialEndDate = formatTrialEndDateTime(opts.trialEndIso);
   const promoLabel = opts.promoIntroLabel ?? null;
   const dormant = opts.dormant === true;
+  const proUpgrade = dormant ? null : (opts.proUpgrade ?? null);
   // The dormant subject names the charge instead of the trial ending. A member
   // who never came back has no mental model of "my trial" to attach a reminder
   // to; what they will recognize later is the line on their statement, so the
@@ -932,6 +947,21 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ? ''
     : `<p>If ZeroGEX is working for you, there's nothing you need to do\u00a0- your access carries straight on and the subscription renews by itself.</p>`;
 
+  // The Pro offer sits after "nothing you need to do" and before the way out,
+  // so the reminder still reads as a billing notice first. The switch itself
+  // shows the exact first charge before anything changes.
+  const proUpgradeText = proUpgrade
+    ? [
+        `Want Pro instead? Pro adds Trade Bias, the Composite Score, the eight Advanced Signals, TradeWorkz bots and backtesting, and API access. Switch before your trial ends and the rest of it stays free: your first payment on ${trialEndDate} becomes Pro's ${proUpgrade.proMonthlyPrice} a month instead, and you can still cancel any time before then.`,
+        '',
+        `Switch to Pro: ${proUpgrade.switchUrl}`,
+        '',
+      ]
+    : [];
+  const proUpgradeHtml = proUpgrade
+    ? `<p><strong>Want Pro instead?</strong> Pro adds Trade Bias, the Composite Score, the eight Advanced Signals, TradeWorkz bots and backtesting, and API access. Switch before your trial ends and the rest of it stays free: your first payment on ${escapeHtml(trialEndDate)} becomes Pro's ${escapeHtml(proUpgrade.proMonthlyPrice)} a month instead, and you can still cancel any time before then. <a href="${escapeHtml(proUpgrade.switchUrl)}" style="color: #f5b400; font-weight: 600;">Switch to Pro</a></p>`
+    : '';
+
   // Closing. For a dormant member the offer of help comes first and the exit
   // last, which is the reverse of how this used to read.
   //
@@ -968,6 +998,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ...(bankLineText ? [bankLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
     ...continuationText,
+    ...proUpgradeText,
     ...closingText,
     '',
     "Either way, thanks for giving ZeroGEX a try\u00a0- if there's anything I can do to make it more useful for you, just reply to this email. I read every message.",
@@ -985,6 +1016,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       ${bankLineHtml ? `<p>${bankLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
       ${continuationHtml}
+      ${proUpgradeHtml}
       ${closingHtml}
       ${dormant
         // No button at all for a dormant member. It landed directly under the

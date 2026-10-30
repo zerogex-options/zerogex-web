@@ -17,7 +17,20 @@ import { normalizeCampaignCode } from '@/core/campaigns';
 import { REFERRAL_COOKIE_NAME, requireSession } from '@/core/serverAuth';
 import { PUBLISHER_REF, SITE_URL } from '@/core/articleRegistry';
 import { pricingJsonLd } from '@/core/pricingJsonLd';
+import { isTrialProUpgradeOpen } from '@/core/trialProUpgrade';
 import PricingClient from './Client';
+
+// The trial end, while a Basic monthly trialer is inside the two-day Pro upgrade
+// window at this moment; null otherwise. A trialing subscription's period ends
+// when its trial does. Outside the component so the render reads no clock.
+function trialProUpgradeUntilNow(
+  status: string | null,
+  currentPlan: Sku | null,
+  periodEndIso: string | null,
+): string | null {
+  const trialEndMs = periodEndIso ? Date.parse(periodEndIso) : null;
+  return isTrialProUpgradeOpen({ status, current: currentPlan, trialEndMs, nowMs: Date.now() }) ? periodEndIso : null;
+}
 
 // /pricing takes ~4,400 search impressions a quarter at position ~3 (it is a
 // brand sitelink) and converts about 1% of them. The snippet names what the
@@ -66,17 +79,29 @@ export default async function PricingPage() {
   // same one checkout and change-plan act on.
   let currentPlan: Sku | null = null;
   let subscriptionStatus: string | null = null;
+  // When the trial ends, for a Basic monthly trialer inside the two-day Pro
+  // upgrade window (core/trialProUpgrade.ts): the Pro card then says the rest
+  // of the trial stays free instead of promising the guarantee.
+  let trialProUpgradeUntil: string | null = null;
   let guaranteeUsed = false;
   const actor = await requireSession();
   if (actor) {
     const row = getDb()
-      .prepare('SELECT stripe_subscription_id, stripe_price_id, subscription_status FROM users WHERE id = ?')
+      .prepare(
+        'SELECT stripe_subscription_id, stripe_price_id, subscription_status, current_period_end FROM users WHERE id = ?',
+      )
       .get(actor.user.id) as
-      | { stripe_subscription_id: string | null; stripe_price_id: string | null; subscription_status: string | null }
+      | {
+          stripe_subscription_id: string | null;
+          stripe_price_id: string | null;
+          subscription_status: string | null;
+          current_period_end: string | null;
+        }
       | undefined;
     if (row?.stripe_subscription_id) {
       currentPlan = row.stripe_price_id ? priceIdToSku(row.stripe_price_id) : null;
       subscriptionStatus = row.subscription_status;
+      trialProUpgradeUntil = trialProUpgradeUntilNow(subscriptionStatus, currentPlan, row.current_period_end);
     }
     guaranteeUsed = hasPriorMoneyBackRefund({
       userId: actor.user.id,
@@ -114,6 +139,7 @@ export default async function PricingPage() {
         campaignActive={campaignActive}
         currentPlan={currentPlan}
         subscriptionStatus={subscriptionStatus}
+        trialProUpgradeUntil={trialProUpgradeUntil}
         guaranteeUsed={guaranteeUsed}
       />
     </>

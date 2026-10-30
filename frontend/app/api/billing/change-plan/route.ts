@@ -48,9 +48,13 @@ import {
 //          Secure) cannot be approved from here, so that member is handed the
 //          billing portal, which can.
 //
-//   • UPGRADES a trialing member in-app to another TRIAL plan (only possible
-//     when BILLING_TRIAL_PLANS names more than one), keeping the trial — the
-//     original behaviour of this route.
+//   • UPGRADES a trialing member in-app, keeping the trial: to another TRIAL
+//     plan (only possible when BILLING_TRIAL_PLANS names more than one), or
+//     from Basic monthly to Pro monthly in the trial's last two days (the
+//     window the trial-end reminder opens, core/trialProUpgrade.ts). Nothing is
+//     charged at the switch, so the first call prices what the trial-end charge
+//     becomes and the member confirms those terms; the second call (confirm:
+//     true) swaps the price and leaves the trial end alone.
 //
 //   • LENGTHENS a paying member's billing period in-app (monthly to quarterly
 //     or annual, quarterly to annual, same tier) — the switch the cancel flow
@@ -89,7 +93,14 @@ const QUOTE_TTL_SECONDS = 15 * 60;
 
 // The screens that send a member here. Anything else is recorded as the
 // pricing page, the original caller.
-const SWITCH_SOURCES = new Set(['pricing', 'cancel_flow', 'plan_offer_email']);
+const SWITCH_SOURCES = new Set([
+  'pricing',
+  'cancel_flow',
+  'plan_offer_email',
+  'trial_reminder_email',
+  'pro_interest_email',
+  'locked_page',
+]);
 
 function formatAmount(amount: number, currency: string): string {
   try {
@@ -251,6 +262,8 @@ export async function POST(request: NextRequest) {
     targetHasTrial: skuHasFreeTrial({ tier, cadence }),
     status: subscription.status,
     paused: subscription.pause_collection != null,
+    trialEndMs: typeof subscription.trial_end === 'number' ? subscription.trial_end * 1000 : null,
+    nowMs: Date.now(),
   });
 
   if (decision.kind === 'noop') {
@@ -552,9 +565,70 @@ export async function POST(request: NextRequest) {
   }
 
   // -------------------------------------------------------------------------
-  // Trial → another trial plan: swap the price, keep the trial.
+  // Trial → Pro, keeping the trial: swap the price, leave the trial end alone.
   // -------------------------------------------------------------------------
   if (decision.kind === 'in_app_upgrade' && item) {
+    const chargeAt =
+      typeof subscription.trial_end === 'number' ? new Date(subscription.trial_end * 1000).toISOString() : null;
+    if (!confirmed) {
+      // Nothing is charged today, but the member is choosing a bigger first
+      // charge, so they are shown it before anything changes: the trial-end
+      // invoice on the new price, with the coupons the webhook will reconcile
+      // onto it (the same set the paid paths attach themselves).
+      const attached = readAttachedDiscounts(subscription);
+      if (!attached) {
+        return NextResponse.json(
+          { error: "Couldn't read your current plan just now. Nothing changed\u00a0- please try again in a minute." },
+          { status: 502 },
+        );
+      }
+      const discounts = planSwitchDiscounts({
+        currentCouponIds: attachedCouponIds(attached),
+        newSku: { tier, cadence },
+        foundingMemberStartedAt: row.founding_member_started_at,
+        foundingLifetimeAppliedAt: row.founding_lifetime_applied_at,
+      });
+      const discountParam = discounts?.changed ? discountsParam(discounts.keep, attached) : undefined;
+      let charge: { amountDue: number; currency: string } | null = null;
+      try {
+        const preview = await previewNextInvoice(stripe, {
+          subscription: subscription.id,
+          customer: row.stripe_customer_id,
+          items: [{ id: item.id, price: targetPriceId }],
+          prorationBehavior: 'none',
+          ...(discountParam !== undefined ? { discounts: discountParam } : {}),
+        });
+        if (typeof preview.amount_due === 'number' && preview.currency) {
+          charge = { amountDue: preview.amount_due, currency: preview.currency };
+        }
+      } catch {
+        charge = null;
+      }
+      if (!charge || !chargeAt) {
+        return NextResponse.json(
+          { error: "Couldn't price this switch just now, so nothing changed. Please try again in a minute." },
+          { status: 502 },
+        );
+      }
+      return NextResponse.json({
+        confirm: {
+          kind: 'keep_trial',
+          tier,
+          cadence,
+          amountDue: 0,
+          currency: charge.currency,
+          amountFormatted: formatAmount(0, charge.currency),
+          // A trial conversion is never covered: the free days are the protection.
+          guarantee: false,
+          // What the trial-end charge becomes, and when it lands.
+          chargeFormatted: formatAmount(charge.amountDue, charge.currency),
+          chargeAt,
+          // The update below clears a pending cancellation.
+          resumesCanceled: subscription.cancel_at_period_end === true,
+        },
+      });
+    }
+
     try {
       await stripe.subscriptions.update(subscription.id, {
         items: [{ id: item.id, price: targetPriceId }],
@@ -592,7 +666,9 @@ export async function POST(request: NextRequest) {
       userId: actor.user.id,
       email: actor.user.email,
       ip: getClientIp(request),
-      message: `In-app upgrade ${fromLabel} → ${tier}/${cadence} on sub ${subscription.id} (trialing; trial preserved, no charge today)`,
+      message:
+        `In-app upgrade ${fromLabel} → ${tier}/${cadence} on sub ${subscription.id} from ${source} ` +
+        `(trialing; trial preserved until ${chargeAt ?? 'unknown'}, no charge today)`,
     });
 
     return NextResponse.json({ url: `${appUrl}/dashboard?upgraded=${tier}` });

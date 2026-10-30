@@ -18,7 +18,8 @@
 // pay: the in-app switch ends the trial and charges the new plan today, and the
 // guarantee's 7 days start from that payment. Moving to another TRIAL plan
 // (only possible when BILLING_TRIAL_PLANS names more than one) keeps the trial,
-// exactly as before.
+// exactly as before. So does Basic monthly to Pro monthly in the last two days
+// of the trial, the window the trial-end reminder opens (core/trialProUpgrade.ts).
 //
 // A PAYING member moving to a longer billing period on the same tier (monthly
 // to quarterly or annual, quarterly to annual) is also switched in-app, after
@@ -31,6 +32,7 @@
 
 import type { BillableTier, BillingCadence, Sku } from './billingPlans.ts';
 import { BILLING_CADENCES, CADENCE_MONTHS, planDisplay } from './billingPlans.ts';
+import { isTrialProUpgradeOpen } from './trialProUpgrade.ts';
 
 export type { BillableTier, BillingCadence };
 
@@ -52,12 +54,17 @@ export type PlanSwitchInput = {
   // Whether collection is paused (Stripe keeps the status `active` while a
   // pause is on). A paused subscription is never switched in-app.
   paused: boolean;
+  // When the current trial ends (epoch ms; Stripe's trial_end), or null.
+  trialEndMs: number | null;
+  nowMs: number;
 };
 
 export type PlanSwitchDecision =
-  // Trialing member moving UP to another trial plan at the same cadence: swap
-  // the price in-app, preserve the trial (no charge now), and let the webhook
-  // apply the correct promo coupon before the trial-end invoice.
+  // Trialing member moving UP to another trial plan at the same cadence, or
+  // from Basic monthly to Pro monthly in the trial's last two days: swap the
+  // price in-app after the member has confirmed the terms, preserve the trial
+  // (no charge now), and let the webhook apply the correct promo coupon before
+  // the trial-end invoice.
   | { kind: 'in_app_upgrade' }
   // Trialing member moving to a plan sold under the money-back guarantee (Pro,
   // or any quarterly/annual plan): end the trial and charge the new plan now,
@@ -121,7 +128,20 @@ export function decidePlanSwitch(input: PlanSwitchInput): PlanSwitchDecision {
   ) {
     return { kind: 'portal' };
   }
-  if (!input.targetHasTrial) return { kind: 'in_app_start_paid' };
+  if (!input.targetHasTrial) {
+    // The trial's last two days: Pro monthly keeps the rest of it free. Any
+    // earlier, or onto any other plan, the trial ends and the plan is paid today.
+    const keepsTrial =
+      input.targetTier === 'pro' &&
+      input.targetCadence === 'monthly' &&
+      isTrialProUpgradeOpen({
+        status: input.status,
+        current: { tier: input.currentTier, cadence: input.currentCadence },
+        trialEndMs: input.trialEndMs,
+        nowMs: input.nowMs,
+      });
+    return keepsTrial ? { kind: 'in_app_upgrade' } : { kind: 'in_app_start_paid' };
+  }
   // Trial plan → trial plan keeps the trial, but only for the original,
   // well-trodden shape: a tier upgrade at the same cadence.
   const isTierUpgrade = input.currentTier === 'basic' && input.targetTier === 'pro';

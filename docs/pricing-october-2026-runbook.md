@@ -10,6 +10,7 @@
 | Pro | $59 | $115 (≈ $38.33/mo) | $299 (≈ $24.92/mo) |
 
 - **Basic monthly is the only plan with a free trial.** A card goes on file and nothing is charged until day 7.
+- **The two-day Pro upgrade.** In the last 51 hours of a Basic monthly trial (from when the 48-hour trial-end reminder can go out), switching to Pro monthly keeps the rest of the trial free: nothing is charged at the switch, the first charge on the original trial-end date is Pro's ($59) instead of Basic's, and the member can still cancel before then. Like any trial conversion, that charge is not under the guarantee. Earlier in the trial, switching to Pro ends the trial and charges Pro today under the guarantee, as before. The rule lives in `frontend/core/trialProUpgrade.ts`.
 - **Every other plan is paid up front under a 7-day money-back guarantee.** The member asks from the Account page within 7 days of paying, gets a full refund, and loses access immediately. **Limit one refund per customer.** A customer is matched by account, by email (Gmail dots and `+tags` ignored) or by card, so a new email on the same card still counts as a repeat.
 - **Promo:** $10 off either monthly plan for the first 12 months, for signups by October 1 (Basic $29, Pro $49). A promo member who switches between the two monthly plans keeps it for the rest of their 12 months.
 - **Auto-renewal notices:** checkout states the renewal terms next to the Subscribe button. A reminder email goes out 7 days before a quarterly plan renews and 30 days before an annual one.

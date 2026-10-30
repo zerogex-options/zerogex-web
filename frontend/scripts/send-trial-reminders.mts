@@ -28,6 +28,11 @@
 //   - users.trial_reminder_email_sent_at IS NULL (idempotency latch; the
 //     Stripe webhook clears it on every fresh transition into 'trialing').
 //
+// The reminder also opens the two-day Pro upgrade (core/trialProUpgrade.ts):
+// an engaged Basic monthly trialer who has not opted out of marketing email is
+// told they can switch to Pro now and keep the rest of the trial free, with a
+// link that opens the switch.
+//
 // Side effects on send:
 //   - Resend email via core/mailer.ts sendTrialReminderEmail().
 //   - Stamps users.trial_reminder_email_sent_at = now.
@@ -48,11 +53,20 @@ import {
   shouldSendDormantTrialCopy,
   type TrialEngagement,
 } from '../core/trialEngagement.ts';
+import {
+  TRIAL_REMINDER_LEAD_HOURS,
+  TRIAL_REMINDER_WINDOW_HOURS,
+  isTrialProUpgradeOpen,
+  proSwitchPath,
+} from '../core/trialProUpgrade.ts';
+import { LIST_PRICE_USD, formatUsd } from '../core/billingPlans.ts';
 
-// 48h from now is the target; a 6h window on each side absorbs a daily cron
-// landing at an arbitrary clock time without ever double- or zero-counting.
-const TARGET_HOURS = 48;
-const DEFAULT_WINDOW_HOURS = 6;
+// 48h from now is the target; a 6h window centered on it (3h each side)
+// absorbs a cron landing at an arbitrary clock time without ever double- or
+// zero-counting. Shared with core/trialProUpgrade.ts, whose two-day Pro
+// upgrade opens at the window's far edge so this email always lands inside it.
+const TARGET_HOURS = TRIAL_REMINDER_LEAD_HOURS;
+const DEFAULT_WINDOW_HOURS = TRIAL_REMINDER_WINDOW_HOURS;
 
 type Args = {
   dryRun: boolean;
@@ -422,6 +436,16 @@ if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL
 if (RESEND_API_KEY) process.env.RESEND_API_KEY = RESEND_API_KEY;
 if (RESEND_FROM_EMAIL) process.env.RESEND_FROM_EMAIL = RESEND_FROM_EMAIL;
 if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
+
+// The Basic monthly price, to tell which trials the two-day Pro upgrade covers.
+const BASIC_MONTHLY_PRICE_ID =
+  process.env.STRIPE_PRICE_BASIC_MONTHLY || envLocal.STRIPE_PRICE_BASIC_MONTHLY || null;
+// Through /login, which forwards a signed-in member straight on, to the pricing
+// page with the Pro switch open (the mailer's own app-URL fallback).
+const PRO_SWITCH_URL = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/login?next=${encodeURIComponent(
+  proSwitchPath('trial_reminder'),
+)}`;
+const PRO_MONTHLY_PRICE = formatUsd(LIST_PRICE_USD.pro.monthly);
 // This reminder carries NO discount. It used to mint a signed one-click
 // /convert link offering 25% off for a year — handed unprompted to a trialer
 // with a card on file who was about to be charged anyway, and spending the
@@ -437,7 +461,9 @@ if (cliArgs.previewTo) {
   // representative data for eyeballing the layout.
   await sendTrialReminderEmail(cliArgs.previewTo, {
     trialEndIso: sample,
-    billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+    billing: { chargeLabel: '$39.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+    // The engaged Basic monthly copy, which carries the two-day Pro offer.
+    proUpgrade: { switchUrl: PRO_SWITCH_URL, proMonthlyPrice: PRO_MONTHLY_PRICE },
   });
   console.log('Preview sent.');
   process.exit(0);
@@ -464,7 +490,7 @@ if (cliArgs.render) {
   const rows = querySqlite<UserRow>(
     dbPath,
     `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id,
-            created_at, last_seen_at
+            created_at, last_seen_at, stripe_price_id, marketing_unsubscribed_at
      FROM users
      WHERE email = '${escapeSqlLiteral(email)}'
      LIMIT 1;`,
@@ -504,10 +530,18 @@ if (cliArgs.render) {
   }
 
   const renderEngagement = engagementFor(user);
+  // As of when this reminder sends: now, or for a render ahead of the send
+  // window, the moment it would go out.
+  const renderSendMs = Math.max(
+    Date.now(),
+    Date.parse(user.current_period_end) - TARGET_HOURS * 3600_000,
+  );
+  const renderProUpgrade = proUpgradeFor(user, renderSendMs);
   const { subject, html, text } = buildTrialReminderEmail({
     trialEndIso: user.current_period_end,
     billing,
     dormant: shouldSendDormantTrialCopy(renderEngagement),
+    proUpgrade: renderProUpgrade,
   });
 
   const outDir = cliArgs.out ?? os.tmpdir();
@@ -527,6 +561,7 @@ if (cliArgs.render) {
         : ' — ordinary copy'
   }`);
   console.log(`Last seen:     ${user.last_seen_at ?? '— (never recorded)'}`);
+  console.log(`Pro offer:     ${renderProUpgrade ? 'included (two-day Pro upgrade)' : 'omitted (not an engaged, opted-in Basic monthly trial)'}`);
   console.log(`Subject:       ${subject}`);
   console.log(
     `Billing line:  ${
@@ -561,6 +596,8 @@ type UserRow = {
   stripe_subscription_id: string | null;
   created_at: string | null;
   last_seen_at: string | null;
+  stripe_price_id: string | null;
+  marketing_unsubscribed_at: string | null;
 };
 
 // One place that turns a row into its engagement, so the dry-run listing, the
@@ -572,10 +609,27 @@ function engagementFor(user: { created_at: string | null; last_seen_at: string |
   });
 }
 
+// The two-day Pro upgrade offer, or null: only for an engaged Basic monthly
+// trialer who has not opted out of marketing email, while the window is open
+// at `atMs` (core/trialProUpgrade.ts). The send window above sits inside it;
+// the check is for a run with a wider --window-hours.
+function proUpgradeFor(user: UserRow, atMs: number): { switchUrl: string; proMonthlyPrice: string } | null {
+  if (user.marketing_unsubscribed_at) return null;
+  if (shouldSendDormantTrialCopy(engagementFor(user))) return null;
+  if (!BASIC_MONTHLY_PRICE_ID || user.stripe_price_id !== BASIC_MONTHLY_PRICE_ID) return null;
+  const open = isTrialProUpgradeOpen({
+    status: 'trialing',
+    current: { tier: 'basic', cadence: 'monthly' },
+    trialEndMs: Date.parse(user.current_period_end),
+    nowMs: atMs,
+  });
+  return open ? { switchUrl: PRO_SWITCH_URL, proMonthlyPrice: PRO_MONTHLY_PRICE } : null;
+}
+
 const eligible = querySqlite<UserRow>(
   dbPath,
   `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id,
-          created_at, last_seen_at
+          created_at, last_seen_at, stripe_price_id, marketing_unsubscribed_at
    FROM users
    WHERE subscription_status = 'trialing'
      AND trial_reminder_email_sent_at IS NULL
@@ -619,7 +673,8 @@ if (unknownCount > 0) {
 
 const sample = eligible.slice(0, 10);
 for (const u of sample) {
-  console.log(`  - ${u.email}: trial ends ${u.current_period_end}  [${engagementFor(u)}]`);
+  const pro = proUpgradeFor(u, nowMs) ? ', Pro offer' : '';
+  console.log(`  - ${u.email}: trial ends ${u.current_period_end}  [${engagementFor(u)}${pro}]`);
 }
 if (eligible.length > sample.length) {
   console.log(`  ... and ${eligible.length - sample.length} more`);
@@ -672,10 +727,12 @@ for (const user of eligible) {
       }
     }
 
+    const proUpgrade = proUpgradeFor(user, Date.now());
     await sendTrialReminderEmail(user.email, {
       trialEndIso: user.current_period_end,
       billing,
       dormant: shouldSendDormantTrialCopy(engagementFor(user)),
+      proUpgrade,
     });
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends
@@ -700,7 +757,7 @@ for (const user of eligible) {
          NULL,
          '${escapeSqlLiteral(user.email)}',
          'cron-script',
-         '${escapeSqlLiteral(`Trial-end reminder sent; current_period_end=${user.current_period_end}`)}',
+         '${escapeSqlLiteral(`Trial-end reminder sent; current_period_end=${user.current_period_end}${proUpgrade ? '; with two-day Pro offer' : ''}`)}',
          '${escapeSqlLiteral(nowIso)}'
        );`,
     );

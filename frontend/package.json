@@ -101,6 +101,7 @@
     "test:excluded-accounts": "node --experimental-strip-types --test tests/excludedAccounts.test.ts",
     "test:trial-conveyor": "node --experimental-strip-types --test tests/trialConveyor.test.ts",
     "test:plan-switch": "node --experimental-strip-types --test tests/planSwitch.test.ts",
+    "test:trial-pro-upgrade": "node --experimental-strip-types --test tests/trialProUpgrade.test.ts",
     "test:switch-discounts": "node --experimental-strip-types --test tests/switchDiscounts.test.ts",
     "test:subscription-discounts": "node --experimental-strip-types --test tests/subscriptionDiscounts.test.ts",
     "test:cancellation-reason": "node --experimental-strip-types --test tests/cancellationReason.test.ts",

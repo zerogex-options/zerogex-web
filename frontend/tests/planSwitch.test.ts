@@ -15,6 +15,11 @@ import {
 // confirming the amount — while paid members and downgrades keep going to the
 // portal exactly as before. Lock the matrix down.
 
+const HOUR = 3_600_000;
+const NOW = Date.parse('2026-11-02T15:00:00Z');
+
+// Defaults to day two of a seven-day trial: five days left, before the
+// two-day upgrade opens.
 function input(over: Partial<PlanSwitchInput> = {}): PlanSwitchInput {
   return {
     currentTier: 'basic',
@@ -24,12 +29,43 @@ function input(over: Partial<PlanSwitchInput> = {}): PlanSwitchInput {
     targetHasTrial: false,
     status: 'trialing',
     paused: false,
+    trialEndMs: NOW + 120 * HOUR,
+    nowMs: NOW,
     ...over,
   };
 }
 
 test('trialing Basic → Pro (a guarantee plan) starts paying in-app', () => {
   assert.deepEqual(decidePlanSwitch(input()), { kind: 'in_app_start_paid' });
+});
+
+test("in the trial's last two days, Basic monthly → Pro monthly keeps the trial", () => {
+  for (const hoursLeft of [51, 48, 2, 0.01]) {
+    assert.deepEqual(
+      decidePlanSwitch(input({ trialEndMs: NOW + hoursLeft * HOUR })),
+      { kind: 'in_app_upgrade' },
+      `${hoursLeft}h left`,
+    );
+  }
+  // One millisecond before the window opens is still "start paying today".
+  assert.deepEqual(decidePlanSwitch(input({ trialEndMs: NOW + 51 * HOUR + 1 })), { kind: 'in_app_start_paid' });
+});
+
+test('the two-day upgrade is Pro monthly from a Basic monthly trial, nothing else', () => {
+  const lastDay = { trialEndMs: NOW + 20 * HOUR };
+  // Pro on a longer period is paid up front, under the guarantee, as before.
+  for (const targetCadence of ['quarterly', 'annual'] as const) {
+    assert.deepEqual(decidePlanSwitch(input({ ...lastDay, targetCadence })), { kind: 'in_app_start_paid' });
+  }
+  // A reactivation trial on Basic annual has no two-day upgrade to Pro monthly.
+  assert.deepEqual(
+    decidePlanSwitch(input({ ...lastDay, currentCadence: 'annual' })),
+    { kind: 'in_app_start_paid' },
+  );
+  // A paying member's tier change still goes through the portal.
+  assert.deepEqual(decidePlanSwitch(input({ ...lastDay, status: 'active' })), { kind: 'portal' });
+  // No trial end on record: no window to be inside.
+  assert.deepEqual(decidePlanSwitch(input({ trialEndMs: null })), { kind: 'in_app_start_paid' });
 });
 
 test('trialing Basic monthly → any quarterly or annual plan also starts paying in-app', () => {
@@ -303,6 +339,8 @@ test('every offer is a switch decidePlanSwitch performs in-app', () => {
             targetHasTrial: false,
             status: 'active',
             paused: false,
+            trialEndMs: null,
+            nowMs: NOW,
           }),
           { kind: 'in_app_lengthen' },
         );

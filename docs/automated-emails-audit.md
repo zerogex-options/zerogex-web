@@ -243,7 +243,7 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 
 ### 3.3 Trial-end & billing / dunning
 
-**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing?, dormant? })`
+**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing?, dormant?, proUpgrade? })`
 - **Subject:** `Your ZeroGEX free trial ends in 2 days`
 - Courtesy heads-up before auto-conversion. When `billing` is resolved from Stripe it
   names the exact charge + card ("Your subscription will begin at $X/month using your
@@ -260,6 +260,12 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   conversion and later cancelled found the cancellation email's save button already
   claimed. The 25% is a win-back lever, offered where someone is actually leaving. Same
   reasoning `core/returnIntent.ts` applies to a churned member who returns unprompted.
+- **Opens the two-day Pro upgrade** (`core/trialProUpgrade.ts`). For an engaged Basic
+  monthly trialer who has not opted out of marketing email, a "Want Pro instead?"
+  paragraph after the "nothing you need to do" line: switch now and the rest of the trial
+  stays free, the first charge becomes Pro's list price, and they can still cancel before
+  it. Links to `/pricing?switch=pro` through `/login`, which opens the switch with the
+  exact first charge. Never in the dormant copy. Full price, no discount.
   A test asserts neither variant contains `discount`, `% off` or `/convert`.
 - The `/convert` route still resolves so links sent before the change don't 404. It
   expires on its own — claiming requires `subscription_status = 'trialing'`, so every

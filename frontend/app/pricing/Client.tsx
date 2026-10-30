@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,7 +17,7 @@ import { readUtmParams } from '@/core/telemetry/utm';
 import { trackTwitter } from '@/core/telemetry/twitter-client';
 import { TwitterEvent } from '@/core/telemetry/twitter-events';
 import { ArrowLeftRight, ArrowRight, CheckCircle2, Loader2, LockOpen, ShieldCheck, Sparkles } from 'lucide-react';
-import { usePageT } from '@/core/LanguageContext';
+import { useLanguage, usePageT } from '@/core/LanguageContext';
 import {
   BILLING_CADENCES,
   formatBilledUsd,
@@ -94,6 +94,10 @@ type Props = {
   currentPlan: { tier: BillableTier; cadence: Cadence } | null;
   // Their subscription's status ('trialing', 'active', ...), or null.
   subscriptionStatus: string | null;
+  // When their trial ends, while a Basic monthly trialer is inside the two-day
+  // Pro upgrade (core/trialProUpgrade.ts): switching to Pro monthly then keeps
+  // the rest of the trial free. Null otherwise.
+  trialProUpgradeUntil: string | null;
   // They have already used their one money-back refund (this account or email).
   guaranteeUsed: boolean;
 };
@@ -103,6 +107,14 @@ const PROMO_TOTAL_SAVINGS_USD = MONTHLY_PROMO.amountOffUsd * MONTHLY_PROMO.month
 
 // The billing period last picked on this page (a per-browser convenience).
 const CADENCE_STORAGE_KEY = 'zgx_pricing_cadence';
+
+// ?from= on a "switch to Pro" link → the source the switch is audited under
+// (app/api/billing/change-plan SWITCH_SOURCES).
+const SWITCH_SOURCE_BY_FROM: Record<string, string> = {
+  trial_reminder: 'trial_reminder_email',
+  pro_interest: 'pro_interest_email',
+  locked_page: 'locked_page',
+};
 
 type TierAction =
   | { kind: 'link'; href: string; label: string }
@@ -300,6 +312,7 @@ function TierCard({
   highlighted,
   startsTrial,
   hasGuarantee,
+  keepsTrialUntil,
   trialDays,
   action,
   busy,
@@ -322,6 +335,9 @@ function TierCard({
   // Mutually exclusive with startsTrial; a returning member on the trial plan
   // gets neither and is simply billed.
   hasGuarantee: boolean;
+  // The formatted trial end, when switching to this plan keeps the rest of the
+  // member's trial free (the two-day Pro upgrade). Excludes both of the above.
+  keepsTrialUntil: string | null;
   // Trial length shown in the card note. Standard TRIAL_DAYS for everyone, the
   // extended REACTIVATION_TRIAL_DAYS for a ?reactivate=1 visitor so the card
   // agrees with the hero and the email.
@@ -385,6 +401,11 @@ function TierCard({
         >
           <ShieldCheck size={14} style={{ color: accent, marginTop: 2, flexShrink: 0 }} aria-hidden />
           <span>{t('moneyBackNote', { days: MONEY_BACK_GUARANTEE_DAYS })}</span>
+        </p>
+      )}
+      {keepsTrialUntil && (
+        <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
+          {t('keepTrialCardNote', { date: keepsTrialUntil })}
         </p>
       )}
 
@@ -809,9 +830,11 @@ function PricingClientInner({
   campaignActive,
   currentPlan,
   subscriptionStatus,
+  trialProUpgradeUntil,
   guaranteeUsed,
 }: Props) {
   const t = usePageT(dict);
+  const { locale } = useLanguage();
   const { theme } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -875,6 +898,11 @@ function PricingClientInner({
     prorationDate?: number;
     // Set when a confirm came back because the price moved since the quote.
     notice?: string;
+    // A switch that keeps the trial ('keep_trial'): what the trial-end charge
+    // becomes, when it lands, and whether the switch undoes a cancellation.
+    chargeFormatted?: string;
+    chargeAt?: string;
+    resumesCanceled?: boolean;
   } | null>(null);
   // A switch the bank must approve (3-D Secure) cannot be finished here; the
   // server hands back a billing-portal link that can.
@@ -943,6 +971,11 @@ function PricingClientInner({
   // The first-month plan offer email links here with ?from=plan_offer, so a
   // switch it produces is recorded as coming from it.
   const cameFromPlanOffer = searchParams.get('from') === 'plan_offer';
+  // A "switch to Pro" link (core/trialProUpgrade.ts proSwitchPath) names the
+  // email or screen it was in, so the switch it produces is recorded as such.
+  const switchSource = cameFromPlanOffer
+    ? 'plan_offer_email'
+    : (SWITCH_SOURCE_BY_FROM[searchParams.get('from') ?? ''] ?? 'pricing');
   const cameFromRegistration = searchParams.get('source') === 'registration';
   // ?winback=1 is the link in the ~1-month win-back email. It tells checkout to
   // attempt the automated win-back coupon; the server re-verifies the account is
@@ -1131,7 +1164,7 @@ function PricingClientInner({
         body: JSON.stringify({
           tier,
           cadence: planCadence,
-          source: cameFromPlanOffer ? 'plan_offer_email' : 'pricing',
+          source: switchSource,
           ...(confirmed
             ? {
                 confirm: true,
@@ -1151,6 +1184,9 @@ function PricingClientInner({
           guarantee?: boolean;
           kind?: string;
           prorationDate?: number;
+          chargeFormatted?: string;
+          chargeAt?: string;
+          resumesCanceled?: boolean;
         };
       };
       // A quote: the first step, or a confirm refused because the price moved
@@ -1166,6 +1202,9 @@ function PricingClientInner({
           ...(quote.kind ? { kind: quote.kind } : {}),
           ...(typeof quote.prorationDate === 'number' ? { prorationDate: quote.prorationDate } : {}),
           ...(response.status === 409 && payload.error ? { notice: payload.error } : {}),
+          ...(typeof quote.chargeFormatted === 'string' ? { chargeFormatted: quote.chargeFormatted } : {}),
+          ...(typeof quote.chargeAt === 'string' ? { chargeAt: quote.chargeAt } : {}),
+          ...(quote.resumesCanceled === true ? { resumesCanceled: true } : {}),
         });
         setBusyTier(null);
         return;
@@ -1178,7 +1217,7 @@ function PricingClientInner({
       if (!payload.url) throw new Error(t('errorBillingFailed'));
       window.location.href = payload.url;
     },
-    [cameFromPlanOffer, t],
+    [switchSource, t],
   );
 
   const handleChangePlan = useCallback(
@@ -1211,6 +1250,25 @@ function PricingClientInner({
       setBusyTier(null);
     }
   }, [confirmSwitch, requestPlanChange, t]);
+
+  // A "switch to Pro" link (?switch=pro, core/trialProUpgrade.ts proSwitchPath)
+  // opens the switch straight away for a Basic trialer, so the button in the
+  // email or on the locked page leads to the terms, not to a card they have to
+  // find. Nothing changes until they confirm. Anyone else (a paying member's
+  // switch is the billing portal) just lands with the Pro card highlighted.
+  const autoSwitchStarted = useRef(false);
+  useEffect(() => {
+    if (autoSwitchStarted.current || authLoading) return;
+    if (searchParams.get('switch') !== 'pro') return;
+    if (!isAuthed || !hasActiveSubscription || subscriptionStatus !== 'trialing') return;
+    if (currentPlan?.tier !== 'basic') return;
+    autoSwitchStarted.current = true;
+    setBusyTier('pro');
+    requestPlanChange('pro', 'monthly', null).catch((err) => {
+      setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
+      setBusyTier(null);
+    });
+  }, [authLoading, currentPlan, hasActiveSubscription, isAuthed, requestPlanChange, searchParams, subscriptionStatus, t]);
 
   const planName = useCallback(
     (tier: BillableTier, planCadence: Cadence) =>
@@ -1245,9 +1303,12 @@ function PricingClientInner({
       const isCurrentPlan =
         hasActiveSubscription && currentPlan?.tier === tier && currentPlan?.cadence === cadence;
       const startsTrial = !hasActiveSubscription && !isResubscribe && (planTrials || cameFromReactivate);
+      // The two-day Pro upgrade keeps the trial, so it carries neither note.
+      const keepsTrial = tier === 'pro' && cadence === 'monthly' && trialProUpgradeUntil !== null;
       const guaranteeReachable = !hasActiveSubscription || subscriptionStatus === 'trialing';
-      const hasGuarantee = !startsTrial && !planTrials && guaranteeReachable && !isCurrentPlan && !guaranteeUsed;
-      return { startsTrial, hasGuarantee };
+      const hasGuarantee =
+        !startsTrial && !planTrials && !keepsTrial && guaranteeReachable && !isCurrentPlan && !guaranteeUsed;
+      return { startsTrial, hasGuarantee, keepsTrial };
     },
     [
       cadence,
@@ -1258,7 +1319,28 @@ function PricingClientInner({
       isResubscribe,
       subscriptionStatus,
       trialPlans,
+      trialProUpgradeUntil,
     ],
+  );
+
+  // A trial end in the member's language, in New York time like every other
+  // billing cutoff on the site ("November 2, 7:59 PM EST").
+  const formatChargeDate = useCallback(
+    (iso: string) => {
+      try {
+        return new Intl.DateTimeFormat(locale, {
+          timeZone: 'America/New_York',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short',
+        }).format(new Date(iso));
+      } catch {
+        return iso;
+      }
+    },
+    [locale],
   );
 
   const actionFor = useCallback(
@@ -1540,6 +1622,7 @@ function PricingClientInner({
               highlighted={preselectedPlan === 'basic'}
               startsTrial={basicTerms.startsTrial}
               hasGuarantee={basicTerms.hasGuarantee}
+              keepsTrialUntil={null}
               trialDays={trialDaysDisplay}
               accent="var(--color-brand-primary)"
               features={[
@@ -1564,6 +1647,9 @@ function PricingClientInner({
               highlighted={preselectedPlan === 'pro'}
               startsTrial={proTerms.startsTrial}
               hasGuarantee={proTerms.hasGuarantee}
+              keepsTrialUntil={
+                proTerms.keepsTrial && trialProUpgradeUntil ? formatChargeDate(trialProUpgradeUntil) : null
+              }
               trialDays={trialDaysDisplay}
               accent="var(--color-brand-accent)"
               features={[
@@ -1757,9 +1843,14 @@ function PricingClientInner({
             style={{ maxWidth: 460, width: '100%', padding: 24, background: 'var(--color-surface)' }}
           >
             <h2 id="zgx-confirm-switch-title" style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.light }}>
-              {t(confirmSwitch.kind === 'lengthen' ? 'confirmPaidSwitchTitle' : 'confirmSwitchTitle', {
-                plan: planName(confirmSwitch.tier, confirmSwitch.cadence),
-              })}
+              {t(
+                confirmSwitch.kind === 'lengthen'
+                  ? 'confirmPaidSwitchTitle'
+                  : confirmSwitch.kind === 'keep_trial'
+                    ? 'confirmKeepTrialTitle'
+                    : 'confirmSwitchTitle',
+                { plan: planName(confirmSwitch.tier, confirmSwitch.cadence) },
+              )}
             </h2>
             {confirmSwitch.notice && (
               <p role="status" style={{ margin: '12px 0 0', color: C.amber, fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
@@ -1767,11 +1858,22 @@ function PricingClientInner({
               </p>
             )}
             <p style={{ margin: '12px 0 0', color: C.light, fontSize: 15, lineHeight: 1.6 }}>
-              {t(confirmSwitch.kind === 'lengthen' ? 'confirmPaidSwitchBody' : 'confirmSwitchBody', {
-                amount: confirmSwitch.amountFormatted,
-                plan: planName(confirmSwitch.tier, confirmSwitch.cadence),
-              })}
+              {confirmSwitch.kind === 'keep_trial'
+                ? t('confirmKeepTrialBody', {
+                    amount: confirmSwitch.chargeFormatted ?? '',
+                    date: confirmSwitch.chargeAt ? formatChargeDate(confirmSwitch.chargeAt) : '',
+                    plan: planName(confirmSwitch.tier, confirmSwitch.cadence),
+                  })
+                : t(confirmSwitch.kind === 'lengthen' ? 'confirmPaidSwitchBody' : 'confirmSwitchBody', {
+                    amount: confirmSwitch.amountFormatted,
+                    plan: planName(confirmSwitch.tier, confirmSwitch.cadence),
+                  })}
             </p>
+            {confirmSwitch.kind === 'keep_trial' && confirmSwitch.resumesCanceled && (
+              <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13, lineHeight: 1.55 }}>
+                {t('confirmKeepTrialResumes')}
+              </p>
+            )}
             {confirmSwitch.guarantee && (
               <p
                 style={{
@@ -1795,7 +1897,7 @@ function PricingClientInner({
                 style={{ flex: 1, padding: '12px 18px', fontSize: 14 }}
                 onClick={() => void handleConfirmSwitch()}
               >
-                {t('confirmSwitchCta')}
+                {t(confirmSwitch.kind === 'keep_trial' ? 'confirmKeepTrialCta' : 'confirmSwitchCta')}
               </button>
               <button
                 type="button"
