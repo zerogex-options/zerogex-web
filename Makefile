@@ -73,7 +73,7 @@ help:
 	@echo "  make trial-value-nudge - Send the mid-trial (~day 2) value/activation nudge to current trialers, ahead of the day 3-7 cancel wave (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, add PREVIEW_VARIANT=comeback for the version sent to trialers who have not been back, WINDOW_HOURS=N to tune the window)"
 	@echo "  make card-expiry-reminders - Email active subscribers whose card on file expires within ~45 days so they update it before a renewal fails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, THRESHOLD_DAYS=N / LIMIT=N to tune)"
 	@echo "  make payment-failed-preview - Send yourself a sample of the payment-failed dunning email (PREVIEW_TO=<email>; FINAL=1 for the retries-exhausted variant, NO_CARD=1 for the neutral fallback)"
-	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
+	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout. Skips anyone unsubscribed from marketing (counted every run, named on DRY_RUN=1); each email carries a one-click unsubscribe (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make daily-levels        - Send the free pre-open levels digest to confirmed levels-email subscribers. Sends nothing without YES=1. DRY_RUN=1 prints the per-symbol freshness verdict + the rendered body, PREVIEW_TO=<email> mails one sample, FORCE=1 skips the 08:30-09:25 ET window (not the trading-day or freshness guards), LIMIT=<n> / THROTTLE_MS=<n> (default 250 ms between Resend calls) bound a run. Safe to re-run: anyone already sent that day's digest is skipped, so after a partial failure YES=1 FORCE=1 mails only the people it missed"
 	@echo "  make levels-subscribers  - Read-only readout of the free levels email list: the double opt-in rate, the funnel, and the split by preferred symbol and signup page. JSON=1 for machine-readable output"
 	@echo "  make verify-reminders - Send the founder-voice 'finish verifying to unlock the trial' nudge to users who signed up but never confirmed their email (mints a fresh 24h verify link; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
@@ -82,7 +82,7 @@ help:
 	@echo "  make return-intent - Answer churned members who logged back in on their own (no discount, no trial claim; per-reason copy from their cancel survey). DIGEST=1 [DIGEST_TO=<email>] emails you the list + draft and sends nothing (the daily default); YES=1 delivers; DRY_RUN=1 previews with a per-member skip tally; PREVIEW_TO=<email> sends one sample; COOLDOWN_DAYS/QUIET_HOURS/MAX_LOGIN_AGE_DAYS tune the windows; LIMIT caps a run"
 	@echo "  make reactivation - Send the second-touch reactivation email (extended free trial) to cold verified-never-paid signups who signed up >=21d ago. DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; LAG_DAYS/LOOKBACK_DAYS override the 21d/3650d window; LIMIT=<n> caps the drip (default 50; 0=unlimited)"
 	@echo "  make backfill-reactivation-entitlement - Grant the extended-trial entitlement (users.reactivation_email_sent_at) to accounts a campaign email already promised it to but never stamped, so checkout honors it. CAMPAIGN=<audit key> selects the send (default product_update_2026_08); EMAIL=<addr> does one account; DRY_RUN=1 lists, YES=1 applies"
-	@echo "  make checkout-recovery - Send the one-shot abandoned-checkout recovery nudge to users who started Stripe Checkout but never subscribed (promo copy quotes the live Basic/Pro rates from Stripe). Fired by the checkout-recovery systemd timer. DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample, PREVIEW_FOUNDING=1 for the founding variant, LAG_HOURS/LOOKBACK_HOURS override the window"
+	@echo "  make checkout-recovery - Send the one-shot abandoned-checkout recovery nudge to users who started Stripe Checkout but never subscribed (promo copy quotes the live Basic/Pro rates from Stripe). Skips anyone unsubscribed from marketing (counted every run, named on DRY_RUN=1); each email carries a one-click unsubscribe. Fired by the checkout-recovery systemd timer. DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample, PREVIEW_FOUNDING=1 for the founding variant, LAG_HOURS/LOOKBACK_HOURS override the window"
 	@echo "  make founding-final-call - Send the one-shot founding final-call urgency email to founding-eligible non-redeemers before the lock-in deadline (quotes live founding rates from Stripe; no-op once the deadline passes). DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample"
 	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] [X_HANDLE=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code, optionally sets the X handle (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
@@ -857,7 +857,11 @@ enforce-payment-grace:
 # actually send. Pass PREVIEW_TO=<email> to render the email and send a
 # single sample copy to that address (no DB writes). Pass LAG_HOURS=<n>
 # to override the "wait N hours after signup" gate; LOOKBACK_HOURS=<n> to
-# override the "no older than N hours" upper bound.
+# override the "no older than N hours" upper bound. Skips anyone who
+# unsubscribed from marketing (users.marketing_unsubscribed_at): every run
+# counts them, DRY_RUN=1 names them, and they never take a LIMIT slot. Each
+# email carries a signed one-click unsubscribe (footer link + List-Unsubscribe
+# header).
 verified-never-paid:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-verified-never-paid.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LAG_HOURS),--lag-hours $(LAG_HOURS),) $(if $(LOOKBACK_HOURS),--lookback-hours $(LOOKBACK_HOURS),) $(if $(LIMIT),--limit $(LIMIT),) $(if $(THROTTLE_MS),--throttle-ms $(THROTTLE_MS),)'
 
@@ -971,7 +975,10 @@ backfill-reactivation-entitlement:
 # open) get founding-deadline copy; otherwise, if the public promo is live,
 # promo copy whose Basic/Pro rates are resolved LIVE from Stripe (never
 # hardcoded); otherwise a generic "pick up where you left off". Idempotent via
-# users.checkout_recovery_email_sent_at. This is the target the
+# users.checkout_recovery_email_sent_at. Skips anyone who unsubscribed from
+# marketing (users.marketing_unsubscribed_at); DRY_RUN=1 lists them under
+# "Unsubscribed". Each email carries a signed one-click unsubscribe (footer link
+# + List-Unsubscribe header). This is the target the
 # zerogex-web-checkout-recovery.timer fires (make checkout-recovery YES=1).
 # DRY_RUN=1 previews eligible users, YES=1 sends, PREVIEW_TO=<email> renders one
 # sample (PREVIEW_FOUNDING=1 forces the founding variant); LAG_HOURS/LOOKBACK_HOURS

@@ -1436,6 +1436,11 @@ export async function sendFoundingFinalCallEmail(
 // checkout flow (which will reuse their cached stripe_customer_id rather
 // than minting another orphan). Latched per-account by
 // users.checkout_recovery_email_sent_at; deliberately never re-fires.
+//
+// It's a sales email, so it carries a marketing unsubscribe like the win-back:
+// a footer opt-out link plus the one-click List-Unsubscribe header (RFC 8058).
+// scripts/send-checkout-recovery.mts skips anyone already opted out
+// (users.marketing_unsubscribed_at).
 export async function sendCheckoutRecoveryEmail(
   to: string,
   opts: {
@@ -1452,6 +1457,8 @@ export async function sendCheckoutRecoveryEmail(
     // the promo copy drops the specific figures and just says the discounted
     // intro rate applies at checkout.
     promoPricing?: { basicMonthly: string; proMonthly: string } | null;
+    // Signed per-user opt-out link (core/unsubToken.ts buildUnsubUrl).
+    unsubUrl: string;
   },
 ) {
   const founding = opts.foundingDeadlineLabel;
@@ -1481,7 +1488,7 @@ export async function sendCheckoutRecoveryEmail(
   const pricingUrl = `${getAppUrl()}/pricing`;
   const safePricingUrl = escapeHtml(pricingUrl);
 
-  const text = founding
+  const bodyText = founding
     ? [
         'Hello,',
         '',
@@ -1523,6 +1530,14 @@ export async function sendCheckoutRecoveryEmail(
           'Founder, ZeroGEX',
         ].join('\n');
 
+  const text = [
+    bodyText,
+    '',
+    '\u2014',
+    "You're receiving this because you created a ZeroGEX account. Unsubscribe from emails like this:",
+    opts.unsubUrl,
+  ].join('\n');
+
   const ctaLabel = founding
     ? 'Lock in the founding rate'
     : promo
@@ -1549,6 +1564,10 @@ export async function sendCheckoutRecoveryEmail(
       </p>
       <p>${closer}</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="font-size: 12px; color: #999; margin-top: 28px; border-top: 1px solid #eee; padding-top: 14px; line-height: 1.5;">
+        You're receiving this because you created a ZeroGEX account.
+        <a href="${escapeHtml(opts.unsubUrl)}" style="color: #999; text-decoration: underline;">Unsubscribe from emails like this</a>.
+      </p>
     </div>
   `.trim();
 
@@ -1559,6 +1578,11 @@ export async function sendCheckoutRecoveryEmail(
     subject,
     text,
     html,
+    // One-click unsubscribe (RFC 8058), as on the win-back.
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
   });
 
   if (result.error) {
@@ -3299,7 +3323,16 @@ export async function sendWinbackDigestEmail(
 // One-shot per account (idempotency latch on users.verified_never_paid_email_sent_at).
 // Deliberately no discount — the pitch is that the free trial removes the
 // financial risk, so a coupon would just muddy the ask.
-export async function sendVerifiedNeverPaidEmail(to: string) {
+//
+// Still a sales pitch, so it carries a marketing unsubscribe like the
+// reactivation email that follows it: a footer opt-out link plus the one-click
+// List-Unsubscribe header (RFC 8058). scripts/send-verified-never-paid.mts
+// skips anyone already opted out (users.marketing_unsubscribed_at).
+export async function sendVerifiedNeverPaidEmail(
+  to: string,
+  // Signed per-user opt-out link (core/unsubToken.ts buildUnsubUrl).
+  opts: { unsubUrl: string },
+) {
   const subject = 'Quick note from Michael at ZeroGEX';
   // Land them on the trial-continuation pricing hero ("You're almost done…")
   // rather than the generic pricing intro, so the email and the page tell one
@@ -3324,6 +3357,10 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
     'Best,',
     'Michael',
     'Founder, ZeroGEX',
+    '',
+    '\u2014',
+    "You're receiving this because you created a ZeroGEX account. Unsubscribe from emails like this:",
+    opts.unsubUrl,
   ].join('\n');
 
   const html = `
@@ -3337,6 +3374,10 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
       </p>
       <p>Either way, thanks for giving ZeroGEX a look.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="font-size: 12px; color: #999; margin-top: 28px; border-top: 1px solid #eee; padding-top: 14px; line-height: 1.5;">
+        You're receiving this because you created a ZeroGEX account.
+        <a href="${escapeHtml(opts.unsubUrl)}" style="color: #999; text-decoration: underline;">Unsubscribe from emails like this</a>.
+      </p>
     </div>
   `.trim();
 
@@ -3347,6 +3388,11 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
     subject,
     text,
     html,
+    // One-click unsubscribe (RFC 8058), as on the reactivation email.
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
   });
 
   if (result.error) {
