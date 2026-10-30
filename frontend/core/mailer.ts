@@ -4550,3 +4550,98 @@ export async function sendPlanOfferEmail(to: string, opts: PlanOfferEmailOptions
     throw new Error(`Resend error: ${result.error.message}`);
   }
 }
+
+export type ProInterestEmailOptions = {
+  // "Pro is $59 a month, $20 more than Basic." (core/proWall.ts proWallCopy)
+  priceLine: string;
+  // What switching would mean for this member today, in the locked Pro
+  // screen's own words (core/proWall.ts proWallCopy).
+  termsLine: string;
+  // Pro annual as a monthly figure, or null where it would not help.
+  annualLine: string | null;
+  // What Pro adds (core/proWall.ts PRO_FEATURES).
+  features: readonly string[];
+  // Through /login to the pricing page with the Pro switch open
+  // (proSwitchPath('pro_interest')), so a switch it produces is recorded as such.
+  switchUrl: string;
+  // Through /login to the pricing page on Pro annual.
+  annualUrl: string;
+  // Signed per-user opt-out link (core/unsubToken.ts buildUnsubUrl).
+  unsubUrl: string;
+};
+
+// The Pro interest email (core/proInterest.ts): a founder note to a Basic
+// member who tried to open Pro pages. What Pro adds, what it costs next to
+// Basic, and what switching would mean for them today. Full price, sent once,
+// and it honors the marketing opt-out.
+export function buildProInterestEmail(opts: ProInterestEmailOptions): { subject: string; text: string; html: string } {
+  const subject = 'About the Pro pages you tried to open';
+  const opening =
+    "Michael here, the founder of ZeroGEX. I saw you tried to open some of the Pro pages, so here's what Pro adds and how switching works, in case it helps.";
+  const terms = `${opts.priceLine} ${opts.termsLine}`;
+  const close =
+    'If you have a question about any of it, or about whether Pro fits how you trade, just reply. I read every email.';
+
+  const text = [
+    'Hi,',
+    '',
+    opening,
+    '',
+    'Pro adds:',
+    '',
+    ...opts.features.map((feature) => `  • ${feature}`),
+    '',
+    terms,
+    '',
+    `Switch to Pro: ${opts.switchUrl}`,
+    '',
+    ...(opts.annualLine ? [`${opts.annualLine} See it here: ${opts.annualUrl}`, ''] : []),
+    close,
+    '',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    `Prefer fewer emails like this? Unsubscribe: ${opts.unsubUrl}`,
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hi,</p>
+      <p>${escapeHtml(opening)}</p>
+      <p style="margin-bottom: 6px;">Pro adds:</p>
+      <ul style="padding-left: 20px; margin: 0 0 16px;">
+        ${opts.features.map((feature) => `<li style="margin: 0 0 6px;">${escapeHtml(feature)}</li>`).join('')}
+      </ul>
+      <p>${escapeHtml(terms)}</p>
+      <p style="margin: 22px 0;">
+        <a href="${escapeHtml(opts.switchUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #111; font-weight: 700; text-decoration: none; border-radius: 8px;">Switch to Pro</a>
+      </p>
+      ${opts.annualLine ? `<p>${escapeHtml(opts.annualLine)} <a href="${escapeHtml(opts.annualUrl)}" style="color: #f5b400; font-weight: 600;">See Pro annual</a></p>` : ''}
+      <p>${escapeHtml(close)}</p>
+      <p>Michael<br>Founder, ZeroGEX</p>
+      <p style="margin-top: 24px; font-size: 12px; color: #888;">Prefer fewer emails like this? <a href="${escapeHtml(opts.unsubUrl)}" style="color: #888;">Unsubscribe</a>.</p>
+    </div>
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export async function sendProInterestEmail(to: string, opts: ProInterestEmailOptions) {
+  const { subject, text, html } = buildProInterestEmail(opts);
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+    // Marketing, so opting out is one tap (RFC 8058).
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}

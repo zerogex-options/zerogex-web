@@ -103,6 +103,7 @@
     "test:plan-switch": "node --experimental-strip-types --test tests/planSwitch.test.ts",
     "test:trial-pro-upgrade": "node --experimental-strip-types --test tests/trialProUpgrade.test.ts",
     "test:pro-wall": "node --experimental-strip-types --test tests/proWall.test.ts",
+    "test:pro-interest": "node --experimental-strip-types --test tests/proInterest.test.ts",
     "test:switch-discounts": "node --experimental-strip-types --test tests/switchDiscounts.test.ts",
     "test:subscription-discounts": "node --experimental-strip-types --test tests/subscriptionDiscounts.test.ts",
     "test:cancellation-reason": "node --experimental-strip-types --test tests/cancellationReason.test.ts",

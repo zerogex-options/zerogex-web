@@ -101,6 +101,7 @@ stops a cron re-firing the same email every run. Verified list of latch columns:
 | `marketing_unsubscribed_at` | **opt-out** — excludes from marketing sends | user unsubscribes | (opt back in only manually) |
 | `payment_grace_warning_sent_for` | Grace-expiry warning (~24h before the window closes) | warning sent | **never cleared** — it stores the `payment_grace_started_at` anchor it was sent for, so a re-opened window (new anchor) stops matching and re-arms it by itself |
 | `renewal_reminder_sent_for` | Renewal reminder (quarterly / annual) | claimed just before the send, released if the send fails | **never cleared** — it stores the `current_period_end` it was sent for, so the next billing period re-arms it by itself |
+| `pro_interest_email_sent_at` | Pro interest email (sent by hand) | claimed just before the send, released if the send fails | **never** (once per member, ever) |
 
 Two **flags** (not timestamps) drive the dunning/welcome logic:
 
@@ -428,6 +429,20 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   activate. Recipients have never started a trial or entered a card, so copy that reads
   as already done ("I've set your trial", "your card is on file") sends them looking for
   a trial that isn't on their account.
+
+**Pro interest email** — `sendProInterestEmail(to, { priceLine, termsLine, annualLine, features, switchUrl, annualUrl, unsubUrl })`
+- **Subject:** `About the Pro pages you tried to open`
+- **Sent by hand, never on a timer:** `make pro-interest-email` (dry run by default;
+  `YES=1` sends, `PREVIEW_TO=` sends one sample of each version, `DAYS=` and
+  `EXCLUDE=`). Goes to Basic members who visited the locked Pro screen (`/unauthorized`
+  in `page_view_events`) in the last 14 days. Skips the marketing opt-out, past-due,
+  canceling and paused members, and anyone already sent it (`core/proInterest.ts`).
+- Founder note: what Pro adds, Pro's price next to Basic, and what switching means for
+  that member today, in the locked screen's own words (`core/proWall.ts`): in a trial's
+  last two days, keep the rest free; earlier, Pro starts today under the guarantee (or
+  wait for the two-day window); a paying member sees Stripe's price before anything
+  changes. The button opens the switch on `/pricing` through `/login`. Full price.
+  Marketing unsubscribe footer and one-click `List-Unsubscribe` headers.
 
 ### 3.5 Retention / churn
 

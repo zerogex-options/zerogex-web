@@ -1082,6 +1082,10 @@ function initDb(): DatabaseSync {
   // subscription and a member back on a new one is eligible again.
   ensureColumn('users', 'plan_offer_email_sent_for', 'TEXT');
 
+  // The Pro interest email (core/proInterest.ts, scripts/send-pro-interest-email.mts)
+  // latch: when it went out. Once per member, ever.
+  ensureColumn('users', 'pro_interest_email_sent_at', 'TEXT');
+
   // ── 7-day money-back guarantee ledger ─────────────────────────────────────
   // One row per guarantee refund request, keyed by the subscription it
   // refunds. Two jobs:
