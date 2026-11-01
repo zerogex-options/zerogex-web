@@ -11,11 +11,12 @@ import { NAV_GROUPS } from '../core/navigation.ts';
 // the Platform Guide index, and the Education > Help menu. The index and the
 // menu are hand-listed, so either can drift from the registry on its own.
 //
-// It also holds the guide to the chart: every overlay pill the chart draws must
-// have a row in the guide's overlay table, so a new overlay ships with its
-// description rather than leaving the guide quietly incomplete, the way the
-// older help pages missed Centroids and NVDA. The translations are held to
-// the same sections, since a reader on another locale gets that file instead.
+// It also holds the guide to the chart: every overlay switch in the chart's
+// Layers panel must have a row in the guide's overlay table, so a new overlay
+// ships with its description rather than leaving the guide quietly incomplete,
+// the way the older help pages missed Centroids and NVDA. The translations are
+// held to the same sections, since a reader on another locale gets that file
+// instead.
 
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
@@ -30,21 +31,19 @@ const GUIDES: Array<[string, string]> = [
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
-// The overlay pills the chart draws. The rail's pill and its Labels toggle are
-// not drawn on the terminal, which hides the inline rail; the guide covers the
-// rail as the Strike Panel. The per-level pills behind `splitGammaLevels` are
-// the Fuseline Radar's (the terminal keeps the one Gamma Levels pill), and the
-// radar has its own guide, so they are not this guide's to cover.
+// The overlay switches the chart's Layers panel lists (LAYER_ROWS in the
+// chart). The inline rail's switch (RAIL_LAYER) is not drawn on the terminal,
+// which moves the rail into its Strike Panel, and the guide covers it there.
+// The volume pane's switch (VOLUME_LAYER) has its own section. The per-level
+// switches behind `splitGammaLevels` (SPLIT_LEVEL_LAYERS) are the Fuseline
+// Radar's (the terminal keeps the one Gamma Levels switch), and the radar has
+// its own guide, so they are not this guide's to cover.
 const overlayLabels = (() => {
   const chart = read('../components/GammaTerminalChart.tsx');
-  const labels = new Set([...chart.matchAll(/<OverlayPill label="([^"]+)"/g)].map((m) => m[1]));
-  labels.delete('Gamma Rail');
-  labels.delete('Labels');
-  const splitStart = chart.indexOf('{splitGammaLevels ? (');
-  const splitEnd = chart.indexOf(') : (', splitStart);
-  assert.ok(splitStart >= 0 && splitEnd > splitStart, 'expected the radar-only split-levels branch');
-  for (const m of chart.slice(splitStart, splitEnd).matchAll(/<OverlayPill label="([^"]+)"/g)) labels.delete(m[1]);
-  return [...labels];
+  const start = chart.indexOf('const LAYER_ROWS');
+  const end = chart.indexOf('];', start);
+  assert.ok(start >= 0 && end > start, "expected the chart's LAYER_ROWS list");
+  return [...chart.slice(start, end).matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
 })();
 
 test('the guide is a registered Core Pages help article whose page exists', () => {
@@ -82,13 +81,13 @@ test('the terminal links to the guide outside its About fold', () => {
   assert.ok(link < client.indexOf('<div id="chart-hero-intro"'), 'the link must not be inside the folded region');
 });
 
-test('every overlay pill the chart draws has a row and a section in every language', () => {
-  assert.ok(overlayLabels.length >= 10, `expected the chart's overlay pills, found ${overlayLabels.join(', ')}`);
+test('every overlay switch the chart offers has a row and a section in every language', () => {
+  assert.ok(overlayLabels.length >= 10, `expected the chart's overlay switches, found ${overlayLabels.join(', ')}`);
   for (const [locale, path] of GUIDES) {
     assert.ok(existsSync(new URL(path, import.meta.url)), `the ${locale} guide is missing`);
     const guide = read(path);
     assert.match(guide, /^# \S/, `${locale}: the H1 comes first`);
-    // Pill names are on-screen text, so they stay as the chart prints them.
+    // Layer names are on-screen text, so they stay as the chart prints them.
     for (const label of overlayLabels) {
       assert.match(guide, new RegExp(`^\\| ${escape(label)} \\|`, 'm'), `${locale}: the overlay table has no row for ${label}`);
       assert.match(guide, new RegExp(`^### ${escape(label)}$`, 'm'), `${locale}: no section for ${label}`);

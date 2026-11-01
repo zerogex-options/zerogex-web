@@ -77,11 +77,11 @@ GEX Heatmap Timeseries, sur la page GEX Heatmap et sur Dealer Positioning : les 
 
 Le graphique de prix du Gamma Terminal et le ZeroGEX Gamma Chart du Main Dashboard sont le même graphique : le prix du sous-jacent avec la structure de gamma des dealers tracée dessus. Pour un guide contrôle par contrôle de chaque superposition et de chaque panneau, voir [Utiliser le Gamma Terminal](/help/platform/gamma-terminal).
 
-- **Symbole et timeframe** - SPY, QQQ, SPX, NDX, ES, NQ ou NVDA, en barres de 1m, 5m, 15m, 1H ou 1D.
+- **Symbole et timeframe** - SPY, QQQ, SPX, NDX, ES, NQ ou NVDA (clique sur le symbole dans le titre du graphique pour en changer), en barres de 1m, 5m, 15m, 1H ou 1D.
 - **Style de prix** - Candle, Line ou Area, au-dessus d'un volet de volume qui affiche le volume Up/Down ou le net Cumulative de la séance.
 - **Expiry** - sur le graphique en direct, limite les niveaux de gamma et le rail aux échéances choisies ; **All** correspond à toute la chaîne.
 
-Les superpositions sont la touche ZeroGEX, chacune activée par une pastille de la barre d'outils au-dessus du graphique (sous **Layers** sur mobile) :
+Les superpositions sont la touche ZeroGEX, chacune avec son interrupteur dans le panneau **Layers**, qui s'ouvre depuis la barre d'outils au-dessus du graphique :
 
 - **Gamma Levels** - la ligne du gamma flip (tirets longs, azur, étiquetée `FLIP` sur le bord gauche) et les lignes du call wall et du put wall.
 - **Gamma Rail** - le gamma des dealers par strike, tracé à hauteur des prix du graphique, sous forme de silhouette lissée ou de barres Net, Split ou Combined. Sur le Gamma Terminal, il se trouve dans le panneau à côté du graphique, où vous pouvez le remplacer par deux échelles de Net GEX alignées par strike.
@@ -89,7 +89,7 @@ Les superpositions sont la touche ZeroGEX, chacune activée par une pastille de 
 - **VWAP**, et l'ombrage **Regime** - les zones de gamma long et de gamma short de part et d'autre du flip.
 - Désactivées tant que vous ne les activez pas : **GEX King** et, sur le graphique en direct, **Expected Range**, **Centroids** (là où est centré le trading de calls et de puts de la séance) et **Bar Timer**. Les **Ribbons** (le gamma par strike dans le temps, derrière le prix) sont eux aussi réservés au graphique en direct : désactivés tant que vous ne les activez pas sur le Main Dashboard, et activés par défaut sur le Gamma Terminal.
 
-Sur SPY, QQQ et NVDA, une rangée juste au-dessus du graphique en direct indique le plus haut, le plus bas et la clôture de la séance précédente, ainsi que le plus haut et le plus bas du pre-market du jour : `PDH`, `PDL`, `PDC`, `PMH`, `PML`. L'œil au bout de la rangée, ou la pastille **PD/PM Levels**, les trace sur le graphique sous forme de lignes grises avec des étiquettes de prix creuses, en tirets longs pour la veille et en pointillés pour le pre-market. Ces lignes sont désactivées tant que vous ne les activez pas. SPX et NDX n'ont pas de pre-market, et ES et NQ se négocient presque 24 heures sur 24 : la rangée n'apparaît donc pas sur ces quatre-là.
+Sur SPY, QQQ et NVDA, une rangée juste au-dessus du graphique en direct indique le plus haut, le plus bas et la clôture de la séance précédente, ainsi que le plus haut et le plus bas du pre-market du jour : `PDH`, `PDL`, `PDC`, `PMH`, `PML`. L'œil au bout de la rangée, ou l'interrupteur **PD/PM Levels** dans Layers, les trace sur le graphique sous forme de lignes grises avec des étiquettes de prix creuses, en tirets longs pour la veille et en pointillés pour le pre-market. Ces lignes sont désactivées tant que vous ne les activez pas. SPX et NDX n'ont pas de pre-market, et ES et NQ se négocient presque 24 heures sur 24 : la rangée n'apparaît donc pas sur ces quatre-là.
 
 La ligne finement pointillée dans l'accent chaud du thème est le **dernier prix traité**, pas un niveau gamma - elle figure sous le nom « Last » dans la légende sous le graphique.
 
@@ -109,7 +109,7 @@ La plupart des graphiques affichent une infobulle au survol avec les valeurs pr�
 
 ## Légendes
 
-Les légendes nomment chaque série et sa couleur - ce sont des clés, pas des interrupteurs. Sur le Gamma Chart, ce sont les pastilles de superposition au-dessus du graphique qui activent et désactivent les couches.
+Les légendes nomment chaque série et sa couleur - ce sont des clés, pas des interrupteurs. Sur le Gamma Chart, ce sont les interrupteurs du panneau **Layers** qui activent et désactivent les couches.
 
 ## Sparklines
 

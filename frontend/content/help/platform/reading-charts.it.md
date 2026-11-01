@@ -77,11 +77,11 @@ GEX Heatmap Timeseries, nella pagina GEX Heatmap e su Dealer Positioning: gli st
 
 Il grafico di prezzo del Gamma Terminal e lo ZeroGEX Gamma Chart del Main Dashboard sono lo stesso grafico: il prezzo del sottostante con la struttura di gamma dei dealer disegnata sopra. Per una guida a ogni overlay e pannello, controllo per controllo, vedi [Usare il Gamma Terminal](/help/platform/gamma-terminal).
 
-- **Simbolo e timeframe** - SPY, QQQ, SPX, NDX, ES, NQ o NVDA, su barre da 1m, 5m, 15m, 1H o 1D.
+- **Simbolo e timeframe** - SPY, QQQ, SPX, NDX, ES, NQ o NVDA (fai clic sul simbolo nel titolo del grafico per cambiarlo), su barre da 1m, 5m, 15m, 1H o 1D.
 - **Stile del prezzo** - Candle, Line o Area, sopra un pannello del volume che mostra il volume Up/Down o il netto Cumulative della sessione.
 - **Expiry** - nel grafico in tempo reale, limita i livelli di gamma e il rail alle scadenze scelte; **All** è l'intera catena.
 
-Gli overlay sono il tocco distintivo di ZeroGEX, ciascuno attivato da una pillola nella barra degli strumenti sopra il grafico (sotto **Layers** sullo smartphone):
+Gli overlay sono il tocco distintivo di ZeroGEX, ciascuno con il proprio interruttore nel pannello **Layers**, che si apre dalla barra degli strumenti sopra il grafico:
 
 - **Gamma Levels** - la linea del gamma flip (tratteggio lungo, azzurra, con l'etichetta `FLIP` sul bordo sinistro) e le linee del call wall e del put wall.
 - **Gamma Rail** - il gamma dei dealer per strike, disegnato all'altezza dei prezzi del grafico, come silhouette smussata o come barre Net, Split o Combined. Sul Gamma Terminal si trova nel pannello accanto al grafico, dove puoi sostituirlo con due scale di Net GEX allineate per strike.
@@ -89,7 +89,7 @@ Gli overlay sono il tocco distintivo di ZeroGEX, ciascuno attivato da una pillol
 - **VWAP** e l'ombreggiatura **Regime** - le zone di gamma long e gamma short ai due lati del flip.
 - Spenti finché non li attivi: **GEX King** e, nel grafico in tempo reale, **Expected Range**, **Centroids** (dove sono centrati gli scambi di call e put della sessione) e **Bar Timer**. Anche l'overlay **Ribbons** (il gamma per strike nel tempo, dietro il prezzo) è disponibile solo nel grafico in tempo reale: spento finché non lo attivi sul Main Dashboard, e attivo di default sul Gamma Terminal.
 
-Su SPY, QQQ e NVDA, una riga appena sopra il grafico in tempo reale elenca massimo, minimo e chiusura della sessione precedente e massimo e minimo del pre-market di oggi: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. L'occhio alla fine della riga, o la pillola **PD/PM Levels**, li disegna sul grafico come linee grigie con tag di prezzo con il solo contorno, a tratteggio lungo per il giorno precedente e a puntini per il pre-market. Sono spenti finché non li attivi. SPX e NDX non hanno pre-market, e ES e NQ si scambiano quasi 24 ore su 24, quindi la riga non compare su questi quattro.
+Su SPY, QQQ e NVDA, una riga appena sopra il grafico in tempo reale elenca massimo, minimo e chiusura della sessione precedente e massimo e minimo del pre-market di oggi: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. L'occhio alla fine della riga, o l'interruttore **PD/PM Levels** in Layers, li disegna sul grafico come linee grigie con tag di prezzo con il solo contorno, a tratteggio lungo per il giorno precedente e a puntini per il pre-market. Sono spenti finché non li attivi. SPX e NDX non hanno pre-market, e ES e NQ si scambiano quasi 24 ore su 24, quindi la riga non compare su questi quattro.
 
 La linea a puntini fini nell'accento caldo del tema è l'**ultimo prezzo scambiato**, non un livello gamma - nella legenda sotto il grafico compare come "Last".
 
@@ -109,7 +109,7 @@ La maggior parte dei grafici mostra un tooltip al passaggio del mouse con i valo
 
 ## Legende
 
-Le legende indicano ogni serie e il suo colore - sono una chiave di lettura, non un interruttore. Sul Gamma Chart sono le pillole degli overlay sopra il grafico ad attivare e disattivare i livelli.
+Le legende indicano ogni serie e il suo colore - sono una chiave di lettura, non un interruttore. Sul Gamma Chart sono gli interruttori del pannello **Layers** ad attivare e disattivare i livelli.
 
 ## Sparkline
 

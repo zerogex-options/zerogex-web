@@ -71,6 +71,21 @@ export const SYMBOL_GROUPS: ReadonlyArray<{
   { assetClass: 'stock' as const, symbols: STOCK_SYMBOLS },
 ].filter((g) => g.symbols.length > 0);
 
+/**
+ * A few words naming each picker symbol, shown beside the ticker in the Gamma
+ * Chart's title menu (components/ChartSymbolMenu). Keyed by every picker
+ * symbol, so a symbol added to the lists above has to bring its name with it.
+ */
+export const SYMBOL_DESCRIPTIONS: Readonly<Record<PickerSymbol, string>> = {
+  SPY: 'S&P 500 ETF',
+  QQQ: 'Nasdaq-100 ETF',
+  SPX: 'S&P 500 index',
+  NDX: 'Nasdaq-100 index',
+  ES: 'E-mini S&P 500',
+  NQ: 'E-mini Nasdaq-100',
+  NVDA: 'NVIDIA',
+};
+
 /** The asset class of a picker symbol, or null for anything else. */
 export function assetClassOf(symbol: string | null | undefined): AssetClass | null {
   const upper = (symbol || '').toUpperCase();

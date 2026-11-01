@@ -77,11 +77,11 @@ GEX Heatmap Timeseries, en la página GEX Heatmap y en Dealer Positioning: los s
 
 El gráfico de precio del Gamma Terminal y el ZeroGEX Gamma Chart del Main Dashboard son el mismo gráfico: el precio del subyacente con la estructura de gamma de los dealers dibujada encima. Para una guía control por control de cada superposición y panel, consulta [Usar el Gamma Terminal](/help/platform/gamma-terminal).
 
-- **Símbolo y timeframe** - SPY, QQQ, SPX, NDX, ES, NQ o NVDA, en barras de 1m, 5m, 15m, 1H o 1D.
+- **Símbolo y timeframe** - SPY, QQQ, SPX, NDX, ES, NQ o NVDA (haz clic en el símbolo del título del gráfico para cambiarlo), en barras de 1m, 5m, 15m, 1H o 1D.
 - **Estilo de precio** - Candle, Line o Area, sobre un panel de volumen que muestra el volumen Up/Down o el neto Cumulative de la sesión.
 - **Expiry** - en el gráfico en vivo, limita los niveles de gamma y el rail a los vencimientos que elijas; **All** es la cadena completa.
 
-Las superposiciones son el toque distintivo de ZeroGEX, cada una activada con una píldora de la barra de herramientas encima del gráfico (en el móvil, dentro de **Layers**):
+Las superposiciones son el toque distintivo de ZeroGEX, cada una con su interruptor en el panel **Layers**, que se abre desde la barra de herramientas encima del gráfico:
 
 - **Gamma Levels** - la línea del gamma flip (trazo discontinuo largo, azul celeste, etiquetada `FLIP` en el borde izquierdo) y las líneas del call wall y del put wall.
 - **Gamma Rail** - el gamma de los dealers por strike, dibujado a la altura de los precios del gráfico, como silueta suavizada o como barras Net, Split o Combined. En el Gamma Terminal se sitúa en el panel junto al gráfico, donde puedes cambiarlo por dos escaleras de Net GEX alineadas por strike.
@@ -89,7 +89,7 @@ Las superposiciones son el toque distintivo de ZeroGEX, cada una activada con un
 - **VWAP** y el sombreado **Regime** - las zonas de gamma larga y gamma corta a cada lado del flip.
 - Desactivadas hasta que las enciendas: **GEX King** y, en el gráfico en vivo, **Expected Range**, **Centroids** (dónde se centra la negociación de calls y de puts de la sesión) y **Bar Timer**. Las **Ribbons** (el gamma por strike a lo largo del tiempo, detrás del precio) también son exclusivas del gráfico en vivo: desactivadas hasta que las enciendas en el Main Dashboard y activadas por defecto en el Gamma Terminal.
 
-En SPY, QQQ y NVDA, una fila justo encima del gráfico en vivo muestra el máximo, el mínimo y el cierre de la sesión anterior y el máximo y el mínimo del pre-market de hoy: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. El ojo al final de la fila, o la píldora **PD/PM Levels**, los dibuja en el gráfico como líneas grises con etiquetas de precio perfiladas: trazo discontinuo largo para el día anterior y punteado para el pre-market. Están desactivados hasta que los enciendas. SPX y NDX no tienen pre-market, y ES y NQ cotizan casi las 24 horas, así que la fila no aparece en esos cuatro.
+En SPY, QQQ y NVDA, una fila justo encima del gráfico en vivo muestra el máximo, el mínimo y el cierre de la sesión anterior y el máximo y el mínimo del pre-market de hoy: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. El ojo al final de la fila, o el interruptor **PD/PM Levels** de Layers, los dibuja en el gráfico como líneas grises con etiquetas de precio perfiladas: trazo discontinuo largo para el día anterior y punteado para el pre-market. Están desactivados hasta que los enciendas. SPX y NDX no tienen pre-market, y ES y NQ cotizan casi las 24 horas, así que la fila no aparece en esos cuatro.
 
 La línea de puntos finos en el acento cálido del tema es el **último precio negociado**, no un nivel de gamma - aparece como "Last" en la leyenda debajo del gráfico.
 
@@ -109,7 +109,7 @@ La mayoría de los gráficos muestran un tooltip al pasar el cursor con los valo
 
 ## Leyendas
 
-Las leyendas nombran cada serie y su color - son una clave, no un interruptor. En el Gamma Chart, las píldoras de superposición encima del gráfico son las que activan y desactivan las capas.
+Las leyendas nombran cada serie y su color - son una clave, no un interruptor. En el Gamma Chart, los interruptores del panel **Layers** son los que activan y desactivan las capas.
 
 ## Sparklines
 

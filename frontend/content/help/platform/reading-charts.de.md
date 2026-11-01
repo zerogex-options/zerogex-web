@@ -77,11 +77,11 @@ GEX Heatmap Timeseries, auf der GEX-Heatmap-Seite und auf Dealer Positioning: St
 
 Der Kurschart im Gamma Terminal und der ZeroGEX Gamma Chart auf dem Main Dashboard sind derselbe Chart: der Kurs des Basiswerts mit eingezeichneter Dealer-Gamma-Struktur. Einen Leitfaden zu jedem Overlay und Panel, Bedienelement für Bedienelement, findest du unter [Das Gamma Terminal nutzen](/help/platform/gamma-terminal).
 
-- **Symbol und Timeframe** - SPY, QQQ, SPX, NDX, ES, NQ oder NVDA, in 1m-, 5m-, 15m-, 1H- oder 1D-Balken.
+- **Symbol und Timeframe** - SPY, QQQ, SPX, NDX, ES, NQ oder NVDA (zum Wechseln auf das Symbol im Titel des Charts klicken), in 1m-, 5m-, 15m-, 1H- oder 1D-Balken.
 - **Kursdarstellung** - Candle, Line oder Area, über einem Volumenbereich, der Up/Down-Volumen oder das Cumulative-Netto der Sitzung zeigt.
 - **Expiry** - im Live-Chart beschränkt es die Gamma-Level und die Rail auf die gewählten Verfälle; **All** ist die ganze Chain.
 
-Die Overlays sind der ZeroGEX-Twist, jedes über eine Pille in der Werkzeugleiste über dem Chart schaltbar (auf dem Handy unter **Layers**):
+Die Overlays sind der ZeroGEX-Twist, jedes ein- und ausschaltbar im Panel **Layers**, das sich über die Werkzeugleiste über dem Chart öffnet:
 
 - **Gamma Levels** - die Gamma-Flip-Linie (lange Striche, azurblau, am linken Rand mit `FLIP` beschriftet) sowie die Call-Wall- und Put-Wall-Linien.
 - **Gamma Rail** - Dealer-Gamma pro Strike, auf Höhe der Kurse im Chart gezeichnet, als geglättete Silhouette oder als Net-, Split- oder Combined-Balken. Im Gamma Terminal sitzt sie im Panel neben dem Chart, wo du sie gegen zwei strike-ausgerichtete Net-GEX-Leitern tauschen kannst.
@@ -89,7 +89,7 @@ Die Overlays sind der ZeroGEX-Twist, jedes über eine Pille in der Werkzeugleist
 - **VWAP** und **Regime**-Schattierung - die Long-Gamma- und Short-Gamma-Zonen beiderseits des Flips.
 - Aus, bis du sie einschaltest: **GEX King** und im Live-Chart **Expected Range**, **Centroids** (wo der Schwerpunkt des Call- und Put-Handels der Sitzung liegt) und **Bar Timer**. Auch **Ribbons** (Gamma pro Strike über die Zeit, hinter dem Kursverlauf) gibt es nur live: Auf dem Main Dashboard sind sie aus, bis du sie einschaltest, im Gamma Terminal standardmäßig an.
 
-Bei SPY, QQQ und NVDA listet eine Zeile direkt über dem Live-Chart Hoch, Tief und Schluss der vorherigen Sitzung sowie das heutige vorbörsliche Hoch und Tief auf: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. Das Auge am Ende der Zeile oder die Pille **PD/PM Levels** zeichnet sie als graue Linien mit umrandeten Preis-Tags in den Chart, lange Striche für den Vortag und Punkte für den vorbörslichen Handel. Sie sind aus, bis du sie einschaltest. SPX und NDX haben keinen vorbörslichen Handel, und ES und NQ handeln fast rund um die Uhr, deshalb erscheint die Zeile bei diesen vier nicht.
+Bei SPY, QQQ und NVDA listet eine Zeile direkt über dem Live-Chart Hoch, Tief und Schluss der vorherigen Sitzung sowie das heutige vorbörsliche Hoch und Tief auf: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. Das Auge am Ende der Zeile oder der Schalter **PD/PM Levels** in Layers zeichnet sie als graue Linien mit umrandeten Preis-Tags in den Chart, lange Striche für den Vortag und Punkte für den vorbörslichen Handel. Sie sind aus, bis du sie einschaltest. SPX und NDX haben keinen vorbörslichen Handel, und ES und NQ handeln fast rund um die Uhr, deshalb erscheint die Zeile bei diesen vier nicht.
 
 Die fein gepunktete Linie im Hot-Accent des Themes ist der **zuletzt gehandelte Preis**, kein Gamma-Level - in der Legende unter dem Chart steht sie als "Last".
 
@@ -109,7 +109,7 @@ Die meisten Charts zeigen beim Hovern einen Tooltip mit den präzisen Werten an 
 
 ## Legenden
 
-Legenden benennen jede Serie und ihre Farbe - sie sind ein Schlüssel, kein Schalter. Im Gamma Chart schalten die Overlay-Pillen über dem Chart die Ebenen ein und aus.
+Legenden benennen jede Serie und ihre Farbe - sie sind ein Schlüssel, kein Schalter. Im Gamma Chart schalten die Schalter im Panel **Layers** die Ebenen ein und aus.
 
 ## Sparklines
 

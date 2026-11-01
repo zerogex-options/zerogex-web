@@ -23,7 +23,7 @@ Los miembros Basic y Pro ven el terminal en vivo. Todos los demás ven una vista
 
 ## Tus primeros cinco minutos
 
-1. **Elige un subyacente.** Usa los botones de símbolo del gráfico, el desplegable de la primera escalera o las flechas de la franja Key Levels. Cualquiera de ellos cambia toda la página.
+1. **Elige un subyacente.** Haz clic en el símbolo del título del gráfico, usa el desplegable de la primera escalera o las flechas de la franja Key Levels. Cualquiera de ellos cambia toda la página.
 2. **Lee el régimen.** El recuadro **Dealer Gamma @ Spot**, arriba a la derecha del gráfico, indica **LONG Γ** o **SHORT Γ**. En long gamma, según el modelo, el hedging de los dealers contrarresta los movimientos (pinning). En short gamma, según el modelo, se suma a ellos (tendencia). El fondo teñido del gráfico dice lo mismo.
 3. **Localiza las líneas clave.** La línea `FLIP` azul celeste es donde cambia el régimen. El `CALL WALL` rojo por encima del precio y el `PUT WALL` verde por debajo son los strikes con más gamma de calls y de puts. Las tarjetas de Key Levels dan la distancia exacta a cada uno.
 4. **Mira junto al gráfico.** Las escaleras listan el gamma neto de los dealers en cada strike cercano al precio, alineadas con el gráfico. Los valores más grandes son los strikes con más hedging asociado.
@@ -96,6 +96,7 @@ La vista previa gratuita solo muestra la vista Silhouette.
 
 ## El encabezado del gráfico
 
+- **Símbolo** - el ticker del título es también el selector de símbolo. Haz clic en él (o pulsa la flecha abajo sobre él) para elegir SPY, QQQ, SPX, NDX, ES, NQ o NVDA, agrupados por tipo. Cambiar de símbolo restablece el zoom, sale de Rewind y devuelve el filtro Expiry a All, salvo que esté en 0DTE. En la vista previa gratuita el símbolo es fijo.
 - **Insignia de sesión** - **● LIVE** en la sesión regular, **○ PRE-MARKET** y **○ AFTER HOURS** en horario extendido, **CLOSED** cuando el mercado está cerrado, **◀ REWIND** mientras se repite la sesión y **◷ DELAYED ~15 MIN** en la vista previa gratuita. **◆ FUTURES** aparece en un índice cash fuera del horario regular, cuando el precio principal es el del contrato de futuros; las velas siguen siendo las del índice.
 - **Precio y variación** - la variación es respecto al cierre de la sesión regular anterior. Fuera del horario regular, el precio principal se queda en el cierre de las 4:00 PM, y SPY, QQQ y NVDA añaden una segunda línea con el precio del horario extendido.
 - **Updated** - cuándo llegó el último tick de precio.
@@ -104,18 +105,16 @@ La vista previa gratuita solo muestra la vista Silhouette.
 
 ## La barra de herramientas
 
-- **Símbolo** - SPY, QQQ, SPX, NDX, ES, NQ y NVDA. Cambiar de símbolo restablece el zoom, sale de Rewind y devuelve el filtro Expiry a All, salvo que esté en 0DTE.
 - **Timeframe** - barras de **1M**, **5M**, **15M**, **1H** o **1D**. El gráfico se abre en 5M en cada visita.
-- **Estilo** - **Candle**, **Line** o **Area**. Una vela es verde si cerró igual o por encima del cierre anterior, y roja si cerró por debajo. Es hueca si cerró igual o por encima de su propia apertura.
-- **VOL** - el ojo muestra u oculta el panel de volumen. Consulta [Panel de volumen](/help/platform/gamma-terminal#panel-de-volumen).
-- **Píldoras de superposición** - una por superposición. Consulta [Las superposiciones](/help/platform/gamma-terminal#las-superposiciones). En el móvil, los controles de superposiciones, estilo, volumen y Expiry están dentro de **Layers**, que indica cuántas superposiciones están activadas.
+- **Estilo** - tres iconos: **Candles**, **Line** y **Area**. Una vela es verde si cerró igual o por encima del cierre anterior, y roja si cerró por debajo. Es hueca si cerró igual o por encima de su propia apertura.
+- **Layers** - abre el panel con todas las superposiciones y el panel de volumen, cada una con sus propios ajustes. El número del botón indica cuántas están activadas. Consulta [Las superposiciones](/help/platform/gamma-terminal#las-superposiciones).
 - **Expiry** - qué vencimientos alimentan los niveles de gamma. Consulta [El filtro Expiry](/help/platform/gamma-terminal#el-filtro-expiry).
 - **Reset** - aparece cuando has hecho zoom o te has desplazado, y vuelve a la vista en vivo.
-- **Save** - descarga el gráfico como imagen PNG: las velas, las líneas, las etiquetas y los ejes, sin la barra de herramientas, la leyenda ni el panel junto al gráfico.
+- **Save** - el icono de la cámara. Descarga el gráfico como imagen PNG: las velas, las líneas, las etiquetas y los ejes, sin la barra de herramientas, la leyenda ni el panel junto al gráfico.
 
 ## Las superposiciones
 
-Cada superposición tiene una píldora en la barra de herramientas. Haz clic en ella para activar o desactivar la superposición; el gráfico recuerda tus elecciones. La leyenda bajo el gráfico es una clave de colores, no un interruptor.
+Cada superposición tiene un interruptor en el panel **Layers**, que se abre desde la barra de herramientas. Actívala o desactívala ahí; el gráfico recuerda tus elecciones. Una superposición que no se puede dibujar con el símbolo o el timeframe actuales, o en la vista previa gratuita, sigue en el panel, atenuada, e indica el motivo. Arriba del panel, **Quick looks** ajustan todas las superposiciones con un clic: **Minimal** (Gamma Levels y el panel de volumen), **Levels** (todos los niveles clave), **Gamma** (Gamma Levels, GEX King, Ribbons y Regime) o **All**. **Reset to defaults**, abajo, restablece los valores por defecto de la tabla siguiente. La leyenda bajo el gráfico es una clave de colores, no un interruptor.
 
 | Superposición | Qué dibuja | Activada por defecto | Dónde funciona |
 |---|---|---|---|
@@ -185,7 +184,7 @@ Sin flip, el gráfico tampoco puede dibujar el sombreado Regime.
 - Un carril se ensancha a medida que el precio se acerca a su strike y se estrecha cuando el precio se aleja. Es el gamma alcanzando su máximo at the money, no posiciones nuevas: el open interest solo se actualiza una vez al día, después del cierre. Un carril grueso justo en el precio es donde el hedging está más activo ahora.
 - Un carril que cambia de color es un strike cuyos contratos de long gamma y de short gamma están casi equilibrados.
 
-**Controles.** El control deslizante **Opacity** junto a la píldora atenúa o intensifica todos los círculos a la vez. Pasa el cursor por un carril para ver el valor exacto del strike. Los círculos por debajo del 5 % del strike de mayor peso no se dibujan, y la leyenda bajo el gráfico incluye una clave.
+**Controles.** El control deslizante **Opacity** bajo Ribbons en el panel Layers atenúa o intensifica todos los círculos a la vez. Pasa el cursor por un carril para ver el valor exacto del strike. Los círculos por debajo del 5 % del strike de mayor peso no se dibujan, y la leyenda bajo el gráfico incluye una clave.
 
 **A tener en cuenta.** Las ribbons solo funcionan en vivo y están activadas por defecto en el Gamma Terminal. Siguen el filtro Expiry. El historial cubre los strikes que se seguían en cada momento, así que las barras anteriores en strikes lejanos pueden aparecer vacías.
 
@@ -227,11 +226,11 @@ Sin flip, el gráfico tampoco puede dibujar el sombreado Regime.
 
 **Cómo leerlo.** No son niveles de dealers. Son precios de referencia que siguen muchos traders, dibujados en gris para que nunca se lean como un nivel de gamma.
 
-**A tener en cuenta.** Solo están disponibles en SPY, QQQ y NVDA. SPX y NDX no tienen pre-market, y ES y NQ cotizan casi las 24 horas, así que ahí los niveles no se aplican. Las cifras siempre aparecen en una fila sobre el gráfico. La píldora, o el ojo al final de esa fila, las dibuja como líneas.
+**A tener en cuenta.** Solo están disponibles en SPY, QQQ y NVDA. SPX y NDX no tienen pre-market, y ES y NQ cotizan casi las 24 horas, así que ahí los niveles no se aplican. Las cifras siempre aparecen en una fila sobre el gráfico. El interruptor **PD/PM Levels** de Layers, o el ojo al final de esa fila, las dibuja como líneas.
 
 ### Expected Range
 
-**Qué muestra.** Una banda sombreada entre `ER HIGH` y `ER LOW`: el movimiento que descuenta la volatilidad implícita, una desviación estándar a cada lado del precio actual. Desactivado por defecto. Una vez activado, elige **Daily**, **Weekly** o **Monthly**.
+**Qué muestra.** Una banda sombreada entre `ER HIGH` y `ER LOW`: el movimiento que descuenta la volatilidad implícita, una desviación estándar a cada lado del precio actual. Desactivado por defecto. Una vez activado, elige **Daily**, **Weekly** o **Monthly** debajo de él en el panel Layers.
 
 **Cómo se calcula.** Usa el VIX para SPX, SPY y ES, y el VXN para QQQ, NDX y NQ. El movimiento es precio × (VIX ÷ 100) × √(días ÷ 252), con 1, 5 o 21 días de trading. Con SPY a $600 y el VIX en 16, el movimiento diario es de unos $6,05, así que la banda va aproximadamente de $593,95 a $606,05.
 
@@ -266,7 +265,7 @@ Sin flip, el gráfico tampoco puede dibujar el sombreado Regime.
 
 ### Panel de volumen
 
-El panel bajo las velas, que se muestra u oculta con el ojo junto a **VOL**:
+El panel bajo las velas, que se muestra u oculta con el interruptor **Volume** de Layers, donde también eliges su vista:
 
 - **Up/Down** (la opción predeterminada) - el volumen en uptick (verde) apilado sobre el volumen en downtick (rojo), una columna por barra.
 - **Cumulative** - un total acumulado del volumen en uptick menos el volumen en downtick de la sesión actual, que parte de cero en la apertura. Por encima de cero, los compradores han liderado el tape hoy; por debajo de cero, los vendedores.

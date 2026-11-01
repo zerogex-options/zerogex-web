@@ -20,11 +20,12 @@
 
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Activity, Camera, ChevronDown, ChevronsRight, Eye, EyeOff, HelpCircle, Info, Maximize2, Minimize2, Moon, Pause, Play, Repeat, Rewind, SlidersHorizontal, Sun } from "lucide-react";
+import { Activity, Camera, ChartArea, ChartCandlestick, ChartLine, ChevronDown, ChevronsRight, Eye, EyeOff, HelpCircle, Info, Maximize2, Minimize2, Moon, Pause, Play, Repeat, Rewind, SlidersHorizontal, Sun, type LucideIcon } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesLevelsChip from "./FuturesLevelsChip";
-import SymbolSelect from "./SymbolSelect";
+import ChartSymbolMenu from "./ChartSymbolMenu";
+import ChartLayersPanel, { type LayerPanelGroup, type LayerPanelPreset, type LayerPanelRow } from "./ChartLayersPanel";
 import { useApiData, useFlowCentroids, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, useSessionLevels, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
@@ -36,7 +37,6 @@ import { resolvePriceSession } from "@/core/sessionCloses";
 import { futuresDelayLabel, futuresFeedBehind } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, isWithinTradingHoursForSymbol, etDateKeyFor, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { overlayLiveTick } from "@/core/liveTipCandle";
-import { SYMBOLS } from "@/core/symbols";
 import { wheelAction } from "@/core/wheelZoom";
 import ZoomCluster from "@/components/ChartZoomCluster";
 import { barsPrintedSince } from "@/core/chartViewHold";
@@ -101,6 +101,13 @@ import { chartSessionLevels } from "@/core/sessionLevels";
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
 type PriceStyle = "candles" | "line" | "area";
 
+// The price-style switch, drawn as icons: the toolbar names them in a tooltip.
+const PRICE_STYLES: ReadonlyArray<{ value: PriceStyle; label: string; Icon: LucideIcon }> = [
+  { value: "candles", label: "Candles", Icon: ChartCandlestick },
+  { value: "line", label: "Line", Icon: ChartLine },
+  { value: "area", label: "Area", Icon: ChartArea },
+];
+
 const TIMEFRAMES: Array<{ value: ChartTimeframe; label: string; minutes: number }> = [
   { value: "1min", label: "1m", minutes: 1 },
   { value: "5min", label: "5m", minutes: 5 },
@@ -147,13 +154,13 @@ interface OverlayState {
   sessionLevels: boolean; // prior-day high/low/close + pre-market high/low lines (the top row always shows the numbers)
   centroids: boolean; // call / put centroids: where the session's option trading is centered, through time
   // Per-line switches for the three gamma levels. Read only on a surface that
-  // passes `splitGammaLevels`; everywhere else the one `levels` pill rules.
+  // passes `splitGammaLevels`; everywhere else the one `levels` switch rules.
   flipLine: boolean;
   callWallLine: boolean;
   putWallLine: boolean;
 }
 
-/** An overlay a surface can force off (and drop the pill for). */
+/** An overlay a surface can force off (and drop the switch for). */
 export type ChartOverlayKey = keyof OverlayState;
 
 /** A level a surface adds to the chart: a line, a name chip and a right-axis tag. */
@@ -204,10 +211,10 @@ const DEFAULT_OVERLAYS: OverlayState = {
   // That reasoning still holds for Expected Range, and this stays false. What it
   // does not cover is discoverability: off-by-default made the band hard to FIND
   // rather than merely quiet, and a daily user asked for an IV expected-range
-  // high/low by name without knowing the pill was already on their toolbar. That
-  // is answered by the title on the pill below, which costs a returning user
-  // nothing; flipping this to true would redraw every existing chart to answer
-  // one person's question.
+  // high/low by name without knowing the switch was already in their toolbar.
+  // That is answered by the one-line description beside its switch in the
+  // Layers panel, which costs a returning user nothing; flipping this to true
+  // would redraw every existing chart to answer one person's question.
   expectedRange: false,
   barTimer: false,
   ribbons: false,
@@ -518,7 +525,56 @@ const RIBBON_GUIDE =
   "short-gamma contracts are close to balanced, tipping as their gammas shift. " +
   "Hover a bar on a lane to read the exact strike and value. " +
   "History covers the polled strike window, so earlier bars stay blank. " +
-  "The slider beside the Ribbons pill scales the overall opacity.";
+  "The Opacity slider under Ribbons in the Layers panel scales the overall opacity.";
+
+// ── Layers ── what the Layers panel (components/ChartLayersPanel) lists, in
+// the order it lists them: one switch per overlay. The labels are on-screen
+// names, and the help guide's overlay table is keyed by them, so every entry
+// here must have a row and a section there (tests/gammaTerminalGuide.test.ts).
+// Which entries a surface shows, and which of those apply to the symbol and
+// timeframe on screen, is decided per instance (see `layerGroups`).
+type LayerGroupKey = "levels" | "structure" | "studies" | "chart";
+interface LayerDef {
+  key: ChartOverlayKey;
+  label: string;
+  /** One line on what the layer draws, under its name in the panel. */
+  hint: string;
+  color: string;
+  group: LayerGroupKey;
+}
+const LAYER_ROWS: ReadonlyArray<LayerDef> = [
+  { key: "levels", label: "Gamma Levels", hint: "The Gamma Flip, Call Wall and Put Wall", color: "var(--color-flip)", group: "levels" },
+  { key: "maxPain", label: "Max Pain", hint: "Where option holders collect the least", color: "var(--color-maxpain)", group: "levels" },
+  { key: "king", label: "GEX King", hint: "The heaviest gamma strike in the chain", color: "var(--color-king)", group: "levels" },
+  { key: "pin", label: "Pin Strike", hint: "Today's pin strike and its strength", color: "var(--color-pin)", group: "levels" },
+  { key: "ribbons", label: "Ribbons", hint: "Each strike's gamma through time", color: RIBBON_POS_GLOW, group: "structure" },
+  { key: "regime", label: "Regime", hint: "Long- and short-gamma shading", color: "var(--color-accent-hot)", group: "structure" },
+  { key: "vwap", label: "VWAP", hint: "The session's volume-weighted price", color: "var(--color-hazy)", group: "studies" },
+  { key: "centroids", label: "Centroids", hint: "Where today's call and put trading sits", color: "var(--color-bull)", group: "studies" },
+  { key: "expectedRange", label: "Expected Range", hint: "The ±1σ move implied volatility prices", color: "var(--color-info)", group: "studies" },
+  { key: "sessionLevels", label: "PD/PM Levels", hint: "Prior-day and pre-market highs and lows", color: "var(--text-secondary)", group: "studies" },
+  { key: "barTimer", label: "Bar Timer", hint: "Time left in the current candle", color: "var(--color-accent-hot)", group: "chart" },
+];
+// The inline gamma rail's switch. Not on the Gamma Terminal, which draws the
+// rail in its Strike Panel instead (the guide covers it there).
+const RAIL_LAYER: LayerDef = { key: "rail", label: "Gamma Rail", hint: "Dealer gamma at each price, beside the tape", color: "var(--color-bull)", group: "structure" };
+// The pane under the tape. The guide covers it in its own section.
+const VOLUME_LAYER: LayerDef = { key: "volume", label: "Volume", hint: "The volume pane under the candles", color: "var(--color-bull)", group: "chart" };
+// One switch per line in place of Gamma Levels, on a surface that asks for it
+// (`splitGammaLevels`: the Fuseline Radar, which has its own guide).
+const SPLIT_LEVEL_LAYERS: ReadonlyArray<LayerDef> = [
+  { key: "flipLine", label: "Gamma Flip", hint: "Where dealer gamma changes sign", color: "var(--color-flip)", group: "levels" },
+  { key: "callWallLine", label: "Call Wall", hint: "The strike with the most call gamma", color: "var(--color-bear)", group: "levels" },
+  { key: "putWallLine", label: "Put Wall", hint: "The strike with the most put gamma", color: "var(--color-bull)", group: "levels" },
+];
+const LAYER_GROUP_TITLES: Record<LayerGroupKey, string> = {
+  levels: "Dealer levels",
+  structure: "Gamma structure",
+  studies: "Studies",
+  chart: "Chart",
+};
+// Why a layer can't be drawn in the public, ~15-minute-delayed snapshot.
+const LIVE_ONLY = "Live only";
 
 // ── Gamma-by-strike rail view ── the rail draws either the smoothed net
 // silhouette (default, existing behavior) or discrete per-strike bars: NET
@@ -887,15 +943,15 @@ export default function GammaTerminalChart({
    * Draw THIS in the inline rail's column instead of the gamma rail: a
    * surface's own per-strike instrument (the Fuseline Radar's ladder) on the
    * chart's exact price scale, so it follows every zoom and pan and goes to
-   * full screen with the tape. The rail, its pill and its view controls stand
+   * full screen with the tape. The rail, its switch and its view controls stand
    * down. Null (the default) keeps the rail.
    */
   sideColumn?: ((ctx: ChartSideColumnContext) => ReactNode) | null;
-  /** Overlays held off on this surface, with their pills removed. */
+  /** Overlays held off on this surface, with their Layers switches removed. */
   forceOffOverlays?: ReadonlyArray<ChartOverlayKey>;
-  /** One pill each for the flip, call wall and put wall instead of "Gamma Levels". */
+  /** One switch each for the flip, call wall and put wall instead of "Gamma Levels". */
   splitGammaLevels?: boolean;
-  /** Hide the standard levels (flip, walls, max pain, pin, VWAP) whatever their pills say. */
+  /** Hide the standard levels (flip, walls, max pain, pin, VWAP) whatever their switches say. */
   hideStandardLevels?: boolean;
   /** Hide the levels' name chips; the right-axis price tags stay. */
   hideLevelNames?: boolean;
@@ -907,7 +963,7 @@ export default function GammaTerminalChart({
   fitPrices?: ReadonlyArray<number>;
   /** About twice the standard height, for more room between price levels. */
   tall?: boolean;
-  /** Hide the symbol buttons on a surface that pins the symbol itself. */
+  /** Show the symbol as a plain title, not the symbol switcher, on a surface that pins the symbol itself. */
   hideSymbolPicker?: boolean;
   /** Keep Full screen when `hideRail` drops the column (no panel is left behind). */
   fullscreenWithoutRail?: boolean;
@@ -987,7 +1043,7 @@ export default function GammaTerminalChart({
   const touchUi = isMobile || coarsePointer;
   // A surface's forced-off overlays, applied over the defaults AND over any
   // restored preference, so a saved "ribbons on" from another visit cannot
-  // bring back a layer this surface has no pill for.
+  // bring back a layer this surface has no switch for.
   const forcedOffKey = (forceOffOverlays ?? []).join(",");
   const forcedOff = useMemo(
     () => Object.fromEntries((forcedOffKey ? forcedOffKey.split(",") : []).map((k) => [k, false])) as Partial<OverlayState>,
@@ -1052,9 +1108,35 @@ export default function GammaTerminalChart({
     AXIS_LABEL_GAP,
   } = canvas;
   const defaultCount = compact ? COMPACT_DEFAULT_COUNT : DEFAULT_COUNT;
-  // The compact toolbar's Layers panel (closed until asked for).
+  // The Layers panel (closed until asked for). It hangs from the header, over
+  // the tape, and may use whatever height the card has below the header: the
+  // card clips what overflows it, so the panel scrolls past that instead.
   const [layersOpen, setLayersOpen] = useState(false);
   const layersPanelId = useId();
+  const [layersButton, setLayersButton] = useState<HTMLButtonElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const [layersMaxH, setLayersMaxH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const header = headerRef.current;
+    if (!layersOpen || !root || !header) return;
+    const measure = () => {
+      const h = Math.max(80, Math.floor(root.clientHeight - header.offsetHeight - 14));
+      setLayersMaxH((cur) => (cur === h ? cur : h));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(root);
+    ro.observe(header);
+    return () => ro.disconnect();
+  }, [layersOpen]);
+  const closeLayers = useCallback(
+    (refocus: boolean) => {
+      setLayersOpen(false);
+      if (refocus) layersButton?.focus();
+    },
+    [layersButton],
+  );
 
   // Per-instance plot geometry: without the rail the tape widens to where the
   // rail used to end and the axis / tag column moves out with it.
@@ -1141,7 +1223,7 @@ export default function GammaTerminalChart({
   // sits on the rail's own edge instead, clear of them.
   const railHandleX = compact ? RAIL_LEFT : RAIL_LEFT - 6;
   // Inline, the rail is an overlay the reader toggles off. Panelled, it IS the
-  // panel — the page's own view switch put it there, so an overlay pill that
+  // panel — the page's own view switch put it there, so an overlay switch that
   // could empty the panel would be a second, contradictory control.
   const railOn = inPanel || (overlays.rail && !hideRail && !sideColumn);
   // The strike panel's hover: the price under the pointer (snapped to a strike
@@ -4109,306 +4191,290 @@ export default function GammaTerminalChart({
     else panelPointAt(e, true);
   };
 
-  // ── Toolbar pieces ── one set of controls, laid out as a single wrapping
-  // row on the desktop board and as a compact bar + Layers panel on phones
-  // (see the Controls block below).
-  const symbolTfControls = (
+  // ── Toolbar ── The symbol is switched from the title above (ChartSymbolMenu).
+  // Below it, one row: timeframe, price style, Layers, Expiry, and Reset / Save
+  // / Full screen on the right. Everything the chart can draw sits in the
+  // Layers panel, so toggling a layer or one of its settings never reflows
+  // the row. The compact canvas lays the same pieces out on two rows.
+  const timeframeControl = live ? (
+    <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
+      {TIMEFRAMES.map((t) => (
+        <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  ) : (
+    // The delayed public snapshot is fixed to one symbol and timeframe
+    // (switching needs data the snapshot lacks), so it names them and offers
+    // the live chart instead.
     <>
-          {/* Symbol + timeframe — switchable when live; in the delayed public
-              snapshot they're fixed (switching needs data the snapshot lacks),
-              so we show an unlock CTA instead. */}
-          {live ? (
-            <>
-              {hideSymbolPicker ? null : compact ? (
-                // Seven symbols as buttons are a row of their own on a phone;
-                // the native picker is one control, and the platform's wheel.
-                <SymbolSelect value={symbol as UnderlyingSymbol} onChange={(s) => setSymbol(s)} ariaLabel="Symbol" />
-              ) : (
-                <div className="zg-gc-seg" role="tablist" aria-label="Symbol">
-                  {SYMBOLS.map((s) => (
-                    <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === symbol} onClick={() => setSymbol(s as UnderlyingSymbol)} aria-pressed={s === symbol}>
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
-                {TIMEFRAMES.map((t) => (
-                  <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <span className="zg-chip" style={{ ["--chip-color" as string]: "var(--text-secondary)" }}>
-                {symbol} · {TIMEFRAMES.find((t) => t.value === timeframe)?.label}
-              </span>
-              <a
-                href="/register"
-                className="zg-gc-pill"
-                data-active
-                style={{ ["--pill-color" as string]: "var(--color-warning)", textDecoration: "none" }}
-              >
-                Unlock live · all symbols & timeframes →
-              </a>
-            </>
-          )}
+      <span className="zg-chip" style={{ ["--chip-color" as string]: "var(--text-secondary)" }}>
+        {symbol} · {TIMEFRAMES.find((t) => t.value === timeframe)?.label}
+      </span>
+      <a
+        href="/register"
+        className="zg-gc-pill"
+        data-active
+        style={{ ["--pill-color" as string]: "var(--color-warning)", textDecoration: "none" }}
+      >
+        Unlock live · all symbols & timeframes →
+      </a>
     </>
   );
   const styleControl = (
-    <>
-          {/* Price style */}
-          <div className="zg-gc-seg" role="tablist" aria-label="Price style">
-            {(["candles", "line", "area"] as PriceStyle[]).map((s) => (
-              <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === style} onClick={() => setStyle(s)} aria-pressed={s === style}>
-                {s === "candles" ? "Candle" : s === "line" ? "Line" : "Area"}
-              </button>
-            ))}
-          </div>
-
-    </>
+    <div className="zg-gc-seg" role="tablist" aria-label="Price style">
+      {PRICE_STYLES.map(({ value, label, Icon }) => (
+        <button
+          key={value}
+          type="button"
+          className="zg-gc-seg-btn zg-gc-seg-btn--icon"
+          data-active={value === style}
+          onClick={() => setStyle(value)}
+          aria-pressed={value === style}
+          aria-label={label}
+          title={label}
+        >
+          <Icon size={15} strokeWidth={1.9} aria-hidden />
+        </button>
+      ))}
+    </div>
   );
-  const volumeControl = (
-    <>
-          {/* Volume pane view. Carries a visible "VOL" label because the
-              buttons sit beside the price-style ones and "Cumulative" has to
-              say what it is cumulative OF. */}
-          <div className="flex items-center gap-1.5">
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-muted)" }}>Vol</span>
-            <button
-              type="button"
-              className="zg-gc-seg-btn"
-              data-active={overlays.volume}
-              aria-pressed={overlays.volume}
-              aria-label={overlays.volume ? "Hide volume" : "Show volume"}
-              title={overlays.volume ? "Hide the volume pane (the price pane takes its room)" : "Show the volume pane"}
-              onClick={() => setOverlays((o) => ({ ...o, volume: !o.volume }))}
-              style={{ display: "inline-flex", alignItems: "center" }}
-            >
-              {overlays.volume ? <Eye size={13} /> : <EyeOff size={13} />}
-            </button>
-            {overlays.volume && (
-            <div className="zg-gc-seg" role="tablist" aria-label="Volume pane">
-              {(["updown", "net"] as VolumeMode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className="zg-gc-seg-btn"
-                  data-active={m === volumeMode}
-                  onClick={() => setVolumeMode(m)}
-                  aria-pressed={m === volumeMode}
-                  title={
-                    m === "updown"
-                      ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
-                      : "Running total of uptick minus downtick volume for the current session only\u00a0- it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
-                  }
-                >
-                  {VOLUME_MODE_LABELS[m]}
-                </button>
-              ))}
-            </div>
-            )}
-          </div>
 
-    </>
+  // ── Layers ── The panel's switches for THIS surface. A layer the surface
+  // forces off is not offered at all. One that can't be drawn on this feed,
+  // symbol or timeframe stays in its place, dimmed, and says why, so the panel
+  // doesn't rearrange itself when the symbol or timeframe changes.
+  const layerUnavailable = (key: ChartOverlayKey): string | undefined => {
+    switch (key) {
+      // Drawn from live feeds the delayed snapshot doesn't carry.
+      case "ribbons":
+      case "king":
+      case "pin":
+      case "barTimer":
+        return live ? undefined : LIVE_ONLY;
+      case "centroids":
+        return !live ? LIVE_ONLY : timeframe === "1day" ? "1M to 1H bars only" : undefined;
+      case "expectedRange":
+        // Built from VIX / VXN, which price the index, not a single stock.
+        return !live ? LIVE_ONLY : volIndexPricesSymbol(symbol) ? undefined : "Not drawn on single stocks";
+      case "sessionLevels":
+        return !live ? LIVE_ONLY : sessionLevelsSupported ? undefined : "ETFs and stocks only";
+      default:
+        return undefined;
+    }
+  };
+  // A layer's own settings, shown under its switch while it is on.
+  const layerSettings: Partial<Record<ChartOverlayKey, ReactNode>> = {
+    // Panelled, the rail's views ride the panel instead (railControlsTarget).
+    rail: railOn && !inPanel ? railViewControls : null,
+    ribbons: <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />,
+    expectedRange: (
+      <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
+        {([
+          ["daily", "Daily"],
+          ["weekly", "Weekly"],
+          ["monthly", "Monthly"],
+        ] as Array<[HorizonKey, string]>).map(([h, lbl]) => (
+          <button key={h} type="button" className="zg-gc-seg-btn" data-active={erHorizon === h} onClick={() => setErHorizon(h)} aria-pressed={erHorizon === h}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+    ),
+    volume: (
+      <div className="zg-gc-seg" role="tablist" aria-label="Volume pane">
+        {(["updown", "net"] as VolumeMode[]).map((m) => (
+          <button
+            key={m}
+            type="button"
+            className="zg-gc-seg-btn"
+            data-active={m === volumeMode}
+            onClick={() => setVolumeMode(m)}
+            aria-pressed={m === volumeMode}
+            title={
+              m === "updown"
+                ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
+                : "Running total of uptick minus downtick volume for the current session only - it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
+            }
+          >
+            {VOLUME_MODE_LABELS[m]}
+          </button>
+        ))}
+      </div>
+    ),
+  };
+  // Every layer this surface offers, in panel order. The inline rail's switch
+  // only where the chart draws its own rail (the Terminal panels it; a side
+  // column takes its place); one switch per gamma level where the surface
+  // splits them.
+  const layerDefs: LayerDef[] = [
+    ...(splitGammaLevels ? SPLIT_LEVEL_LAYERS : LAYER_ROWS.filter((d) => d.key === "levels")),
+    ...LAYER_ROWS.filter((d) => d.group === "levels" && d.key !== "levels"),
+    ...(!hideRail && !sideColumn ? [RAIL_LAYER] : []),
+    ...LAYER_ROWS.filter((d) => d.group === "structure" || d.group === "studies"),
+    VOLUME_LAYER,
+    ...LAYER_ROWS.filter((d) => d.group === "chart"),
+  ].filter((d) => !isForcedOff(d.key));
+  const layerRow = (d: LayerDef): LayerPanelRow => {
+    const unavailable = layerUnavailable(d.key);
+    return {
+      key: d.key,
+      label: d.label,
+      hint: d.hint,
+      color: d.color,
+      on: !unavailable && overlays[d.key],
+      unavailable,
+      onToggle: () => setOverlays((o) => ({ ...o, [d.key]: !o[d.key] })),
+      settings: layerSettings[d.key],
+    };
+  };
+  const layerGroups: LayerPanelGroup[] = (["levels", "structure", "studies", "chart"] as const)
+    .map((g) => ({
+      key: g,
+      title: LAYER_GROUP_TITLES[g],
+      rows: layerDefs.filter((d) => d.group === g).map(layerRow),
+    }))
+    .filter((g) => g.rows.length > 0);
+  const activeLayerCount = layerGroups.reduce((n, g) => n + g.rows.filter((r) => r.on).length, 0);
+  // Quick looks: one click to a whole set. Each names the layers it turns on;
+  // every other layer the panel offers goes off.
+  const levelKeys: ChartOverlayKey[] = splitGammaLevels ? ["flipLine", "callWallLine", "putWallLine"] : ["levels"];
+  const quickLooks: Array<{ id: string; label: string; title: string; keys: ChartOverlayKey[] }> = [
+    { id: "minimal", label: "Minimal", title: "Just the gamma levels and the volume pane", keys: [...levelKeys, "volume"] },
+    { id: "levels", label: "Levels", title: "Every key level, nothing behind the candles", keys: [...levelKeys, "maxPain", "king", "pin", "vwap", "volume"] },
+    { id: "gamma", label: "Gamma", title: "The gamma levels with the ribbons, the regime shading and the rail", keys: [...levelKeys, "king", "ribbons", "regime", "rail", "volume"] },
+    { id: "all", label: "All", title: "Every layer this chart can draw here", keys: layerDefs.map((d) => d.key) },
+  ];
+  const layerPresets: LayerPanelPreset[] = quickLooks.map((look) => ({
+    id: look.id,
+    label: look.label,
+    title: look.title,
+    active: layerGroups.every((g) => g.rows.every((r) => !!r.unavailable || r.on === look.keys.includes(r.key as ChartOverlayKey))),
+    apply: () =>
+      setOverlays((o) => {
+        const next = { ...o };
+        for (const d of layerDefs) next[d.key] = look.keys.includes(d.key);
+        return { ...next, ...forcedOff };
+      }),
+  }));
+  // Back to this surface's defaults: the layers and the settings that live in
+  // the panel (not the price style, which is the toolbar's).
+  const resetLayers = () => {
+    setOverlays({ ...DEFAULT_OVERLAYS, ...overlayDefaults, ...forcedOff });
+    setRibbonOpacity(RIBBON_OPACITY_DEFAULT);
+    setErHorizon("daily");
+    setVolumeMode("updown");
+    setRailMode("silhouette");
+    setRailLabels(false);
+  };
+  // Four columns where the card is wide enough, with the gamma-structure
+  // column wider when it carries the rail's four views; two, then one, below.
+  const cardW = box?.w ?? 0;
+  const layerColumns =
+    cardW >= 880
+      ? layerGroups.map((g) => `minmax(0, ${g.key === "structure" && layerDefs.some((d) => d.key === "rail") ? 1.35 : g.key === "chart" ? 0.85 : 1}fr)`).join(" ")
+      : cardW >= 520
+        ? "repeat(2, minmax(0, 1fr))"
+        : "minmax(0, 1fr)";
+  const layersToggle = (
+    <button
+      ref={setLayersButton}
+      type="button"
+      className="zg-gc-tb"
+      data-open={layersOpen}
+      aria-expanded={layersOpen}
+      aria-controls={layersOpen ? layersPanelId : undefined}
+      onClick={() => setLayersOpen((v) => !v)}
+      title="Choose what the chart draws"
+    >
+      <SlidersHorizontal size={14} aria-hidden />
+      Layers
+      <span className="zg-gc-count">{activeLayerCount}</span>
+      <ChevronDown size={13} aria-hidden className="zg-gc-tb-caret" />
+    </button>
   );
-  const overlayControls = (
-    <>
-          {/* Overlay pills */}
-          {splitGammaLevels ? (
-            <>
-              <OverlayPill label="Gamma Flip" color="var(--color-flip)" active={overlays.flipLine} onClick={() => setOverlays((o) => ({ ...o, flipLine: !o.flipLine }))} />
-              <OverlayPill label="Call Wall" color="var(--color-bear)" active={overlays.callWallLine} onClick={() => setOverlays((o) => ({ ...o, callWallLine: !o.callWallLine }))} />
-              <OverlayPill label="Put Wall" color="var(--color-bull)" active={overlays.putWallLine} onClick={() => setOverlays((o) => ({ ...o, putWallLine: !o.putWallLine }))} />
-            </>
-          ) : (
-            <OverlayPill label="Gamma Levels" color="var(--color-flip)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
-          )}
-          {!hideRail && !sideColumn && !isForcedOff("rail") && (
-            <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
-          )}
-          {live && !isForcedOff("ribbons") && (
-            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons&nbsp;- per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
-          )}
-          {live && overlays.ribbons && (
-            <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />
-          )}
-          <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
-          <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
-          {/* Centroids — live intraday only (see centroidsOn). */}
-          {live && timeframe !== "1day" && !isForcedOff("centroids") && (
-            <OverlayPill label="Centroids" color="var(--color-bull)" active={overlays.centroids} onClick={() => setOverlays((o) => ({ ...o, centroids: !o.centroids }))} title="Call &amp; put centroids&nbsp;- the average strike of the calls traded (green) and of the puts traded (red), weighted by contracts. Crisp lines = the last 15 minutes; wide soft lines = the session so far. Calls trade mostly above the price and puts below it, so the lines bracket the tape and show where the day's trading is centered. Not a forecast. Live, intraday timeframes only." />
-          )}
-          {/* Prior day + pre-market lines — live ETFs only (see sessionLevelsSupported). */}
-          {sessionLevelsSupported && !isForcedOff("sessionLevels") && (
-            <OverlayPill label="PD/PM Levels" color="var(--text-secondary)" active={overlays.sessionLevels} onClick={() => setOverlays((o) => ({ ...o, sessionLevels: !o.sessionLevels }))} title="Prior day and pre-market levels&nbsp;- PDH / PDL / PDC (the previous regular session's high, low and close) and PMH / PML (today's pre-market high and low), drawn as gray dashed lines. The numbers are always in the row above the chart." />
-          )}
-          <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
-          {!isForcedOff("king") && (
-            <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
-          )}
-          <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
-          {/* Bar Timer — live-only. The delayed public snapshot is a frozen tip,
-              so a countdown on it would be counting down someone else's candle. */}
-          {live && (
-            <OverlayPill label="Bar Timer" color="var(--color-accent-hot)" active={overlays.barTimer} onClick={() => setOverlays((o) => ({ ...o, barTimer: !o.barTimer }))} />
-          )}
-          {/* Expected Range — live-only (the delayed public snapshot carries no
-              vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
-          {live && (
-            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} title="Expected Range&nbsp;- the implied-volatility ±1σ band, drawn as ER HIGH / ER LOW dashed lines around a shaded zone, bracketing roughly 68% of outcomes. Built from VIX on SPX/SPY and VXN on QQQ/NDX; not drawn on a single stock, whose own implied volatility runs well above either index. A Daily / Weekly / Monthly selector appears once it's on. Live only&nbsp;- the delayed snapshot carries no vol index." />
-          )}
-          {live && overlays.expectedRange && (
-            <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
-              {([
-                ["daily", "Daily"],
-                ["weekly", "Weekly"],
-                ["monthly", "Monthly"],
-              ] as Array<[HorizonKey, string]>).map(([h, lbl]) => (
-                <button key={h} type="button" className="zg-gc-seg-btn" data-active={erHorizon === h} onClick={() => setErHorizon(h)} aria-pressed={erHorizon === h}>
-                  {lbl}
-                </button>
-              ))}
-            </div>
-          )}
+  const layersPanel = layersOpen ? (
+    <ChartLayersPanel
+      id={layersPanelId}
+      groups={layerGroups}
+      presets={layerPresets}
+      onReset={resetLayers}
+      onClose={closeLayers}
+      anchor={layersButton}
+      maxHeight={layersMaxH}
+      columns={layerColumns}
+      narrow={cardW < 520}
+    />
+  ) : null;
 
-    </>
-  );
-  const railExpiryControls = (
+  // The expiration filter — live only (the delayed snapshot lacks the
+  // per-expiry split and can't refetch). It scopes the levels, the regime,
+  // the ribbons and the rail alike, so it stays on the toolbar.
+  const expiryControl = live ? (
     <>
-          {/* Gamma-by-strike rail view: silhouette vs per-strike bars, on-bar
-              labels, and an expiration filter — live only (the delayed snapshot
-              lacks the per-strike call/put split and can't refetch). */}
-          {live && (
-            <>
-              <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
-              {/* Panelled, these ride the panel instead (portalled at the
-                  bottom of this component) — the rail's view is a control of
-                  the thing being drawn, so it belongs wherever that is. */}
-              {railOn && !inPanel && railViewControls}
-              <ExpirationMultiSelect
-                options={availableExpiries}
-                selected={effectiveRailExpiries}
-                onChange={setRailExpiries}
-                label="Expiry"
-                disabled={availableExpiries.length === 0}
-                zeroDte={railZeroDte}
-              />
-              {/* A 0DTE pick with no same-day expiry resolves to nothing, and
-                  nothing means All — so the levels below are whole-chain while
-                  the control still says 0DTE. Say it out loud, next to the
-                  control that caused it and again on the chart itself. */}
-              {railZeroDte.widenedToAll && (
-                <span
-                  className="zg-chip"
-                  style={{ ["--chip-color" as string]: "var(--color-warning)" }}
-                  title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The levels and rail are aggregated across ALL expirations, not today's book."
-                >
-                  No 0DTE today · showing all expiries
-                </span>
-              )}
-            </>
-          )}
-
+      <ExpirationMultiSelect
+        options={availableExpiries}
+        selected={effectiveRailExpiries}
+        onChange={setRailExpiries}
+        label="Expiry"
+        variant="toolbar"
+        disabled={availableExpiries.length === 0}
+        zeroDte={railZeroDte}
+      />
+      {/* A 0DTE pick with no same-day expiry resolves to nothing, and
+          nothing means All — so the levels below are whole-chain while
+          the control still says 0DTE. Say it out loud, next to the
+          control that caused it and again on the chart itself. */}
+      {railZeroDte.widenedToAll && (
+        <span
+          className="zg-chip"
+          style={{ ["--chip-color" as string]: "var(--color-warning)" }}
+          title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The levels and rail are aggregated across ALL expirations, not today's book."
+        >
+          No 0DTE today · showing all expiries
+        </span>
+      )}
     </>
-  );
-  const activeLayerCount = [
-    overlays.levels,
-    !hideRail && overlays.rail,
-    live && overlays.ribbons,
-    overlays.regime,
-    overlays.vwap,
-    live && timeframe !== "1day" && overlays.centroids,
-    sessionLevelsSupported && overlays.sessionLevels,
-    overlays.maxPain,
-    overlays.king,
-    overlays.pin,
-    live && overlays.barTimer,
-    live && overlays.expectedRange,
-  ].filter(Boolean).length;
+  ) : null;
   const viewActions = (
     <>
-
-            {isCustomView && (
-              <button
-                type="button"
-                onClick={resetView}
-                title="Reset zoom & pan to the live view, and let the price scale fit itself again"
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  padding: "5px 11px",
-                  borderRadius: "var(--radius-pill)",
-                  border: "1px solid var(--color-accent-hot)",
-                  color: "var(--color-accent-hot)",
-                  background: "color-mix(in srgb, var(--color-accent-hot) 12%, transparent)",
-                  cursor: "pointer",
-                }}
-              >
-                ⟲ Reset
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={downloadPng}
-              disabled={exportState === "working"}
-              title="Save this chart as a PNG image"
-              aria-label="Save this chart as a PNG image"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                padding: "5px 11px",
-                borderRadius: "var(--radius-pill)",
-                border: `1px solid ${exportState === "error" ? "var(--color-bear)" : "var(--border-default)"}`,
-                color: exportState === "error" ? "var(--color-bear)" : "var(--text-secondary)",
-                background: "var(--bg-subtle)",
-                cursor: exportState === "working" ? "progress" : "pointer",
-                opacity: exportState === "working" ? 0.6 : 1,
-              }}
-            >
-              <Camera size={13} />
-              {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : "Save"}
-            </button>
-            {canFullscreen && (
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                aria-pressed={fsActive}
-                aria-label={fsActive ? "Exit full screen" : "Full screen"}
-                title={fsActive ? "Exit full screen (Esc)" : "Full screen: the chart takes the whole window. Esc to exit."}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  padding: "5px 11px",
-                  borderRadius: "var(--radius-pill)",
-                  border: `1px solid ${fsActive ? "var(--color-accent-hot)" : "var(--border-default)"}`,
-                  color: fsActive ? "var(--color-accent-hot)" : "var(--text-secondary)",
-                  background: fsActive ? "color-mix(in srgb, var(--color-accent-hot) 12%, transparent)" : "var(--bg-subtle)",
-                  cursor: "pointer",
-                }}
-              >
-                {fsActive ? <Minimize2 size={13} aria-hidden /> : <Maximize2 size={13} aria-hidden />}
-                {/* The phone toolbar shares its row with Layers and Save. */}
-                {!compact && (fsActive ? "Exit" : "Full screen")}
-              </button>
-            )}
+      {isCustomView && (
+        <button
+          type="button"
+          className="zg-gc-tb"
+          data-tone="accent"
+          onClick={resetView}
+          title="Reset zoom & pan to the live view, and let the price scale fit itself again"
+        >
+          ⟲ Reset
+        </button>
+      )}
+      <button
+        type="button"
+        className={exportState === "idle" ? "zg-gc-tb zg-gc-tb--icon" : "zg-gc-tb"}
+        data-tone={exportState === "error" ? "danger" : undefined}
+        onClick={downloadPng}
+        disabled={exportState === "working"}
+        title="Save this chart as a PNG image"
+        aria-label="Save this chart as a PNG image"
+      >
+        <Camera size={15} aria-hidden />
+        {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : null}
+      </button>
+      {canFullscreen && (
+        <button
+          type="button"
+          className="zg-gc-tb zg-gc-tb--icon"
+          data-open={fsActive}
+          onClick={toggleFullscreen}
+          aria-pressed={fsActive}
+          aria-label={fsActive ? "Exit full screen" : "Full screen"}
+          title={fsActive ? "Exit full screen (Esc)" : "Full screen: the chart takes the whole window. Esc to exit."}
+        >
+          {fsActive ? <Minimize2 size={15} aria-hidden /> : <Maximize2 size={15} aria-hidden />}
+        </button>
+      )}
     </>
   );
 
@@ -4424,8 +4490,10 @@ export default function GammaTerminalChart({
       style={fsActive ? { ...FULLSCREEN_LAYER_STYLE, display: "flex", flexDirection: "column", overflowX: "hidden", overflowY: "auto" } : { overflow: "hidden" }}
     >
       {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* Positioned: the Layers panel hangs from its bottom edge. */}
       <div
-        className="flex flex-col gap-4 p-4 sm:p-5"
+        ref={headerRef}
+        className="relative flex flex-col gap-4 p-4 sm:p-5"
         style={{ borderBottom: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -4456,9 +4524,15 @@ export default function GammaTerminalChart({
                 )}
               </div>
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mt-1">
-                <span style={{ fontFamily: "var(--font-display)", fontSize: compact ? 25 : 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1 }}>
-                  {symbol}
-                </span>
+                {/* The title is the symbol switcher when the symbol can be
+                    switched: live, on a surface that doesn't pin it. */}
+                {live && !hideSymbolPicker ? (
+                  <ChartSymbolMenu value={symbol as UnderlyingSymbol} onChange={(s) => setSymbol(s)} fontSize={compact ? 25 : 30} />
+                ) : (
+                  <span style={{ fontFamily: "var(--font-display)", fontSize: compact ? 25 : 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1 }}>
+                    {symbol}
+                  </span>
+                )}
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: compact ? 24 : 28, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
                   {headlinePrice != null ? fmtPrice(headlinePrice) : "--"}
                 </span>
@@ -4580,51 +4654,33 @@ export default function GammaTerminalChart({
           </div>
         </div>
 
-        {/* Controls. The desktop board lays every control out in one wrapping
-            row. The compact canvas cannot afford that — on a phone the row ran
-            to fourteen lines, two screens of buttons above the chart — so it
-            keeps symbol, timeframe and the view actions in sight and folds the
-            layers (style, volume, overlays, rail, expiry) into a panel. */}
+        {/* Controls. One row on the desktop board: timeframe, price style,
+            Layers and Expiry, with Reset / Save / Full screen pushed right.
+            The compact canvas splits the same controls over two rows. Neither
+            changes shape when a layer is switched: everything the chart can
+            draw, and each layer's own settings, are in the Layers panel. */}
         {compact ? (
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">{symbolTfControls}</div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="zg-gc-pill"
-                data-active={layersOpen}
-                aria-expanded={layersOpen}
-                aria-controls={layersPanelId}
-                onClick={() => setLayersOpen((v) => !v)}
-                style={{ ["--pill-color" as string]: "var(--text-primary)" }}
-              >
-                <SlidersHorizontal size={13} aria-hidden />
-                Layers
-                <span style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>{activeLayerCount}</span>
-                <ChevronDown size={13} aria-hidden style={{ transform: layersOpen ? "rotate(180deg)" : undefined, transition: "transform var(--dur-2) var(--ease-standard)" }} />
-              </button>
-              <div className="ml-auto flex items-center gap-2">{viewActions}</div>
+            <div className="flex flex-wrap items-center gap-2">
+              {timeframeControl}
+              {styleControl}
             </div>
-            {layersOpen && (
-              <div id={layersPanelId} className="flex flex-wrap items-center gap-2 pt-1">
-                {styleControl}
-                {volumeControl}
-                {overlayControls}
-                {railExpiryControls}
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {layersToggle}
+              {expiryControl}
+              <div className="ml-auto flex items-center gap-2 self-stretch">{viewActions}</div>
+            </div>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            {symbolTfControls}
+          <div className="flex flex-wrap items-center gap-2">
+            {timeframeControl}
             {styleControl}
-            {volumeControl}
-            <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
-            {overlayControls}
-            {railExpiryControls}
-            <div className="ml-auto flex items-center gap-2">{viewActions}</div>
+            {layersToggle}
+            {expiryControl}
+            <div className="ml-auto flex items-center gap-2 self-stretch">{viewActions}</div>
           </div>
         )}
+        {layersPanel}
       </div>
 
       {/* ── Prior-day / pre-market row (desktop) ── A strip of its own above
@@ -5953,9 +6009,10 @@ function PanelReadout({
   );
 }
 
-// Opacity slider for the ribbons — the one continuous control in the toolbar,
-// styled to sit beside the pills: a mono label, a short native range (keyboard
-// and screen-reader friendly for free), and the value read out as a percent.
+// Opacity slider for the ribbons — the one continuous layer setting, shown
+// under the Ribbons switch in the Layers panel: a mono label, a short native
+// range (keyboard and screen-reader friendly for free), and the value read out
+// as a percent.
 function RibbonOpacityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const pct = Math.round(value * 100);
   return (

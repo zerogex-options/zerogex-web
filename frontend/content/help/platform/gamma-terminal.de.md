@@ -23,7 +23,7 @@ Basic- und Pro-Mitglieder sehen das Terminal live. Alle anderen sehen eine koste
 
 ## Deine ersten fünf Minuten
 
-1. **Wähle einen Basiswert.** Nutze die Symbol-Buttons am Chart, das Dropdown der ersten Leiter oder die Pfeile in der Leiste Key Levels. Jede dieser Möglichkeiten stellt die ganze Seite um.
+1. **Wähle einen Basiswert.** Klicke auf das Symbol im Titel des Charts, nutze das Dropdown der ersten Leiter oder die Pfeile in der Leiste Key Levels. Jede dieser Möglichkeiten stellt die ganze Seite um.
 2. **Lies das Regime ab.** Die Box **Dealer Gamma @ Spot** oben rechts am Chart zeigt **LONG Γ** oder **SHORT Γ**. Bei Long Gamma stemmt sich das Hedging der Dealer laut Modell gegen Bewegungen (Pinning). Bei Short Gamma verstärkt es sie laut Modell (Trend). Der eingefärbte Chart-Hintergrund sagt dasselbe.
 3. **Finde die wichtigsten Linien.** An der azurblauen Linie `FLIP` wechselt das Regime. Die rote `CALL WALL` über dem Kurs und die grüne `PUT WALL` darunter sind die Strikes mit dem meisten Call- bzw. Put-Gamma. Die Key-Levels-Karten nennen jeweils den genauen Abstand.
 4. **Schau neben den Chart.** Die Leitern listen das Netto-Dealer-Gamma an jedem Strike nahe am Kurs auf, ausgerichtet am Chart. Die größten Werte sind die Strikes, an denen das meiste Hedging hängt.
@@ -96,6 +96,7 @@ Die kostenlose Vorschau zeigt nur die Ansicht Silhouette.
 
 ## Die Kopfzeile des Charts
 
+- **Symbol** - der Ticker im Titel ist zugleich die Symbolauswahl. Klicke darauf (oder drücke darauf die Pfeiltaste nach unten), um SPY, QQQ, SPX, NDX, ES, NQ oder NVDA zu wählen, nach Art gruppiert. Ein Symbolwechsel setzt den Zoom zurück, beendet Rewind und stellt den Expiry-Filter zurück auf All, sofern er nicht auf 0DTE steht. In der kostenlosen Vorschau ist das Symbol fest.
 - **Sitzungs-Badge** - **● LIVE** in der regulären Sitzung, **○ PRE-MARKET** und **○ AFTER HOURS** im vor- und nachbörslichen Handel, **CLOSED** bei geschlossenem Markt, **◀ REWIND** während der Wiedergabe und **◷ DELAYED ~15 MIN** in der kostenlosen Vorschau. **◆ FUTURES** erscheint bei einem Cash-Index außerhalb der regulären Handelszeit, wenn der Kurs in der Kopfzeile der des Futures-Kontrakts ist; die Kerzen bleiben beim Index.
 - **Kurs und Veränderung** - die Veränderung bezieht sich auf den Schlusskurs der vorherigen regulären Sitzung. Außerhalb der regulären Handelszeit bleibt der Hauptkurs auf dem Schlusskurs von 16:00 Uhr stehen, und SPY, QQQ und NVDA zeigen in einer zweiten Zeile den vor- bzw. nachbörslichen Kurs.
 - **Updated** - wann der letzte Kurstick eingegangen ist.
@@ -104,18 +105,16 @@ Die kostenlose Vorschau zeigt nur die Ansicht Silhouette.
 
 ## Die Werkzeugleiste
 
-- **Symbol** - SPY, QQQ, SPX, NDX, ES, NQ und NVDA. Ein Symbolwechsel setzt den Zoom zurück, beendet Rewind und stellt den Expiry-Filter zurück auf All, sofern er nicht auf 0DTE steht.
 - **Timeframe** - Balken in **1M**, **5M**, **15M**, **1H** oder **1D**. Der Chart öffnet bei jedem Besuch auf 5M.
-- **Stil** - **Candle**, **Line** oder **Area**. Eine Kerze ist grün, wenn sie auf oder über dem Schluss der vorherigen Kerze geschlossen hat, und rot, wenn sie darunter geschlossen hat. Hohl ist sie, wenn sie auf oder über ihrer eigenen Eröffnung geschlossen hat.
-- **VOL** - das Auge blendet den Volumenbereich ein oder aus. Siehe [Volumenbereich](/help/platform/gamma-terminal#volumenbereich).
-- **Overlay-Pillen** - eine pro Overlay. Siehe [Die Overlays](/help/platform/gamma-terminal#die-overlays). Auf dem Smartphone liegen die Bedienelemente für Overlays, Stil, Volumen und Expiry unter **Layers**, das anzeigt, wie viele Overlays eingeschaltet sind.
+- **Stil** - drei Icons: **Candles**, **Line** und **Area**. Eine Kerze ist grün, wenn sie auf oder über dem Schluss der vorherigen Kerze geschlossen hat, und rot, wenn sie darunter geschlossen hat. Hohl ist sie, wenn sie auf oder über ihrer eigenen Eröffnung geschlossen hat.
+- **Layers** - öffnet das Panel mit allen Overlays und dem Volumenbereich, jeweils mit ihren eigenen Einstellungen. Die Zahl auf dem Button zeigt, wie viele davon eingeschaltet sind. Siehe [Die Overlays](/help/platform/gamma-terminal#die-overlays).
 - **Expiry** - welche Verfälle in die Gamma-Levels einfließen. Siehe [Der Expiry-Filter](/help/platform/gamma-terminal#der-expiry-filter).
 - **Reset** - erscheint, sobald du gezoomt oder verschoben hast, und führt zurück zur Live-Ansicht.
-- **Save** - lädt den Chart als PNG-Bild herunter: Kerzen, Linien, Tags und Achsen, ohne die Werkzeugleiste, die Legende oder das Panel neben dem Chart.
+- **Save** - das Kamera-Icon. Es lädt den Chart als PNG-Bild herunter: Kerzen, Linien, Tags und Achsen, ohne die Werkzeugleiste, die Legende oder das Panel neben dem Chart.
 
 ## Die Overlays
 
-Jedes Overlay hat eine Pille in der Werkzeugleiste. Klicke darauf, um das Overlay ein- oder auszuschalten; der Chart merkt sich deine Auswahl. Die Legende unter dem Chart ist ein Farbschlüssel, kein Schalter.
+Jedes Overlay hat einen Schalter im Panel **Layers**, das sich über die Werkzeugleiste öffnet. Dort schaltest du ein Overlay ein oder aus; der Chart merkt sich deine Auswahl. Ein Overlay, das beim aktuellen Symbol oder Timeframe oder in der kostenlosen Vorschau nicht gezeichnet werden kann, bleibt abgeblendet im Panel und nennt den Grund. Oben im Panel stellen **Quick looks** alle Overlays mit einem Klick ein: **Minimal** (Gamma Levels und der Volumenbereich), **Levels** (alle wichtigen Levels), **Gamma** (Gamma Levels, GEX King, Ribbons und Regime) oder **All**. **Reset to defaults** unten im Panel stellt die Standardwerte aus der Tabelle unten wieder her. Die Legende unter dem Chart ist ein Farbschlüssel, kein Schalter.
 
 | Overlay | Was es zeichnet | Standardmäßig an | Wo verfügbar |
 |---|---|---|---|
@@ -185,7 +184,7 @@ Ohne Flip kann der Chart auch die Regime-Schattierung nicht zeichnen.
 - Eine Bahn schwillt an, wenn sich der Kurs ihrem Strike nähert, und dünnt aus, wenn er sich entfernt. Das ist Gamma, das am Geld seinen Höhepunkt erreicht, keine neuen Positionen: Das Open Interest aktualisiert sich nur einmal am Tag, nach Handelsschluss. Eine dicke Bahn direkt am Kurs zeigt, wo das Hedging gerade am aktivsten ist.
 - Eine Bahn, die die Farbe wechselt, gehört zu einem Strike, dessen Long- und Short-Gamma-Kontrakte sich nahezu die Waage halten.
 
-**Bedienung.** Der Schieberegler **Opacity** neben der Pille blendet alle Kugeln gemeinsam ab oder verstärkt sie. Fahre mit der Maus über eine Bahn, um den genauen Wert des Strikes zu sehen. Kugeln unter 5 % des stärksten Strikes werden nicht gezeichnet, und die Legende unter dem Chart enthält einen Schlüssel.
+**Bedienung.** Der Schieberegler **Opacity** unter Ribbons im Panel Layers blendet alle Kugeln gemeinsam ab oder verstärkt sie. Fahre mit der Maus über eine Bahn, um den genauen Wert des Strikes zu sehen. Kugeln unter 5 % des stärksten Strikes werden nicht gezeichnet, und die Legende unter dem Chart enthält einen Schlüssel.
 
 **Gut zu wissen.** Ribbons gibt es nur live, und im Gamma Terminal sind sie standardmäßig eingeschaltet. Sie folgen dem Expiry-Filter. Die Historie umfasst die Strikes, die zum jeweiligen Zeitpunkt verfolgt wurden; frühere Balken an weit entfernten Strikes können deshalb leer sein.
 
@@ -227,11 +226,11 @@ Ohne Flip kann der Chart auch die Regime-Schattierung nicht zeichnen.
 
 **So liest du sie.** Das sind keine Dealer-Levels. Es sind Referenzkurse, die viele Trader beobachten, grau gezeichnet, damit sie nie als Gamma-Level gelesen werden.
 
-**Gut zu wissen.** Es gibt sie nur bei SPY, QQQ und NVDA. SPX und NDX haben keinen vorbörslichen Handel, und ES und NQ handeln fast rund um die Uhr, deshalb sind die Levels dort nicht anwendbar. Die Zahlen stehen immer in einer Zeile über dem Chart. Die Pille oder das Auge am Ende dieser Zeile zeichnet sie als Linien ein.
+**Gut zu wissen.** Es gibt sie nur bei SPY, QQQ und NVDA. SPX und NDX haben keinen vorbörslichen Handel, und ES und NQ handeln fast rund um die Uhr, deshalb sind die Levels dort nicht anwendbar. Die Zahlen stehen immer in einer Zeile über dem Chart. Der Schalter **PD/PM Levels** in Layers oder das Auge am Ende dieser Zeile zeichnet sie als Linien ein.
 
 ### Expected Range
 
-**Was du siehst.** Ein schattiertes Band zwischen `ER HIGH` und `ER LOW`: die Bewegung, die die implizite Volatilität einpreist, eine Standardabweichung zu beiden Seiten des aktuellen Kurses. Standardmäßig aus. Sobald das Overlay an ist, wählst du **Daily**, **Weekly** oder **Monthly**.
+**Was du siehst.** Ein schattiertes Band zwischen `ER HIGH` und `ER LOW`: die Bewegung, die die implizite Volatilität einpreist, eine Standardabweichung zu beiden Seiten des aktuellen Kurses. Standardmäßig aus. Sobald das Overlay an ist, wählst du darunter im Panel Layers **Daily**, **Weekly** oder **Monthly**.
 
 **So wird sie berechnet.** Sie nutzt den VIX für SPX, SPY und ES und den VXN für QQQ, NDX und NQ. Die Bewegung ist Kurs × (VIX ÷ 100) × √(Tage ÷ 252), mit 1, 5 oder 21 Handelstagen. Bei SPY auf $600 und einem VIX von 16 beträgt die tägliche Bewegung etwa $6,05; das Band reicht also von etwa $593,95 bis $606,05.
 
@@ -266,7 +265,7 @@ Ohne Flip kann der Chart auch die Regime-Schattierung nicht zeichnen.
 
 ### Volumenbereich
 
-Der Bereich unter den Kerzen, ein- oder ausgeblendet mit dem Auge neben **VOL**:
+Der Bereich unter den Kerzen, ein- oder ausgeblendet mit dem Schalter **Volume** in Layers, wo du auch seine Ansicht wählst:
 
 - **Up/Down** (Standard) - Uptick-Volumen (grün) über Downtick-Volumen (rot) gestapelt, eine Säule pro Balken.
 - **Cumulative** - eine laufende Summe aus Uptick- minus Downtick-Volumen für die aktuelle Sitzung, beginnend bei null zur Eröffnung. Über null hatten heute die Käufer im Tape die Oberhand, unter null die Verkäufer.

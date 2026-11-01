@@ -101,13 +101,19 @@ test("the ribbons are available under both views", () => {
   // both views rather than only to the one that happened to ask for it.
   assert.equal((surface.match(/storageScope=/g) ?? []).length, 1);
   assert.equal((surface.match(/overlayDefaults=/g) ?? []).length, 1);
-  // The pill itself is gated on `live` only — never on the rail or the view.
-  // The one other gate is a surface's own forced-off list (the Fuseline
-  // Radar's, where the ladder does the ribbons' job), and the Terminal passes
-  // none, so here the pill is still there under both views.
-  assert.match(chart, /\{live && !isForcedOff\("ribbons"\) && \(\s*<OverlayPill label="Ribbons"/);
+  // The Ribbons switch is one of the Layers panel's own rows, and the only
+  // thing that can dim it is the feed: live only — never the rail or the view.
+  // The one gate that removes it is a surface's own forced-off list (the
+  // Fuseline Radar's, where the ladder does the ribbons' job), and the
+  // Terminal passes none, so here the switch is there under both views.
+  assert.match(chart, /\{ key: "ribbons", label: "Ribbons",/);
+  assert.match(chart, /\]\.filter\(\(d\) => !isForcedOff\(d\.key\)\);/);
+  assert.match(chart, /case "ribbons":\s*case "king":\s*case "pin":\s*case "barTimer":\s*return live \? undefined : LIVE_ONLY;/);
   assert.doesNotMatch(surface, /forceOffOverlays=/);
-  assert.match(chart, /\{live && overlays\.ribbons && \(\s*<RibbonOpacityControl/);
+  // Its opacity slider is the row's own setting, shown under it while it's on.
+  assert.match(chart, /ribbons: <RibbonOpacityControl value=\{ribbonOpacity\} onChange=\{setRibbonOpacity\} \/>,/);
+  const panel = read("../components/ChartLayersPanel.tsx");
+  assert.match(panel, /\{r\.on && !r\.unavailable && r\.settings \? <div className="zg-gc-layer-settings">\{r\.settings\}<\/div> : null\}/);
 });
 
 // The strike panel is the Gamma Chart's own rail, moved — not a second
@@ -171,15 +177,17 @@ test("the rail's geometry follows it out of the chart's column", () => {
 });
 
 // The rail's four views and its labels pill are controls over the rail, so they
-// go wherever the rail is — the panel here, the chart's toolbar on the pages
-// that still draw it inline (/dashboard, /my-dashboard, the levels pages).
+// go wherever the rail is — the panel here; on the pages that still draw it
+// inline (/dashboard, /my-dashboard, the levels pages), under the Gamma Rail
+// switch in the chart's Layers panel, which only those pages offer.
 test("the rail's view controls follow it, and the inline rail keeps them", () => {
   assert.match(chart, /const railViewControls = live \? \(/);
   for (const mode of ["silhouette", "net", "split", "combined"]) {
     assert.match(chart, new RegExp(`\\["${mode}", "`), `${mode} is offered on the rail's controls`);
   }
   assert.match(chart, /railMode !== "silhouette" && \(\s*<OverlayPill label="Labels"/);
-  assert.match(chart, /\{railOn && !inPanel && railViewControls\}/);
+  assert.match(chart, /\.\.\.\(!hideRail && !sideColumn \? \[RAIL_LAYER\] : \[\]\),/);
+  assert.match(chart, /rail: railOn && !inPanel \? railViewControls : null,/);
   assert.match(chart, /inPanel && railControlsTarget \? createPortal\(railViewControls, railControlsTarget\) : null/);
   // The page gives them a home on the panel's control row.
   assert.match(surface, /ref=\{setPanelControlsHost\}/);
