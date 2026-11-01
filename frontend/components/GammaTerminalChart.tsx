@@ -3247,7 +3247,8 @@ export default function GammaTerminalChart({
   const liveBarTimestamp = allBars.length > 0 ? allBars[allBars.length - 1].timestamp : null;
   // Same predicate the pinging live-price dot asserts, hoisted so the two can't
   // drift: a timer counting down beside a dot that says the tape is dead (or
-  // vice versa) is worse than either signal alone.
+  // vice versa) is worse than either signal alone. (A rewind also pulses the
+  // dot, on the candle it replays, and draws no timer at all.)
   const feedIsLive = !delayed && !rewindActive && !feedStale && !!session && session !== "closed";
   const barTimerLive = overlays.barTimer && feedIsLive && atLiveEdge;
   // Ticks only while the timer is on screen — a chart with it switched off, or
@@ -4956,20 +4957,22 @@ export default function GammaTerminalChart({
             {(() => {
               const y = clamp(yPrice(lastPrice), PAD_TOP, PRICE_BOTTOM);
               const x = xForIndex(lastIdx);
+              // The dot marks the live bar — only shown when it's on screen
+              // (i.e. at the live edge, not scrolled back into history). A
+              // rewind's right edge is the replayed moment's live bar, so the
+              // dot rides it too.
+              const showDot = atLiveEdge || rewindActive;
               // feedStale: the pinging dot asserts "this bar is trading right now".
               // On a delayed feed the tip is the newest bar we have, not the newest
               // bar that exists, so the dashed last-price line stays and the ping goes.
-              const isLive = feedIsLive;
+              // A rewind pulses too, so the replay looks the way the live chart
+              // did at that moment.
+              const pulse = feedIsLive || rewindActive;
               return (
                 <g>
                   <line x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
-                  {/* The dot marks the live bar — only shown when it's on screen
-                      (i.e. at the live edge, not scrolled back into history). A
-                      rewind's right edge is the replayed moment's live bar, so
-                      the dot rides it too, without the ping: nothing in a replay
-                      is trading now (feedIsLive is false while rewinding). */}
-                  {atLiveEdge && isLive && <circle className="zg-gc-ping" cx={x} cy={y} r={4} fill="none" stroke="var(--color-accent-hot)" strokeWidth={1.5} />}
-                  {(atLiveEdge || rewindActive) && <circle className={isLive ? "zg-gc-dot" : ""} cx={x} cy={y} r={3.4} fill="var(--color-accent-hot)" />}
+                  {showDot && pulse && <circle className="zg-gc-ping" cx={x} cy={y} r={4} fill="none" stroke="var(--color-accent-hot)" strokeWidth={1.5} />}
+                  {showDot && <circle className={pulse ? "zg-gc-dot" : ""} cx={x} cy={y} r={3.4} fill="var(--color-accent-hot)" />}
                 </g>
               );
             })()}
