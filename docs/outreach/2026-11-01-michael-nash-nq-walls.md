@@ -26,8 +26,11 @@ so "Hi Michael" and the "Michael" sign-off are both correct.
   (`frontend/core/symbols.ts`, `content/help/platform/data-coverage.md`).
   Nothing about NQ is Pro-only, so all of it works on his Basic trial.
 - **Why an NQ trader got SPX numbers.** The comeback email falls back to SPX
-  when a member skips the welcome's "which market do you trade?" question
-  (`frontend/core/trialComeback.ts`). He skipped it.
+  when a member hasn't answered the welcome's "which market do you trade?"
+  question (`frontend/core/trialComeback.ts`). He hadn't seen it yet: he didn't
+  come back after signing up until the email went out at 6:49 AM ET, then
+  logged in and picked NQ at 7:08 AM (`make diagnose-user` audit trail). So
+  the email is what brought him back.
 - **Friday's levels, from the free pages** (snapshot Oct 30, 3:59 PM ET):
 
   | | NDX | NQ (NQZ26) |
@@ -195,16 +198,21 @@ His reply:
 
 ### Before sending
 
-1. **Quick check of his trial end and price (optional, 30 seconds):**
+Checked with `make diagnose-user` on Nov 1. Nothing blocks sending:
 
-   ```bash
-   make diagnose-user EMAIL=thisjustclicks@gmail.com
-   ```
-
-   **Trial end** is in UTC; ET is 5 hours earlier. The free switch opens 51
-   hours before it. If that isn't Wednesday, change "from about Wednesday".
-   **Item 0 price** should read $39.00 / month with no discount. If it
-   doesn't, fix the dollar figures.
+- **Trial ends Fri Nov 6, 7:46 AM ET**, before the open. The free switch opens
+  **Wed Nov 4, 4:46 AM ET**, so waiting gets him Wednesday's and Thursday's
+  sessions on Pro for free.
+- **The reminder with the Switch to Pro link** should go out at about 7:15 AM
+  ET on Wednesday. The timer runs every 6 hours at :15
+  (`deploy/systemd/zerogex-web-trial-reminders.timer`, assuming the server
+  clock is UTC), and that's the run inside his window.
+- **$39.00 / month, no discount**, so the dollar figures stand.
+- **He pays with Stripe Link, not a card.** The subscription has its own
+  default payment method, so the trial-end charge and a switch today both use
+  it. If a switch-today charge fails, nothing changes and he stays on the
+  trial (`payment_behavior: 'error_if_incomplete'` in
+  `frontend/app/api/billing/change-plan/route.ts`).
 
 ### Draft
 
@@ -216,7 +224,7 @@ Glad it helped. NinjaTrader is the best fit for what you want. Our indicator dra
 
 The catch is that it needs an API key, which comes with Pro, and you're on the Basic trial. Two ways to try it:
 
-1. Wait for the last two days of your trial, from about Wednesday. Switch to Pro then and the rest of your trial stays free. Your first charge on November 6 becomes Pro's $59 instead of Basic's $39, and you can still cancel before then and pay nothing. We'll email you a link when that opens.
+1. Wait for the last two days of your trial, which start Wednesday morning. Switch to Pro then and the rest of your trial stays free. Your first charge on November 6 becomes Pro's $59 instead of Basic's $39, and you can still cancel before then and pay nothing. We'll email you a link when that opens.
 2. Switch today. Your trial ends and Pro starts now at $59, covered by our 7-day money-back guarantee: ask within 7 days and it's refunded in full.
 
 Either way, this link shows you the exact terms before anything changes: https://zerogex.io/login?next=%2Fpricing%3Fplan%3Dpro%26cadence%3Dmonthly%26switch%3Dpro
