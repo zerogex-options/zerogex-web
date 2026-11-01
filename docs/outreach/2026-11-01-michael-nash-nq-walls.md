@@ -15,7 +15,8 @@ American English, and each paragraph in the draft is a single line with no hard
 wrapping, so it pastes straight into a mail client. He shares your first name,
 so "Hi Michael" and the "Michael" sign-off are both correct.
 
-> **Status:** drafted 2026-11-01, not sent.
+> **Status:** sent 2026-11-01. He replied at 4:00 PM that he's on
+> NinjaTrader; see "Follow-up: NinjaTrader" at the end.
 
 ## The read
 
@@ -142,3 +143,106 @@ zerogex.io
   (https://zerogex.io/help/platform/futures-contract-months).
 - **"Why is the flip blank?"** See the read above. The Sept 28 write-up for
   Sulby (`2026-09-28-sulby-nq-gamma-flip.md`) is the template for explaining it.
+
+## Follow-up: NinjaTrader (Sun Nov 1, 4:00 PM)
+
+His reply:
+
+> Very interesting and thanks for the detail! Im running on ninjatrader.
+
+> **Status:** drafted 2026-11-01, not sent.
+
+### The read
+
+- **NinjaTrader is the Pro integration.** The indicator draws the flip, both
+  walls, max pain and the pin strike on his chart and polls for new levels
+  every 60 seconds. The download and the API key it polls with are both Pro
+  (`frontend/components/PlotOnNinjaTrader.tsx`, `docs/ninjatrader-indicator.md`). He's
+  on Basic, so the draft has to say that plainly.
+- **Two ways onto Pro, both already built** (`frontend/core/planSwitch.ts`,
+  `frontend/core/trialProUpgrade.ts`):
+  1. In the last 51 hours of his trial, switching keeps the rest of it free.
+     The first charge, on the trial-end date, is Pro's $59 instead of Basic's
+     $39. The trial-end reminder he gets about 48 hours out carries a "Switch
+     to Pro" link for exactly this (`frontend/core/mailer.ts`).
+  2. Before then, switching ends the trial and charges $59 that day, under the
+     7-day money-back guarantee.
+
+  The link in the draft opens the switch for a Basic trialer and shows the
+  terms that apply that day. Nothing changes until he confirms
+  (`frontend/app/pricing/Client.tsx`). The promo ended Oct 1, so list prices
+  apply.
+- **No supported way to give him Pro free before the window.** `comp-member`
+  is for members whose subscription already ended. `extend-trial` moves the
+  whole trial, so the two days move later with it. The draft doesn't
+  hand-edit his tier, and you shouldn't need to.
+- **MNQ gotcha.** The page says to set *Symbol* to match the chart. On an MNQ
+  chart he might type MNQ, which isn't one of our symbols. The setting
+  defaults to AUTO, which maps an MNQ chart to NQ (`ChartSymbol()` in
+  `frontend/public/ninjatrader/ZeroGexGammaLevels.cs`). The draft tells him
+  to leave it on AUTO.
+- **Desktop only.** NinjaScript runs on NinjaTrader 8 desktop, not NinjaTrader's
+  web or mobile apps (`2026-10-25-todd-ninjatrader-tradingview-updates.md`).
+  One sentence now saves him paying $59 for something his platform can't load.
+- **Install is paste-and-compile for now.** No `.zip` package is published
+  (`NT_PACKAGE_PATH` is null in `frontend/core/ninjaTraderManifest.ts`), so
+  the page has Pro members download the `.cs` and compile it in the
+  NinjaScript Editor. The draft links the page instead of repeating the steps.
+- **Cross alerts beat site alerts for him.** "Enable cross alerts" (off by
+  default) fires a NinjaTrader alert when price crosses a level, on the NQ
+  chart's own price. That covers the overnight session too, which the site's
+  wall alerts can't, since those are set on NDX.
+
+### Before sending
+
+1. **Quick check of his trial end and price (optional, 30 seconds):**
+
+   ```bash
+   make diagnose-user EMAIL=thisjustclicks@gmail.com
+   ```
+
+   **Trial end** is in UTC; ET is 5 hours earlier. The free switch opens 51
+   hours before it. If that isn't Wednesday, change "from about Wednesday".
+   **Item 0 price** should read $39.00 / month with no discount. If it
+   doesn't, fix the dollar figures.
+
+### Draft
+
+**Subject:** Re: The latest SPX levels, in plain English
+
+Hi Michael,
+
+Glad it helped. NinjaTrader is the best fit for what you want. Our indicator draws the call wall, put wall and gamma flip (plus max pain and the pin strike) right on your NQ or MNQ chart, and keeps them current by itself, so there's nothing to type in. On an MNQ chart, leave the Symbol setting on AUTO and it uses the NQ levels. It runs on NinjaTrader 8 desktop, not the web or mobile app.
+
+The catch is that it needs an API key, which comes with Pro, and you're on the Basic trial. Two ways to try it:
+
+1. Wait for the last two days of your trial, from about Wednesday. Switch to Pro then and the rest of your trial stays free. Your first charge on November 6 becomes Pro's $59 instead of Basic's $39, and you can still cancel before then and pay nothing. We'll email you a link when that opens.
+2. Switch today. Your trial ends and Pro starts now at $59, covered by our 7-day money-back guarantee: ask within 7 days and it's refunded in full.
+
+Either way, this link shows you the exact terms before anything changes: https://zerogex.io/login?next=%2Fpricing%3Fplan%3Dpro%26cadence%3Dmonthly%26switch%3Dpro
+
+Once you're on Pro, generate your API key under Account → API Access, then follow the steps at https://zerogex.io/ninjatrader-indicator. It takes a few minutes. If you want a heads-up when price reaches a level, turn on "Enable cross alerts" in the indicator's settings. And if anything doesn't show up on your chart, send me a screenshot and I'll sort it out.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+
+### If he replies
+
+- **"Can I try Pro free before Wednesday?"** Not through anything built. If
+  you want to give him more room, `make extend-trial` adds days, but the free
+  Pro switch moves to the new last two days with it.
+- **The indicator shows an error or no lines.** Ask for a screenshot of the
+  info panel (top right). Usual causes: Symbol typed as MNQ (set it to AUTO or
+  NQ), the API key pasted with a missing character, or an older copy of the
+  indicator already installed (two copies won't compile; see
+  `2026-09-28-sulby-nq-gamma-flip.md`). The current build reads v2.4.
+- **"The levels don't move overnight" / the panel says the snapshot is hours
+  old.** Expected: the levels hold at the 4 PM close until the 9:30 open. The
+  first email told him so.
+- **He switched today and changes his mind.** The guarantee covers a full
+  refund within 7 days of that payment, one per customer, and access ends when
+  it's refunded.
