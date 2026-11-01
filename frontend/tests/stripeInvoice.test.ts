@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  readChargeInvoice,
   readInvoiceChargeId,
   readInvoicePaymentIntentId,
   readInvoicePaymentMethodId,
@@ -160,5 +161,31 @@ test('an invoice with no attempt yields null rather than throwing', () => {
   for (const junk of [null, undefined, 42, 'in_x', {}, { payments: null }, { payments: { data: 7 } }]) {
     assert.equal(readInvoiceChargeId(junk), null);
     assert.equal(readInvoicePaymentIntentId(junk), null);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The invoice a charge paid. basil REMOVED charge.invoice, so a missing field
+// has to read as "can't tell", never as "no invoice" — that confusion logged
+// every subscription refund as a one-off and left its partner commission
+// accrued.
+// ---------------------------------------------------------------------------
+
+test('a charge names its invoice in the acacia shape', () => {
+  assert.deepEqual(readChargeInvoice({ id: 'ch_1', invoice: 'in_1' }), { kind: 'invoice', invoiceId: 'in_1' });
+  assert.deepEqual(readChargeInvoice({ id: 'ch_1', invoice: { id: 'in_2' } }), { kind: 'invoice', invoiceId: 'in_2' });
+});
+
+test('an acacia charge with a null invoice is a one-off', () => {
+  assert.deepEqual(readChargeInvoice({ id: 'ch_1', invoice: null }), { kind: 'none' });
+});
+
+test('a basil charge, which has no invoice field, is unknown rather than a one-off', () => {
+  assert.deepEqual(readChargeInvoice({ id: 'ch_1', object: 'charge', payment_intent: 'pi_1' }), { kind: 'unknown' });
+});
+
+test('an unreadable charge is unknown, never a one-off, and never throws', () => {
+  for (const junk of [null, undefined, 42, 'ch_x', {}, { invoice: 7 }, { invoice: {} }, { invoice: '' }]) {
+    assert.deepEqual(readChargeInvoice(junk), { kind: 'unknown' });
   }
 });

@@ -72,6 +72,7 @@ import {
 } from '@/core/subscriptionDiscounts';
 import { MONEY_BACK_GUARANTEE_DAYS } from '@/core/billingPlans';
 import { lookupInvoiceDecline } from '@/core/stripeDeclineLookup';
+import { lookupChargeInvoice, refundAuditMessage } from '@/core/chargeInvoice';
 import {
   collectPaymentFailureDiagnostics,
   describeDiagnosticProblems,
@@ -2844,8 +2845,14 @@ export async function POST(request: NextRequest) {
       }
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge;
-        const invoiceId =
-          typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id ?? null;
+        // Which invoice this charge paid. Not `charge.invoice`: the event is
+        // rendered in the webhook endpoint's API version, and basil removed
+        // that field from the Charge, so reading it alone logged every
+        // subscription refund as a one-off charge and skipped the commission
+        // reversal below. The lookup re-reads the charge through our pinned
+        // client when the payload can't say, and never throws.
+        const paidInvoice = await lookupChargeInvoice(getStripe(), charge);
+        const invoiceId = paidInvoice.kind === 'invoice' ? paidInvoice.invoiceId : null;
 
         // Record the refund itself, unconditionally. Stripe leaves a refunded
         // invoice's status as 'paid' (the refund lives on the charge), so
@@ -2863,19 +2870,13 @@ export async function POST(request: NextRequest) {
         const refundedUser = customerId
           ? findUserByCustomerIdIncludingDeleted(customerId)
           : null;
-        // amount_refunded is CUMULATIVE, not this event's delta: a second
-        // partial refund reports the running total. Always stating it as
-        // "X of Y charged" keeps that unambiguous instead of reading as the
-        // amount of this one refund.
-        const isFullRefund = charge.amount_refunded >= charge.amount;
         logAudit({
           type: 'refund_issued',
           userId: refundedUser?.id,
           email: refundedUser?.email,
-          message:
-            `${isFullRefund ? 'Full' : 'Partial'} refund on charge ${charge.id}: ` +
-            `${charge.amount_refunded} of ${charge.amount} ${charge.currency} charged` +
-            (invoiceId ? `, invoice ${invoiceId}` : ' (no invoice — one-off charge)'),
+          // Names the invoice, or says why it couldn't. Read back by
+          // scripts/repair-refund-commissions.mts.
+          message: refundAuditMessage(charge, paidInvoice),
         });
 
         // Any refund on a paid invoice reverses that invoice's accrued
