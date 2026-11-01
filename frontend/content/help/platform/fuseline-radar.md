@@ -1,0 +1,145 @@
+# Using the Fuseline Radar
+
+*Your trade's route through modeled gamma: the Fuse, your targets, and how the terrain at each strike along the way is changing.*
+
+Concept and product specification by Plus3 Forecasting. The page is in beta.
+
+---
+
+## What this page shows
+
+Most pages on ZeroGEX describe the whole market. The Fuseline Radar is built around **one trade**: a Fuse (your anchor), a direction, and one or two targets.
+
+Three things share one screen:
+
+- **The chart.** The same Gamma Chart as the dashboard, with its timeframes, levels, volume and tools.
+- **Your plan.** The Fuse, the targets and the stretch between the Fuse and the current price, drawn on the chart as their own layer.
+- **The ladder.** A column on the right, one row per strike, on the chart's own price scale. Each row shows how much modeled gamma sits at that strike and how it has changed over the last few minutes.
+
+The purpose is to see the next relevant concentration on your route, and how it is changing, without assembling several pages in your head.
+
+Nothing on this page is a trade signal or a recommendation. It organizes modeled data around a plan you bring.
+
+## Setting up your plan
+
+The first row of controls holds the plan.
+
+- **Plan prices in (ES / SPX).** The instrument you type your prices in. ES by default. Switching it converts the prices you have already entered at the current ES/SPX ratio, so the plan keeps pointing at the same place. It does **not** change what the chart shows; that is **Chart in**, below.
+- **Direction (Up / Down).** The way the trade is meant to go.
+- **Fuse.** Required. The anchor the route is measured from.
+- **Target 1.** Required. It must be on the trade's side of the Fuse: above it for an up route, below it for a down route.
+- **Target 2.** Optional. It must be beyond Target 1.
+- **Clear plan** empties all three prices.
+
+Targets are never reordered for you. If one is on the wrong side, the page says so in a line under the controls and leaves it off the chart until you fix it.
+
+The plan is remembered in this browser, so it is there when you come back.
+
+## Chart in ES or SPX
+
+**Chart in** sets the instrument for the chart, its levels and the ladder. It is the same choice as the symbol picker in the site header: picking ES or SPX in either place moves both. Picking another symbol in the header (SPY, QQQ and so on) leaves the radar on its last ES or SPX choice, because the radar only reads those two.
+
+The gamma behind the ladder and the levels is **SPX-derived**. In ES, every strike and level is carried onto the ES price axis at the ES/SPX ratio the rest of the site uses. The line under the controls shows that ratio, where it came from and when it was measured:
+
+- **measured**: from matched ES and SPX prices. The normal case.
+- **measured, but stale**: from matched prices that are getting old. Shown in amber.
+- **theoretical carry, not measured**: a model value used when no recent match exists. Shown in amber.
+
+If the ratio is unavailable, the radar shows SPX rather than draw SPX numbers on an ES axis, and says so. Your plan is unchanged either way.
+
+## View: A to B, A to B to C, Wide
+
+These decide which prices the chart keeps on screen when it fits itself:
+
+- **A to B** keeps the Fuse and Target 1 in view.
+- **A to B to C** adds Target 2 (it behaves like A to B when there is no Target 2).
+- **Wide** reaches a set distance from the Fuse in the trade's direction. 100 points by default; the box beside it changes the distance.
+
+Your own zoom and pan always win. Double-click the chart, or press its reset button, to go back to the fitted view.
+
+## Change over: 1, 4 or 20 minutes
+
+The window the ladder compares against: how each strike stands now versus 1, 4 or 20 minutes ago. Four minutes lines up with a 4-minute Fuse chart; one minute shows the immediate change; twenty shows the broader drift.
+
+This is separate from how often the page refreshes (see **Freshness** below).
+
+## What is drawn on the chart
+
+- **On the chart: Fuse / Levels / Both.**
+  - **Fuse** shows only your plan: the Fuse (solid purple line), the targets (dashed purple lines) and the Fuse-to-spot zone (a light purple band).
+  - **Levels** shows only the market levels: call wall, put wall, gamma flip, max pain, VWAP and pin strike.
+  - **Both** shows your plan and the levels together.
+- **Labels** turns the name tags on the lines (FUSE, T1, CALL WALL and so on) on or off. The price tags on the right axis always stay.
+- **Height: Standard / Tall.** Tall makes the chart about twice as tall, with the extra room going to the price pane, so levels sit further apart at any zoom.
+- **Ladder** shows or hides the ladder column. With it hidden the candles get the width.
+
+These choices are remembered in this browser.
+
+## The chart's own controls
+
+The chart is the dashboard's Gamma Chart, so its controls work the same way there and here. In brief:
+
+- **Timeframe**: 1M, 5M, 15M, 1H, 1D.
+- **Candle / Line / Area**, and the **Vol** eye to show or hide volume. **Up/Down** stacks buying and selling volume per bar; **Cumulative** shows the running net.
+- **Level toggles**: Gamma Flip, Call Wall, Put Wall, Regime, VWAP, Max Pain, Pin Strike, each on its own switch. **Bar Timer** counts down the forming candle. **Expected Range** shades the implied-volatility band.
+- **Expiry** picks which expirations the chart's levels are built from. It does not change the ladder yet, which always shows all expirations.
+- **Save** downloads a picture of the chart. **Full screen** gives the chart the whole window, ladder included.
+- **Time** and **Price** zoom buttons, drag to pan, drag the price axis to stretch it, double-click to reset.
+- **Rewind** replays the session on the chart. The ladder stays live while you rewind; it dims and says so, until replay of the ladder arrives.
+
+The gamma rail, ribbons, GEX King and centroids are left off this page, because the ladder does their job here. For more on each overlay, see [Using the Gamma Terminal](/help/platform/gamma-terminal).
+
+## Reading the ladder
+
+Each row is one strike, drawn at that strike's height on the chart.
+
+- **The bar** is the modeled net gamma at that strike now. **Blue is positive, amber is negative.** Neither color means bullish or bearish. Bar length is measured against today's largest strike on the whole board, not just the strikes in view, so zooming or moving a target never changes how big a strike looks.
+- **The outline** is the same strike at the start of the change window. A bar that reaches past its outline is **strengthening**; one inside its outline is **weakening**. Strengthening and weakening are about size, whatever the sign: a negative strike going from -760M to -420M is weakening.
+- **▲ and ▼ with a figure** mark a change in size beyond the noise threshold, with the size of the change. When strikes sit close together, figures are placed biggest change first and any that would overprint are left off; the outline still shows the change.
+- **Faded rows** are behind the Fuse, past your last target, or hold less than 3% of today's total gamma.
+- **The purple dot** marks the next relevant strike: the first strike ahead of the current price, on your route, holding at least 8% of today's total.
+- **Hover** a row for its numbers. **Click** it to open its history underneath the chart.
+
+## The strike history
+
+Clicking a strike opens one panel below the chart (one at a time; click again or **Close** to put it away):
+
+- **Modeled net gamma now**, with its sign.
+- **Change over 1, 4 and 20 minutes**: the change in size, a percentage where the starting value is large enough to divide by, and whether it cleared the threshold.
+- **Size today**: its rank among all tracked strikes and its share of today's total.
+- **Expiry mix**: how much of it is 0DTE versus later expirations.
+- **On your route**: where it sits relative to your plan, and how far it is from the current price.
+- **A session chart** of its modeled net gamma, with the start of the change window marked.
+
+## Freshness, updates and pause
+
+The bar above the chart says how current the ladder is.
+
+- **Price is always live.** Only the ladder's gamma follows the update setting.
+- **Manual / Every 1 min / Every 5 min** sets how often the ladder reads new data. **Refresh now** reads immediately. If nothing new has been published since the last reading, it says so rather than showing the same numbers as new.
+- **Pause** freezes the ladder so you can study it. The chart's price keeps moving, and the bar says the gamma is paused.
+- In a hidden browser tab the ladder stops reading new data until you come back to it.
+- During the session, if the newest reading is five minutes old or more, the bar says how old it is.
+
+## Messages under the controls
+
+- **Anchor crossed: route under review.** The price has crossed the Fuse against your direction. The route is not reversed for you; deciding what that means is yours.
+- **Target 1 passed.** The price is beyond Target 1. Its line stays on the chart, and the remaining route runs to Target 2 if you set one.
+- **Target problems**, such as a target on the wrong side, as described above.
+
+## What the ladder measures, and what it does not
+
+The gamma is **modeled from open interest, which is published once a day**. During the session, a strike's gamma changes because the same positions are repriced as price, time and volatility move, and mostly because the price moves nearer to or farther from that strike. So:
+
+- **Strengthening or weakening is not positions opening or closing.** It is the existing book repricing.
+- **A large concentration is not a guaranteed pin or reaction.**
+- The **noise threshold** and the **next relevant strike** rule are provisional: 3% of today's largest strike, scaled with the window, and the 8% share. They will be replaced by adjustable settings.
+
+## Coming next
+
+Planned additions, in order:
+
+- A single classification for the Fuse-to-spot zone, with adjustable settings for how strict it is.
+- Replay of past sessions with the same settings, so those settings can be tested against what happened.
+- How big a strike is compared with the same time of day on past sessions.
+- Vanna and charm context, and a separate layer showing where today's trading is concentrating.

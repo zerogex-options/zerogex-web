@@ -32,12 +32,18 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
 // The overlay pills the chart draws. The rail's pill and its Labels toggle are
 // not drawn on the terminal, which hides the inline rail; the guide covers the
-// rail as the Strike Panel.
+// rail as the Strike Panel. The per-level pills behind `splitGammaLevels` are
+// the Fuseline Radar's (the terminal keeps the one Gamma Levels pill), and the
+// radar has its own guide, so they are not this guide's to cover.
 const overlayLabels = (() => {
   const chart = read('../components/GammaTerminalChart.tsx');
   const labels = new Set([...chart.matchAll(/<OverlayPill label="([^"]+)"/g)].map((m) => m[1]));
   labels.delete('Gamma Rail');
   labels.delete('Labels');
+  const splitStart = chart.indexOf('{splitGammaLevels ? (');
+  const splitEnd = chart.indexOf(') : (', splitStart);
+  assert.ok(splitStart >= 0 && splitEnd > splitStart, 'expected the radar-only split-levels branch');
+  for (const m of chart.slice(splitStart, splitEnd).matchAll(/<OverlayPill label="([^"]+)"/g)) labels.delete(m[1]);
   return [...labels];
 })();
 

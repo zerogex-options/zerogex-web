@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import Link from 'next/link';
 
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
@@ -16,7 +17,7 @@ import GammaTerminalChart, {
 import LadderColumn, { type LadderRow } from '@/components/fuseline/LadderColumn';
 import StrikeDrawer from '@/components/fuseline/StrikeDrawer';
 import PlanInputs from '@/components/fuseline/PlanInputs';
-import { TimeframeSymbolScope } from '@/core/TimeframeContext';
+import { TimeframeSymbolScope, useTimeframe } from '@/core/TimeframeContext';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useStrikeProfileTimeseries, type StrikeProfileBucket } from '@/hooks/useStrikeProfileTimeseries';
@@ -110,6 +111,17 @@ const timeEt = (ms: number | null) => (ms == null ? '--:--' : safeTimeLabel(new 
 
 export default function FuselineRadarPage() {
   const [settings, update] = useRadarSettings();
+  // The header's symbol picker and the radar's chart switch are one control.
+  // ES or SPX picked in the header drives the radar, and the radar's switch
+  // moves the header with it, so the two can never show different symbols.
+  // Any other symbol (SPY, QQQ...) leaves the radar on its last ES/SPX choice:
+  // the radar only reads ES and SPX.
+  const { symbol: siteSymbol, setSymbol: setSiteSymbol } = useTimeframe();
+  const chosen: Instrument = siteSymbol === 'ES' || siteSymbol === 'SPX' ? siteSymbol : settings.display;
+  const chooseDisplay = (i: Instrument) => {
+    update({ display: i });
+    setSiteSymbol(i);
+  };
   const visible = usePageVisible();
   const isMobile = useIsMobile();
   const clock = useClock(30_000);
@@ -129,9 +141,9 @@ export default function FuselineRadarPage() {
   const proj = esSummary?.projection;
   const ratio = proj?.basis_ratio && proj.basis_ratio > 0 ? proj.basis_ratio : null;
   const basisSource = describeBasisSource(proj?.basis_source ?? null);
-  const esUnavailable = settings.display === 'ES' && ratio == null;
+  const esUnavailable = chosen === 'ES' && ratio == null;
   // Never draw SPX terrain on an ES axis without a ratio: fall back to SPX.
-  const display: Instrument = settings.display === 'ES' && ratio != null ? 'ES' : 'SPX';
+  const display: Instrument = chosen === 'ES' && ratio != null ? 'ES' : 'SPX';
   const toDisplay = (spx: number) => (display === 'ES' && ratio != null ? spx * ratio : spx);
 
   // ---- Spot: the live quote the chart itself polls (one shared cache). ----
@@ -347,7 +359,10 @@ export default function FuselineRadarPage() {
         sub={
           <>
             Your trade&rsquo;s route through modeled gamma: the Fuse, your targets, and how the terrain along the way is
-            changing. Concept by Plus3 Forecasting.
+            changing. Concept by Plus3 Forecasting.{' '}
+            <Link href="/help/platform/fuseline-radar" className="underline underline-offset-2">
+              How to read this page
+            </Link>
           </>
         }
         tooltip="Enter a Fuse, a direction and one or two targets. The ladder beside the chart shows each strike's modeled net gamma on the chart's own price scale: blue positive, amber negative, the outline where it stood at the start of the change window. Purple marks your plan. Click a strike for its history. Modeled from open interest, so intraday change is the book repricing as price, time and volatility move, not positions opening or closing."
@@ -357,9 +372,16 @@ export default function FuselineRadarPage() {
         <div className="flex flex-col gap-3">
           <PlanInputs plan={plan} ratio={ratio} onChange={(p) => update({ plan: p })} />
           <FilterBar>
-            <FilterGroup label="Show">
+            <FilterGroup label="Chart in">
               {(['ES', 'SPX'] as const).map((i) => (
-                <FilterChip key={i} active={settings.display === i} onClick={() => update({ display: i })}>{i}</FilterChip>
+                <FilterChip
+                  key={i}
+                  active={chosen === i}
+                  onClick={() => chooseDisplay(i)}
+                  title={`Show the chart, levels and ladder in ${i}. Your plan converts automatically.`}
+                >
+                  {i}
+                </FilterChip>
               ))}
             </FilterGroup>
             <FilterDivider />

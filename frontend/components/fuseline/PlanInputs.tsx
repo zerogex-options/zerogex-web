@@ -88,14 +88,18 @@ export default function PlanInputs({
   const k = (field: string, v: number | null) => `${field}:${plan.instrument}:${v ?? ''}`;
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <FilterGroup label="Plan in">
+      <FilterGroup label="Plan prices in">
         {(['ES', 'SPX'] as const).map((i) => (
           <FilterChip
             key={i}
             active={plan.instrument === i}
             onClick={() => setInstrument(i)}
             disabled={ratio == null && plan.instrument !== i}
-            title={ratio == null && plan.instrument !== i ? 'Waiting for the ES/SPX ratio' : undefined}
+            title={
+              ratio == null && plan.instrument !== i
+                ? 'Waiting for the ES/SPX ratio'
+                : `The instrument your Fuse and target prices are typed in. Switching converts them; it does not change the chart (that is "Chart in").`
+            }
           >
             {i}
           </FilterChip>

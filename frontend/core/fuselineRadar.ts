@@ -402,3 +402,36 @@ export function formatPrice(price: number): string {
 export function formatStrike(spxStrike: number, display: Instrument, ratio: number): string {
   return display === 'SPX' ? String(spxStrike) : (spxStrike * ratio).toFixed(1);
 }
+
+// ---------------------------------------------------------------------------
+// Label placement
+// ---------------------------------------------------------------------------
+
+/**
+ * Which labels fit in a column without overprinting: most important first,
+ * each kept only if it sits at least `minGap` from every label already kept.
+ * The ladder's strike numbers and change figures both go through this, so a
+ * tight stretch of 5-point strikes shows the figures that matter most instead
+ * of a pile of overlapping ones. Returns the kept items' keys.
+ */
+export function placeLabels<K>(items: { key: K; y: number; priority: number }[], minGap: number): Set<K> {
+  const kept: number[] = [];
+  const out = new Set<K>();
+  for (const it of [...items].sort((a, b) => b.priority - a.priority)) {
+    if (kept.every((y) => Math.abs(y - it.y) >= minGap)) {
+      kept.push(it.y);
+      out.add(it.key);
+    }
+  }
+  return out;
+}
+
+/** A size change for the ladder's narrow column: 23.0B, 1.14B, 440M. */
+export function formatLadderDelta(value: number): string {
+  const a = Math.abs(value);
+  if (a >= 1e10) return `${(a / 1e9).toFixed(1)}B`;
+  if (a >= 1e9) return `${(a / 1e9).toFixed(2)}B`;
+  if (a >= 1e6) return `${Math.round(a / 1e6)}M`;
+  if (a >= 1e3) return `${Math.round(a / 1e3)}K`;
+  return `${Math.round(a)}`;
+}

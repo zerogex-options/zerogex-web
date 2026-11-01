@@ -109,6 +109,12 @@ const sections: Section[] = [
           'The Key Levels strip, the gamma ladders and Strike Panel, and every overlay on the chart: what each line and shade means, how to read it, and what it leaves out.',
       },
       {
+        href: '/help/platform/fuseline-radar',
+        title: 'Using the Fuseline Radar',
+        blurb:
+          'Your Fuse, targets and route on the Gamma Chart, and the ladder beside it: every control and toggle, how to read the bars, outlines and arrows, and what the ladder does not measure.',
+      },
+      {
         href: '/help/platform/live-bulletin',
         title: 'Using the Live Bulletin',
         blurb:
