@@ -15,11 +15,13 @@ import {
   describeBasisSource,
   etOffsetMinutes,
   formatGamma,
+  formatLadderDelta,
   formatSizeDelta,
   formatStrike,
   fitPricesFor,
   nextRelevantStrike,
   planLevels,
+  placeLabels,
   planProblems,
   provisionalThreshold,
   routeReady,
@@ -231,4 +233,29 @@ test('dollar gamma reads in millions and billions with its sign', () => {
   assert.equal(formatGamma(940e6), '+$940M');
   assert.equal(formatGamma(-1.2e9), '-$1.20B');
   assert.equal(formatSizeDelta(66e6), '+66M');
+});
+
+// ---- Label placement ----------------------------------------------------------
+
+test('labels keep the most important first and drop the ones that would overprint', () => {
+  const kept = placeLabels(
+    [
+      { key: 'small', y: 100, priority: 1 },
+      { key: 'big', y: 104, priority: 10 },
+      { key: 'far', y: 130, priority: 0 },
+    ],
+    12,
+  );
+  assert.deepEqual([...kept].sort(), ['big', 'far']);
+});
+
+test('with room for everything, every label is kept', () => {
+  const kept = placeLabels([0, 20, 40].map((y) => ({ key: y, y, priority: 0 })), 12);
+  assert.equal(kept.size, 3);
+});
+
+test('ladder figures stay short enough for the column', () => {
+  assert.equal(formatLadderDelta(23.03e9), '23.0B');
+  assert.equal(formatLadderDelta(-1.14e9), '1.14B');
+  assert.equal(formatLadderDelta(440e6), '440M');
 });

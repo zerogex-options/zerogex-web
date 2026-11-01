@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import type { ChartSideColumnContext } from '@/components/GammaTerminalChart';
-import { formatSizeDelta, type ChangeState, type Instrument } from '@/core/fuselineRadar';
+import { formatLadderDelta, placeLabels, type ChangeState, type Instrument } from '@/core/fuselineRadar';
 
 /**
  * The Fuseline Radar's gamma ladder, drawn inside the dashboard chart in the
@@ -82,6 +82,31 @@ export default function LadderColumn({
   });
   const mono = { fontFamily: 'var(--font-mono)' } as const;
 
+  // Labels that fit. Strike numbers: the selected and next strikes first, then
+  // round strikes, then the rest where there is room. Change figures: the
+  // biggest changes first, faded rows after live ones. Anything that would
+  // overprint a label already placed is left off; the bar's outline still
+  // shows its change.
+  const gapPx = font + 3;
+  const strikeLabels = placeLabels(
+    visible.map((r) => ({
+      key: r.k,
+      y: yPrice(r.price),
+      priority: (selected === r.k ? 8 : 0) + (r.next ? 4 : 0) + (r.k % 25 === 0 ? 2 : 0) + (r.k % 10 === 0 ? 1 : 0),
+    })),
+    gapPx,
+  );
+  const changeLabels = placeLabels(
+    visible
+      .filter((r) => (r.state === 'strengthening' || r.state === 'weakening') && r.sizeDelta != null)
+      .map((r) => ({
+        key: r.k,
+        y: yPrice(r.price),
+        priority: Math.abs(r.sizeDelta ?? 0) * (r.faded ? 0.25 : 1) + (selected === r.k ? 1e15 : 0),
+      })),
+    gapPx,
+  );
+
   const hovered = hoverK != null ? visible.find((r) => r.k === hoverK) ?? null : null;
   const card = (() => {
     if (!hovered) return null;
@@ -124,8 +149,8 @@ export default function LadderColumn({
         {visible.map((r) => {
           const y = yPrice(r.price);
           const ln = len(r.now);
-          const changed = r.state === 'strengthening' || r.state === 'weakening';
-          const showLabel = rowSp >= font + 2 || r.k % 10 === 0 || r.next || selected === r.k;
+          const showLabel = strikeLabels.has(r.k);
+          const showChange = changeLabels.has(r.k);
           return (
             <g key={r.k} opacity={r.faded && selected !== r.k ? 0.4 : 1}>
               <rect x={x0(r.now, ln)} y={y - barH / 2} width={ln} height={barH} rx={Math.min(2, barH / 2)} fill={r.now >= 0 ? 'var(--color-gamma-pos)' : 'var(--color-gamma-neg)'} />
@@ -135,9 +160,9 @@ export default function LadderColumn({
               {showLabel && (
                 <text x={left + 2} y={y + font * 0.35} fontSize={font} fill="var(--text-primary)" style={mono}>{r.label}</text>
               )}
-              {changed && (
+              {showChange && (
                 <text x={right - 2} y={y + font * 0.35} textAnchor="end" fontSize={chgW ? font : font - 1} fill="var(--text-primary)" style={mono}>
-                  {r.state === 'strengthening' ? '▲' : '▼'}{chgW > 0 && r.sizeDelta != null ? ` ${formatSizeDelta(r.sizeDelta).replace(/^[+-]/, '')}` : ''}
+                  {r.state === 'strengthening' ? '▲' : '▼'}{chgW > 0 && r.sizeDelta != null ? ` ${formatLadderDelta(r.sizeDelta)}` : ''}
                 </text>
               )}
               {r.next && <circle cx={left - 2} cy={y} r={3} fill="var(--color-king)" />}

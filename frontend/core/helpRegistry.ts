@@ -46,6 +46,12 @@ export const HELP_ARTICLES: HelpArticle[] = [
     section: 'Core Pages',
   },
   {
+    slug: 'fuseline-radar',
+    title: 'Using the Fuseline Radar',
+    description: 'Your plan, the ladder and every control on the Fuseline Radar: what each one shows and how to read it.',
+    section: 'Core Pages',
+  },
+  {
     slug: 'live-bulletin',
     title: 'Using the Live Bulletin',
     description: 'A live, share-ready snapshot of dealer gamma positioning\u00a0- the regime, key levels, and expected range on one card.',
