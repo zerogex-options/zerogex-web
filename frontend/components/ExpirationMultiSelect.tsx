@@ -53,6 +53,12 @@ interface ExpirationMultiSelectProps {
      */
     availableToday: boolean;
   };
+  /**
+   * "toolbar" draws the label inside the trigger, as one button the height of
+   * the Gamma Chart's toolbar controls ("EXP  All"). The default keeps the
+   * label beside a small trigger, as the strike charts show it.
+   */
+  variant?: 'default' | 'toolbar';
 }
 
 /**
@@ -71,6 +77,7 @@ export default function ExpirationMultiSelect({
   disabled = false,
   inheritOption,
   zeroDte,
+  variant = 'default',
 }: ExpirationMultiSelectProps) {
   const [open, setOpen] = useState(false);
   // The menu hangs from the control's right edge; a control near the left edge
@@ -128,36 +135,62 @@ export default function ExpirationMultiSelect({
         : [...datedSelection, exp],
     );
 
+  const toggleOpen = () => {
+    const rect = ref.current?.getBoundingClientRect();
+    setAlignLeft(rect != null && rect.right - MENU_MIN_WIDTH < 8);
+    setOpen((v) => !v);
+  };
+
   return (
-    <div ref={ref} className="relative inline-flex items-center">
-      <span className="text-xs mr-2" style={{ color: 'var(--text-primary)' }}>
-        {label}
-      </span>
-      <button
-        type="button"
-        onClick={() => {
-          const rect = ref.current?.getBoundingClientRect();
-          setAlignLeft(rect != null && rect.right - MENU_MIN_WIDTH < 8);
-          setOpen((v) => !v);
-        }}
-        disabled={disabled}
-        title="Filter by expiration (select one or more to aggregate)"
-        className="inline-flex items-center justify-between gap-1 rounded px-2 py-1 pointer-coarse:py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{
-          backgroundColor: 'var(--color-surface-subtle)',
-          color: 'var(--color-text-primary)',
-          border: `1px solid var(--color-border)`,
-          // Wide enough for the longest summary (a full YYYY-MM-DD) so the
-          // trigger keeps one width whatever is selected. Otherwise picking a
-          // date grows the control, which can rewrap the toolbar it sits in —
-          // on a split "My Dashboard" board that pushed one half's chart down
-          // and knocked the two sides out of alignment.
-          minWidth: 104,
-        }}
-      >
-        <span>{summary}</span>
-        <ChevronDown size={12} />
-      </button>
+    // The toolbar variant stretches to its row, so it is as tall as the
+    // segmented controls beside it.
+    <div ref={ref} className={`relative inline-flex items-center${variant === 'toolbar' ? ' self-stretch' : ''}`}>
+      {variant === 'toolbar' ? (
+        <button
+          type="button"
+          onClick={toggleOpen}
+          disabled={disabled}
+          aria-expanded={open}
+          aria-label={`${label}: ${summary}`}
+          title="Filter by expiration (select one or more to aggregate)"
+          className="zg-gc-tb"
+          data-open={open}
+          // The same fixed width as the default trigger, for the same reason:
+          // the longest summary (a full YYYY-MM-DD) must not grow the control.
+          style={{ minWidth: 132, justifyContent: 'space-between' }}
+        >
+          <span className="zg-gc-tb-label">{label}</span>
+          <span>{summary}</span>
+          <ChevronDown size={13} aria-hidden className="zg-gc-tb-caret" />
+        </button>
+      ) : (
+        <>
+          <span className="text-xs mr-2" style={{ color: 'var(--text-primary)' }}>
+            {label}
+          </span>
+          <button
+            type="button"
+            onClick={toggleOpen}
+            disabled={disabled}
+            title="Filter by expiration (select one or more to aggregate)"
+            className="inline-flex items-center justify-between gap-1 rounded px-2 py-1 pointer-coarse:py-1.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: 'var(--color-surface-subtle)',
+              color: 'var(--color-text-primary)',
+              border: `1px solid var(--color-border)`,
+              // Wide enough for the longest summary (a full YYYY-MM-DD) so the
+              // trigger keeps one width whatever is selected. Otherwise picking a
+              // date grows the control, which can rewrap the toolbar it sits in —
+              // on a split "My Dashboard" board that pushed one half's chart down
+              // and knocked the two sides out of alignment.
+              minWidth: 104,
+            }}
+          >
+            <span>{summary}</span>
+            <ChevronDown size={12} />
+          </button>
+        </>
+      )}
       {open && (
         <div
           className={`absolute top-full ${alignLeft ? 'left-0' : 'right-0'} mt-1 rounded-md py-1 z-30`}

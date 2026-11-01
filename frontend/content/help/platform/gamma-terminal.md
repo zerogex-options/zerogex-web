@@ -23,7 +23,7 @@ Basic and Pro members get the terminal live. Everyone else sees a free preview o
 
 ## Your first five minutes
 
-1. **Pick an underlying.** Use the symbol buttons on the chart, the dropdown on the first ladder, or the arrows on the Key Levels strip. Each one changes the whole page.
+1. **Pick an underlying.** Click the symbol in the chart's title, use the dropdown on the first ladder, or the arrows on the Key Levels strip. Each one changes the whole page.
 2. **Read the regime.** The **Dealer Gamma @ Spot** box at the top right of the chart reads **LONG Γ** or **SHORT Γ**. In long gamma, dealer hedging is modeled to lean against moves (pinning). In short gamma, it is modeled to add to them (trending). The tinted chart background says the same thing.
 3. **Find the key lines.** The azure `FLIP` line is where the regime changes. The red `CALL WALL` above price and the green `PUT WALL` below it are the strikes carrying the most call and put gamma. The Key Levels cards give the exact distance to each.
 4. **Look beside the tape.** The ladders list net dealer gamma at every strike near price, lined up with the chart. The biggest values are the strikes with the most hedging attached.
@@ -96,6 +96,7 @@ The free preview shows the Silhouette view only.
 
 ## The chart header
 
+- **Symbol** - the ticker in the title is the symbol switcher. Click it (or press the down arrow on it) to pick SPY, QQQ, SPX, NDX, ES, NQ or NVDA, grouped by type. Changing the symbol resets the zoom, ends Rewind, and sets the Expiry filter back to All unless it's on 0DTE. On the free preview the symbol is fixed.
 - **Session badge** - **● LIVE** in the regular session, **○ PRE-MARKET** and **○ AFTER HOURS** in extended hours, **CLOSED** when the market is shut, **◀ REWIND** while replaying, and **◷ DELAYED ~15 MIN** on the free preview. **◆ FUTURES** appears on a cash index outside regular hours, when the headline price is the futures contract's; the candles stay on the index.
 - **Price and change** - the change is from the previous regular-session close. Outside regular hours the headline holds the 4:00 PM close, and SPY, QQQ and NVDA add a second line with the extended-hours price.
 - **Updated** - when the last price tick arrived.
@@ -104,18 +105,16 @@ The free preview shows the Silhouette view only.
 
 ## The toolbar
 
-- **Symbol** - SPY, QQQ, SPX, NDX, ES, NQ and NVDA. Changing the symbol resets the zoom, ends Rewind, and sets the Expiry filter back to All unless it's on 0DTE.
 - **Timeframe** - **1M**, **5M**, **15M**, **1H** or **1D** bars. The chart opens on 5M each visit.
-- **Style** - **Candle**, **Line** or **Area**. A candle is green when it closed at or above the previous close and red when it closed below. It's hollow when it closed at or above its own open.
-- **VOL** - the eye shows or hides the volume pane. See [Volume pane](/help/platform/gamma-terminal#volume-pane).
-- **Overlay pills** - one per overlay. See [The overlays](/help/platform/gamma-terminal#the-overlays). On a phone, the overlays, style, volume and Expiry controls sit under **Layers**, which counts how many overlays are on.
+- **Style** - three icons: **Candles**, **Line** and **Area**. A candle is green when it closed at or above the previous close and red when it closed below. It's hollow when it closed at or above its own open.
+- **Layers** - opens the panel with every overlay and the volume pane, each with its own settings. The number on the button counts how many are on. See [The overlays](/help/platform/gamma-terminal#the-overlays).
 - **Expiry** - which expirations feed the gamma levels. See [The Expiry filter](/help/platform/gamma-terminal#the-expiry-filter).
 - **Reset** - appears once you've zoomed or panned, and returns to the live view.
-- **Save** - downloads the chart as a PNG image: the candles, lines, tags and axes, without the toolbar, the legend or the panel beside the chart.
+- **Save** - the camera icon. It downloads the chart as a PNG image: the candles, lines, tags and axes, without the toolbar, the legend or the panel beside the chart.
 
 ## The overlays
 
-Each overlay has a pill in the toolbar. Click it to turn the overlay on or off; the chart remembers your choices. The legend under the chart is a color key, not a switch.
+Each overlay has a switch in the **Layers** panel, which opens from the toolbar. Turn an overlay on or off there; the chart remembers your choices. An overlay that can't be drawn on the current symbol or timeframe, or on the free preview, stays in the panel, dimmed, and says why. At the top of the panel, **Quick looks** set every overlay in one click: **Minimal** (Gamma Levels and the volume pane), **Levels** (every key level), **Gamma** (Gamma Levels, GEX King, Ribbons and Regime) or **All**. **Reset to defaults**, at the bottom, puts back the defaults in the table below. The legend under the chart is a color key, not a switch.
 
 | Overlay | What it draws | On by default | Where it works |
 |---|---|---|---|
@@ -185,7 +184,7 @@ Without a flip, the chart can't draw the Regime shading either.
 - A lane swells as price nears its strike and thins as price leaves. That's gamma peaking at the money, not new positions: open interest only updates once a day, after the close. A fat lane right at price is where hedging is most active now.
 - A lane that switches color is a strike whose long- and short-gamma contracts are close to balanced.
 
-**Controls.** The **Opacity** slider next to the pill fades or strengthens all the orbs together. Hover a lane for the strike's exact value. Orbs under 5% of the heaviest strike aren't drawn, and the legend under the chart carries a key.
+**Controls.** The **Opacity** slider under Ribbons in the Layers panel fades or strengthens all the orbs together. Hover a lane for the strike's exact value. Orbs under 5% of the heaviest strike aren't drawn, and the legend under the chart carries a key.
 
 **Keep in mind.** Ribbons are live only, and on by default on the Gamma Terminal. They follow the Expiry filter. The history covers the strikes being tracked at the time, so earlier bars at far-away strikes can be blank.
 
@@ -227,11 +226,11 @@ Without a flip, the chart can't draw the Regime shading either.
 
 **How to read it.** These aren't dealer levels. They're reference prices many traders watch, drawn in gray so they never read as a gamma level.
 
-**Keep in mind.** They're available on SPY, QQQ and NVDA only. SPX and NDX have no pre-market, and ES and NQ trade nearly around the clock, so the levels don't apply there. The numbers are always listed in a row above the chart. The pill, or the eye at the end of that row, draws them as lines.
+**Keep in mind.** They're available on SPY, QQQ and NVDA only. SPX and NDX have no pre-market, and ES and NQ trade nearly around the clock, so the levels don't apply there. The numbers are always listed in a row above the chart. The **PD/PM Levels** switch in Layers, or the eye at the end of that row, draws them as lines.
 
 ### Expected Range
 
-**What it shows.** A shaded band between `ER HIGH` and `ER LOW`: the move implied volatility is pricing, one standard deviation either side of the current price. Off by default. Pick **Daily**, **Weekly** or **Monthly** once it's on.
+**What it shows.** A shaded band between `ER HIGH` and `ER LOW`: the move implied volatility is pricing, one standard deviation either side of the current price. Off by default. Once it's on, pick **Daily**, **Weekly** or **Monthly** under it in the Layers panel.
 
 **How it's calculated.** It uses VIX for SPX, SPY and ES, and VXN for QQQ, NDX and NQ. The move is price × (VIX ÷ 100) × √(days ÷ 252), with 1, 5 or 21 trading days. With SPY at $600 and VIX at 16, the daily move is about $6.05, so the band runs from about $593.95 to $606.05.
 
@@ -266,7 +265,7 @@ Without a flip, the chart can't draw the Regime shading either.
 
 ### Volume pane
 
-The pane under the candles, shown or hidden with the eye next to **VOL**:
+The pane under the candles, shown or hidden with the **Volume** switch in Layers, where you also pick its view:
 
 - **Up/Down** (the default) - uptick volume (green) stacked over downtick volume (red), one column per bar.
 - **Cumulative** - a running total of uptick minus downtick volume for the current session, starting from zero at the open. Above zero, buyers have led the tape today; below zero, sellers have.

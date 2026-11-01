@@ -80,8 +80,8 @@ These choices are remembered in this browser.
 The chart is the dashboard's Gamma Chart, so its controls work the same way there and here. In brief:
 
 - **Timeframe**: 1M, 5M, 15M, 1H, 1D.
-- **Candle / Line / Area**, and the **Vol** eye to show or hide volume. **Up/Down** stacks buying and selling volume per bar; **Cumulative** shows the running net.
-- **Level toggles**: Gamma Flip, Call Wall, Put Wall, Regime, VWAP, Max Pain, Pin Strike, each on its own switch. **Bar Timer** counts down the forming candle. **Expected Range** shades the implied-volatility band.
+- **Candles / Line / Area**, as three icons.
+- **Layers** opens the chart's switches: Gamma Flip, Call Wall, Put Wall, Regime, VWAP, Max Pain and Pin Strike, each on its own; **Expected Range**, which shades the implied-volatility band; **Volume**, where **Up/Down** stacks buying and selling volume per bar and **Cumulative** shows the running net; and **Bar Timer**, which counts down the forming candle. **Quick looks** at the top set them all at once.
 - **Expiry** picks which expirations the chart's levels are built from. It does not change the ladder yet, which always shows all expirations.
 - **Save** downloads a picture of the chart. **Full screen** gives the chart the whole window, ladder included.
 - **Time** and **Price** zoom buttons, drag to pan, drag the price axis to stretch it, double-click to reset.
