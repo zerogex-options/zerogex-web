@@ -352,11 +352,15 @@ test("the last-price line, tag and dot follow the rewind clock", () => {
   assert.equal((chart.match(/yPrice\(lastPrice\)/g) ?? []).length, 2, "the line and the tag");
   assert.match(chart, /value: fmtPrice\(lastPrice\),/);
   assert.doesNotMatch(chart, /(?:yPrice|fmtPrice)\(liveTip\.close\)/, "nothing on the tape is pinned to the pool tip");
-  // The dot rides the replayed edge candle too, but never pings: the ping says
-  // the bar is trading now, and the feed is never live while rewinding.
-  assert.match(chart, /\{\(atLiveEdge \|\| rewindActive\) && <circle className=\{isLive \? "zg-gc-dot" : ""\}/);
-  assert.match(chart, /\{atLiveEdge && isLive && <circle className="zg-gc-ping"/);
+  // The dot rides the replayed edge candle too, and pulses there (ping and
+  // breathe) the way the live chart did at that moment. Off a rewind it still
+  // pulses only on a live feed, the same predicate the bar timer reads.
+  assert.match(chart, /const showDot = atLiveEdge \|\| rewindActive;/);
+  assert.match(chart, /const pulse = feedIsLive \|\| rewindActive;/);
+  assert.match(chart, /\{showDot && pulse && <circle className="zg-gc-ping"/);
+  assert.match(chart, /\{showDot && <circle className=\{pulse \? "zg-gc-dot" : ""\}/);
   assert.match(chart, /const feedIsLive = !delayed && !rewindActive && /);
+  assert.match(chart, /const barTimerLive = overlays\.barTimer && feedIsLive && atLiveEdge;/);
 });
 
 // The ribbons' opacity is user-adjustable and persisted, with the default a
