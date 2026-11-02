@@ -274,7 +274,8 @@ with another provider's GEX indicator on it, and wrote:
 > teach. Gex levels are new for me but I LOVE them as it's almost like
 > cheating 😃
 
-> **Status:** drafted 2026-11-01, not sent.
+> **Status:** the revised version was sent. He said yes; see "Follow-up: he
+> said yes" at the end.
 
 ### The read
 
@@ -284,12 +285,35 @@ with another provider's GEX indicator on it, and wrote:
   live and labels lines P1, P2, P5, Ab1, Ab2, NPGE and PC. Its "P1" at 28,709
   is what he calls the put wall. We can't see how it's built, so the draft
   doesn't guess at why it lands there.
-- **Why ours are far from price.** By default our walls use every expiration:
-  the strikes with the heaviest gamma-weighted open interest on each side of
-  spot (`frontend/content/methodology.md`). Friday's NQ put wall was 27,638
-  (NDX 27,500), 906 points under Friday's close. Sunday night the free page
-  had NQ at 28,786 with the put wall at 27,635 and the call wall at 29,821,
-  about 1,150 points below and 1,035 above.
+- **How our walls are actually picked** (revised after your 11:39 PM NQ
+  screenshot). The base rule is the strike with the most put (or call) gamma
+  on its side of price, across every expiration. The backend then holds it
+  steady on purpose (zerogex-oa `src/analytics/walls.py`):
+  - Price is split on a sticky "wall anchor" that only moves when price
+    breaks decisively away.
+  - The walls are re-picked every 15 minutes or on a breakout.
+  - The current wall keeps its place unless a rival is about a third bigger.
+
+  So "the biggest put strike below price" isn't literally true minute to
+  minute, and the first version of this draft said it was. The public replay
+  (`/replay/NQ/2026-10-30`) shows the NQ put wall at 28,146 (NDX 28,000) from
+  9:30 to 3:50 PM Friday, then 27,644 (NDX 27,500) from 3:51 PM. Sunday night
+  NQ was about 28,790, with the put wall at 27,635 and the call wall at
+  29,821, roughly 1,000 points or more away on each side.
+- **The red bars near price in your screenshot are mostly expired options.**
+  Overnight and over the weekend, the strike panel keeps drawing the last
+  snapshot (Friday 3:59 PM), including contracts that expired at the 4 PM
+  close.
+  - In that frame, 96% of the put gamma between NQ 28,450 and 28,750 was
+    Friday-expiring.
+  - Its biggest bar, NQ 28,508 (NDX 28,360), rested on 34 contracts of open
+    interest, all expiring that day. That's the gamma spike options get in
+    their last minutes.
+  - The put wall strike was 0% Friday-expiring and 93% in the longest-dated
+    bucket, which is why it's still standing.
+
+  The bars should be gone once the book refreshes with Monday's open interest
+  at the 9:30 open. Don't point him at them as support.
 - **The closer comparison is our 0DTE view.** The Gamma Terminal's Expiry
   filter and the NinjaTrader indicator's Expiration setting both redraw the
   walls and flip from today's expiration alone
@@ -335,7 +359,9 @@ with another provider's GEX indicator on it, and wrote:
    is an audience already paying $495 a month and up for levels. The downside
    is capped: the per-trader line in the draft, the terms, and a key you can
    revoke. If you'd rather talk first, cut those two paragraphs down to the
-   call invitation.
+   call invitation. (Revised Nov 1 night: they're now the fifth and sixth.)
+2. **Send before Monday's 9:30 AM ET open, or cut the third paragraph.** It
+   describes the weekend strike panel, which refreshes at the open.
 
 ### Draft
 
@@ -345,9 +371,11 @@ Hi Michael,
 
 You're not missing anything. That indicator isn't ours, and it's built differently, so the two sets of levels won't line up.
 
-Our walls come from the whole NDX options book, every expiration. The put wall is the strike below price with the most put gamma across all of it. On Friday that was 27,500 on NDX, which is 27,638 on NQ, about 900 points below where NQ closed. So ours are the big structural levels, and right now they're a long way from price.
+Our put wall is the biggest put strike below price, and it's held steady on purpose, so it doesn't jump around on small moves. At Friday's close that was 27,500 on NDX, which is 27,638 on NQ, about 900 points below where NQ closed. It rests mostly on longer-dated options, so it's still in place now.
 
-I can't see how your TradingView indicator calculates its levels, so I can't tell you exactly why it has a put wall at 28,709. But which expirations a tool counts, and how it defines a wall, can move a level by hundreds of points. If yours is built for intraday levels, the closer comparison is our 0DTE view: during the session, set Expiry to 0DTE in the Gamma Terminal and the walls and flip are drawn from today's expiration alone, which usually puts them much closer to price. The NinjaTrader indicator has the same setting (Expiration: 0DTE).
+If you open the strike panel beside our chart before the open, you'll also see big put bars between about 28,450 and 28,700. Nearly all of that was options that expired at Friday's close. An option's gamma spikes in its last minutes, and the panel keeps showing Friday's final snapshot until the book refreshes at the 9:30 open, so those bars will mostly be gone then.
+
+I can't see how your TradingView indicator calculates its levels, so I can't say exactly why it has a put wall at 28,709. Tools differ in which expirations they count and how they define a wall. If yours is built for intraday levels, compare it with our 0DTE view: during the session, set Expiry to 0DTE in the Gamma Terminal (or Expiration to 0DTE in the NinjaTrader indicator), and the walls and flip come from today's expiration alone.
 
 Thank you for the kind words, and I'd like that. I had a look at Aurelius, and since everything you build runs on NinjaTrader, our indicator would sit right alongside your tools. We have a partner program for educators: I'll give you Pro free for 90 days, NinjaTrader indicator included, so you can judge it properly. If it earns a place with your traders, they'd each get their own account at a discount, and you'd earn a commission on them.
 
@@ -394,10 +422,11 @@ his trial, so there's nothing to refund.
    make grant-partner-pro EMAIL=thisjustclicks@gmail.com PROMO_CODE=AURELIUS25 YES=1
    ```
 
-4. Send the activation note below, with the expiry date the grant printed.
+4. Send the activation email in "Follow-up: he said yes" at the end. It
+   replaces the generic note below.
 
-**Activation note** (from stage 5 of the partner playbook, no affiliate
-details yet):
+**Activation note** (generic; superseded by the email at the end; from
+stage 5 of the partner playbook, no affiliate details yet):
 
 Hi Michael,
 
@@ -427,3 +456,127 @@ Michael
   over email.
 - **He sends another side-by-side.** Ask which Expiry setting he had on. Ours
   on All against an intraday tool will always look far apart.
+- **"Why isn't your put wall at the biggest red bar?"** During the session the
+  wall is re-checked every 15 minutes, splits on a sticky copy of price, and
+  only hands over to a strike about a third bigger
+  (zerogex-oa `src/analytics/walls.py`), so a bar can briefly outgrow it.
+  Overnight the bars can be options that already expired (see the read).
+
+## Follow-up: he said yes (Mon Nov 2)
+
+> Michael... What an amazing offer...I'd love to try pro. What time zone are
+> you in? I am US EST
+
+You're in ET too. You asked for the activation email to also answer his
+earlier "Gex levels are new for me but I LOVE them as it's almost like
+cheating 😃".
+
+> **Status:** done Mon Nov 2. Steps run 9:00 to 9:02 AM ET, all landed;
+> activation email sent. See "Result" at the end.
+
+### What was checked before running the steps
+
+- **Canceling the trial** (`frontend/scripts/cancel-subscription.mts`) ends
+  it at once, sets him to the public tier, revokes API keys (he has none),
+  and sends him no email. It needs `FORCE=1` for a trialing subscription.
+  Nothing was ever charged (`make diagnose-user`: "MONEY EVER COLLECTED NO"),
+  so there's nothing to refund.
+- **No surprise emails to him.** The trial-end reminder only goes to trialing
+  subscriptions (`frontend/scripts/send-trial-reminders.mts`). The
+  cancel-reason follow-up only goes to people who canceled through the survey
+  with a price or complexity reason. Win-back and reactivation emails skip
+  creator partners (`frontend/core/excludedAccounts.ts`). You may get your own
+  cancellation alert (`frontend/scripts/send-cancellation-alerts.mts`); that's
+  expected.
+- **The grant** (`frontend/scripts/grant-partner-pro.mts`) needs only a valid,
+  unused promo code and `STRIPE_COUPON_PARTNER_AUDIENCE` set. The dry run
+  shows both. It grants 90 days by default and prints the expiry in UTC. Run
+  on Mon Nov 2, that's Jan 31, 2027.
+- **He can generate an API key on the grant.** Keys need tier Pro or above
+  (`isApiKeyEligibleTier` in `frontend/core/auth.ts`). The NinjaTrader
+  download is gated on the same tier.
+- **No sign-out needed.** Sessions read the user row on every request
+  (`getSessionFromRequest` in `frontend/core/serverAuth.ts`), so Pro shows up
+  on his next page load.
+
+### Steps
+
+Use the commands under "If he says yes" above, in order. What to look for:
+
+1. **Cancel dry run:** it should find `sub_1UWFCX4AOiqteMYY1R4bmGX5`,
+   status trialing, and plan an immediate cancel.
+2. **Cancel for real.** He has no access from here until step 5, so run the
+   rest straight through.
+3. **Wait** until `make diagnose-user` lists `stripe_subscription_deleted` in
+   the recent events and shows Tier `public`. If it isn't there after five
+   minutes, stop.
+4. **Grant dry run:** it should plan tier public to pro, partner_tier to
+   creator, an expiry about 90 days out, and promo code `AURELIUS25`. If it
+   errors on the coupon or the code, stop.
+5. **Grant for real.** Note the `expires:` line.
+6. **Check:** `make diagnose-user` shows Tier `pro`.
+
+### Activation email
+
+Fill in the call time and send it in the same thread. If the grant printed a
+date other than 2027-01-31, change "January 31".
+
+**Subject:** Re: The latest SPX levels, in plain English
+
+Hi Michael,
+
+Done. Your trial is canceled, so nothing will be charged, and Pro is live on your account through January 31.
+
+To get the levels on your NinjaTrader chart:
+
+1. Generate your API key under Account → API Access. It's only shown once, so copy it somewhere safe.
+2. Follow the steps at https://zerogex.io/ninjatrader-indicator to add the indicator.
+3. On an MNQ chart, leave Symbol on AUTO. For intraday levels, set Expiration to 0DTE.
+
+I'm in ET too, so that's easy. Would [DAY] at [TIME] ET work for a call? I'll walk you through the platform with NQ on screen, and we can talk about what would work for your traders.
+
+And I love "almost like cheating." I'll be straight with you, though, since you'll be teaching this: GEX levels are a map, not a forecast. They show where dealer hedging is likely heaviest and how it tends to behave around price, not which way price will go. As I mentioned, Nasdaq walls held about half the time over the next hour in our study, so plan your entries, stops and targets around them, and size for the times they break. Used that way, they're genuinely useful. Just not a cheat code.
+
+Use it however you normally trade, and tell me what adds signal and what feels like noise.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+
+### If he replies
+
+- **He can't find API Access or the download link.** Check `make
+  diagnose-user` shows Tier `pro`. If it does, have him reload the page.
+- **The indicator shows an error.** See the NinjaTrader follow-up's "If he
+  replies": usually Symbol typed as MNQ, or a key pasted with a missing
+  character.
+- **The call.** Plan: NQ in the Gamma Terminal (walls, flip, the Expiry
+  filter, the strike panel and why it shows expired options overnight), then
+  the NinjaTrader indicator, then his traders. Partner numbers are under
+  "He asks for the partner numbers" above. Data inside his own tools is a
+  licensing conversation, not part of the partner deal.
+
+### Result (Mon Nov 2)
+
+- **Trial canceled** at 14:00:54Z (9:00 AM ET). Stripe's
+  `stripe_subscription_deleted` landed 0.3 seconds later, so the grant a
+  minute after it can't be undone by that event. Nothing was ever charged; no
+  open invoices.
+- **Partner Pro granted** at 14:01:53Z. Tier `pro`, partner_tier `creator`,
+  commission 30% for 12 months.
+- **Expires** 2027-01-31T14:01:53Z (9:01 AM ET, Sunday Jan 31). The partner
+  grant expiry sweep drops him to public then unless he subscribes.
+- **His links and code** (he hasn't been told yet; save for the affiliate
+  conversation, `docs/creator-partner-outreach.md` stage 7):
+  - Code: `AURELIUS25` (25% off the first year; Stripe
+    `promo_1UXLo54AOiqteMYYNzT6PXgP` on coupon `Yg3BPJPx`)
+  - Link: https://zerogex.io/register?ref=AURELIUS25 (same as
+    https://zerogex.io/register?ref=BFBYZ2T8)
+- **Monitoring** shows him as "NOT COUNTED": partners on a grant aren't
+  subscribers, as intended.
+- **Next dates from the playbook:** about Dec 2, the 30-day check-in (no
+  affiliate mention; stage 6). Jan 16, two weeks before the grant ends
+  (stage 8). Both can be skipped if the call has already covered them.
