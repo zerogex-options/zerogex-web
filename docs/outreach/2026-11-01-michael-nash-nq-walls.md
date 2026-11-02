@@ -298,7 +298,8 @@ with another provider's GEX indicator on it, and wrote:
   `frontend/core/symbols.ts`), and about 76% of its open interest is same-day
   (`2026-09-28-sulby-nq-gamma-flip.md`). On 0DTE the
   flip often reads "NO FLIP IN SELECTED EXPIRIES"; that's expected, and the
-  help article explains it.
+  help article explains it. On a weekend the Terminal reads "NO 0DTE TODAY ·
+  SHOWING ALL EXPIRIES", which is why the draft says "during the session".
 - **Who he is.** He founded Aurelius Trading Systems (tradeaurelius.com). It
   sells "Michael's Daily Levels", daily NQ zones delivered through his own
   NinjaTrader indicator ($495 a month with a code, $995 standard); "Marcus
@@ -346,7 +347,7 @@ You're not missing anything. That indicator isn't ours, and it's built different
 
 Our walls come from the whole NDX options book, every expiration. The put wall is the strike below price with the most put gamma across all of it. On Friday that was 27,500 on NDX, which is 27,638 on NQ, about 900 points below where NQ closed. So ours are the big structural levels, and right now they're a long way from price.
 
-I can't see how your TradingView indicator calculates its levels, so I can't tell you exactly why it has a put wall at 28,709. But which expirations a tool counts, and how it defines a wall, can move a level by hundreds of points. If yours is built for intraday levels, the closer comparison is our 0DTE view: in the Gamma Terminal, set Expiry to 0DTE and the walls and flip are drawn from today's expiration alone, which usually puts them much closer to price. The NinjaTrader indicator has the same setting (Expiration: 0DTE).
+I can't see how your TradingView indicator calculates its levels, so I can't tell you exactly why it has a put wall at 28,709. But which expirations a tool counts, and how it defines a wall, can move a level by hundreds of points. If yours is built for intraday levels, the closer comparison is our 0DTE view: during the session, set Expiry to 0DTE in the Gamma Terminal and the walls and flip are drawn from today's expiration alone, which usually puts them much closer to price. The NinjaTrader indicator has the same setting (Expiration: 0DTE).
 
 Thank you for the kind words, and I'd like that. I had a look at Aurelius, and since everything you build runs on NinjaTrader, our indicator would sit right alongside your tools. We have a partner program for educators: I'll give you Pro free for 90 days, NinjaTrader indicator included, so you can judge it properly. If it earns a place with your traders, they'd each get their own account at a discount, and you'd earn a commission on them.
 
