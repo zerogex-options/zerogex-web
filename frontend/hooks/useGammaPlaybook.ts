@@ -54,6 +54,7 @@ import {
   type PlaybookScenario,
 } from '@/core/gammaPlaybook';
 import { computeMaxPainFromStrikes } from '@/core/keyLevels';
+import { latestBookBucket } from '@/core/strikeHistory';
 import type { ChartSnapshot } from '@/components/GammaTerminalChart';
 
 // The Playbook's own polls. Slower than the chart's (10s/5s) because a regime
@@ -87,6 +88,12 @@ export interface GammaPlaybookRead {
   pinStrike: number | null;
   /** Normalized dominance of that pin, for the strength label. */
   pinConfidence: number | null;
+  /**
+   * After the close, the expiration the whole-chain Max Pain and the Pin now
+   * describe: the one that settles next (`rolled_to_expiration`,
+   * core/expiredAtClose). Null during the session and on the delayed snapshot.
+   */
+  rolledExpiration: string | null;
   /** At-spot dealer gamma actually used for the regime (null when withheld). */
   netGexAtSpot: number | null;
   /** Modeled long-gamma regime at spot; null when genuinely unknown. */
@@ -101,16 +108,13 @@ export interface GammaPlaybookRead {
 }
 
 /**
- * Most-recent bucket that actually carries gamma. Mirrors the chart's
- * `liveGexBucket`: walk back from the tip so an empty / all-zero after-hours
- * bucket doesn't blank the levels.
+ * Most-recent bucket that actually carries gamma. The chart's `liveGexBucket`
+ * pick (core/strikeHistory latestBookBucket): walk back from the tip so an
+ * empty / all-zero after-hours bucket doesn't blank the levels, but stop at the
+ * after-close book the API rebuilt without the day's expired contracts.
  */
 export function lastGammaBucket(buckets: StrikeProfileBucket[]): StrikeProfileBucket | null {
-  for (let i = buckets.length - 1; i >= 0; i--) {
-    const bucket = buckets[i];
-    if (Array.isArray(bucket.strikes) && bucket.strikes.some((s) => levelOrNull(s.net_gamma))) return bucket;
-  }
-  return null;
+  return latestBookBucket(buckets);
 }
 
 export function useGammaPlaybook({
@@ -180,6 +184,7 @@ export function useGammaPlaybook({
   // public snapshot, where it degrades to "no active pin".
   const pinStrike = snapshot ? null : levelOrNull(gexSummary?.pin_strike);
   const pinConfidence = snapshot ? null : levelOrNull(gexSummary?.pin_confidence);
+  const rolledExpiration = snapshot ? null : gexSummary?.rolled_to_expiration ?? null;
 
   // Spot: the same tape reading the chart's price marker rides (live quote in
   // extended hours, the regular close when the tape is shut).
@@ -250,6 +255,7 @@ export function useGammaPlaybook({
     maxPain,
     pinStrike,
     pinConfidence,
+    rolledExpiration,
     netGexAtSpot,
     longGamma,
     scenario,

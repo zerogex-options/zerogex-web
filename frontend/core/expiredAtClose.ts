@@ -45,6 +45,17 @@ export interface ExpiredAtCloseNote {
   detail: string;
 }
 
+/**
+ * Max Pain and the Pin Strike each describe ONE expiration. After the close
+ * the API rolls both to the expiration that settles next and names it in
+ * `rolled_to_expiration`; this is the line the level cards show for it, or
+ * null during the session (when both describe the same-day expiration).
+ */
+export function rolledExpiryNote(iso: string | null | undefined): string | null {
+  if (typeof iso !== 'string' || !ISO_DATE.test(iso)) return null;
+  return `For the ${fmtDay(iso)} expiry`;
+}
+
 /** The note for a book the API rebuilt after the close, or null when it
  *  removed nothing (the session is open, or this is history). */
 export function expiredAtCloseNote(dates: readonly string[]): ExpiredAtCloseNote | null {

@@ -37,6 +37,7 @@ import TooltipWrapper from './TooltipWrapper';
 import FuturesLevelsChip from './FuturesLevelsChip';
 import { useGammaPlaybook, type GammaPlaybookRead } from '@/hooks/useGammaPlaybook';
 import { usePinStability } from '@/hooks/useApiData';
+import { rolledExpiryNote } from '@/core/expiredAtClose';
 import { useHasTierAccess } from '@/hooks/useAuthSession';
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
 import { FUTURES_BACKING_INDEX, SYMBOLS } from '@/core/symbols';
@@ -380,13 +381,18 @@ export function KeyLevelsBoard({
       // dismissal, and stops the live strip being less informative than a
       // replay permalink of the same moment.
       note: pinStrength === 'none' ? null : pinStrikeSubtitle(read.pinStrike, read.pinConfidence),
-      subnote: pinStabilityNote(pinStability),
+      // After the close the stability read is gone (it belongs to the expired
+      // pin) and the pin has rolled to the next expiration: say which.
+      subnote: pinStabilityNote(pinStability) ?? rolledExpiryNote(read.rolledExpiration),
       absentLabel: pinStrengthLabel('none'),
       tooltip: PIN_STRIKE_TOOLTIP,
     },
     callWall: read.callWall,
     putWall: read.putWall,
     maxPain: read.maxPain,
+    // Whole-chain only: under an Expiry filter Max Pain is the filtered
+    // book's own, recomputed from its strikes.
+    maxPainSubnote: read.filtered ? null : rolledExpiryNote(read.rolledExpiration),
   });
   const regime = keyLevelsRegime(read.longGamma);
 

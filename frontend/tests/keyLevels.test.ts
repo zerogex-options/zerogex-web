@@ -541,3 +541,17 @@ test('omitting `filtered` keeps the whole-chain wording for every caller', () =>
   assert.equal(flip.emptyNote, LEVEL_UNRESOLVED_NOTE);
   assert.equal(flip.tooltip, unresolvedLevelTooltip('Gamma Flip', undefined, 'flip'));
 });
+
+test('after the close the Max Pain card names the expiry it has rolled to, and only beside a level', () => {
+  // The API rolls Max Pain to the expiration that settles next and names it;
+  // the strip passes that line in (core/expiredAtClose rolledExpiryNote).
+  const rolled = byId(buildKeyLevels({ ...RESOLVED, maxPainSubnote: 'For the Mon, Nov 2 expiry' }), 'maxPain');
+  assert.equal(rolled.subnote, 'For the Mon, Nov 2 expiry');
+  // During the session there is nothing to name.
+  assert.equal(byId(buildKeyLevels(RESOLVED), 'maxPain').subnote, null);
+  // An empty card explains why it is empty; a date under an em dash would not.
+  const empty = byId(buildKeyLevels({ ...RESOLVED, maxPain: null, maxPainSubnote: 'For the Mon, Nov 2 expiry' }), 'maxPain');
+  assert.equal(empty.subnote, null);
+  // The other priced levels never carry it.
+  assert.equal(byId(buildKeyLevels({ ...RESOLVED, maxPainSubnote: 'x' }), 'callWall').subnote, null);
+});

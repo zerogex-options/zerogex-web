@@ -125,6 +125,10 @@ Separately, we track what the pin has *done* across the session - how long it h
 
 Those are deliberately two different reads, and **stability does not feed the strength bucket**. A pin can be Weak but rock-steady all session, or Strong and migrating.
 
+## After the close
+
+The same-day options stop trading at the 4:00 PM ET close (1:00 PM on an early-close day), so the session's pin no longer describes anything. From the close until the next session's first update, the Pin Strike is the same model run on the **next expiration's** options as they stood at the close: the next session's 0DTE pin, as of the close. The tile names the expiry ("For the Mon, Nov 2 expiry"), and the stability line is hidden, because it tracked the pin of the options that expired. Through the API, `rolled_to_expiration` on `/api/gex/summary` and `/api/v1/levels` names that expiration, and `/api/gex/pin-stability` returns `404` until the next session.
+
 ## Known limitations
 
 Stated plainly, because they affect how you should read the number:
@@ -133,7 +137,7 @@ Stated plainly, because they affect how you should read the number:
 - **No time smoothing.** The label is per-snapshot and can flicker on a near-tie.
 - **Confidence is time-of-day sensitive.** The candidate band narrows into the close, mechanically raising confidence.
 - **Strikes at the edge of the listed range are not explicitly flagged.** A candidate with no listed strikes on one side collects a one-sided kernel sum and so scores lower than a comparable interior strike. That is directionally sensible but it is a side effect of the kernel, not a designed low-confidence rule, and it is not surfaced to you.
-- **0DTE only.** If you are comparing against strike-level gamma figures pulled from the full chain, you are looking at a different input set.
+- **0DTE only.** If you are comparing against strike-level gamma figures pulled from the full chain, you are looking at a different input set. After the close, "0DTE" means the next session's expiration (see [After the close](/help/platform/pin-strike#after-the-close)).
 - **Modeled, not observed.** Pin Strike rests on the dealer-positioning convention described in [Methodology & Validation](/methodology) - that dealers are net long the calls customers overwrite and net short the puts customers buy for protection. Where that assumption is wrong, the sign is wrong.
 
 ## See also

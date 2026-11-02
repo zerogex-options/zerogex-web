@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { expiredAtCloseNote, expiredExcludedDates } from "../core/expiredAtClose.ts";
+import { expiredAtCloseNote, expiredExcludedDates, rolledExpiryNote } from "../core/expiredAtClose.ts";
 import { latestBookBucket } from "../core/strikeHistory.ts";
 
 // After the 4:00 PM ET close the API serves the session's last snapshot with
@@ -63,4 +63,12 @@ test("the after-close book stops the walk even when nothing in it survived", () 
   // With survivors it is simply the newest positioned bucket.
   const survived = [bucket(0, -5), bucket(5, -1, ["2026-10-30"])];
   assert.equal(latestBookBucket(survived), survived[1]);
+});
+
+test("Max Pain and the Pin name the expiry they rolled to after the close", () => {
+  assert.equal(rolledExpiryNote("2026-11-02"), "For the Mon, Nov 2 expiry");
+  // Nothing rolled during the session, and nothing guessed from junk.
+  assert.equal(rolledExpiryNote(null), null);
+  assert.equal(rolledExpiryNote(undefined), null);
+  assert.equal(rolledExpiryNote("Nov 2"), null);
 });

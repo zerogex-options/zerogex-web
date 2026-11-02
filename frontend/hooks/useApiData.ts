@@ -95,6 +95,9 @@ interface GEXSummaryRow {
   pin_score?: number | null;
   pin_confidence?: number | null;
   pin_strike_reason?: string | null;
+  // After the close: the expiration max_pain and the pin_* fields now describe
+  // (the one that settles next; core/expiredAtClose). Null during the session.
+  rolled_to_expiration?: string | null;
 }
 
 export interface GEXWallNode {

@@ -107,8 +107,9 @@ So from the close until the next update, the terminal shows the book that carrie
 - The Strike Panel and the ladders leave out the options that expired at the close.
 - The Call Wall and Put Wall are picked again from what's left. A wall built from longer-dated options keeps its place unless another strike is clearly bigger. A wall that was mostly expiring options moves to the biggest strike that remains.
 - The Strike Panel, the ladders and the free preview say **Expired options removed**. Hover the note for the date.
+- Max Pain and the Pin Strike move to the expiration that settles next, and their Key Levels cards say which, such as "For the Mon, Nov 2 expiry". Max Pain is that expiration's own. The Pin Strike is the same model run on that expiration's options as they stood at the close, so it reads as the next session's 0DTE pin. The pin's "Held since" line is hidden, because it described the pin of the options that expired.
 
-The gamma flip, Max Pain, the Pin Strike and the GEX King keep their values from the close. [Daily Replay](/replay) shows every minute of the session as it happened, expiring options included. Rewind does too, except that after the close its last candle shows the book after the close.
+The gamma flip and the GEX King keep their values from the close. [Daily Replay](/replay) shows every minute of the session as it happened, expiring options included. Rewind does too, except that after the close its last candle shows the book after the close.
 
 This applies to every symbol. SPY, QQQ and NVDA keep updating in extended hours, and from 4:15 PM those updates leave the expired options out on their own.
 
@@ -216,7 +217,7 @@ Without a flip, the chart can't draw the Regime shading either.
 
 ### Max Pain
 
-**What it shows.** The strike where options holders would collect the least if the underlying settled there (`MAX PAIN`, gold, dotted). Without an Expiry filter, it's the max pain of the nearest expiration: today's, when there is one.
+**What it shows.** The strike where options holders would collect the least if the underlying settled there (`MAX PAIN`, gold, dotted). Without an Expiry filter, it's the max pain of the nearest expiration: today's, when there is one. After the close it moves to the next expiration (see [After the close](/help/platform/gamma-terminal#after-the-close)).
 
 **How to read it.** It's most relevant in the last day or two before a meaningful expiration. The rest of the time it often sits away from price, and the walls and the flip matter more. See [Max Pain Explained](/education/max-pain-explained).
 
@@ -228,7 +229,7 @@ Without a flip, the chart can't draw the Regime shading either.
 
 **How to read it.** The strength word measures how much the winning strike stands out from its neighbors, not how big its gamma is. **Weak** means the pull is spread across several nearby strikes, not that the level is unimportant. It's a modeled pinning level, not a price target. [Pin Strike](/help/platform/pin-strike) explains how it's built.
 
-**Keep in mind.** No line is drawn when there's no active pin. The pin is same-day by design, so it ignores the Expiry filter. It isn't part of the free preview.
+**Keep in mind.** No line is drawn when there's no active pin. The pin is same-day by design, so it ignores the Expiry filter. After the close it moves to the next session's expiration (see [After the close](/help/platform/gamma-terminal#after-the-close)). It isn't part of the free preview.
 
 ### GEX King
 

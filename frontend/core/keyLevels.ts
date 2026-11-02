@@ -236,6 +236,12 @@ export interface KeyLevelsInput {
   putWall: number | null | undefined;
   maxPain: number | null | undefined;
   /**
+   * A line under the Max Pain card, such as "For the Mon, Nov 2 expiry" after
+   * the close, when the API has rolled it to the expiration that settles next
+   * (core/expiredAtClose rolledExpiryNote). Null / absent otherwise.
+   */
+  maxPainSubnote?: string | null;
+  /**
    * True when a strict SUBSET of the chain is on screen (the Expiry filter).
    * Changes only what an EMPTY flip means, and only for the flip: under a
    * filter the level is recomputed from the selected expirations alone, so a
@@ -425,6 +431,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
     id: Exclude<KeyLevelId, 'spot' | 'pin'>,
     label: string,
     value: number | null | undefined,
+    subnote: string | null = null,
   ): KeyLevel => {
     const level = positiveLevel(value);
     const distance = keyLevelDistance(level, spot);
@@ -447,7 +454,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       // already knows.
       unresolved: hasSpot && level == null,
       note: null,
-      subnote: null,
+      subnote: level == null ? null : subnote,
       // A card with no level to define is better served by an explanation of
       // WHY there is none: the definition is what the trader already knows,
       // and "unresolved" on its own reads as a broken feed.
@@ -503,7 +510,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
     },
     priced('callWall', 'Call Wall', input.callWall),
     priced('putWall', 'Put Wall', input.putWall),
-    priced('maxPain', 'Max Pain', input.maxPain),
+    priced('maxPain', 'Max Pain', input.maxPain, input.maxPainSubnote ?? null),
   ];
 }
 

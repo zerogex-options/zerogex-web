@@ -21,7 +21,7 @@ Max pain is computed from open interest, which clears and publishes per session 
 ### The snapshot cards
 
 - **Current Max Pain (All Expirations)** - whole-chain max pain: every listed expiration pooled into one payout curve, recomputed once a day before the open. The chip beside it is the implied move - max pain minus spot, in points and percent.
-- **Nearest-Expiration Max Pain** - max pain for the nearest expiration alone. Because it covers a single expiry, it can sit a few points from the whole-chain figure.
+- **Nearest-Expiration Max Pain** - max pain for the nearest expiration alone. Because it covers a single expiry, it can sit a few points from the whole-chain figure. After the close, the expiration that just settled drops out and the next one takes its place.
 - **Underlying Price** - the latest price.
 
 ### Notional Open Interest by Strike

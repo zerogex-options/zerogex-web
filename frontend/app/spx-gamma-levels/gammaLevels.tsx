@@ -35,7 +35,7 @@ import FuturesContractBadge from '@/components/FuturesContractBadge';
 import DelayedLevelsTable from '@/components/DelayedLevelsTable';
 import LevelsEmailSignup from '@/components/LevelsEmailSignup';
 import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } from '@/core/gexSummary';
-import { expiredAtCloseNote, expiredExcludedDates } from '@/core/expiredAtClose';
+import { expiredAtCloseNote, expiredExcludedDates, rolledExpiryNote } from '@/core/expiredAtClose';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders four routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels,
@@ -658,6 +658,9 @@ function SymbolCard({
     ? resolveFuturesContract(data?.data_contract, data?.data_contract_expiry)
     : null;
   const expiredNote = expiredAtCloseNote(expiredExcludedDates(data));
+  // After the close Max Pain and the Pin describe the expiration that settles
+  // next; the rows' hints say which.
+  const rolledExpiry = rolledExpiryNote(data?.rolled_to_expiration);
   const body = (
     <>
       <header>
@@ -742,8 +745,24 @@ function SymbolCard({
         <LevelRow label="Call wall" value={fmtPrice(data?.call_wall)} hint="Heaviest call gamma above spot" />
         <LevelRow label="Put wall" value={fmtPrice(data?.put_wall)} hint="Heaviest put gamma below spot" />
         <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint={flipHint(symbol, data?.gamma_flip)} />
-        <LevelRow label="Max pain" value={fmtPrice(data?.max_pain)} hint="Strike where the most contracts expire worthless" />
-        <LevelRow label="Pin strike" value={fmtPrice(data?.pin_strike)} hint="Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration&nbsp;- a modeled pinning level, not a target" />
+        <LevelRow
+          label="Max pain"
+          value={fmtPrice(data?.max_pain)}
+          hint={
+            rolledExpiry
+              ? `${rolledExpiry}: the strike where the most contracts expire worthless`
+              : 'Strike where the most contracts expire worthless'
+          }
+        />
+        <LevelRow
+          label="Pin strike"
+          value={fmtPrice(data?.pin_strike)}
+          hint={
+            rolledExpiry
+              ? `${rolledExpiry}: the reachable strike with the strongest modeled positive dealer-gamma stabilization into expiration\u00a0- a modeled pinning level, not a target`
+              : 'Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration\u00a0- a modeled pinning level, not a target'
+          }
+        />
         <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(netGexAtSpotOrNull(data?.net_gex_at_spot))} hint="Modeled (call-positive/put-negative convention); actual dealer inventory isn't directly observable" />
       </div>
 
