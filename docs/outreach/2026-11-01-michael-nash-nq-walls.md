@@ -471,7 +471,8 @@ You're in ET too. You asked for the activation email to also answer his
 earlier "Gex levels are new for me but I LOVE them as it's almost like
 cheating 😃".
 
-> **Status:** steps not yet run; email drafted, not sent.
+> **Status:** done Mon Nov 2. Steps run 9:00 to 9:02 AM ET, all landed;
+> activation email sent. See "Result" at the end.
 
 ### What was checked before running the steps
 
@@ -557,3 +558,25 @@ zerogex.io
   the NinjaTrader indicator, then his traders. Partner numbers are under
   "He asks for the partner numbers" above. Data inside his own tools is a
   licensing conversation, not part of the partner deal.
+
+### Result (Mon Nov 2)
+
+- **Trial canceled** at 14:00:54Z (9:00 AM ET). Stripe's
+  `stripe_subscription_deleted` landed 0.3 seconds later, so the grant a
+  minute after it can't be undone by that event. Nothing was ever charged; no
+  open invoices.
+- **Partner Pro granted** at 14:01:53Z. Tier `pro`, partner_tier `creator`,
+  commission 30% for 12 months.
+- **Expires** 2027-01-31T14:01:53Z (9:01 AM ET, Sunday Jan 31). The partner
+  grant expiry sweep drops him to public then unless he subscribes.
+- **His links and code** (he hasn't been told yet; save for the affiliate
+  conversation, `docs/creator-partner-outreach.md` stage 7):
+  - Code: `AURELIUS25` (25% off the first year; Stripe
+    `promo_1UXLo54AOiqteMYYNzT6PXgP` on coupon `Yg3BPJPx`)
+  - Link: https://zerogex.io/register?ref=AURELIUS25 (same as
+    https://zerogex.io/register?ref=BFBYZ2T8)
+- **Monitoring** shows him as "NOT COUNTED": partners on a grant aren't
+  subscribers, as intended.
+- **Next dates from the playbook:** about Dec 2, the 30-day check-in (no
+  affiliate mention; stage 6). Jan 16, two weeks before the grant ends
+  (stage 8). Both can be skipped if the call has already covered them.
