@@ -274,7 +274,8 @@ with another provider's GEX indicator on it, and wrote:
 > teach. Gex levels are new for me but I LOVE them as it's almost like
 > cheating 😃
 
-> **Status:** drafted 2026-11-01, not sent.
+> **Status:** the revised version was sent. He said yes; see "Follow-up: he
+> said yes" at the end.
 
 ### The read
 
@@ -421,10 +422,11 @@ his trial, so there's nothing to refund.
    make grant-partner-pro EMAIL=thisjustclicks@gmail.com PROMO_CODE=AURELIUS25 YES=1
    ```
 
-4. Send the activation note below, with the expiry date the grant printed.
+4. Send the activation email in "Follow-up: he said yes" at the end. It
+   replaces the generic note below.
 
-**Activation note** (from stage 5 of the partner playbook, no affiliate
-details yet):
+**Activation note** (generic; superseded by the email at the end; from
+stage 5 of the partner playbook, no affiliate details yet):
 
 Hi Michael,
 
@@ -459,3 +461,99 @@ Michael
   only hands over to a strike about a third bigger
   (zerogex-oa `src/analytics/walls.py`), so a bar can briefly outgrow it.
   Overnight the bars can be options that already expired (see the read).
+
+## Follow-up: he said yes (Mon Nov 2)
+
+> Michael... What an amazing offer...I'd love to try pro. What time zone are
+> you in? I am US EST
+
+You're in ET too. You asked for the activation email to also answer his
+earlier "Gex levels are new for me but I LOVE them as it's almost like
+cheating 😃".
+
+> **Status:** steps not yet run; email drafted, not sent.
+
+### What was checked before running the steps
+
+- **Canceling the trial** (`frontend/scripts/cancel-subscription.mts`) ends
+  it at once, sets him to the public tier, revokes API keys (he has none),
+  and sends him no email. It needs `FORCE=1` for a trialing subscription.
+  Nothing was ever charged (`make diagnose-user`: "MONEY EVER COLLECTED NO"),
+  so there's nothing to refund.
+- **No surprise emails to him.** The trial-end reminder only goes to trialing
+  subscriptions (`frontend/scripts/send-trial-reminders.mts`). The
+  cancel-reason follow-up only goes to people who canceled through the survey
+  with a price or complexity reason. Win-back and reactivation emails skip
+  creator partners (`frontend/core/excludedAccounts.ts`). You may get your own
+  cancellation alert (`frontend/scripts/send-cancellation-alerts.mts`); that's
+  expected.
+- **The grant** (`frontend/scripts/grant-partner-pro.mts`) needs only a valid,
+  unused promo code and `STRIPE_COUPON_PARTNER_AUDIENCE` set. The dry run
+  shows both. It grants 90 days by default and prints the expiry in UTC. Run
+  on Mon Nov 2, that's Jan 31, 2027.
+- **He can generate an API key on the grant.** Keys need tier Pro or above
+  (`isApiKeyEligibleTier` in `frontend/core/auth.ts`). The NinjaTrader
+  download is gated on the same tier.
+- **No sign-out needed.** Sessions read the user row on every request
+  (`getSessionFromRequest` in `frontend/core/serverAuth.ts`), so Pro shows up
+  on his next page load.
+
+### Steps
+
+Use the commands under "If he says yes" above, in order. What to look for:
+
+1. **Cancel dry run:** it should find `sub_1UWFCX4AOiqteMYY1R4bmGX5`,
+   status trialing, and plan an immediate cancel.
+2. **Cancel for real.** He has no access from here until step 5, so run the
+   rest straight through.
+3. **Wait** until `make diagnose-user` lists `stripe_subscription_deleted` in
+   the recent events and shows Tier `public`. If it isn't there after five
+   minutes, stop.
+4. **Grant dry run:** it should plan tier public to pro, partner_tier to
+   creator, an expiry about 90 days out, and promo code `AURELIUS25`. If it
+   errors on the coupon or the code, stop.
+5. **Grant for real.** Note the `expires:` line.
+6. **Check:** `make diagnose-user` shows Tier `pro`.
+
+### Activation email
+
+Fill in the call time and send it in the same thread. If the grant printed a
+date other than 2027-01-31, change "January 31".
+
+**Subject:** Re: The latest SPX levels, in plain English
+
+Hi Michael,
+
+Done. Your trial is canceled, so nothing will be charged, and Pro is live on your account through January 31.
+
+To get the levels on your NinjaTrader chart:
+
+1. Generate your API key under Account → API Access. It's only shown once, so copy it somewhere safe.
+2. Follow the steps at https://zerogex.io/ninjatrader-indicator to add the indicator.
+3. On an MNQ chart, leave Symbol on AUTO. For intraday levels, set Expiration to 0DTE.
+
+I'm in ET too, so that's easy. Would [DAY] at [TIME] ET work for a call? I'll walk you through the platform with NQ on screen, and we can talk about what would work for your traders.
+
+And I love "almost like cheating." I'll be straight with you, though, since you'll be teaching this: GEX levels are a map, not a forecast. They show where dealer hedging is likely heaviest and how it tends to behave around price, not which way price will go. As I mentioned, Nasdaq walls held about half the time over the next hour in our study, so plan your entries, stops and targets around them, and size for the times they break. Used that way, they're genuinely useful. Just not a cheat code.
+
+Use it however you normally trade, and tell me what adds signal and what feels like noise.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+
+### If he replies
+
+- **He can't find API Access or the download link.** Check `make
+  diagnose-user` shows Tier `pro`. If it does, have him reload the page.
+- **The indicator shows an error.** See the NinjaTrader follow-up's "If he
+  replies": usually Symbol typed as MNQ, or a key pasted with a missing
+  character.
+- **The call.** Plan: NQ in the Gamma Terminal (walls, flip, the Expiry
+  filter, the strike panel and why it shows expired options overnight), then
+  the NinjaTrader indicator, then his traders. Partner numbers are under
+  "He asks for the partner numbers" above. Data inside his own tools is a
+  licensing conversation, not part of the partner deal.
