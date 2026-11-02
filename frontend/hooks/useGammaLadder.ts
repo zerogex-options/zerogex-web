@@ -30,7 +30,8 @@ import { resolvePriceSession } from "@/core/sessionCloses";
 import { baselineNetByStrike, sessionOpenIsoFor, type FrameStrikeRow } from "@/core/sessionDelta";
 import { useStrikeProfileTimeseries } from "./useStrikeProfileTimeseries";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
-import { bucketAtOrNearest, rewoundChangePercent } from "@/core/strikeHistory";
+import { bucketAtOrNearest, latestBookBucket, rewoundChangePercent } from "@/core/strikeHistory";
+import { expiredExcludedDates } from "@/core/expiredAtClose";
 
 /** Everything a ladder column renders except the header control, which the
  *  surface injects (a symbol dropdown on Pair Comparison, a plain label in a
@@ -80,6 +81,8 @@ interface TipBucket {
   call_wall?: number | string | null;
   put_wall?: number | string | null;
   close?: number | string | null;
+  /** Expirations the API removed from the after-close book (core/expiredAtClose). */
+  expired_excluded?: string[] | null;
   strikes?: Array<{
     strike?: number | string;
     net_gamma?: number | string | null;
@@ -100,16 +103,10 @@ function num(v: number | string | null | undefined): number | null {
 }
 
 /** Freshest bucket carrying real positioning (an empty or tape-less all-zero
- *  after-hours tip mustn't blank the ladder). */
+ *  after-hours tip mustn't blank the ladder), or the after-close book the API
+ *  rebuilt without the day's expired contracts (see latestBookBucket). */
 function latestLiveBucket(buckets: TipBucket[] | null | undefined): TipBucket | null {
-  if (!Array.isArray(buckets)) return null;
-  for (let i = buckets.length - 1; i >= 0; i -= 1) {
-    const strikes = buckets[i]?.strikes;
-    if (Array.isArray(strikes) && strikes.some((s) => (num(s?.net_gamma) ?? 0) !== 0)) {
-      return buckets[i];
-    }
-  }
-  return null;
+  return latestBookBucket(buckets);
 }
 
 function bucketCells(bucket: TipBucket | null): HeatmapCell[] {
@@ -252,6 +249,7 @@ export function useGammaLadderColumn(
         cells: bucketCells(bucket),
         positioningAsOf: bucket?.timestamp ?? null,
         positioningKind: "rewind" as const,
+        expiredExcluded: expiredExcludedDates(bucket),
         spot: rewoundSpot,
         gammaFlip: num(bucket?.gamma_flip),
         callWall: num(bucket?.call_wall),
@@ -282,6 +280,9 @@ export function useGammaLadderColumn(
       // say the book is as of that bucket rather than live.
       positioningAsOf: tipBucket == null && historyBucket ? historyBucket.timestamp : null,
       positioningKind: "reachback" as const,
+      // After the close the newest bucket is the closing book without the
+      // contracts that expired at the bell; the column says so.
+      expiredExcluded: expiredExcludedDates(liveBucket),
       spot,
       // With a specific expiration set, the walls and flip must describe that
       // set's gamma alone — the timeseries bucket recomputes them for the

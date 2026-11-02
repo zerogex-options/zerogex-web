@@ -70,6 +70,15 @@ export interface StrikeProfileBucket {
    * Expiry selector. `null` on buckets predating the column; draw no line.
    */
   max_gamma_strike?: number | string | null;
+  /**
+   * Expirations the API left out of this bucket because they have expired
+   * (ISO dates). Only ever set on the NEWEST bucket after the close: the
+   * engine keeps the session's last snapshot until the next open, and the
+   * contracts that expired at the bell come out of it, its walls re-picked
+   * from what survives. Every earlier bucket is history and keeps them. See
+   * core/expiredAtClose.
+   */
+  expired_excluded?: string[] | null;
   strikes?: StrikeProfileStrike[];
 }
 

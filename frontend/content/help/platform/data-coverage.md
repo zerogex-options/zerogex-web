@@ -36,7 +36,7 @@ The session badge in the header confirms which window you're in.
 
 **ES and NQ run on the CME electronic session instead**, which is much wider: Sunday 6:00 PM ET straight through to Friday 5:00 PM ET, with a daily maintenance break from 5:00 to 6:00 PM ET. That covers the Asian and European sessions in full, and ES/NQ quotes are real-time CME. Overnight - from 6:00 PM ET until the 9:30 AM open, while the futures are trading - SPX and NDX show their future instead of the frozen cash index: the session badge reads "Futures" and the header price shows the future, with the change measured against the future's own 4:00 PM ET print.
 
-The dealer levels on a futures chart still come from the SPX and NDX options, which ZeroGEX prices only during the regular U.S. session. So overnight and before the open you are watching live ES/NQ trade against the levels as they stood at the 4:00 PM ET close. They are not recomputed until the regular session opens at 9:30 AM ET, which is also when the next session's open interest comes in. The only overnight change is a small step, once a day, in the carry used to convert them to futures prices. If a futures quote itself goes stale, the price carries a badge naming the measured lag.
+The dealer levels on a futures chart still come from the SPX and NDX options, which ZeroGEX prices only during the regular U.S. session. So overnight and before the open you are watching live ES/NQ trade against the levels as they stood at the 4:00 PM ET close, less the options that expired at it (see [Options that expire at the close](/help/platform/data-coverage#options-that-expire-at-the-close)). They are not recomputed until the regular session opens at 9:30 AM ET, which is also when the next session's open interest comes in. The only overnight change is a small step, once a day, in the carry used to convert them to futures prices. If a futures quote itself goes stale, the price carries a badge naming the measured lag.
 
 ## Refresh cadence by surface
 
@@ -62,11 +62,21 @@ During extended hours:
 
 - The header shows the last regular-session close and its change, with the live extended-hours price and its move since that close on a second line.
 - Signal scores continue to update where the data is sufficient. Some signals (EOD Pressure, 0DTE Position Imbalance) intentionally only compute during the regular session.
-- The GEX surface holds the positioning from the regular-session close. The next session's open interest is picked up around the open, not overnight. SPX and NDX levels, and the ES and NQ levels drawn from them, are not recomputed until the 9:30 AM ET open.
+- The GEX surface holds the positioning from the regular-session close, without the options that expired at it (see below). The next session's open interest is picked up around the open, not overnight. SPX and NDX levels, and the ES and NQ levels drawn from them, are not recomputed until the 9:30 AM ET open.
+
+## Options that expire at the close
+
+Same-day options stop trading at the 4:00 PM ET close (1:00 PM on an early-close day). The session's last update still counts them, priced in their final minutes, when their gamma is at its largest. For SPX and NDX, and ES and NQ, that update stands until the 9:30 AM open, so from the close on ZeroGEX leaves the expired options out of everything that shows the book as it stands now:
+
+- **Per-strike gamma** - the Strike Panel, the gamma ladders, the strike tables and the free gamma-levels pages.
+- **Call Wall and Put Wall** - picked again from the options that remain. A wall built from longer-dated options keeps its place unless another strike is clearly bigger.
+- **Net, call and put GEX totals** - summed from the options that remain.
+
+The Strike Panel, the gamma ladders and the free gamma-levels pages say **Expired options removed** when it applies. The gamma flip, net GEX at spot, Max Pain, the Pin Strike and the GEX King keep their values from the close until the next update. History is never changed: Daily Replay and the GEX history show each minute as it happened, with the options that were trading then. Through the API, the summary, levels and strike-profile responses list the removed dates in `expired_excluded`.
 
 ## When the market is closed
 
-When the market is closed, the platform shows the most recent regular-session close values for all surfaces. The session badge reads "Closed".
+When the market is closed, the platform shows the most recent regular-session close values for all surfaces, without the options that expired at that close. The session badge reads "Closed".
 
 ## Holidays
 

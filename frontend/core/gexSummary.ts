@@ -31,6 +31,9 @@ export interface GexSummary {
   // core/futuresContract.ts.
   data_contract?: string | null;
   data_contract_expiry?: string | null;
+  // Expirations left out of the walls and Net GEX totals because they expired
+  // at the close (ISO dates; core/expiredAtClose). Empty during the session.
+  expired_excluded?: string[] | null;
 }
 
 /** Index/ETF price convention: whole numbers at four figures, else two decimals. */

@@ -66,6 +66,8 @@ import { useInDashboardWidget } from "@/core/dashboardWidget";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong, cumulativeNetGexAtSpot, longGammaAtSpot } from "@/core/gammaRegime";
 import { firstLevel, levelOrNull } from "@/core/levelValue";
+import { latestBookBucket } from "@/core/strikeHistory";
+import { expiredAtCloseNote, expiredExcludedDates } from "@/core/expiredAtClose";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { flipStatusChip } from "@/core/flipStatusChip";
 import { resolveRewindBucket } from "@/core/rewindBucket";
@@ -806,6 +808,9 @@ export interface ChartSnapshot {
   /** Per-strike net gamma for the delayed rail, so the public view draws the
    *  same net-gamma-by-strike density the live/rewind rail does. */
   strikes?: StrikeProfileStrike[] | null;
+  /** Expirations the API left out of `strikes` because they expired at the
+   *  close (ISO dates; core/expiredAtClose). Empty / absent during the session. */
+  strikesExpiredExcluded?: string[] | null;
   vwap: number | null;
 }
 
@@ -1926,13 +1931,10 @@ export default function GammaTerminalChart({
   // The most-recent per-strike bucket that actually carries gamma — the live
   // rail's source. Walk back from the tip so an empty / all-zero after-hours
   // bucket doesn't blank the rail (the last real surface stays drawn).
-  const liveGexBucket = useMemo(() => {
-    for (let i = gexBuckets.length - 1; i >= 0; i--) {
-      const b = gexBuckets[i];
-      if (Array.isArray(b.strikes) && b.strikes.some((s) => levelOrNull(s.net_gamma))) return b;
-    }
-    return null;
-  }, [gexBuckets]);
+  // The newest bucket carrying positioning, or the after-close book the API
+  // rebuilt without the day's expired contracts (see latestBookBucket) — the
+  // same pick the gamma ladders and the delayed public chart make.
+  const liveGexBucket = useMemo(() => latestBookBucket(gexBuckets), [gexBuckets]);
 
   // ── Gamma levels ── Rewind takes flip/walls/pin from the historical bucket,
   // Max Pain from the bucket's per-strike OI and VWAP from the bars;
@@ -3808,6 +3810,30 @@ export default function GammaTerminalChart({
     </>
   ) : null;
 
+  // After the close the rail's bucket is the closing book without the
+  // contracts that expired at the bell, and its walls were re-picked from what
+  // survived (core/expiredAtClose). Say so beside the rail: the bars change at
+  // the bell with no price action, and this is why.
+  const railExpiredDates = snapshot
+    ? snapshot.strikesExpiredExcluded ?? null
+    : rewindActive
+      ? rewindBucket?.expired_excluded ?? null
+      : live
+        ? liveGexBucket?.expired_excluded ?? null
+        : null;
+  // Plain, not memoized: this sits below the component's early return, and
+  // the note is a few string operations.
+  const railExpiredNote = expiredAtCloseNote(expiredExcludedDates({ expired_excluded: railExpiredDates }));
+  const railExpiredChip = railExpiredNote ? (
+    <span
+      className="zg-chip"
+      style={{ ["--chip-color" as string]: "var(--text-secondary)" }}
+      title={railExpiredNote.detail}
+    >
+      {railExpiredNote.label}
+    </span>
+  ) : null;
+
   const railGradSuffix = inPanel ? "-panel" : "";
   // ── Strike axis (panel only) ── a small label per strike down the panel's
   // left edge, stepping to every 2nd / 5th / 10th... strike when zoomed out
@@ -3861,6 +3887,12 @@ export default function GammaTerminalChart({
               {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
               {railZeroDte.widenedToAll && (
                 <tspan fill="var(--color-warning)">{"  ·  ALL EXPIRIES (NO 0DTE TODAY)"}</tspan>
+              )}
+              {railExpiredNote && (
+                <tspan fill="var(--text-secondary)">
+                  {`  ·  ${railExpiredNote.label.toUpperCase()}`}
+                  <title>{railExpiredNote.detail}</title>
+                </tspan>
               )}
             </text>
             )}
@@ -5790,6 +5822,10 @@ export default function GammaTerminalChart({
       {/* The rail's view controls follow it: on the panel when it is panelled,
           on this toolbar when it is not (see the toolbar block above). */}
       {inPanel && railControlsTarget ? createPortal(railViewControls, railControlsTarget) : null}
+      {/* The after-close note sits on the same control row, live and delayed
+          alike (the delayed panel has no view controls, but its book can have
+          had the day's expired options taken out just the same). */}
+      {inPanel && railControlsTarget && railExpiredChip ? createPortal(railExpiredChip, railControlsTarget) : null}
     </div>
     </>
   );

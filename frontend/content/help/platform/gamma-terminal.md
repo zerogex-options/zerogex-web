@@ -75,6 +75,8 @@ The controls at the top of the panel:
 
 An amber "Positioning as of 15:55 ET" note means the latest updates carried no positioning (after the options close, for example), so the ladder shows the most recent one that did. The levels in its header stay live.
 
+A gray "Expired options removed" note means the ladder is showing the book after the close, without the options that expired at it. See [After the close](/help/platform/gamma-terminal#after-the-close).
+
 ### Strike Panel
 
 The same book as a picture: net dealer gamma at every price. On wide screens it's drawn on the chart's own price scale, so each strike sits level with that price on the candles.
@@ -92,7 +94,23 @@ In Split and Combined, each bar is shaded by expiration: boldest at the center l
 
 Hover a strike, or tap it on a phone, for its card: call, put and net gamma, open interest and the put/call ratio, its weight against the heaviest strike in view, its distance from price, and any level on it. "Long Γ · magnet / brake" and "Short Γ · accelerant" describe what dealer hedging at that strike is modeled to do: lean against moves, or add to them.
 
+**Expired options removed** at the top of the panel means it's showing the book after the close. See [After the close](/help/platform/gamma-terminal#after-the-close).
+
 The free preview shows the Silhouette view only.
+
+## After the close
+
+The day's expiring options stop trading at the 4:00 PM ET close (1:00 PM on an early-close day), but the session's last update still counts them, priced in their final minutes when their gamma is at its largest. Left as they were, they would show as big bars at strikes where nothing is left. This matters most on SPX and NDX, and on ES and NQ, which use their books: those books are only updated during the regular session, so the last update stands all night and all weekend, until the 9:30 AM open.
+
+So from the close until the next update, the terminal shows the book that carries into the next session:
+
+- The Strike Panel and the ladders leave out the options that expired at the close.
+- The Call Wall and Put Wall are picked again from what's left. A wall built from longer-dated options keeps its place unless another strike is clearly bigger. A wall that was mostly expiring options moves to the biggest strike that remains.
+- The Strike Panel, the ladders and the free preview say **Expired options removed**. Hover the note for the date.
+
+The gamma flip, Max Pain, the Pin Strike and the GEX King keep their values from the close. [Daily Replay](/replay) shows every minute of the session as it happened, expiring options included. Rewind does too, except that after the close its last candle shows the book after the close.
+
+This applies to every symbol. SPY, QQQ and NVDA keep updating in extended hours, and from 4:15 PM those updates leave the expired options out on their own.
 
 ## The chart header
 

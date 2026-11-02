@@ -40,6 +40,7 @@ import { Crown } from "lucide-react";
 import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitContext";
 import { selectActiveCells } from "@/core/strikeFilter";
 import { sessionDeltaMark, sessionDeltaTitle } from "@/core/sessionDelta";
+import { expiredAtCloseNote } from "@/core/expiredAtClose";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 
@@ -89,6 +90,9 @@ export interface HeatmapColumnInput {
   /** Why the rows are dated: a reach-back past an empty live tip, or the
    *  surface rewinding to that moment. Drives the note's wording and tint. */
   positioningKind?: "reachback" | "rewind";
+  /** Expirations the API left out of these rows because they expired at the
+   *  close (ISO dates; core/expiredAtClose). Empty / absent during the session. */
+  expiredExcluded?: readonly string[] | null;
   loading: boolean;
   error: string | null;
   /** The symbol dropdown, injected by the page so the ladder stays presentational. */
@@ -513,6 +517,7 @@ function HeatmapColumn({
   const { input, cellByOffset, arrowsByOffset, clip, gexScale, peakOffset } = model;
   const s = useLadderScale();
   const rowH = ROW_H * s;
+  const expiredNote = expiredAtCloseNote(input.expiredExcluded ?? []);
   const [bandEl, setBandEl] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!fill || !onBandHeight || !bandEl) return;
@@ -604,6 +609,18 @@ function HeatmapColumn({
         >
           {input.positioningKind === "rewind" ? "Rewind · " : "Positioning as of "}
           {fmtAsOfEt(input.positioningAsOf)}
+        </div>
+      )}
+      {expiredNote && (
+        // After the close: the rows and the walls are the closing book without
+        // the contracts that expired at the bell. Its own line, like the note
+        // above, so it never squeezes the label row.
+        <div
+          className="px-2 pb-1 whitespace-nowrap truncate"
+          style={{ fontSize: 9 * s, color: "var(--text-secondary)", marginTop: -2 }}
+          title={expiredNote.detail}
+        >
+          {expiredNote.label}
         </div>
       )}
       </div>

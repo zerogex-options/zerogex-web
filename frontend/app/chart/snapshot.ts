@@ -6,6 +6,8 @@ import { getMarketSession, isIndexSymbol } from '@/core/utils';
 import { resolveDelayedQuote } from '@/core/delayedQuote';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { firstLevel, levelOrNull } from '@/core/levelValue';
+import { latestBookBucket } from '@/core/strikeHistory';
+import { expiredExcludedDates } from '@/core/expiredAtClose';
 import { getSpotPriorCloseChange } from '@/core/priceChange';
 import { resolvePriceSession } from '@/core/sessionCloses';
 import type { HeatmapCell } from '@/components/PairGammaHeatmap';
@@ -81,23 +83,22 @@ interface RawStrikeRow {
 }
 interface RawBucket {
   timestamp?: string;
+  /** Expirations the API removed from the after-close book (core/expiredAtClose). */
+  expired_excluded?: string[] | null;
   strikes?: RawStrikeRow[];
 }
 
 // Most-recent bucket that actually carries per-strike gamma (walk back so an
-// empty after-hours tip doesn't blank the public rail or ladder). Mirrors the
-// live chart's liveGexBucket and the ladder hook's latestLiveBucket, which is
-// why both delayed surfaces below resolve their surface through this one
-// function rather than each applying its own freshness rule.
+// empty after-hours tip doesn't blank the public rail or ladder), or the
+// after-close book the API rebuilt without the day's expired contracts. The
+// live chart's rail and the ladder hook pick through the same core function
+// (latestBookBucket), which is why both delayed surfaces below resolve their
+// surface through this one rather than each applying its own freshness rule.
 function latestPositionedBucket(buckets: RawBucket[] | null | undefined): RawBucket | null {
   if (!Array.isArray(buckets)) return null;
-  for (let i = buckets.length - 1; i >= 0; i -= 1) {
-    const s = buckets[i]?.strikes;
-    if (Array.isArray(s) && s.some((r) => { const g = levelOrNull(r?.net_gamma); return g != null && g !== 0; })) {
-      return buckets[i];
-    }
-  }
-  return null;
+  return latestBookBucket(
+    buckets.filter((b): b is RawBucket & { timestamp: string } => typeof b?.timestamp === 'string'),
+  );
 }
 
 function pickStrikeSurface(buckets: RawBucket[] | null | undefined): StrikeProfileStrike[] | null {
@@ -223,6 +224,7 @@ export async function loadChartSnapshot(
     },
     profile: profilePoints,
     strikes: pickStrikeSurface(buckets),
+    strikesExpiredExcluded: expiredExcludedDates(latestPositionedBucket(buckets)),
     vwap,
   };
 }
@@ -257,6 +259,9 @@ export interface LadderSnapshot {
    *  this is the reach-back — the same signal the live column renders an
    *  "as of HH:MM ET" note from. */
   positioningAsOf: string | null;
+  /** Expirations the API left out of `cells` because they expired at the
+   *  close (core/expiredAtClose); the column notes it like the live one. */
+  expiredExcluded: string[];
 }
 
 export async function loadLadderSnapshot(symbol: string): Promise<LadderSnapshot | null> {
@@ -306,5 +311,6 @@ export async function loadLadderSnapshot(symbol: string): Promise<LadderSnapshot
     changePercent: change.changePercent,
     isPositive: change.isPositive,
     positioningAsOf: reachedBack ? bucket?.timestamp ?? null : null,
+    expiredExcluded: expiredExcludedDates(bucket),
   };
 }

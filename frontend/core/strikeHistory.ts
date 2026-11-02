@@ -8,12 +8,16 @@
  * bucket at the chart's replay clock). Both are pure functions of the list.
  */
 
+import { expiredExcludedDates } from './expiredAtClose.ts';
+
 export interface HistoryBucketLike {
   timestamp: string;
-  strikes?: Array<{ net_gamma?: number | string | null }> | null;
+  // `unknown`, not number | string: the delayed snapshot hands raw API rows
+  // through here, and `num` below parses whatever arrives.
+  strikes?: ReadonlyArray<{ net_gamma?: unknown }> | null;
 }
 
-function num(v: number | string | null | undefined): number | null {
+function num(v: unknown): number | null {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
   return Number.isFinite(n) ? n : null;
 }
@@ -24,6 +28,29 @@ export function bucketHasPositioning(bucket: HistoryBucketLike | null | undefine
   const strikes = bucket?.strikes;
   if (!Array.isArray(strikes)) return false;
   return strikes.some((s) => (num(s?.net_gamma) ?? 0) !== 0);
+}
+
+/**
+ * The bucket that IS the current book: the newest one carrying positioning,
+ * walking back past an empty or all-zero tip (an ETF after the options close).
+ *
+ * One exception stops the walk. After the close the API rebuilds the newest
+ * bucket without the contracts that expired at the bell and names them in
+ * `expired_excluded` (core/expiredAtClose). That bucket is the answer even when
+ * nothing in it survived — a view filtered to the day's own expiration, read
+ * that evening — because every bucket behind it still counts those contracts.
+ * Shared by the Gamma Terminal's rail, the gamma ladders and the delayed
+ * public chart, so all three pick the same bucket.
+ */
+export function latestBookBucket<T extends HistoryBucketLike & { expired_excluded?: unknown }>(
+  buckets: readonly T[] | null | undefined,
+): T | null {
+  if (!Array.isArray(buckets)) return null;
+  for (let i = buckets.length - 1; i >= 0; i -= 1) {
+    const b = buckets[i];
+    if (bucketHasPositioning(b) || expiredExcludedDates(b).length > 0) return b;
+  }
+  return null;
 }
 
 /** Bucket start in ms, or null when the timestamp is unusable. */

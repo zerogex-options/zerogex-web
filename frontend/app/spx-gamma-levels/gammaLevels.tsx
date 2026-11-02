@@ -35,6 +35,7 @@ import FuturesContractBadge from '@/components/FuturesContractBadge';
 import DelayedLevelsTable from '@/components/DelayedLevelsTable';
 import LevelsEmailSignup from '@/components/LevelsEmailSignup';
 import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } from '@/core/gexSummary';
+import { expiredAtCloseNote, expiredExcludedDates } from '@/core/expiredAtClose';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders four routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels,
@@ -656,6 +657,7 @@ function SymbolCard({
   const contract = nameContract
     ? resolveFuturesContract(data?.data_contract, data?.data_contract_expiry)
     : null;
+  const expiredNote = expiredAtCloseNote(expiredExcludedDates(data));
   const body = (
     <>
       <header>
@@ -748,6 +750,10 @@ function SymbolCard({
       <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 4 }}>
         <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', opacity: 0.75 }}>
           Snapshot: {fmtTimestampET(data?.timestamp)}
+          {/* After the close the walls are re-picked without the contracts
+              that expired at the bell, so they can differ from the 3:59 PM
+              snapshot's. Say so beside the time it is dated. */}
+          {expiredNote && <span title={expiredNote.detail}>{` · ${expiredNote.label.toLowerCase()}`}</span>}
         </span>
         {contract ? (
           <Link href={href} className="zg-card-link" style={CARD_CTA_STYLE}>
