@@ -31,8 +31,9 @@ export interface GexSummary {
   // core/futuresContract.ts.
   data_contract?: string | null;
   data_contract_expiry?: string | null;
-  // Expirations left out of the walls and Net GEX totals because they expired
-  // at the close (ISO dates; core/expiredAtClose). Empty during the session.
+  // Expirations left out of the walls, the Net GEX totals, the GEX King and
+  // the flip because they expired at the close (ISO dates;
+  // core/expiredAtClose). Empty during the session.
   expired_excluded?: string[] | null;
   // After the close: the expiration max_pain and pin_strike now describe, the
   // one that settles next (core/expiredAtClose). Null during the session.

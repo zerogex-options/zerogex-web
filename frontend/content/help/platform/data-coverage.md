@@ -71,9 +71,10 @@ Same-day options stop trading at the 4:00 PM ET close (1:00 PM on an early-close
 - **Per-strike gamma** - the Strike Panel, the gamma ladders, the strike tables and the free gamma-levels pages.
 - **Call Wall and Put Wall** - picked again from the options that remain. A wall built from longer-dated options keeps its place unless another strike is clearly bigger.
 - **Net, call and put GEX totals** - summed from the options that remain.
+- **Gamma flip, net GEX at spot and the GEX King** - worked out again from the options that remain, with the same model ZeroGEX uses during the session.
 - **Max Pain and the Pin Strike** - each describes one expiration, so both move to the expiration that settles next. Max Pain is that expiration's own, and the Pin Strike is priced on that expiration's options as they stood at the close. Their cards name the expiry, such as "For the Mon, Nov 2 expiry".
 
-The Strike Panel, the gamma ladders and the free gamma-levels pages say **Expired options removed** when it applies. The gamma flip, net GEX at spot and the GEX King keep their values from the close until the next update. History is never changed: Daily Replay and the GEX history show each minute as it happened, with the options that were trading then. Through the API, the summary, levels and strike-profile responses list the removed dates in `expired_excluded`, and the summary and levels responses name the expiration Max Pain and the Pin moved to in `rolled_to_expiration`.
+The Strike Panel, the gamma ladders and the free gamma-levels pages say **Expired options removed** when it applies. History is never changed: Daily Replay and the GEX history show each minute as it happened, with the options that were trading then. Through the API, the summary, levels and strike-profile responses list the removed dates in `expired_excluded`, and the summary and levels responses name the expiration Max Pain and the Pin moved to in `rolled_to_expiration`.
 
 ## When the market is closed
 

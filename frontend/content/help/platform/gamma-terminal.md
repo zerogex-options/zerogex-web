@@ -107,9 +107,10 @@ So from the close until the next update, the terminal shows the book that carrie
 - The Strike Panel and the ladders leave out the options that expired at the close.
 - The Call Wall and Put Wall are picked again from what's left. A wall built from longer-dated options keeps its place unless another strike is clearly bigger. A wall that was mostly expiring options moves to the biggest strike that remains.
 - The Strike Panel, the ladders and the free preview say **Expired options removed**. Hover the note for the date.
+- The gamma flip is worked out again from the options that remain, and so are **Dealer Gamma @ Spot** (the LONG Γ / SHORT Γ reading) and the GEX King.
 - Max Pain and the Pin Strike move to the expiration that settles next, and their Key Levels cards say which, such as "For the Mon, Nov 2 expiry". Max Pain is that expiration's own. The Pin Strike is the same model run on that expiration's options as they stood at the close, so it reads as the next session's 0DTE pin. The pin's "Held since" line is hidden, because it described the pin of the options that expired.
 
-The gamma flip and the GEX King keep their values from the close. [Daily Replay](/replay) shows every minute of the session as it happened, expiring options included. Rewind does too, except that after the close its last candle shows the book after the close.
+[Daily Replay](/replay) shows every minute of the session as it happened, expiring options included. Rewind does too, except that after the close its last candle shows the book after the close.
 
 This applies to every symbol. SPY, QQQ and NVDA keep updating in extended hours, and from 4:15 PM those updates leave the expired options out on their own.
 
