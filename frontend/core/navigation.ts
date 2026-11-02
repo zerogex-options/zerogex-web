@@ -56,6 +56,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // it public and the page branches on the session. Marking it 'basic'
       // here would wrongly hide it from guests.
       { id: '/chart', label: 'Gamma Terminal' },
+      // Plus3 Forecasting's trade-route view, built on the Gamma Terminal's
+      // chart. Basic-gated in core/auth.ts, like the entries around it.
+      { id: '/fuseline-radar', label: 'Fuseline Radar', requiredTier: 'basic', beta: true },
       { id: '/live-bulletin', label: 'Live Bulletin', labelKey: 'nav.liveBulletin', requiredTier: 'basic' },
     ],
   },
