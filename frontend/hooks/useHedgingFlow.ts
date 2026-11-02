@@ -3,10 +3,12 @@
 import { useMemo } from 'react';
 
 import { useApiData } from '@/hooks/useApiData';
-import { normalizeHedgingFlow } from '@/core/hedgingFlowSeries';
+import { hedgingFlowEndpoint, normalizeHedgingFlow } from '@/core/hedgingFlowSeries';
+import type { FlowTimeframe } from '@/core/flowSeriesCharts';
 
 /**
- * One 5-minute bar of estimated hedging pressure from GET /api/flow/hedging.
+ * One bar of estimated hedging pressure from GET /api/flow/hedging: 5-minute,
+ * or 1-minute when the payload's `timeframe` is `1min`.
  *
  * Every `*_usd` value is USD of stock a delta-flat hedge implies, positive for
  * BUYING — the same sign convention and units as the Forced Flow engine, so
@@ -74,6 +76,12 @@ export interface HedgingFlowPayload {
    * presenting it as observed dealer flow.
    */
   disclosure: string;
+  /**
+   * The bar size of `bars`. Absent from a payload served before the API named
+   * it, which was always 5-minute; read it through hedgingFlowBarMinutes.
+   */
+  timeframe?: FlowTimeframe;
+  /** The trailing average's length in bars of `timeframe`: 15 minutes by default either way. */
   smoothing_bars: number;
   bars: HedgingFlowBar[];
   flips: HedgingFlowFlip[];
@@ -82,7 +90,11 @@ export interface HedgingFlowPayload {
 export interface UseHedgingFlowOptions {
   /** Expirations to include, ISO dates. The session's own date isolates 0DTE. */
   expirations?: readonly string[];
-  /** Trailing SMA length in 5-minute bars for the rate line and flip detection. */
+  /**
+   * Trailing SMA length in bars of `timeframe` for the rate line and flip
+   * detection. Omitted, the API averages 15 minutes: 3 five-minute bars or 15
+   * one-minute bars.
+   */
   smoothing?: number;
   /**
    * An explicit ET trading day, `YYYY-MM-DD`, for a historical session.
@@ -92,24 +104,18 @@ export interface UseHedgingFlowOptions {
    * it also stops the poll — see the note in the hook.
    */
   date?: string;
+  /**
+   * Bar size, default '5min'. 1-minute bars are computed from the stored
+   * trades on every read rather than snapshotted, so with `date` they reach
+   * back only as far as the API keeps those trades.
+   */
+  timeframe?: FlowTimeframe;
+  /** False holds the request and the poll, for a series the page is not showing. */
+  enabled?: boolean;
   refreshMs?: number;
 }
 
 const DEFAULT_REFRESH_MS = 15_000;
-
-function buildEndpoint(symbol: string, options: UseHedgingFlowOptions): string {
-  const params = new URLSearchParams({ symbol });
-  if (options.date) {
-    params.set('date', options.date);
-  }
-  if (options.expirations && options.expirations.length > 0) {
-    params.set('expirations', [...options.expirations].sort().join(','));
-  }
-  if (options.smoothing != null) {
-    params.set('smoothing', String(options.smoothing));
-  }
-  return `/api/flow/hedging?${params.toString()}`;
-}
 
 /**
  * Estimated hedging pressure for one of a symbol's sessions.
@@ -124,12 +130,12 @@ function buildEndpoint(symbol: string, options: UseHedgingFlowOptions): string {
  * open it is cost that never stops.
  */
 export function useHedgingFlow(symbol: string, options: UseHedgingFlowOptions = {}) {
-  const { refreshMs = DEFAULT_REFRESH_MS } = options;
-  const endpoint = buildEndpoint(symbol, options);
+  const { refreshMs = DEFAULT_REFRESH_MS, enabled = true } = options;
+  const endpoint = hedgingFlowEndpoint(symbol, options);
 
   const { data, loading, error, errorStatus, refetch } = useApiData<HedgingFlowPayload>(
     endpoint,
-    { refreshInterval: options.date ? 0 : refreshMs },
+    { refreshInterval: options.date ? 0 : refreshMs, enabled },
   );
 
   // Shared with the dated permalink's server fetch (core/hedgingFlowSeries),

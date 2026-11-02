@@ -200,6 +200,7 @@
     "test:page-shell": "node --experimental-strip-types --test tests/pageShell.test.ts",
     "test:page-snapshot": "node --experimental-strip-types --test tests/pageSnapshot.test.ts",
     "test:hedging-flow-history": "node --experimental-strip-types --test tests/hedgingFlowHistory.test.ts",
+    "test:hedging-flow-timeframe": "node --experimental-strip-types --test tests/hedgingFlowTimeframe.test.ts",
     "test:dated-permalinks": "node --experimental-strip-types --test tests/datedPermalinks.test.ts",
     "test:og-images": "node --experimental-strip-types --test tests/ogImages.test.ts",
     "test:strategy-catalog-view": "node --experimental-strip-types --test tests/strategyCatalogView.test.ts",

@@ -15,12 +15,14 @@ import {
 import { robustDomain } from '@/core/regimeDomain';
 
 import { getFiveMinuteSessionTimeline, safeTimeLabel } from '@/core/flowSeriesCharts';
+import { barIndexAt } from '@/core/hedgingFlowSeries';
 import ChartHoverReadout, { readoutSide, type ReadoutRow } from '@/components/ChartHoverReadout';
 import { sessionTimeTick } from '@/components/ChartGridlines';
 import {
   HEDGING_PHONE_LEFT_AXIS,
   HEDGING_PHONE_MARGIN,
   HEDGING_PHONE_RIGHT_AXIS,
+  syncByBarTime,
 } from '@/components/HedgingFlowChart';
 import { compactUsdTick, niceAxisAround, niceTicksWithin } from '@/components/phoneAxisFormat';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -141,7 +143,12 @@ export default function GammaRegimeChart({
     return axis ?? { domain: ['auto', 'auto'] as const, ticks: [] };
   }, [rows, domain, fullRange, isMobile]);
 
-  const hoverIndex = hoveredLabel ? rows.findIndex((r) => r.timestamp === hoveredLabel) : -1;
+  // Structure is 5-minute only. When the flow chart above is on 1-minute
+  // bars, its 10:03 reads the 10:00 structure bar that contains it.
+  const hoverIndex = barIndexAt(
+    rows.map((r) => r.timestamp),
+    hoveredLabel,
+  );
   const hovered = hoverIndex >= 0 ? rows[hoverIndex] : null;
   const readoutRows: ReadoutRow[] = hovered
     ? [
@@ -182,13 +189,15 @@ export default function GammaRegimeChart({
       <ResponsiveContainer width="100%" height={height}>
       {/*
         Margins must match HedgingFlowChart's exactly, and both axes must carry
-        the same width. Recharts aligns synced charts by index, not by pixel —
+        the same width. The sync picks each chart's bar by time
+        (syncByBarTime), but each crosshair is drawn at its own chart's bar,
         so a mismatched gutter slides one plot relative to the other and the
-        crosshair lands on a bar the reader is not looking at.
+        two crosshairs stop lining up.
       */}
       <ComposedChart
         data={rows}
         syncId={syncId}
+        syncMethod={syncByBarTime}
         margin={isMobile ? HEDGING_PHONE_MARGIN : { top: 8, right: 8, bottom: 4, left: 8 }}
         onMouseMove={(state: { activeLabel?: string | number }) =>
           setHovered(state?.activeLabel != null ? String(state.activeLabel) : null)

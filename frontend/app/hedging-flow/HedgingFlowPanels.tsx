@@ -22,7 +22,7 @@ import {
   type GammaRegimeSeriesPayload,
 } from '@/hooks/useGammaRegimeSeries';
 import type { GammaWeatherPayload } from '@/hooks/useGammaWeather';
-import { safeTimeLabel } from '@/core/flowSeriesCharts';
+import { safeTimeLabel, type FlowTimeframe } from '@/core/flowSeriesCharts';
 
 /**
  * Hedging Flow, rendered — the trade-based counterpart to every OI-derived
@@ -44,9 +44,15 @@ import { safeTimeLabel } from '@/core/flowSeriesCharts';
  *
  * The structure panel underneath is the other half of the same instrument.
  * Flow says how hard the tape is pushing; structure says whether the book
- * absorbs that push or amplifies it. They share a session window, a 5-minute
- * grid, a view toggle and a Recharts syncId, so hovering either crosshairs the
- * same bar on both — one timeline, not two pictures.
+ * absorbs that push or amplifies it. They share a session window, a view
+ * toggle and a Recharts syncId, so hovering either crosshairs the same moment
+ * on both — one timeline, not two pictures. Structure is 5-minute only; with
+ * the flow chart on 1-minute bars the crosshairs are matched by time, so a
+ * minute lands on the 5-minute structure bar that contains it.
+ *
+ * The live page can put the flow chart on 1-minute bars (`chartData`). The
+ * chart and the four cards follow it; Gamma Weather keeps reading `data`, the
+ * 5-minute series, because every rule in it is written for 5-minute bars.
  */
 
 // Recharts syncs tooltips across charts sharing this id, which is what makes
@@ -80,6 +86,17 @@ export interface HedgingFlowPanelsProps {
   regimeLoading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  /**
+   * The series at the bar size the reader picked, for the flow chart and the
+   * cards. Null while it loads, and then they keep showing `data`, so the
+   * panel does not blank out on every switch.
+   */
+  chartData?: HedgingFlowPayload | null;
+  /** The picked bar size failed to load; `data` stands in until it does. */
+  chartError?: string | null;
+  /** The bar size picked. With `onTimeframeChange`, the chart offers 5 min / 1 min. */
+  timeframe?: FlowTimeframe;
+  onTimeframeChange?: (timeframe: FlowTimeframe) => void;
 }
 
 export default function HedgingFlowPanels({
@@ -95,6 +112,10 @@ export default function HedgingFlowPanels({
   regimeLoading = false,
   error = null,
   onRetry,
+  chartData = null,
+  chartError = null,
+  timeframe,
+  onTimeframeChange,
 }: HedgingFlowPanelsProps) {
   // One toggle drives both panels. Two that could disagree would let a reader
   // compare a 30-minute flow rate against a since-the-open structure change
@@ -105,8 +126,10 @@ export default function HedgingFlowPanels({
   // blank while its cursor line tracked along.
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const latest = latestRealBar(data);
-  const flip = latestRateFlip(data);
+  // The cards follow the chart, so Last flip names a flip the chart can show.
+  const shown = chartData ?? data;
+  const latest = latestRealBar(shown);
+  const flip = latestRateFlip(shown);
   const regimeBar = latestRegimeBar(regime);
   const read = regimeLabel(
     mode === 'rate' ? regimeBar?.rolling_stability : regimeBar?.anchored_stability,
@@ -201,16 +224,25 @@ export default function HedgingFlowPanels({
             </p>
           )}
 
+          {chartError && (
+            <p className="mt-6 text-sm italic" style={{ color: 'var(--text-secondary)' }}>
+              1-minute bars did not load ({chartError}). The chart shows 5-minute bars until they
+              do.
+            </p>
+          )}
+
           <PanelSurface className="mt-6">
             {/* The stack shares one time axis, on the structure panel below. */}
             <HedgingFlowChart
-              payload={data}
+              payload={chartData ?? data}
               mode={mode}
               onModeChange={setMode}
               syncId={SYNC_ID}
               hideTimeAxis
               hoveredLabel={hovered}
               onHoverChange={setHovered}
+              timeframe={timeframe}
+              onTimeframeChange={onTimeframeChange}
             />
 
             <div className="mt-5 border-t pt-5" style={{ borderColor: 'var(--border-default)' }}>

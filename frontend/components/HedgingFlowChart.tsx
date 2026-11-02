@@ -13,9 +13,11 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  type MouseHandlerDataParam,
 } from 'recharts';
 
-import { getFiveMinuteSessionTimeline, safeTimeLabel } from '@/core/flowSeriesCharts';
+import { FLOW_TIMEFRAME_LABELS, safeTimeLabel, type FlowTimeframe } from '@/core/flowSeriesCharts';
+import { barIndexAt, hedgingFlowBarMinutes, hedgingFlowTimeline } from '@/core/hedgingFlowSeries';
 import ChartHoverReadout, { readoutSide, type ReadoutRow } from '@/components/ChartHoverReadout';
 import { sessionTimeTick } from '@/components/ChartGridlines';
 import {
@@ -46,8 +48,9 @@ import type {
  *   "reverses" are visible at all; the cumulative curve is an integral and
  *   moves too slowly to show a turn.
  *
- * Price rides the right axis in both, on the same 5-minute grid the Options
- * Flow chart uses, so the panels stack into one synchronized timeline.
+ * Price rides the right axis in both, on the same grid the Options Flow chart
+ * uses at the payload's bar size (5-minute, or 1-minute with `timeframe:
+ * '1min'`), so the panels stack into one synchronized timeline.
  *
  * Flip markers are drawn on the rate view only. On the cumulative view they
  * would sit at points where the cumulative line is doing nothing visible,
@@ -75,15 +78,35 @@ const USD = (value: number): string => {
 };
 
 /**
- * Phone geometry for the stacked flow + structure pair. Recharts aligns synced
- * charts by index, not pixel, so GammaRegimeChart must use these same margins
- * and axis widths or its crosshair lands on a different bar. On a phone the
- * desktop gutters (62px + 56px of axes plus margins) left the plot ~190px of a
- * 310px card; these give it ~230.
+ * Phone geometry for the stacked flow + structure pair. The two crosshairs are
+ * synced by time (syncByBarTime) but each is drawn at its own chart's bar, so
+ * GammaRegimeChart must use these same margins and axis widths or its
+ * crosshair sits off this one's. On a phone the desktop gutters (62px + 56px
+ * of axes plus margins) left the plot ~190px of a 310px card; these give it
+ * ~230.
  */
 export const HEDGING_PHONE_MARGIN = { top: 8, right: 0, bottom: 4, left: 0 };
 export const HEDGING_PHONE_LEFT_AXIS = 46;
 export const HEDGING_PHONE_RIGHT_AXIS = 40;
+
+/**
+ * Recharts `syncMethod` for the Hedging Flow stack: activate the bar that
+ * contains the time the other chart is hovering. With both charts on 5-minute
+ * bars that is the same bar matching by position gave. With this chart on
+ * 1-minute bars and the structure chart on 5-minute ones it is what keeps a
+ * 10:03 crosshair on the 10:00 structure bar, where matching by position
+ * would jump to whichever 5-minute bar sits at the same index, hours later.
+ */
+export function syncByBarTime(
+  ticks: ReadonlyArray<{ value: unknown }>,
+  data: Pick<MouseHandlerDataParam, 'activeLabel'>,
+): number {
+  const label = data.activeLabel == null ? null : String(data.activeLabel);
+  return barIndexAt(
+    ticks.map((t) => String(t.value)),
+    label,
+  );
+}
 
 /**
  * Lay bars onto the full session grid so the x-axis matches every other chart
@@ -91,9 +114,9 @@ export const HEDGING_PHONE_RIGHT_AXIS = 40;
  * yet stay null rather than zero — a zero would draw a flat line through the
  * afternoon that looks like measured "no pressure".
  */
-function alignToTimeline(bars: HedgingFlowBar[], mode: ViewMode): ChartRow[] {
+function alignToTimeline(bars: HedgingFlowBar[], mode: ViewMode, barMinutes: number): ChartRow[] {
   const dateKey = bars.length > 0 ? etDateKeyFor(bars[bars.length - 1].timestamp) : etTodayDateKey();
-  const timeline = getFiveMinuteSessionTimeline(dateKey || etTodayDateKey());
+  const timeline = hedgingFlowTimeline(dateKey || etTodayDateKey(), barMinutes);
   const byTs = new Map(bars.map((b) => [b.timestamp, b]));
 
   return timeline.map((timestamp) => {
@@ -163,6 +186,13 @@ export interface HedgingFlowChartProps {
    */
   hoveredLabel?: string | null;
   onHoverChange?: (label: string | null) => void;
+  /**
+   * The bar size the page asked for. Passing `onTimeframeChange` shows the
+   * 5 min / 1 min buttons; the chart itself always draws the bar size the
+   * payload reports, so a request still in flight cannot mislabel a bar.
+   */
+  timeframe?: FlowTimeframe;
+  onTimeframeChange?: (timeframe: FlowTimeframe) => void;
 }
 
 export default function HedgingFlowChart({
@@ -174,6 +204,8 @@ export default function HedgingFlowChart({
   hideTimeAxis = false,
   hoveredLabel: controlledHover,
   onHoverChange,
+  timeframe,
+  onTimeframeChange,
 }: HedgingFlowChartProps) {
   const [uncontrolledHover, setUncontrolledHover] = useState<string | null>(null);
   const hoveredLabel = controlledHover !== undefined ? controlledHover : uncontrolledHover;
@@ -187,7 +219,11 @@ export default function HedgingFlowChart({
   // readout the tap just opened; a leave straight after a touch is ignored.
   const lastTouchAtRef = useRef(0);
 
-  const rows = useMemo(() => alignToTimeline(payload.bars, mode), [payload.bars, mode]);
+  const barMinutes = hedgingFlowBarMinutes(payload);
+  const rows = useMemo(
+    () => alignToTimeline(payload.bars, mode, barMinutes),
+    [payload.bars, mode, barMinutes],
+  );
 
   // Same 3% padding convention as getUnderlyingDomain, computed locally: that
   // helper takes a FlowTimeseriesRow, and fabricating six unrelated null
@@ -254,7 +290,13 @@ export default function HedgingFlowChart({
 
   const latestFlip = flipMarkers.length > 0 ? flipMarkers[flipMarkers.length - 1] : null;
 
-  const hoverIndex = hoveredLabel ? rows.findIndex((r) => r.timestamp === hoveredLabel) : -1;
+  // The bar containing the hovered time, not an exact match: the structure
+  // chart under this one hovers in 5-minute bars, and on 1-minute bars its
+  // 10:00 has to land on this chart's 10:00 minute (see syncByBarTime).
+  const hoverIndex = barIndexAt(
+    rows.map((r) => r.timestamp),
+    hoveredLabel,
+  );
   const hovered = hoverIndex >= 0 ? rows[hoverIndex] : null;
   const readoutRows: ReadoutRow[] = hovered
     ? (mode === 'cumulative'
@@ -287,7 +329,7 @@ export default function HedgingFlowChart({
     <div className="space-y-3">
       {!compact && (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {(['rate', 'cumulative'] as const).map((m) => (
               <button
                 key={m}
@@ -303,6 +345,30 @@ export default function HedgingFlowChart({
                 {m === 'rate' ? 'Pressure rate' : 'Session cumulative'}
               </button>
             ))}
+
+            {onTimeframeChange && (
+              <div role="group" aria-label="Bar size" className="flex items-center gap-2 sm:ml-2">
+                {(['5min', '1min'] as const).map((tf) => {
+                  const active = (timeframe ?? (barMinutes === 1 ? '1min' : '5min')) === tf;
+                  return (
+                    <button
+                      key={tf}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => onTimeframeChange(tf)}
+                      className="rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors max-sm:min-h-8"
+                      style={{
+                        borderColor: active ? 'var(--color-info)' : 'var(--color-border)',
+                        backgroundColor: active ? 'var(--color-info-soft)' : 'transparent',
+                        color: active ? 'var(--color-info)' : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      {FLOW_TIMEFRAME_LABELS[tf]}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {mode === 'rate' && (
@@ -340,6 +406,7 @@ export default function HedgingFlowChart({
         <ComposedChart
           data={rows}
           syncId={syncId}
+          syncMethod={syncByBarTime}
           margin={isMobile ? HEDGING_PHONE_MARGIN : { top: 8, right: 8, bottom: 4, left: 8 }}
           onMouseMove={(state: { activeLabel?: string | number }) =>
             setHovered(state?.activeLabel != null ? String(state.activeLabel) : null)

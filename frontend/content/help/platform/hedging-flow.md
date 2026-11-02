@@ -20,7 +20,7 @@ For every option print in the session, the net customer position change is conve
 
 `(buy − sell) × delta × 100 × spot`
 
-Accumulated across the session, in 5-minute bars. Every figure on the page is USD of *stock*, positive for buying - the same sign convention and units the Forced Flow engine uses, so the modeled and estimated sources can sit on one axis without conversion.
+Accumulated across the session, in 5-minute bars, or 1-minute bars with the **1 min** button above the chart. Every figure on the page is USD of *stock*, positive for buying - the same sign convention and units the Forced Flow engine uses, so the modeled and estimated sources can sit on one axis without conversion.
 
 > **This is an estimate, and it rests on an assumption that is under test rather than established.** Classifying a print as customer-initiated says which side crossed the spread; it does not prove who was on the passive side. This series assumes the passive side of each classified print was a market maker. Public option data cannot confirm that, so nothing here is observed dealer flow - it is what dealer hedging would look like *if* that assumption holds. The page carries the same caveat under its chart, authored server-side.
 
@@ -41,6 +41,8 @@ One quantity, two views, because a single line cannot answer both questions.
 How much pressure is being created **right now**, bar by bar, with a trailing average over it.
 
 This is the view where "accelerating" and "reversing" are visible at all. The trailing average is null until its window fills, so the line starts a few bars into the session rather than being back-filled with a guess.
+
+The trailing average covers the last 15 minutes on either bar size: 3 five-minute bars, or 15 one-minute bars. On 1-minute bars each bar holds one minute of pressure, so the bars are about a fifth as tall, and a turn in the average shows up to four minutes sooner. The session totals are the same on both.
 
 ### Session cumulative
 
@@ -69,7 +71,9 @@ Flip markers are drawn on the rate view only. On the cumulative curve they would
 
 The panel below the flow chart is the other half of the same instrument.
 
-**Flow says how hard the tape is pushing. Structure says whether the book absorbs that push or amplifies it.** They share a session window, a 5-minute grid, one view toggle, and a synchronized crosshair - hover either chart and the same bar highlights on both. That is what makes them one instrument rather than two stacked pictures.
+**Flow says how hard the tape is pushing. Structure says whether the book absorbs that push or amplifies it.** They share a session window, one view toggle, and a synchronized crosshair - hover either chart and the same moment highlights on both. That is what makes them one instrument rather than two stacked pictures.
+
+Structure is measured in 5-minute bars. With the flow chart on 1-minute bars, hovering a minute highlights the 5-minute structure bar that contains it.
 
 Two lines, because collapsing them would lose the distinction that matters:
 
