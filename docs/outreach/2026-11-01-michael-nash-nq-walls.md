@@ -153,7 +153,8 @@ His reply:
 
 > Very interesting and thanks for the detail! Im running on ninjatrader.
 
-> **Status:** drafted 2026-11-01, not sent.
+> **Status:** sent 2026-11-01 at 7:50 PM, lightly edited. He replied at 9:06 PM; see
+> "Follow-up: his TradingView indicator, and Aurelius" below.
 
 ### The read
 
@@ -175,10 +176,13 @@ His reply:
   terms that apply that day. Nothing changes until he confirms
   (`frontend/app/pricing/Client.tsx`). The promo ended Oct 1, so list prices
   apply.
-- **No supported way to give him Pro free before the window.** `comp-member`
-  is for members whose subscription already ended. `extend-trial` moves the
-  whole trial, so the two days move later with it. The draft doesn't
-  hand-edit his tier, and you shouldn't need to.
+- **No supported way to give him Pro free before the window, short of a
+  comp.** (Corrected Nov 1: this first said `comp-member` was only for ended
+  subscriptions. It isn't: it permanently comps a member onto Pro and cancels
+  a live subscription first. That's more than a trial needs.) `extend-trial`
+  moves the whole trial, so the two days move later with it. The draft
+  doesn't hand-edit his tier, and you shouldn't need to. The partner route in
+  the next follow-up is the better fit.
 - **MNQ gotcha.** The page says to set *Symbol* to match the chart. On an MNQ
   chart he might type MNQ, which isn't one of our symbols. The setting
   defaults to AUTO, which maps an MNQ chart to NQ (`ChartSymbol()` in
@@ -240,9 +244,10 @@ zerogex.io
 
 ### If he replies
 
-- **"Can I try Pro free before Wednesday?"** Not through anything built. If
-  you want to give him more room, `make extend-trial` adds days, but the free
-  Pro switch moves to the new last two days with it.
+- **"Can I try Pro free before Wednesday?"** Not on the trial. If you want
+  to give him more room, `make extend-trial` adds days, but the free Pro
+  switch moves to the new last two days with it. The partner grant in the
+  next follow-up is the way to give him Pro now.
 - **The indicator shows an error or no lines.** Ask for a screenshot of the
   info panel (top right). Usual causes: Symbol typed as MNQ (set it to AUTO or
   NQ), the API key pasted with a missing character, or an older copy of the
@@ -254,3 +259,170 @@ zerogex.io
 - **He switched today and changes his mind.** The guarantee covers a full
   refund within 7 days of that payment, one per customer, and access ends when
   it's refunded.
+
+## Follow-up: his TradingView indicator, and Aurelius (Sun Nov 1, 9:06 PM)
+
+He sent a screenshot of a live NQ chart on TradingView (price about 28,727)
+with another provider's GEX indicator on it, and wrote:
+
+> Im trying to understand all of this. This is an indicator im looking at on
+> my trading view chart that's currently live and has a put wall from Friday
+> at 28709. The levels you were referring to aren't anywhere in site of this
+> area. Am I missing something?...I really like your level of service and can
+> throw a lot of people your way if I can figure out how to make this
+> fruitful. My site is tradeaurelius.com where I have a lot of traders I
+> teach. Gex levels are new for me but I LOVE them as it's almost like
+> cheating 😃
+
+> **Status:** drafted 2026-11-01, not sent.
+
+### The read
+
+- **The indicator isn't ours.** Our TradingView script doesn't update itself
+  and labels its lines Call Wall, Put Wall, Gamma Flip and Max Pain
+  (`frontend/public/tradingview/zerogex-daily-gamma-levels.pine`). His is
+  live and labels lines P1, P2, P5, Ab1, Ab2, NPGE and PC. Its "P1" at 28,709
+  is what he calls the put wall. We can't see how it's built, so the draft
+  doesn't guess at why it lands there.
+- **Why ours are far from price.** By default our walls use every expiration:
+  the strikes with the heaviest gamma-weighted open interest on each side of
+  spot (`frontend/content/methodology.md`). Friday's NQ put wall was 27,638
+  (NDX 27,500), 906 points under Friday's close. Sunday night the free page
+  had NQ at 28,786 with the put wall at 27,635 and the call wall at 29,821,
+  about 1,150 points below and 1,035 above.
+- **The closer comparison is our 0DTE view.** The Gamma Terminal's Expiry
+  filter and the NinjaTrader indicator's Expiration setting both redraw the
+  walls and flip from today's expiration alone
+  (`frontend/content/help/platform/gamma-terminal.md`, "The Expiry filter").
+  NDX has a same-day expiration every weekday (the models assume one,
+  `frontend/core/symbols.ts`), and about 76% of its open interest is same-day
+  (`2026-09-28-sulby-nq-gamma-flip.md`). On 0DTE the
+  flip often reads "NO FLIP IN SELECTED EXPIRIES"; that's expected, and the
+  help article explains it.
+- **Who he is.** He founded Aurelius Trading Systems (tradeaurelius.com). It
+  sells "Michael's Daily Levels", daily NQ zones delivered through his own
+  NinjaTrader indicator ($495 a month with a code, $995 standard); "Marcus
+  Aurelius", semi-automated NinjaTrader trading software ($495 to $995 a
+  week); and a 90-day private one-on-one program. Everything he sells runs on
+  NinjaTrader Desktop. So he teaches, but he also sells levels, and his
+  clients already pay $495 or more a month for them.
+- **The partner program fits, with one boundary.** The standard offer
+  (`docs/creator-partner-outreach.md`) is 90 days of free Pro, then a link and
+  code once it's landing: 25% off the first year for his traders, 30%
+  commission for 12 months for him. He raised referrals himself, so the draft
+  names the arrangement but leaves the numbers for later. The boundary: our
+  terms license the data for personal or internal business use and bar
+  redistributing it without written permission
+  (`frontend/app/terms/Client.i18n.ts`). "Make this fruitful" could mean
+  putting our levels inside his paid indicator. The draft says his traders
+  would each get their own account, which sets that expectation without
+  accusing him. His API key is his alone and revoking it cuts it off at once
+  (`docs/ninjatrader-indicator.md`).
+- **His trial has to be canceled before the grant.** `grant-partner-pro` gives
+  Pro with no subscription and doesn't touch Stripe. Left running, the trial
+  charges $39 on Nov 6, and that subscription sync resets him to Basic. The
+  cancel has to land first, too: the subscription-deleted webhook sets the
+  tier to public, so a grant made before it arrives gets wiped
+  (`frontend/scripts/comp-member.mts` header). Win-back and reactivation
+  emails skip creator partners (`frontend/core/excludedAccounts.ts`), so the
+  cancel won't send him one.
+
+### Before sending
+
+1. **Decide on the partner offer (fourth and fifth paragraphs).** It commits
+   you to 90 days of free Pro for someone who also sells NQ levels. The upside
+   is an audience already paying $495 a month and up for levels. The downside
+   is capped: the per-trader line in the draft, the terms, and a key you can
+   revoke. If you'd rather talk first, cut those two paragraphs down to the
+   call invitation.
+
+### Draft
+
+**Subject:** Re: The latest SPX levels, in plain English
+
+Hi Michael,
+
+You're not missing anything. That indicator isn't ours, and it's built differently, so the two sets of levels won't line up.
+
+Our walls come from the whole NDX options book, every expiration. The put wall is the strike below price with the most put gamma across all of it. On Friday that was 27,500 on NDX, which is 27,638 on NQ, about 900 points below where NQ closed. So ours are the big structural levels, and right now they're a long way from price.
+
+I can't see how your TradingView indicator calculates its levels, so I can't tell you exactly why it has a put wall at 28,709. But which expirations a tool counts, and how it defines a wall, can move a level by hundreds of points. If yours is built for intraday levels, the closer comparison is our 0DTE view: in the Gamma Terminal, set Expiry to 0DTE and the walls and flip are drawn from today's expiration alone, which usually puts them much closer to price. The NinjaTrader indicator has the same setting (Expiration: 0DTE).
+
+Thank you for the kind words, and I'd like that. I had a look at Aurelius, and since everything you build runs on NinjaTrader, our indicator would sit right alongside your tools. We have a partner program for educators: I'll give you Pro free for 90 days, NinjaTrader indicator included, so you can judge it properly. If it earns a place with your traders, they'd each get their own account at a discount, and you'd earn a commission on them.
+
+If that sounds good, just say so and I'll switch your account over and cancel your trial, so you won't be charged anything. I'd also be glad to do a quick call and walk you through it with NQ on screen. Send me a couple of times that work.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+
+### If he says yes
+
+Run these from `~/zerogex-web`, in this order. Nothing has been charged on
+his trial, so there's nothing to refund.
+
+1. Cancel the trial. Dry run first; `FORCE=1` is required for a trialing
+   subscription.
+
+   ```bash
+   make cancel-subscription EMAIL=thisjustclicks@gmail.com FORCE=1 DRY_RUN=1
+   ```
+
+   ```bash
+   make cancel-subscription EMAIL=thisjustclicks@gmail.com FORCE=1 YES=1
+   ```
+
+2. Wait for the webhook. Run this until the recent events list a
+   `stripe_subscription_deleted` row, usually within a minute:
+
+   ```bash
+   make diagnose-user EMAIL=thisjustclicks@gmail.com
+   ```
+
+3. Grant partner Pro. `AURELIUS25` is the code his traders would type later;
+   change it if you prefer another.
+
+   ```bash
+   make grant-partner-pro EMAIL=thisjustclicks@gmail.com PROMO_CODE=AURELIUS25 DRY_RUN=1
+   ```
+
+   ```bash
+   make grant-partner-pro EMAIL=thisjustclicks@gmail.com PROMO_CODE=AURELIUS25 YES=1
+   ```
+
+4. Send the activation note below, with the expiry date the grant printed.
+
+**Activation note** (from stage 5 of the partner playbook, no affiliate
+details yet):
+
+Hi Michael,
+
+Done. Your trial is canceled, so nothing will be charged, and 90 days of Pro is live through [EXPIRY DATE].
+
+To get it on your chart:
+
+1. Generate your API key under Account → API Access. It's shown once, so copy it somewhere safe.
+2. Follow the steps at https://zerogex.io/ninjatrader-indicator to add the indicator.
+3. On an MNQ chart, leave Symbol on AUTO. For intraday levels, set Expiration to 0DTE.
+
+Use it however you normally trade, and tell me what adds signal and what feels like noise. And I'm still happy to do that call whenever suits you.
+
+Best,
+
+Michael
+
+### If he replies
+
+- **He asks for the partner numbers.** 25% off the first year on any plan for
+  his traders, 30% recurring commission on each conversion's first 12 months,
+  and an FTC disclosure ("affiliate link" or "#ad") whenever he mentions it
+  (`docs/creator-partner-outreach.md`, stage 7).
+- **He wants our levels inside his own indicator or software.** That's
+  redistribution, which the terms allow only with written permission. It's a
+  data-licensing deal, with its own price, and better settled on a call than
+  over email.
+- **He sends another side-by-side.** Ask which Expiry setting he had on. Ours
+  on All against an intraday tool will always look far apart.
