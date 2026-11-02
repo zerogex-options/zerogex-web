@@ -284,12 +284,35 @@ with another provider's GEX indicator on it, and wrote:
   live and labels lines P1, P2, P5, Ab1, Ab2, NPGE and PC. Its "P1" at 28,709
   is what he calls the put wall. We can't see how it's built, so the draft
   doesn't guess at why it lands there.
-- **Why ours are far from price.** By default our walls use every expiration:
-  the strikes with the heaviest gamma-weighted open interest on each side of
-  spot (`frontend/content/methodology.md`). Friday's NQ put wall was 27,638
-  (NDX 27,500), 906 points under Friday's close. Sunday night the free page
-  had NQ at 28,786 with the put wall at 27,635 and the call wall at 29,821,
-  about 1,150 points below and 1,035 above.
+- **How our walls are actually picked** (revised after your 11:39 PM NQ
+  screenshot). The base rule is the strike with the most put (or call) gamma
+  on its side of price, across every expiration. The backend then holds it
+  steady on purpose (zerogex-oa `src/analytics/walls.py`):
+  - Price is split on a sticky "wall anchor" that only moves when price
+    breaks decisively away.
+  - The walls are re-picked every 15 minutes or on a breakout.
+  - The current wall keeps its place unless a rival is about a third bigger.
+
+  So "the biggest put strike below price" isn't literally true minute to
+  minute, and the first version of this draft said it was. The public replay
+  (`/replay/NQ/2026-10-30`) shows the NQ put wall at 28,146 (NDX 28,000) from
+  9:30 to 3:50 PM Friday, then 27,644 (NDX 27,500) from 3:51 PM. Sunday night
+  NQ was about 28,790, with the put wall at 27,635 and the call wall at
+  29,821, roughly 1,000 points or more away on each side.
+- **The red bars near price in your screenshot are mostly expired options.**
+  Overnight and over the weekend, the strike panel keeps drawing the last
+  snapshot (Friday 3:59 PM), including contracts that expired at the 4 PM
+  close.
+  - In that frame, 96% of the put gamma between NQ 28,450 and 28,750 was
+    Friday-expiring.
+  - Its biggest bar, NQ 28,508 (NDX 28,360), rested on 34 contracts of open
+    interest, all expiring that day. That's the gamma spike options get in
+    their last minutes.
+  - The put wall strike was 0% Friday-expiring and 93% in the longest-dated
+    bucket, which is why it's still standing.
+
+  The bars should be gone once the book refreshes with Monday's open interest
+  at the 9:30 open. Don't point him at them as support.
 - **The closer comparison is our 0DTE view.** The Gamma Terminal's Expiry
   filter and the NinjaTrader indicator's Expiration setting both redraw the
   walls and flip from today's expiration alone
@@ -335,7 +358,9 @@ with another provider's GEX indicator on it, and wrote:
    is an audience already paying $495 a month and up for levels. The downside
    is capped: the per-trader line in the draft, the terms, and a key you can
    revoke. If you'd rather talk first, cut those two paragraphs down to the
-   call invitation.
+   call invitation. (Revised Nov 1 night: they're now the fifth and sixth.)
+2. **Send before Monday's 9:30 AM ET open, or cut the third paragraph.** It
+   describes the weekend strike panel, which refreshes at the open.
 
 ### Draft
 
@@ -345,9 +370,11 @@ Hi Michael,
 
 You're not missing anything. That indicator isn't ours, and it's built differently, so the two sets of levels won't line up.
 
-Our walls come from the whole NDX options book, every expiration. The put wall is the strike below price with the most put gamma across all of it. On Friday that was 27,500 on NDX, which is 27,638 on NQ, about 900 points below where NQ closed. So ours are the big structural levels, and right now they're a long way from price.
+Our put wall is the biggest put strike below price, and it's held steady on purpose, so it doesn't jump around on small moves. At Friday's close that was 27,500 on NDX, which is 27,638 on NQ, about 900 points below where NQ closed. It rests mostly on longer-dated options, so it's still in place now.
 
-I can't see how your TradingView indicator calculates its levels, so I can't tell you exactly why it has a put wall at 28,709. But which expirations a tool counts, and how it defines a wall, can move a level by hundreds of points. If yours is built for intraday levels, the closer comparison is our 0DTE view: during the session, set Expiry to 0DTE in the Gamma Terminal and the walls and flip are drawn from today's expiration alone, which usually puts them much closer to price. The NinjaTrader indicator has the same setting (Expiration: 0DTE).
+If you open the strike panel beside our chart before the open, you'll also see big put bars between about 28,450 and 28,700. Nearly all of that was options that expired at Friday's close. An option's gamma spikes in its last minutes, and the panel keeps showing Friday's final snapshot until the book refreshes at the 9:30 open, so those bars will mostly be gone then.
+
+I can't see how your TradingView indicator calculates its levels, so I can't say exactly why it has a put wall at 28,709. Tools differ in which expirations they count and how they define a wall. If yours is built for intraday levels, compare it with our 0DTE view: during the session, set Expiry to 0DTE in the Gamma Terminal (or Expiration to 0DTE in the NinjaTrader indicator), and the walls and flip come from today's expiration alone.
 
 Thank you for the kind words, and I'd like that. I had a look at Aurelius, and since everything you build runs on NinjaTrader, our indicator would sit right alongside your tools. We have a partner program for educators: I'll give you Pro free for 90 days, NinjaTrader indicator included, so you can judge it properly. If it earns a place with your traders, they'd each get their own account at a discount, and you'd earn a commission on them.
 
@@ -427,3 +454,8 @@ Michael
   over email.
 - **He sends another side-by-side.** Ask which Expiry setting he had on. Ours
   on All against an intraday tool will always look far apart.
+- **"Why isn't your put wall at the biggest red bar?"** During the session the
+  wall is re-checked every 15 minutes, splits on a sticky copy of price, and
+  only hands over to a strike about a third bigger
+  (zerogex-oa `src/analytics/walls.py`), so a bar can briefly outgrow it.
+  Overnight the bars can be options that already expired (see the read).
