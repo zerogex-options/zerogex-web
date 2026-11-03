@@ -142,7 +142,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'max-pain-explained': [
     {
       q: 'What is max pain?',
-      a: 'Max pain is the strike where the largest dollar amount of options would expire worthless\u00a0- the price that causes the most aggregate loss to option buyers. It is often cited as a potential price magnet into expiration.',
+      a: 'Max pain is the hypothetical settlement price with the smallest total payout to option holders\u00a0- the price that causes the most aggregate loss to option buyers. It is often cited as a potential price magnet into expiration.',
     },
     {
       q: 'Does max pain actually move price?',

@@ -750,8 +750,8 @@ function SymbolCard({
           value={fmtPrice(data?.max_pain)}
           hint={
             rolledExpiry
-              ? `${rolledExpiry}: the strike where the most contracts expire worthless`
-              : 'Strike where the most contracts expire worthless'
+              ? `${rolledExpiry}: the settlement price with the smallest total payout to option holders`
+              : 'Settlement price with the smallest total payout to option holders'
           }
         />
         <LevelRow
@@ -1310,7 +1310,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             <div className="zg-panel" style={{ padding: 22 }}>
               <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 800 }}>Max pain</h3>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, color: 'var(--color-text-secondary)' }}>
-                The strike that maximizes the dollar value of options expiring worthless. Useful as an
+                The hypothetical settlement price with the smallest total payout to option holders. Useful as an
                 expiration-day magnet, but the real mechanism most days is the gamma pin around max pain, not
                 writer-payout arithmetic.
               </p>

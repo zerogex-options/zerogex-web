@@ -75,6 +75,8 @@ make search-console-report PAGE=/spx-gamma-levels QUERY="net gex" SPLIT=2026-10-
 - If the "after" average position for those queries is better than 11 (page one), leave the title alone: the page change did the work.
 - If it is still 11 or worse, change the template title in `frontend/app/spx-gamma-levels/gammaLevels.tsx` to `${primary} Gamma Levels Today (Free): Net GEX, Gamma Flip & Walls` (58 characters for SPX). It applies to all six ticker pages. Then run the same command 28 days later with `SPLIT=<the day it shipped>`, and put the old title back if CTR for those queries fell.
 
+**Page change inside this window.** Shipped November 3, 2026 (`claude/max-pain-definition`): the template's max pain wording now matches the max pain article ("Settlement price with the smallest total payout to option holders") in the card hint, the "How to read these levels" paragraph and the levels table, which `/education/spx-net-gamma-exposure-today` also shows. The title, H1, description and net GEX copy did not change, so it should not move the net GEX queries; it is recorded here so the November 10 reading can account for it.
+
 Skipped on purpose: a separate `/spx-net-gex` page (same intent as `/spx-gamma-levels`), a "gamma calculator" page (the calculator is a paid tool), a VIX gamma page (no VIX options coverage), and any page per keyword variant.
 
 ## 4. Measurement

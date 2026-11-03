@@ -156,3 +156,43 @@ test('the FAQ does not make one blanket feed claim across every data class', () 
   assert.match(faqs, /not carried on OPRA|licensed separately|not all one tape/i);
   assert.match(faqs, /(end-of-session figure from clearing|published by the clearinghouse)/i);
 });
+
+// ── Max pain is the smallest payout, not the most options expiring worthless ──
+
+// content/articles/max-pain-explained.md defines max pain as the settlement
+// price that minimizes the total intrinsic-value payout to option holders, and
+// says that is not the same as maximizing the options that expire worthless.
+// The free levels pages and the article's own FAQ answer used the worthless
+// version anyway. The pattern is that version; the article itself is left out
+// because its disclaimer has to name it.
+const WORTHLESS_MAX_PAIN = /\b(most|largest|maximi[sz]\w*)\b[^.!?\n]{0,60}\bexpir\w*\s+worthless\b/i;
+
+const MAX_PAIN_SURFACES: Array<[string, string]> = [
+  ['levels page template', '../app/spx-gamma-levels/gammaLevels.tsx'],
+  ['levels table', '../components/DelayedLevelsTable.tsx'],
+  ['article FAQ answers', '../core/articleFaq.ts'],
+];
+
+test('the max pain article keeps its payout definition and its disclaimer', () => {
+  const article = read('../content/articles/max-pain-explained.md');
+  assert.match(article, /hypothetical settlement price that minimizes the aggregate intrinsic-value payout/);
+  assert.match(article, /not mathematically identical to maximizing the notional of options expiring worthless/);
+});
+
+for (const [label, rel] of MAX_PAIN_SURFACES) {
+  test(`${label}: max pain is not defined by options expiring worthless`, () => {
+    const hit = read(rel).match(WORTHLESS_MAX_PAIN);
+    assert.equal(hit, null, `${label} (${rel}): ${JSON.stringify(hit?.[0] ?? '')}`);
+  });
+}
+
+test('the max pain pattern still catches the definitions it was written for', () => {
+  for (const sentence of [
+    'Strike where the most contracts expire worthless',
+    'Strike where the most option value expires worthless',
+    'The strike that maximizes the dollar value of options expiring worthless.',
+    'Max pain is the strike where the largest dollar amount of options would expire worthless',
+  ]) {
+    assert.match(sentence, WORTHLESS_MAX_PAIN, sentence);
+  }
+});
