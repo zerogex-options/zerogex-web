@@ -93,6 +93,10 @@ export interface HeatmapColumnInput {
   /** Expirations the API left out of these rows because they expired at the
    *  close (ISO dates; core/expiredAtClose). Empty / absent during the session. */
   expiredExcluded?: readonly string[] | null;
+  /** What the rows weight each strike's gamma by (core/ladderBasis). Absent /
+   *  "oi" is the open-interest book; "volume" is the session's traded volume,
+   *  same units, which only relabels the value column and the crown. */
+  basis?: "oi" | "volume";
   loading: boolean;
   error: string | null;
   /** The symbol dropdown, injected by the page so the ladder stays presentational. */
@@ -592,7 +596,16 @@ function HeatmapColumn({
           under the ladder, not squeezed in here. */}
       <div className="flex items-center justify-between px-2 py-1 uppercase tracking-wider whitespace-nowrap" style={{ fontSize: 9 * s, color: "var(--text-muted)" }}>
         <span>Strike</span>
-        <span>Net GEX ({unitLabel})</span>
+        {input.basis === "volume" ? (
+          <span
+            style={{ color: "var(--color-flip)" }}
+            title="Volume basis: each strike's gamma weighted by the contracts traded this session instead of open interest (calls +, puts −). Shows where today's gamma is trading; it can't tell opening trades from closing ones. The regime and levels above stay on the open-interest book."
+          >
+            Γ × Vol ({unitLabel})
+          </span>
+        ) : (
+          <span>Net GEX ({unitLabel})</span>
+        )}
       </div>
       {input.positioningAsOf && fmtAsOfEt(input.positioningAsOf) && (
         // The tip had no positioning (options closed); these rows are the newest
@@ -717,7 +730,12 @@ function HeatmapColumn({
                         {isPeak && (
                           // King node — the heaviest dealer gamma in view. Crown
                           // in currentColor so it stays readable on any cell tint.
-                          <Crown size={12 * s} strokeWidth={2.25} aria-label="King node&nbsp;- heaviest dealer gamma" style={{ color: "currentColor", flex: "0 0 auto" }} />
+                          <Crown
+                            size={12 * s}
+                            strokeWidth={2.25}
+                            aria-label={input.basis === "volume" ? "Heaviest gamma traded this session" : "King node - heaviest dealer gamma"}
+                            style={{ color: "currentColor", flex: "0 0 auto" }}
+                          />
                         )}
                         {baseline &&
                           (() => {

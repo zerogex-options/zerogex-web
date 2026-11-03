@@ -32,6 +32,7 @@ import { useStrikeProfileTimeseries } from "./useStrikeProfileTimeseries";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { bucketAtOrNearest, latestBookBucket, rewoundChangePercent } from "@/core/strikeHistory";
 import { expiredExcludedDates } from "@/core/expiredAtClose";
+import { volumeGammaUrl, volumeLadderCells, type LadderBasis, type VolumeGammaResponse } from "@/core/ladderBasis";
 
 /** Everything a ladder column renders except the header control, which the
  *  surface injects (a symbol dropdown on Pair Comparison, a plain label in a
@@ -147,8 +148,16 @@ export interface GammaLadderOptions {
    * symbol (useChartExpirations) so a foreign date can't leak into the param.
    */
   expirations?: readonly string[];
-  /** Fetch + expose the Δ-since-open baseline (the session-delta triangles). */
+  /** Fetch + expose the Δ-since-open baseline (the session-delta triangles).
+   *  Open-interest basis only: there is no volume baseline to compare with. */
   sessionDelta?: boolean;
+  /**
+   * What the rows weight each strike's gamma by (core/ladderBasis): open
+   * interest (default) or the session's traded volume. Only the rows change;
+   * spot, regime and levels stay on the open-interest book. Live only — a
+   * rewinding column shows the open-interest book whatever this says.
+   */
+  basis?: LadderBasis;
   /**
    * Replay clock (ms) while the surface is rewinding, null / omitted when
    * live. Set, the column shows the book as of that moment — the strike
@@ -207,11 +216,29 @@ export function useGammaLadderColumn(
   );
   const liveBucket = rewinding ? rewindBucket : (tipBucket ?? historyBucket);
 
+  // Volume basis: the rows weight each strike's gamma by the session's traded
+  // volume instead of open interest, for the same expiration selection. A
+  // separate small read (one row per strike, cached server-side for the
+  // analytics cycle like the tip); the tip above still runs because the
+  // filtered levels and the after-close note come from it. Live only — there
+  // is no volume history to rewind through.
+  const volumeMode = options?.basis === "volume" && !rewinding;
+  const {
+    data: volumeData,
+    loading: volumeLoading,
+    error: volumeError,
+  } = useApiData<VolumeGammaResponse>(volumeMode ? volumeGammaUrl(symbol, expParam) : "", {
+    refreshInterval: TIP_REFRESH_MS,
+    enabled: enabled && volumeMode,
+  });
+
   // Session-open anchor: the ET session the ladder's own data belongs to, so
   // a weekend view baselines against Friday's open, not an empty Saturday.
+  // The baseline is open-interest gamma, so the volume rows get no triangles.
+  const sessionDeltaOn = !!options?.sessionDelta && !volumeMode;
   const openIso = useMemo(
-    () => (options?.sessionDelta ? sessionOpenIsoFor(liveBucket?.timestamp) : null),
-    [options?.sessionDelta, liveBucket?.timestamp],
+    () => (sessionDeltaOn ? sessionOpenIsoFor(liveBucket?.timestamp) : null),
+    [sessionDeltaOn, liveBucket?.timestamp],
   );
   const { data: baselineFrame } = useApiData<BaselineFrame>(
     openIso ? baselineUrl(symbol, openIso) : "",
@@ -247,6 +274,7 @@ export function useGammaLadderColumn(
       return {
         symbol,
         cells: bucketCells(bucket),
+        basis: "oi" as const,
         positioningAsOf: bucket?.timestamp ?? null,
         positioningKind: "rewind" as const,
         expiredExcluded: expiredExcludedDates(bucket),
@@ -273,12 +301,20 @@ export function useGammaLadderColumn(
       resolvePriceSession(quote?.session ?? null, closes ?? null, quote?.timestamp ?? null),
       closes ?? null,
     );
+    // Set only when the open-interest rows come from the reach-back (no live
+    // positioning: options closed), so the column can say the book is as of
+    // that bucket rather than live. The volume rows are dated the same way,
+    // by their own snapshot.
+    const reachedBack = tipBucket == null && historyBucket != null;
     return {
       symbol,
-      cells: bucketCells(liveBucket),
-      // Set only when the rows come from the reach-back, so the column can
-      // say the book is as of that bucket rather than live.
-      positioningAsOf: tipBucket == null && historyBucket ? historyBucket.timestamp : null,
+      cells: volumeMode ? volumeLadderCells(volumeData) : bucketCells(liveBucket),
+      basis: volumeMode ? ("volume" as const) : ("oi" as const),
+      positioningAsOf: !reachedBack
+        ? null
+        : volumeMode && volumeData?.timestamp
+          ? volumeData.timestamp
+          : historyBucket.timestamp,
       positioningKind: "reachback" as const,
       // After the close the newest bucket is the closing book without the
       // contracts that expired at the bell; the column says so.
@@ -295,8 +331,9 @@ export function useGammaLadderColumn(
       changePercent: change.changePercent,
       isPositive: change.isPositive,
       sessionBaseline,
-      loading,
-      error,
+      // The rows are what loads or fails; in volume mode they are the volume read.
+      loading: volumeMode ? volumeLoading : loading,
+      error: volumeMode ? volumeError : error,
     };
-  }, [symbol, tipBucket, historyBucket, liveBucket, rewinding, rewindBucket, historyLoading, summary, quote, closes, filtered, sessionBaseline, loading, error]);
+  }, [symbol, tipBucket, historyBucket, liveBucket, rewinding, rewindBucket, historyLoading, summary, quote, closes, filtered, sessionBaseline, loading, error, volumeMode, volumeData, volumeLoading, volumeError]);
 }

@@ -139,6 +139,7 @@
     "test:daily-bars": "node --experimental-strip-types --test tests/dailyBars.test.ts",
     "test:strike-filter": "node --experimental-strip-types --test tests/strikeFilter.test.ts",
     "test:session-delta": "node --experimental-strip-types --test tests/sessionDelta.test.ts",
+    "test:ladder-basis": "node --experimental-strip-types --test tests/ladderBasis.test.ts",
     "test:regime-shift": "node --experimental-strip-types --test tests/regimeShift.test.ts",
     "test:pin-strike": "node --experimental-strip-types --test tests/pinStrike.test.ts",
     "test:key-levels": "node --experimental-strip-types --test tests/keyLevels.test.ts",
