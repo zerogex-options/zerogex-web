@@ -141,22 +141,25 @@ From the public Daily Replay pages (`/replay/SPX/2026-11-03`,
   itself calculated as gamma × volume (0DTE, sometimes 1DTE), next to an open
   interest ladder for context. He trades ES and NQ and cross-checks SPY and QQQ.
 - **Why the flip felt stuck.** It's slow on purpose, and the methodology page
-  says so: the nearest three expirations near price, each contract weighted
-  `min(1, DTE / 5 days)` "so a same-day 0DTE concentration cannot dominate a
-  multi-day regime read", and open interest that's fixed for the session. A
-  multi-day level is the wrong tool for the intraday shift he wanted.
+  says so: each contract weighted `min(1, DTE / 5 days)` "so a same-day 0DTE
+  concentration cannot dominate a multi-day regime read", and open interest
+  that's fixed for the session. A multi-day level is the wrong tool for the
+  intraday shift he wanted. **Correction:** the draft below, as sent, says the
+  flip uses only the three nearest expirations. It doesn't; see the third
+  reply.
 - **His 90 DTE level can't be reproduced here, and loading more isn't a quick
   fix.** The September chain-depth sweep (zerogex-oa
   `docs/compliance/market-data-feed-comparison-findings-2026-09.md`) found
   that past three expirations the flip moved beyond the 8% range the resolver
-  accepts and stopped resolving.
+  accepts and stopped resolving. (That sweep describes a three-expiration
+  production; Nov 3's data shows production now loads more.)
 - **The take matches the site.** Volume is more reactive and the only way to
   see same-day positions; it can't show opening vs closing or who was on which
   side. Same line as the Best GEX Tools article.
 - **Left out of the draft:** the "Raw nearest" flip on GEX Summary (a third
   flip to explain, and it likely read short gamma today too) and the Term
-  Structure chart (it re-weights the same three expirations; it is not a
-  long-dated flip). Both are under "If he replies".
+  Structure chart (its horizons re-weight the chain we load; they don't add
+  expirations). Both are under "If he replies".
 
 ### Decide before sending: commit to the volume ladder or not
 
@@ -209,11 +212,134 @@ Your description also makes the request much clearer: gamma × volume on the lad
   weighting, the convention most dashboards publish.
   https://zerogex.io/greeks-gex. Don't promise it would have shown a shift
   today.
-- **"Why not load 90 days?"** In September's test, adding expirations past
-  three moved the flip further from price, mostly beyond the 8% range the
-  model accepts, so it stopped resolving. Longer-dated open interest sits at
-  round strikes far from price.
-- **He reads the Term Structure chart on GEX Summary as a 60-day flip.** It
-  isn't one. It re-weights the same three expirations and adds no longer-dated
-  options. Say so plainly.
+- **"Why not load 90 days?"** Check what production loads first (the third
+  reply's "Verify first"). In September's test, adding expirations moved the
+  flip further from price, often beyond the 8% range the model accepts.
+  Longer-dated open interest sits at round strikes far from price.
+- **He reads the Term Structure chart on GEX Summary as a 60-day flip.** Its
+  horizons re-weight the chain we load; they don't add expirations. How far
+  that chain reaches is the third reply's "Verify first" check.
 - **He asks when.** Only if you've committed, and no dates.
+
+## Third reply: thanks, the volume ladder, and the creator program (2026-11-03)
+
+### Thread since
+
+3. **Outbound, Nov 3.** The second draft above, sent.
+4. **Inbound, 17:57.** His words:
+
+> Thank you very much Michael; I truly appreciate your efforts. I was aware
+> that the Cboe Open-Close Volume Summary could be used to identify and
+> resolve precisely these kinds of issues. Then there's the other challenge:
+> the cost of this data, which is quite high. In any case, we are a small
+> community of about 100 traders, and I will do my part to promote your work
+> and support you. Have a great day—see you soon, Paolo.
+
+5. **Michael:** build the volume ladder, and offer him the creator program.
+
+### The read
+
+- **He gave the positive signal the playbook waits for** (an offer to promote
+  ZeroGEX to about 100 traders). Pitch the creator program once, no follow-up.
+- **Current terms** (since Oct 15; audience coupon `Yg3BPJPx`): his audience
+  gets 25% off their first year on any plan; he earns 30% of what they pay for
+  12 months from their first paid invoice; paid monthly, by hand; no posting
+  requirement; posts labeled "affiliate link" or "#ad". There is no written
+  terms document, so the email states the terms itself instead of promising
+  "the full terms in writing".
+- **He already pays for Pro.** Partners normally get 90 days of free Pro, but
+  for a paying member that means ending his subscription first. Left out of
+  the draft; the optional line below adds it if you decide to.
+- **The volume ladder is built,** on zerogex-oa `claude/clever-cerf-p44y3l`
+  (the API) and zerogex-web `claude/volume-gamma-ladder` (the toggle). The
+  draft says it's built and gives no date. If it's live before you send,
+  change the last sentence of that paragraph to "It's live now."
+- **Cboe Open-Close:** he's right that it answers opening vs closing. We don't
+  buy it, and the research harness has never run on real data. The draft says
+  we don't use it today and promises nothing, the same line as Gabriela's note.
+- **The correction.** The second reply said the flip "uses only the three
+  nearest expirations". Nov 3's replay data shows the book carried at least
+  seven: Nov 3, 4, 5, 6, 9 and 10, plus later dates that held about half the
+  put gamma at some strikes. The repo docs and the methodology page say three,
+  so production's setting has moved past them. One line owns it in the draft.
+  The methodology page's "currently the three nearest expirations" needs the
+  same fix once the number is confirmed; that can wait.
+
+### Verify first
+
+- **How many expirations production loads.** On the EC2 box:
+
+  ```bash
+  grep -E '^INGEST_(EXPIRATIONS|MONTHLY_EXPIRATIONS)=' ~/zerogex-oa/.env
+  ```
+
+  Anything above 3, or monthlies above 0, confirms the correction as written.
+  If it shows 3 and 0 (or nothing), send the correction anyway (the data shows
+  more than three), but tell me: something else is adding expirations to the
+  book.
+
+### Draft
+
+**Subject:** Re: Info on Zerogex
+
+Hi Paolo,
+
+Thank you for the kind words, and for offering to tell your community about ZeroGEX. That means a lot to me.
+
+Good news on the volume ladder: I've decided to add it. The ladders will get a switch between open interest and volume, with each strike's gamma weighted by the contracts traded today, and it works with the 0DTE expiry filter. It's built, and I'll write to you as soon as it's live.
+
+You're right that Cboe's Open-Close data is what answers the opening-versus-closing question. It isn't something we use today.
+
+One correction to my last email: I said our flip uses only the three nearest expirations. It uses more than that; I was going by an outdated note. The weighting point stands: same-day options count for less, so the flip moves slowly by design.
+
+Since you mentioned your community, I'd like to invite you to our creator program. You'd get your own link and code. Anyone who signs up through it gets 25% off their first year on any plan, and you earn 30% of what they pay for their first 12 months, paid monthly. There's no commitment and nothing you have to post. If you share the link publicly, just say it's an affiliate link. Would you like me to set it up?
+
+Best,
+Michael
+Founder, ZeroGEX
+
+**Optional, only if you'll comp his subscription:** after "You'd get your own
+link and code.", add:
+
+Your own Pro would also be free for the first 90 days.
+
+### If he says yes
+
+From `docs/creator-partner-outreach.md` and `frontend/scripts/grant-partner-pro.mts`:
+
+1. **No registration needed.** He's a member; confirm the account:
+
+   ```bash
+   sudo sqlite3 -readonly /var/lib/zerogex/auth.db "SELECT id, email, tier, subscription_status, email_verified_at FROM users WHERE email = 'p.bianchi248@gmail.com';"
+   ```
+
+2. **Ask him for** a name for his code (letters and digits, 4 to 32
+   characters, starting with a letter; the house pattern is the community's
+   name, or a brand plus 25) and how he'd like to be paid ("What's the best way
+   to send yours?").
+3. **Decide on free Pro.** The grant script gives partners Pro until the grant
+   expires. To give him that, end his subscription first with
+   `make comp-member EMAIL=p.bianchi248@gmail.com` (add `REFUND=1` to refund),
+   then wait until `make diagnose-user EMAIL=p.bianchi248@gmail.com` shows
+   `stripe_subscription_deleted`. Per the playbook, skipping this lets Stripe's
+   subscription-deleted event wipe the grant later.
+4. **Dry run, then for real:**
+
+   ```bash
+   cd ~/zerogex-web && make grant-partner-pro EMAIL=p.bianchi248@gmail.com PROMO_CODE=<CODE> DRY_RUN=1
+   ```
+
+   It must end with `ensure exists on Yg3BPJPx`; stop if it says `21OUViRs`.
+   Then run the same command with `YES=1` in place of `DRY_RUN=1`.
+5. **Send him** `https://zerogex.io/register?ref=<CODE>` and the code. Tell him
+   to lead with the link (a typed code fails if another discount is already
+   applied), and to label posts "affiliate link" or "#ad". The playbook's
+   commission-examples image goes in this email, captioned as illustrative.
+
+### If he replies otherwise
+
+- **He asks for written terms.** There's no terms document. The terms are the
+  ones in this email; restate them rather than promising a document.
+- **He asks about buying Cboe Open-Close data.** No promises, no dates.
+- **He asks when the volume ladder is live.** No date until it's deployed.
+  Then write to him: he's waiting for it.
