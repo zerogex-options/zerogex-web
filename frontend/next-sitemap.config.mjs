@@ -230,6 +230,16 @@ const config = {
     '/robots.txt',
     // The dated-receipt sitemap is its own route handler; robots.ts lists it.
     '/sitemap-dated.xml',
+    // The RSS feed (app/feed.xml/route.ts) is a feed, not a page. Rendered
+    // per request, so not auto-discovered today; listed for the same
+    // defensive reason as /mcp.
+    '/feed.xml',
+    // The app/ icon files `make logo` writes. next-sitemap reads them as
+    // static routes and listed /icon.png and /apple-icon.png as pages in the
+    // live sitemap (seen 2026-11-03). They are images, not search results.
+    '/icon.png',
+    '/apple-icon.png',
+    '/favicon.ico',
     '/*/opengraph-image',
     '/*/*/opengraph-image',
   ],
