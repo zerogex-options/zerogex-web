@@ -25,6 +25,7 @@ import TwitterPixelProvider from '@/components/TwitterPixelProvider';
 import SiteJsonLd from '@/components/SiteJsonLd';
 import { OG_IMAGE_PATH, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from '@/core/ogImageManifest';
 import { SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
+import { FEED_PATH, FEED_TITLE } from '@/core/rssFeed';
 
 // Only the three faces the default "ZeroGEX OG" palette paints with (Inter,
 // JetBrains Mono, Space Grotesk) are preloaded. next/font/local preloads every
@@ -231,6 +232,21 @@ export const metadata: Metadata = {
   // prefer -- and an un-hashed URL never changes, so a re-exported favicon
   // keeps resolving to whatever the browser already cached.
   metadataBase: new URL('https://zerogex.io'),
+  // Lets Google show a large image for any page that does not say otherwise.
+  // Without a max-image-preview directive Google falls back to its default
+  // (standard) preview, and Discover gives a non-AMP page a large-image card
+  // only when the page allows `max-image-preview:large`; small thumbnails draw
+  // far fewer clicks. max-snippet:-1 and max-video-preview:-1 are Google's
+  // defaults, stated so nothing narrows them by accident. No index or follow
+  // key: this changes how a page may be previewed, never whether it is
+  // indexed. A page that sets its own `robots` (the noindex utility and
+  // permalink pages) replaces this object whole, since Next merges metadata
+  // per top-level key, and keeps exactly the directives it sets today.
+  robots: {
+    'max-image-preview': 'large',
+    'max-snippet': -1,
+    'max-video-preview': -1,
+  },
   // No title, description or url in openGraph and twitter, on purpose. Next
   // merges metadata per top-level key, so a page that exports only its own
   // title and description inherits these two objects WHOLE, and every such
@@ -305,6 +321,17 @@ export default async function RootLayout({
       <head>
         {/* Site-wide Organization + WebSite structured data (brand entity). */}
         <SiteJsonLd />
+        {/* Feed autodiscovery (core/rssFeed.ts), on every page so a feed
+            reader or blog directory pointed at any URL finds it. Written here
+            rather than as metadata `alternates.types`: Next merges metadata
+            per top-level key, so every page that sets its own canonical
+            (nearly all of them) would replace `alternates` and drop the link. */}
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title={FEED_TITLE}
+          href={`https://zerogex.io${FEED_PATH}`}
+        />
       </head>
       <body style={{ margin: 0, padding: 0 }}>
         <ThemeProvider
