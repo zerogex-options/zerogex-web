@@ -8,9 +8,10 @@ replying to the Nov 2 cancellation email ("Sorry to see you go - mind sharing
 why?"). He liked the trial, trades the Nasdaq, and asks whether the 25% coupon
 is still available so he can sign up for Pro.
 
-> **Status:** not applied, reply not sent. No hard deadline, but do it before he
-> goes to the pricing page on his own: checkout there charges him the full $59
-> on the spot.
+> **Status:** applied Tue Nov 3 at 12:07 AM ET (all four commands ran clean;
+> the last line read `Next charge (after all discounts): 44.25 USD.`). Reply
+> not sent yet. Best sent today, so it reaches him before the automatic
+> trial-end reminder that goes out around midnight tonight.
 
 ## His account (`make diagnose-user`, Nov 3)
 
@@ -24,6 +25,7 @@ is still available so he can sign up for Pro.
 | Paid | Nothing, ever (a $0 trial invoice only) |
 | Card | Visa ending 8983, exp 5/2028, still attached |
 | Stripe | `cus_VVqP1SkYZnY2ot`, old sub `sub_1UUpMy4AOiqteMYYBxsQXSSh` (ended) |
+| Now | Pro monthly, trialing, `sub_1UXZwV4AOiqteMYYLkg0THCe`, with `winback-25pct-1yr-monthly`. Trial ends **Fri Nov 6 at 12:07 AM ET**; first charge $44.25 |
 
 ## The read
 
@@ -36,17 +38,18 @@ is still available so he can sign up for Pro.
   puts him on Pro monthly on the Visa already on file, starting with a short
   free trial. `honor-winback-discount` then adds 25% off for 12 months. That is
   the same coupon his cancellation email offered (`winback-25pct-1yr-monthly`).
-- **He pays $44.25 a month for 12 months, then $59.** The first charge is Fri
-  Nov 6 and the last discounted one is in October 2027.
+- **He pays $44.25 a month for 12 months, then $59.** The trial ends at 12:07
+  AM ET on Fri Nov 6 and Stripe bills about an hour later. The last discounted
+  charge is in October 2027.
 - **Three free days, not two.** The tool won't go under two. About 48 hours
   before a trial ends, the automatic reminder emails him the exact upcoming
   charge. With three days it goes out a day after the discount is on, so it
   says $44.25. With two it could go out within hours and say $59.
 - **What he gets automatically:** the "Welcome back to ZeroGEX!" email as soon
   as step 2 runs (generic, says his access is restored), and the trial-end
-  reminder around Wednesday or Thursday, quoting $44.25 on the Visa ending 8983.
+  reminder around midnight on Tue Nov 3, quoting $44.25 on the Visa ending 8983.
 
-## Commands
+## Commands (done Nov 3)
 
 In `~/zerogex-web` on the server, in this order.
 
@@ -96,9 +99,9 @@ In `~/zerogex-web` on the server, in this order.
 
 ## Draft reply
 
-Reply in the same thread. Written for running the commands on Tue Nov 3. If
-you run them on a later day, move "Friday, November 6" by the same number of
-days (step 2 prints the trial end in UTC; ET is 5 hours earlier).
+Reply in the same thread. The trial ends at 12:07 AM ET on Friday, so the
+draft says "free through Thursday" and "cancel by Thursday evening". By Friday
+morning he has already been charged.
 
 Hi Alexander,
 
@@ -106,9 +109,9 @@ Thank you, that's really good to hear, and I'm glad ZeroGEX has been useful for 
 
 The 25% link in my email only worked while your trial was running, so I've set it up for you by hand, on Pro.
 
-Pro is already on your account, and it's free until Friday, November 6. After that it's $44.25 a month instead of $59 for the next 12 months, on your Visa ending in 8983, and then the regular $59.
+Pro is already on your account, and it's free through Thursday, November 5. After that it's $44.25 a month instead of $59 for the next 12 months, on your Visa ending in 8983, and then the regular $59.
 
-There's nothing you need to do: no checkout and no card to enter. Just log in and the Pro pages are open. If you change your mind, cancel from your Account page before Friday and you won't be charged anything.
+There's nothing you need to do: no checkout and no card to enter. Just log in and the Pro pages are open. If you change your mind, cancel from your Account page by Thursday evening and you won't be charged anything.
 
 Pro adds Trade Bias and the Composite Score, all eight Advanced Signals, backtesting and pattern insights, and API access. If you chart the Nasdaq in NinjaTrader or Sierra Chart, Pro's indicators draw the levels right on your chart.
 
@@ -122,4 +125,4 @@ Founder, ZeroGEX
 
 - **The Nov 6 charge isn't under the money-back guarantee.** Trial conversions
   never are; the free days are his window to cancel. The Account page won't
-  offer him a refund, so if he asks for one after Friday, it's your call.
+  offer him a refund, so if he asks for one after the charge, it's your call.
