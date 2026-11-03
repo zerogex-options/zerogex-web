@@ -222,6 +222,10 @@ test('response codes: accepted, our mistake (email), already seen (no email), or
   assert.equal(classifyResponse(202).kind, 'ok');
   assert.equal(classifyResponse(400).kind, 'config');
   assert.equal(classifyResponse(403).kind, 'config');
+  // The key file was read before sending, so a 403 points at the engines'
+  // fetch of it (Cloudflare), not at a missing file.
+  assert.match(classifyResponse(403).meaning, /This server can read https:\/\/zerogex\.io\/[a-z0-9]+\.txt/);
+  assert.match(classifyResponse(403).meaning, /Cloudflare \(Security > Events/);
   assert.equal(classifyResponse(422).kind, 'rejected');
   assert.deepEqual([classifyResponse(429).kind, classifyResponse(429).retryNow], ['transient', false]);
   assert.deepEqual([classifyResponse(503).kind, classifyResponse(503).retryNow], ['transient', true]);

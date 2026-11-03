@@ -41,6 +41,8 @@ The September and October work (`2026-09-04-search-console-review.md`, `2026-10-
 
 **When it emails you.** Only when something on our side needs fixing: the key file is not live, or the endpoint says the request or key is invalid. A busy endpoint, or a 422 "already seen", is logged and tried again (or skipped) on the next run, with no email.
 
+**If it emails about a 403.** The job reads the key file itself before sending, so a 403 means a search engine could not read it, which on this site means Cloudflare turned that engine's crawler away. Look in Cloudflare under Security > Events, filtered to the path `/3c7b20a675c020ed1044107b6397cec2.txt`. The first run, on Nov 3, got exactly this while Cloudflare still blocked Amazonbot (Amazon is an IndexNow engine) and was accepted once Training was set to Allow.
+
 ### 3. Qualify for Google Discover's large cards
 
 **Why it brings traffic.** Discover is the article feed in the Google app and on Android's home screen. For a page that is not AMP, Google shows the large-image card only when the page allows `max-image-preview:large`; otherwise it can show at most a small thumbnail, which draws far fewer clicks. The same directive lets Google use larger thumbnails in ordinary results.

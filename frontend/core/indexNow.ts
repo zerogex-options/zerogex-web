@@ -288,7 +288,13 @@ export function buildPayload(urls: string[]): IndexNowPayload {
  * `ok` (200, 202): sent; remember it.
  * `config` (400, 403): our side is wrong and stays wrong until fixed (a
  *   malformed request, or a key the engine could not verify against the key
- *   file), so the unit fails and its alert email goes out.
+ *   file), so the unit fails and its alert email goes out. The script reads
+ *   the key file itself before it sends, so a 403 means a search engine's own
+ *   fetch of the file failed, not that the file is missing. On this site that
+ *   has meant Cloudflare turning a crawler away: the first run, on Nov 3, got
+ *   a 403 while Cloudflare still blocked Amazonbot (an IndexNow engine) at the
+ *   edge, and was accepted once Training was set to Allow. The message says
+ *   where to look.
  * `rejected` (422): the documentation gives "URLs not on the host, or a key
  *   that does not match"; the FAQ also gives "the same URL submitted
  *   repeatedly without changes". The job checks the key file and the host
@@ -310,7 +316,11 @@ export function classifyResponse(status: number): {
     case 400:
       return { kind: 'config', retryNow: false, meaning: 'bad request (invalid format)' };
     case 403:
-      return { kind: 'config', retryNow: false, meaning: `key not valid: is ${INDEXNOW_KEY_URL} live and serving the key?` };
+      return {
+        kind: 'config',
+        retryNow: false,
+        meaning: `key not valid. This server can read ${INDEXNOW_KEY_URL}, so a search engine's own fetch of it failed: look in Cloudflare (Security > Events, filtered to that path) for a crawler it blocked`,
+      };
     case 422:
       return { kind: 'rejected', retryNow: false, meaning: 'unprocessable: URLs already sent unchanged, or not this host' };
     case 429:
