@@ -96,3 +96,124 @@ Founder, ZeroGEX
 - **He asks whether Hedging Flow is real dealer flow.** It's an estimate. It
   assumes the passive side of every classified trade was a market maker, which
   public data can't confirm. The page says so under its chart; say the same.
+
+## Second reply: his setup, today's flip, and the volume ladder (2026-11-03)
+
+### Thread since
+
+1. **Outbound, Nov 3.** The first draft above, sent as written. He is on Pro
+   (Michael checked).
+2. **Inbound, 4:46 PM.** Through Google Translate, his words:
+
+> Open interest is certainly important—it's the foundation. I typically look
+> at it in a few ways: open interest at 90 DTE on the right side (give me the
+> possible contest) and Gamma x volume on the left side—usually 0 DTE, though I
+> also check 1 DTE (He tells me the moment with just a single glance.), than i
+> shift whit ETF SPY or QQQ for better analisys. For context, I'm an intraday
+> futures trader. The reason I'm bringing this up is that today I struggled to
+> quickly gauge a shift in market regime on the platform; the "zero-gamma"
+> level also remained very high (I usually calculate this using open interest
+> at 90 DTE). Also—I'm curious to hear your take—but in my view, the "net GEX"
+> (net gamma exposure) regime should be calculated using volume, as it's far
+> more reactive than open interest. You already have everything; you should
+> just need to add the volume-only calculations to your current ladder view.
+
+### What today actually showed
+
+From the public Daily Replay pages (`/replay/SPX/2026-11-03`,
+`/replay/NDX/2026-11-03`), every frame of the session:
+
+- **SPX** traded 7,545 to 7,595, a 50-point day. The flip sat between 7,697
+  and 7,721 all session, 108 to 165 points (1.4% to 2.2%) above price. Price
+  never crossed it. Call Wall 7,700, Put Wall 7,500.
+- **NDX**: the flip sat 4.4% to 6.3% above price all session, never crossed.
+- **Not a bug.** The flip moved all day with price, time and volatility.
+  Yesterday's flip change (zerogex-oa `299cdd4`) only touches contracts that
+  have already expired, after the close.
+- **The short-gamma read wasn't just the weighting.** The per-strike book,
+  which has no same-day weighting, summed to about −$4B to −$6B on SPX all
+  day. So a 0DTE-only or unweighted view would most likely have read short
+  gamma too. Don't promise him it would have shown a shift.
+
+### The read
+
+- **He answered the question from the first reply:** he wants the ladder
+  itself calculated as gamma × volume (0DTE, sometimes 1DTE), next to an open
+  interest ladder for context. He trades ES and NQ and cross-checks SPY and QQQ.
+- **Why the flip felt stuck.** It's slow on purpose, and the methodology page
+  says so: the nearest three expirations near price, each contract weighted
+  `min(1, DTE / 5 days)` "so a same-day 0DTE concentration cannot dominate a
+  multi-day regime read", and open interest that's fixed for the session. A
+  multi-day level is the wrong tool for the intraday shift he wanted.
+- **His 90 DTE level can't be reproduced here, and loading more isn't a quick
+  fix.** The September chain-depth sweep (zerogex-oa
+  `docs/compliance/market-data-feed-comparison-findings-2026-09.md`) found
+  that past three expirations the flip moved beyond the 8% range the resolver
+  accepts and stopped resolving.
+- **The take matches the site.** Volume is more reactive and the only way to
+  see same-day positions; it can't show opening vs closing or who was on which
+  side. Same line as the Best GEX Tools article.
+- **Left out of the draft:** the "Raw nearest" flip on GEX Summary (a third
+  flip to explain, and it likely read short gamma today too) and the Term
+  Structure chart (it re-weights the same three expirations; it is not a
+  long-dated flip). Both are under "If he replies".
+
+### Decide before sending: commit to the volume ladder or not
+
+The draft doesn't promise it. If you decide yes, swap in the paragraph after
+the draft.
+
+- **Quick version.** The API works out gamma × volume from what's already
+  stored per strike and expiration (gamma ÷ open interest × volume), and the
+  ladder gets a toggle. No database change, so an ordinary deploy. A strike
+  with no open interest drops out.
+- **Full version.** The engine calculates and stores it. Needs a database
+  change applied before the restart.
+- **Lean:** yes, the quick version, labeled as today's activity rather than a
+  regime. Nothing forces it this week.
+
+### Draft
+
+**Subject:** Re: Info on Zerogex
+
+Hi Paolo,
+
+No need to apologize for your English. It's clear, and it helps a lot to see how you actually work.
+
+I looked at today's session. On SPX, the book behind ES, the flip stayed between about 7,700 and 7,720 all day, 110 to 165 points above price. On NDX, the book behind NQ, it stayed 4 to 6% above price. So the platform read short gamma from the open to the close on both and never showed a shift. The number wasn't stuck: it moved through the day as price, time and volatility changed.
+
+That level moves slowly by design. It uses only the three nearest expirations, at the strikes near price. It gives same-day options less weight, so a 0DTE concentration can't decide the regime on its own. And it is built on open interest, which doesn't change during the session. It's meant as the regime for the next few days, not the next few hours, and since we don't load expirations 90 days out, it won't match the level you calculate.
+
+You asked for my take on volume. I agree it's far more reactive, and for 0DTE it's the only way to see positions opened today. Where I'm more careful is using it for the regime. Volume can't show whether a trade opened or closed a position, or who was on which side, so a net GEX built on volume can change sign after heavy trading even when dealer positioning hasn't changed. I'd use it the way you already do: as the moment, next to the open-interest context.
+
+Your description also makes the request much clearer: gamma × volume on the ladder, for 0DTE and 1DTE, next to the open-interest ladder. I'm weighing it now, and I'll write to you once I've decided.
+
+Until then, two things come closest to your 0DTE read:
+
+- On the Gamma Terminal, set Expiry to "0DTE · today's expiry". The ladders, the flip and the long/short reading then use only today's options. It's still open interest, and a same-day book often has no flip at all, but it shows where today's gamma sits. The setting is kept per browser tab, so you can keep one tab on 0DTE and another on all expirations. https://zerogex.io/chart
+- 0DTE Position Imbalance reads which way 0DTE traders are leaning from today's trading, and its timeline marks when the lean changes direction. https://zerogex.io/0dte-position-imbalance
+
+Best,
+Michael
+Founder, ZeroGEX
+
+**If you decide to build it, replace the "Your description also makes..."
+paragraph with:**
+
+Your description also makes the request much clearer: gamma × volume on the ladder, for 0DTE and 1DTE, next to the open-interest ladder. You're right that the data is already there, so I'm going to add it: a volume view on the ladder, with each strike's gamma multiplied by today's volume instead of open interest, that works with the 0DTE filter. I'll write to you when it's live.
+
+### If he replies
+
+- **He wants a flip closer to what other dashboards show.** GEX Summary shows
+  "Raw nearest" under the flip: the same open interest without the same-day
+  weighting, the convention most dashboards publish.
+  https://zerogex.io/greeks-gex. Don't promise it would have shown a shift
+  today.
+- **"Why not load 90 days?"** In September's test, adding expirations past
+  three moved the flip further from price, mostly beyond the 8% range the
+  model accepts, so it stopped resolving. Longer-dated open interest sits at
+  round strikes far from price.
+- **He reads the Term Structure chart on GEX Summary as a 60-day flip.** It
+  isn't one. It re-weights the same three expirations and adds no longer-dated
+  options. Say so plainly.
+- **He asks when.** Only if you've committed, and no dates.
