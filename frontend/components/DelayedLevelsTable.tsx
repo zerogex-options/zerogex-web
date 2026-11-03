@@ -57,7 +57,7 @@ export default function DelayedLevelsTable({ symbol, data, chainSymbol }: Props)
     {
       label: 'Max pain',
       value: fmtPrice(data.max_pain),
-      note: 'Strike where the most option value expires worthless',
+      note: 'Settlement price with the smallest total payout to option holders',
     },
   ];
   if (data.pin_strike != null) {

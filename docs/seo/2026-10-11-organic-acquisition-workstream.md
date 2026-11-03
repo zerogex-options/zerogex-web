@@ -74,6 +74,8 @@ make search-console-report PAGE=/spx-gamma-levels QUERY="net gex" SPLIT=2026-10-
 
 If the November 3 branch (`2026-11-03-traffic-levers.md`) is live by then, add `END=<the day before it shipped>` to that command. That branch lets Google show large image previews on every page, `/spx-gamma-levels` included, which can move CTR on its own; ending the window before it keeps this reading about the October 11 change alone.
 
+The max pain wording on the levels template changed in `claude/max-pain-definition`, shipped November 3, 2026: the card hint, the "How to read these levels" paragraph and the levels table (which `/education/spx-net-gamma-exposure-today` also shows) now say "Settlement price with the smallest total payout to option holders", matching the max pain article. The title, H1, description and net GEX copy did not change. That branch sits on top of the traffic-levers branch, so it ships with it or after it, and the same `END=` keeps it out of this reading.
+
 - If the "after" average position for those queries is better than 11 (page one), leave the title alone: the page change did the work.
 - If it is still 11 or worse, change the template title in `frontend/app/spx-gamma-levels/gammaLevels.tsx` to `${primary} Gamma Levels Today (Free): Net GEX, Gamma Flip & Walls` (58 characters for SPX). It applies to all six ticker pages. Then run the same command 28 days later with `SPLIT=<the day it shipped>`, and put the old title back if CTR for those queries fell.
 
