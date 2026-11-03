@@ -81,11 +81,12 @@ interface SymbolContent {
   intro: string;
 }
 
-// The one place a symbol's copy actually differs: the index/ETF it tracks, woven
-// into the intro's audience clause. Everything else (title, description, H1,
-// intro shape) is generated from a single template below so all three pages are
+// The main place a symbol's copy differs: the index/ETF it tracks, woven into
+// the intro's audience clause. Everything else (title, description, H1, intro
+// shape) is generated from a single template below so the pages are
 // byte-for-byte identical except the ticker — no drift, and each page stays
 // focused on its own symbol instead of cannibalizing its siblings' keywords.
+// The exception is SYMBOL_EXTRAS below: facts that are true of one symbol only.
 const SYMBOL_AUDIENCE: Record<Symbol, string> = {
   SPX: 'SPX and S&P 500 options traders',
   SPY: 'SPY and S&P 500 options traders',
@@ -107,6 +108,41 @@ export const SYMBOL_CHAIN: Record<Symbol, Symbol> = {
   NDX: 'NDX',
   ES: 'SPX',
   NQ: 'NDX',
+};
+
+// Copy that is true of one symbol only, for a page whose template copy left a
+// trader nothing they could not read on its sibling. Search Console had
+// /qqq-gamma-levels at position ~27 for "qqq gex" (backlog item 3 in
+// docs/seo/2026-10-11-organic-acquisition-workstream.md): the same page as SPY's
+// with the ticker swapped. What QQQ has that no other page says: what the
+// symbol is, that its levels come from its own chain rather than NDX's, and how
+// its walls actually behave, from the wall study the call-wall card already
+// cites (content/articles/how-often-do-gamma-walls-break.md, whose table these
+// figures quote). One sentence after the intro, and two FAQ answers right after
+// the net GEX answer, also in the FAQ markup. Only QQQ has an entry, so every
+// other page renders exactly as before (tests/qqqLevels.test.ts).
+interface SymbolExtras {
+  /** Appended to the intro, after the derivation note. Starts with a space. */
+  introNote: string;
+  /** Inserted after the net GEX answer. */
+  faq: { q: string; a: string }[];
+}
+
+const SYMBOL_EXTRAS: Partial<Record<Symbol, SymbolExtras>> = {
+  QQQ: {
+    introNote:
+      ' QQQ is the Invesco QQQ Trust, the ETF that tracks the Nasdaq-100, and these levels are computed from its own options chain, not from NDX.',
+    faq: [
+      {
+        q: 'How often do QQQ gamma walls break?',
+        a: 'More often than S&P walls. In ZeroGEX\'s study of 737 wall tests, a tested QQQ call or put wall broke within 15 minutes 12.3% of the time, within 30 minutes 30.0%, and within an hour 50.1%: close to a coin flip, against about 31% for SPY and SPX. NDX walls behaved the same as QQQ\'s, so the difference comes from the Nasdaq-100 itself rather than from QQQ\'s $1 strikes, and call walls and put walls broke at the same rate. Fading a QQQ wall is a different bet from fading an S&P wall, and it deserves different sizing.',
+      },
+      {
+        q: 'Are QQQ gamma levels the same as NDX and NQ levels?',
+        a: 'No. These levels come from the QQQ options chain. NDX levels come from the Nasdaq-100 index options, and NQ levels are the NDX levels converted to the futures price. All three follow the Nasdaq-100, so their walls and flips often sit in the same area once you allow for price scale (NDX trades at roughly 40 times QQQ), but each chain carries its own open interest, so a wall on one can sit at a different strike, or carry a different weight, on another. Compare them as a percentage distance from spot rather than in points.',
+      },
+    ],
+  },
 };
 
 /** Sentence disclosing the derivation, for symbols that have one. */
@@ -145,7 +181,7 @@ function buildSymbolContent(primary: Symbol): SymbolContent {
     // live description below falls back (API down, or no publishable flip).
     description: `Free daily ${primary} gamma levels: the ${primary} gamma flip, call wall, put wall, max pain and net dealer GEX, on a 15-minute delay. No signup required.`,
     h1: `${primary} Gamma Levels Today`,
-    intro: `Track today's ${primary} gamma levels\u00a0- the ${primary} gamma flip (zero gamma level), call wall, put wall, max pain, and net dealer gamma exposure (net GEX). These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}`,
+    intro: `Track today's ${primary} gamma levels\u00a0- the ${primary} gamma flip (zero gamma level), call wall, put wall, max pain, and net dealer gamma exposure (net GEX). These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}${SYMBOL_EXTRAS[primary]?.introNote ?? ''}`,
   };
 }
 
@@ -263,6 +299,8 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
       q: `What is ${primary}'s net gamma exposure (net GEX) right now?`,
       a: `Today's ${primary} net GEX\u00a0- the net dealer gamma across the ${SYMBOL_CHAIN[primary]} options chain, evaluated at spot and expressed as a signed dollar "gamma" figure\u00a0- is shown at the top of this page and refreshed on a roughly 15-minute delay. A positive value means ${primary} is trading above its gamma flip, where dealer hedging tends to suppress volatility; a negative value means it is below the flip, where hedging tends to amplify it. The price where net GEX crosses zero is the gamma flip, also called the zero-gamma level. Net GEX is a modeled estimate, not directly observed dealer inventory.`,
     },
+    // Symbol-specific answers (QQQ only today); empty for every other page.
+    ...(SYMBOL_EXTRAS[primary]?.faq ?? []),
     {
       q: 'What is the gamma flip?',
       a: 'The gamma flip is the price level where dealer positioning may shift from positive gamma to negative gamma, or vice versa. Above or below this level, market behavior can change from more stable and mean-reverting to more volatile and directional.',
