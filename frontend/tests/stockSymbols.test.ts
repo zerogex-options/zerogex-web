@@ -10,8 +10,10 @@
 //     listing, SPY for anything else — on both two-symbol pages;
 //   * a stock reads VIX / VXN as market context but never prices its own range
 //     from it, since its implied vol runs well above either index;
-//   * a stock is kept off the surfaces it has nothing for yet: the free
-//     levels product (no landing page), and the forecast / signal pickers
+//   * a stock gets a free levels page only when it is listed by name
+//     (LEVELS_PAGE_STOCKS: NVDA), and even then stays out of the daily
+//     levels email and the MCP overview, which carry every market-wide
+//     symbol to every reader; and it stays off the forecast / signal pickers
 //     (no model runs on it).
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,7 +22,9 @@ import {
   ETF_SYMBOLS,
   FUTURES_SYMBOLS,
   INDEX_SYMBOLS,
+  LEVELS_PAGE_STOCKS,
   LEVELS_PAGE_SYMBOLS,
+  MARKET_LEVELS_SYMBOLS,
   LIKE_PAIR,
   MODELED_SYMBOLS,
   SAME_INDEX_PAIR,
@@ -117,13 +121,20 @@ test('a stock reads its benchmark vol index but never prices a range from it', (
   assert.notEqual(buildReportModel({ ...inputs, symbol: 'QQQ' }).expectedRange, null);
 });
 
-test('a stock stays off the free levels product and the model pickers', () => {
+test('a stock gets a levels page only by name, and never the shared feeds or the models', () => {
   for (const s of STOCK_SYMBOLS) {
-    assert.ok(!(LEVELS_PAGE_SYMBOLS as readonly string[]).includes(s), `${s} has no levels page`);
+    const hasPage = (LEVELS_PAGE_STOCKS as readonly string[]).includes(s);
+    assert.equal((LEVELS_PAGE_SYMBOLS as readonly string[]).includes(s), hasPage, `${s}: levels page iff listed in LEVELS_PAGE_STOCKS`);
+    // The daily email carries every MARKET_LEVELS_SYMBOLS entry to every
+    // subscriber, and the MCP overview returns all of them: a stock page must
+    // not change either.
+    assert.ok(!(MARKET_LEVELS_SYMBOLS as readonly string[]).includes(s), `${s} is not in the email or the MCP overview`);
     assert.ok(!(MODELED_SYMBOLS as readonly string[]).includes(s), `${s} has no signal or forecast model`);
   }
+  assert.deepEqual([...LEVELS_PAGE_STOCKS], ['NVDA']);
   for (const s of SYMBOLS.filter((x) => !isStockSymbol(x))) {
     assert.ok((LEVELS_PAGE_SYMBOLS as readonly string[]).includes(s), `${s} keeps its levels page`);
+    assert.ok((MARKET_LEVELS_SYMBOLS as readonly string[]).includes(s), `${s} stays in the shared feeds`);
     assert.ok((MODELED_SYMBOLS as readonly string[]).includes(s), `${s} keeps its models`);
   }
 });

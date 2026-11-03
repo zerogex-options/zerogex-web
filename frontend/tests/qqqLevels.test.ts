@@ -16,14 +16,14 @@ const template = read('app/spx-gamma-levels/gammaLevels.tsx');
 const study = read('content/articles/how-often-do-gamma-walls-break.md');
 
 function extrasBlock(): string {
-  const start = template.indexOf('const SYMBOL_EXTRAS: Partial<Record<Symbol, SymbolExtras>> = {');
+  const start = template.indexOf('const SYMBOL_EXTRAS: Partial<Record<');
   assert.ok(start > 0, 'SYMBOL_EXTRAS not found');
   return template.slice(start, template.indexOf('\n};', start));
 }
 
-test('only QQQ has symbol-specific copy, so the other five pages render as before', () => {
+test('only QQQ and the NVDA page have symbol-specific copy, so the other five market pages render as before', () => {
   const keys = [...extrasBlock().matchAll(/^  ([A-Z]+): \{$/gm)].map((m) => m[1]);
-  assert.deepEqual(keys, ['QQQ']);
+  assert.deepEqual(keys, ['QQQ', 'NVDA']);
   // Both hooks fall back to nothing for a symbol without an entry.
   assert.match(template, /\$\{derivationNote\(primary\)\}\$\{SYMBOL_EXTRAS\[primary\]\?\.introNote \?\? ''\}`,/);
   assert.match(template, /\.\.\.\(SYMBOL_EXTRAS\[primary\]\?\.faq \?\? \[\]\),/);

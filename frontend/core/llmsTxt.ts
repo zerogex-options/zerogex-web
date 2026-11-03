@@ -36,12 +36,13 @@ import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gex
 // deciding what to cite should meet SPX first, since that is what the searches
 // this file exists to serve are about. Derived from LEVELS_PAGE_SYMBOLS rather
 // than rewritten, so a ticker that gets a levels page appears here without an
-// edit. Each row links to that page, so a symbol without one stays out.
+// edit; NVDA is named so it reads after the six. Each row links to that page,
+// so a symbol without one stays out.
 const DISPLAY_ORDER: readonly PickerSymbol[] = [
-  ...(['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const).filter((s) =>
+  ...(['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ', 'NVDA'] as const).filter((s) =>
     (LEVELS_PAGE_SYMBOLS as readonly string[]).includes(s),
   ),
-  ...LEVELS_PAGE_SYMBOLS.filter((s) => !['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'].includes(s)),
+  ...LEVELS_PAGE_SYMBOLS.filter((s) => !['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ', 'NVDA'].includes(s)),
 ];
 
 /** One row of the "today" table, or null when that symbol has no snapshot. */
@@ -60,8 +61,8 @@ export async function loadSnapshots(): Promise<Snapshot[]> {
 
 const HEADER = `# ZeroGEX
 
-> ZeroGEX is an options analytics platform that reads the SPX, SPY, QQQ, NDX, ES
-> and NQ option chains and estimates what dealers must hedge: gamma exposure
+> ZeroGEX is an options analytics platform that reads the SPX, SPY, QQQ, NDX,
+> ES, NQ and NVDA option chains and estimates what dealers must hedge: gamma exposure
 > (GEX), the gamma flip, call and put walls, max pain, and 0DTE dealer
 > positioning. Free 15-minute-delayed levels are published with no signup;
 > real-time data and intraday signals are on paid plans.

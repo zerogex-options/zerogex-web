@@ -6,6 +6,7 @@ import { ArrowRight, X } from 'lucide-react';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
+import { isStockSymbol } from '@/core/symbols';
 
 // Requirement #3 — a sticky bottom CTA bar that keeps the next action obvious
 // without being intrusive. It:
@@ -108,7 +109,7 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
           color: 'var(--color-text-primary)',
         }}
       >
-        Live SPX/SPY/QQQ/NDX gamma levels{' '}
+        Live {isStockSymbol(symbol) ? symbol : 'SPX/SPY/QQQ/NDX'} gamma levels{' '}
         <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>
           - delayed here, real-time inside ZeroGEX
         </span>

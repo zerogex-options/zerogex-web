@@ -28,7 +28,14 @@ import GammaTerminalChart from '@/components/GammaTerminalChart';
 import { loadChartSnapshot } from '@/app/chart/snapshot';
 import { futuresDelayNote } from '@/core/futuresDataStatus';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
-import { futuresLevelsLabel, isFuturesSymbol, volatilityIndexFor } from '@/core/symbols';
+import {
+  LEVELS_PAGE_STOCKS,
+  MODELED_SYMBOLS,
+  futuresLevelsLabel,
+  isFuturesSymbol,
+  isStockSymbol,
+  volatilityIndexFor,
+} from '@/core/symbols';
 import { resolveFuturesContract, symbolWithContract } from '@/core/futuresContract';
 import FuturesLevelsChip from '@/components/FuturesLevelsChip';
 import FuturesContractBadge from '@/components/FuturesContractBadge';
@@ -69,6 +76,14 @@ type Symbol = (typeof SYMBOLS)[number];
 export const GAMMA_LEVEL_SYMBOLS = SYMBOLS;
 export type GammaLevelSymbol = Symbol;
 
+// The stocks with a page of their own (core/symbols.ts LEVELS_PAGE_STOCKS:
+// NVDA). A stock page leads with its own card and then carries the six above,
+// so it links into the cluster; no market page carries a stock's card, and the
+// six market pages render exactly as they did before stocks had pages.
+type LevelsPageStock = (typeof LEVELS_PAGE_STOCKS)[number];
+export type GammaLevelsPageSymbol = Symbol | LevelsPageStock;
+type PageSymbol = GammaLevelsPageSymbol;
+
 // Per-ticker copy. Each page leads with its own symbol so it reads as the best
 // possible answer for that symbol's query ("SPY gamma levels today", "QQQ call
 // wall", "SPX gamma exposure today", …) and self-canonicalizes to its own URL.
@@ -87,13 +102,14 @@ interface SymbolContent {
 // byte-for-byte identical except the ticker — no drift, and each page stays
 // focused on its own symbol instead of cannibalizing its siblings' keywords.
 // The exception is SYMBOL_EXTRAS below: facts that are true of one symbol only.
-const SYMBOL_AUDIENCE: Record<Symbol, string> = {
+const SYMBOL_AUDIENCE: Record<PageSymbol, string> = {
   SPX: 'SPX and S&P 500 options traders',
   SPY: 'SPY and S&P 500 options traders',
   QQQ: 'QQQ and Nasdaq-100 options traders',
   NDX: 'NDX and Nasdaq-100 options traders',
   ES: 'ES and S&P 500 futures traders',
   NQ: 'NQ and Nasdaq-100 futures traders',
+  NVDA: 'NVIDIA (NVDA) options traders',
 };
 
 // The options chain each symbol's levels are actually computed from. ES and
@@ -101,13 +117,14 @@ const SYMBOL_AUDIENCE: Record<Symbol, string> = {
 // option-derived levels carried onto the futures price axis. Saying "the ES
 // options chain" on a public page would be plainly false, so the copy names
 // the real source wherever the two differ.
-export const SYMBOL_CHAIN: Record<Symbol, Symbol> = {
+export const SYMBOL_CHAIN: Record<PageSymbol, PageSymbol> = {
   SPX: 'SPX',
   SPY: 'SPY',
   QQQ: 'QQQ',
   NDX: 'NDX',
   ES: 'SPX',
   NQ: 'NDX',
+  NVDA: 'NVDA',
 };
 
 // Copy that is true of one symbol only, for a page whose template copy left a
@@ -119,16 +136,20 @@ export const SYMBOL_CHAIN: Record<Symbol, Symbol> = {
 // its walls actually behave, from the wall study the call-wall card already
 // cites (content/articles/how-often-do-gamma-walls-break.md, whose table these
 // figures quote). One sentence after the intro, and two FAQ answers right after
-// the net GEX answer, also in the FAQ markup. Only QQQ has an entry, so every
-// other page renders exactly as before (tests/qqqLevels.test.ts).
+// the net GEX answer, also in the FAQ markup. The NVDA page has an entry for
+// the same reason: what a single stock's levels are and are not. Only those two
+// have one, so every other page renders exactly as before
+// (tests/qqqLevels.test.ts, tests/nvdaLevels.test.ts).
 interface SymbolExtras {
   /** Appended to the intro, after the derivation note. Starts with a space. */
   introNote: string;
   /** Inserted after the net GEX answer. */
   faq: { q: string; a: string }[];
+  /** Replaces the 0DTE answer, for a symbol whose chain does not settle every day. */
+  zeroDteAnswer?: string;
 }
 
-const SYMBOL_EXTRAS: Partial<Record<Symbol, SymbolExtras>> = {
+const SYMBOL_EXTRAS: Partial<Record<PageSymbol, SymbolExtras>> = {
   QQQ: {
     introNote:
       ' QQQ is the Invesco QQQ Trust, the ETF that tracks the Nasdaq-100, and these levels are computed from its own options chain, not from NDX.',
@@ -143,10 +164,30 @@ const SYMBOL_EXTRAS: Partial<Record<Symbol, SymbolExtras>> = {
       },
     ],
   },
+  // Every claim here is one the site already makes elsewhere: the wall study's
+  // scope (content/articles/how-often-do-gamma-walls-break.md), no Expected
+  // Range on NVDA (help/platform/gamma-terminal.md), and no forecast or signal
+  // model on a stock (core/symbols.ts MODELED_SYMBOLS).
+  NVDA: {
+    introNote:
+      ' NVDA is NVIDIA\'s stock, and these levels are computed from its own options chain, the same way as for SPY and QQQ.',
+    faq: [
+      {
+        q: 'How are NVDA gamma levels different from SPY or QQQ levels?',
+        a: 'They are computed the same way, from NVDA\'s own options chain under the same modeled dealer convention, and they read the same: the gamma flip as the regime line, the walls as the strikes where modeled dealer gamma is heaviest. Three things differ. NVDA is one company, so earnings and company news can carry it through levels that index flows would not. Its implied volatility usually runs well above the Nasdaq-100\'s, so the Expected Range band ZeroGEX draws for the ETFs and indexes is not drawn for NVDA. And the forecast and signal models are tuned on the ETFs and indexes, so they do not run on NVDA yet.',
+      },
+      {
+        q: 'Does the gamma wall study cover NVDA?',
+        a: 'No. ZeroGEX\'s study of 737 wall tests covered SPY, SPX, QQQ and NDX: S&P walls held about two times in three within an hour, and Nasdaq walls about half. Single stocks were not in it, so neither base rate is known to hold for NVDA. Treat an NVDA wall as an unmeasured level and watch how price behaves around it.',
+      },
+    ],
+    zeroDteAnswer:
+      'The levels on this page are computed across the full NVDA options chain, every listed expiration together. On a day an NVDA expiration settles they include it, but they are never 0DTE-only. The ZeroGEX dashboard\'s expiration filter narrows the walls and the flip to a single expiration.',
+  },
 };
 
 /** Sentence disclosing the derivation, for symbols that have one. */
-function derivationNote(primary: Symbol): string {
+function derivationNote(primary: PageSymbol): string {
   const chain = SYMBOL_CHAIN[primary];
   if (chain === primary) return '';
   // futuresDelayNote is empty once the real-time CME entitlement is live —
@@ -160,13 +201,13 @@ function derivationNote(primary: Symbol): string {
  * futures page does not conclude the futures data is broken. Empty for a symbol
  * that is its own chain, where there is nothing to attribute.
  */
-function flipChainNote(primary: Symbol): string {
+function flipChainNote(primary: PageSymbol): string {
   const chain = SYMBOL_CHAIN[primary];
   if (chain === primary) return '';
   return ` ${primary} carries no options chain of its own\u00a0- its levels are computed from the ${chain} chain and converted to ${primary} prices\u00a0- so a blank ${primary} flip means the ${chain} snapshot had no publishable crossing, not that ${primary} data is missing.`;
 }
 
-function buildSymbolContent(primary: Symbol): SymbolContent {
+function buildSymbolContent(primary: PageSymbol): SymbolContent {
   const path = `/${primary.toLowerCase()}-gamma-levels`;
   return {
     path,
@@ -185,24 +226,25 @@ function buildSymbolContent(primary: Symbol): SymbolContent {
   };
 }
 
-const SYMBOL_CONTENT: Record<Symbol, SymbolContent> = {
+const SYMBOL_CONTENT: Record<PageSymbol, SymbolContent> = {
   ES: buildSymbolContent('ES'),
   NQ: buildSymbolContent('NQ'),
   SPX: buildSymbolContent('SPX'),
   SPY: buildSymbolContent('SPY'),
   QQQ: buildSymbolContent('QQQ'),
   NDX: buildSymbolContent('NDX'),
+  NVDA: buildSymbolContent('NVDA'),
 };
 
 // Individual dedicated page for a ticker — used to cross-link the sibling cards.
-function gammaPath(symbol: Symbol): string {
+function gammaPath(symbol: PageSymbol): string {
   return SYMBOL_CONTENT[symbol].path;
 }
 
 // Primary symbol first, then the remaining three in their canonical order.
 // Drives both the share snippet and the on-page card order so the "first
 // screen" matches the URL.
-function symbolOrder(primary: Symbol): Symbol[] {
+function symbolOrder(primary: PageSymbol): PageSymbol[] {
   return [primary, ...SYMBOLS.filter((s) => s !== primary)];
 }
 
@@ -223,7 +265,7 @@ function symbolOrder(primary: Symbol): Symbol[] {
 // back to `c.description` whenever the snapshot is missing a value — a
 // half-filled description with an em dash where a level should be is worse
 // than the evergreen copy.
-function liveDescription(primary: Symbol, data: GexSummary | null): string {
+function liveDescription(primary: PageSymbol, data: GexSummary | null): string {
   const c = SYMBOL_CONTENT[primary];
   const netGex = netGexAtSpotOrNull(data?.net_gex_at_spot);
   const flip = data?.gamma_flip ?? null;
@@ -254,7 +296,7 @@ function liveDescription(primary: Symbol, data: GexSummary | null): string {
 // the same delayed `serverApiGetDelayed` read the page component makes, so this
 // shares that cache entry rather than adding a backend call, and stays
 // compatible with `force-static` + `revalidate = 60` on each route.
-export async function gammaMetadata(primary: Symbol): Promise<Metadata> {
+export async function gammaMetadata(primary: PageSymbol): Promise<Metadata> {
   const c = SYMBOL_CONTENT[primary];
   const data = await serverApiGetDelayed<GexSummary>(
     `/api/gex/summary?symbol=${primary}&underlying=${primary}`,
@@ -289,7 +331,7 @@ export async function gammaMetadata(primary: Symbol): Promise<Metadata> {
 // never drift. The wording is deliberately plain and self-contained — each
 // answer stands alone as a quotable definition for question-style searches like
 // "what is a gamma flip" or "what is SPX net gamma exposure right now".
-function faqItems(primary: Symbol): { q: string; a: string }[] {
+function faqItems(primary: PageSymbol): { q: string; a: string }[] {
   return [
     {
       q: 'What are gamma levels?',
@@ -325,7 +367,9 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
       // Matches "0dte gamma levels" / "spx 0dte net gex" wording truthfully:
       // the page shows the full chain, and says so.
       q: `Are these ${primary} 0DTE gamma levels?`,
-      a: `The levels on this page are computed across the full ${SYMBOL_CHAIN[primary]} options chain, so they include today's 0DTE contracts but are not 0DTE-only. The ZeroGEX dashboard's expiration filter narrows the walls and the flip to 0DTE.`,
+      a:
+        SYMBOL_EXTRAS[primary]?.zeroDteAnswer ??
+        `The levels on this page are computed across the full ${SYMBOL_CHAIN[primary]} options chain, so they include today's 0DTE contracts but are not 0DTE-only. The ZeroGEX dashboard's expiration filter narrows the walls and the flip to 0DTE.`,
     },
   ];
 }
@@ -351,11 +395,11 @@ const LEARN_MORE_SLUGS = [
   'best-gex-tools',
 ] as const;
 
-function learnMoreLinks(primary: Symbol): { href: string; label: string }[] {
+function learnMoreLinks(primary: PageSymbol): { href: string; label: string }[] {
   const isFutures = primary === 'ES' || primary === 'NQ';
   const slugs: string[] = [...LEARN_MORE_SLUGS];
   if (isFutures) slugs.push('zerogex-vs-tradegex');
-  else slugs.push('spy-vs-spx-gamma-levels');
+  else if (!isStockSymbol(primary)) slugs.push('spy-vs-spx-gamma-levels');
   if (primary === 'SPY') slugs.push('why-spy-pins-near-strikes');
   const links = slugs
     .map((slug) => getArticle(slug))
@@ -406,7 +450,7 @@ function fmtShareGex(value: number | null | undefined): string {
 // the label behind the "your futures price is off" reports. A line whose
 // snapshot carries no contract reads exactly as before.
 function shareLine(
-  symbol: Symbol,
+  symbol: PageSymbol,
   data: GexSummary | null,
   delayed = false,
   nameContract = false,
@@ -427,9 +471,9 @@ function shareLine(
 // the freshest is tagged "(delayed)" in its line so the pasted snapshot doesn't
 // present an old ticker as current alongside fresh ones.
 function buildShareSnippet(
-  snapshots: Record<Symbol, GexSummary | null>,
-  primary: Symbol,
-  staleSymbols?: ReadonlySet<Symbol>,
+  snapshots: Record<PageSymbol, GexSummary | null>,
+  primary: PageSymbol,
+  staleSymbols?: ReadonlySet<PageSymbol>,
   nameContracts = false,
 ): string {
   const order = symbolOrder(primary);
@@ -485,7 +529,7 @@ export const REGIME_DISPLAY: Record<
  * axis: a blank NQ flip is an NDX snapshot with no crossing, not a gap in the
  * NQ data, and only this line says so where a trader is already looking.
  */
-function flipHint(symbol: Symbol, flip: number | null | undefined): string {
+function flipHint(symbol: PageSymbol, flip: number | null | undefined): string {
   if (flip != null && Number.isFinite(flip)) {
     return 'Regime line\u00a0- above = positive, below = negative';
   }
@@ -513,12 +557,13 @@ function flipHint(symbol: Symbol, flip: number | null | undefined): string {
 // exactly what keeps a cached snapshot from ever getting very old, so no TTL is
 // needed here). A card served from this cache is always flagged 'stale' below,
 // so last-known-good is never presented as a live read.
-const lastGoodSnapshots = new Map<Symbol, GexSummary>();
+const lastGoodSnapshots = new Map<PageSymbol, GexSummary>();
 
 export interface LoadedSnapshots {
-  snapshots: Record<Symbol, GexSummary | null>;
+  /** Every page symbol is a key; one that was not asked for is null. */
+  snapshots: Record<PageSymbol, GexSummary | null>;
   /** Symbols rendered from `lastGoodSnapshots` because this cycle's fetch failed. */
-  fromCache: Set<Symbol>;
+  fromCache: Set<PageSymbol>;
 }
 
 // Pull all four symbols in parallel. Each call is a delayed read cached in the
@@ -526,10 +571,12 @@ export interface LoadedSnapshots {
 // A successful fetch refreshes the last-good cache; a null (missing token,
 // unreachable backend, non-2xx — see serverApiGet) falls back to the last-good
 // snapshot so a transient blip degrades to "delayed" instead of "unavailable".
-export async function loadSnapshots(): Promise<LoadedSnapshots> {
-  const fromCache = new Set<Symbol>();
+// `symbols` defaults to the six market instruments, which is what /gex-levels
+// and the six market pages read; a stock page asks for itself as well.
+export async function loadSnapshots(symbols: readonly PageSymbol[] = SYMBOLS): Promise<LoadedSnapshots> {
+  const fromCache = new Set<PageSymbol>();
   const entries = await Promise.all(
-    SYMBOLS.map(async (symbol) => {
+    symbols.map(async (symbol) => {
       const fresh = await serverApiGetDelayed<GexSummary>(
         `/api/gex/summary?symbol=${symbol}&underlying=${symbol}`,
       );
@@ -542,8 +589,9 @@ export async function loadSnapshots(): Promise<LoadedSnapshots> {
       return [symbol, cached] as const;
     }),
   );
+  const none = Object.fromEntries([...SYMBOLS, ...LEVELS_PAGE_STOCKS].map((s) => [s, null]));
   return {
-    snapshots: Object.fromEntries(entries) as Record<Symbol, GexSummary | null>,
+    snapshots: { ...none, ...Object.fromEntries(entries) } as Record<PageSymbol, GexSummary | null>,
     fromCache,
   };
 }
@@ -630,20 +678,21 @@ const CONTRACT_CHIP_STYLE = {
 // its "as of" line. Every read is delayed at least 15 minutes and cached for a
 // minute, so it normally reads 15 to 17 minutes behind the clock.
 export function snapshotFreshness(
-  snapshots: Record<Symbol, GexSummary | null>,
-  fromCache: Set<Symbol>,
-): { cardStatus: (s: Symbol) => 'ok' | 'stale' | 'missing'; latestTimestamp: string | undefined } {
-  const snapshotMs = (s: Symbol): number | null => {
+  snapshots: Record<PageSymbol, GexSummary | null>,
+  fromCache: Set<PageSymbol>,
+  symbols: readonly PageSymbol[] = SYMBOLS,
+): { cardStatus: (s: PageSymbol) => 'ok' | 'stale' | 'missing'; latestTimestamp: string | undefined } {
+  const snapshotMs = (s: PageSymbol): number | null => {
     const t = snapshots[s]?.timestamp;
     if (!t) return null;
     const ms = Date.parse(t);
     return Number.isFinite(ms) ? ms : null;
   };
-  const freshestMs = SYMBOLS.map(snapshotMs).reduce<number | null>(
+  const freshestMs = symbols.map(snapshotMs).reduce<number | null>(
     (max, ms) => (ms != null && (max == null || ms > max) ? ms : max),
     null,
   );
-  const cardStatus = (s: Symbol): 'ok' | 'stale' | 'missing' => {
+  const cardStatus = (s: PageSymbol): 'ok' | 'stale' | 'missing' => {
     if (snapshots[s] == null) return 'missing';
     // Served from the last-good cache because this cycle's fetch failed: render
     // the numbers but flag them "delayed" so a transient upstream blip never
@@ -653,7 +702,7 @@ export function snapshotFreshness(
     if (ms != null && freshestMs != null && freshestMs - ms > STALE_THRESHOLD_MS) return 'stale';
     return 'ok';
   };
-  const latestTimestamp = SYMBOLS.map((s) => snapshots[s]?.timestamp)
+  const latestTimestamp = symbols.map((s) => snapshots[s]?.timestamp)
     .filter((t): t is string => Boolean(t))
     .sort()
     .at(-1);
@@ -680,7 +729,7 @@ function SymbolCard({
   status = 'ok',
   nameContract = false,
 }: {
-  symbol: Symbol;
+  symbol: PageSymbol;
   data: GexSummary | null;
   isPrimary: boolean;
   /** Freshness of this ticker relative to the freshest of the three. */
@@ -856,7 +905,7 @@ function SymbolCard({
  * back empty, and trackRecordOneLiner falls through to the practice sentence,
  * which is true whether or not the archive answered.
  */
-async function loadTrackRecord(symbol: Symbol): Promise<HistorySummary | null> {
+async function loadTrackRecord(symbol: PageSymbol): Promise<HistorySummary | null> {
   const list = await serverApiGet<{ dates: ForecastDateEntry[] }>(
     `/api/forecast/available-dates?symbol=${symbol}&limit=${FORECAST_HISTORY_LIMIT}`,
     900,
@@ -865,23 +914,32 @@ async function loadTrackRecord(symbol: Symbol): Promise<HistorySummary | null> {
   return summarizeForecastHistory(list.dates, symbol);
 }
 
-export default async function GammaLevelsView({ primary }: { primary: Symbol }) {
+export default async function GammaLevelsView({ primary }: { primary: PageSymbol }) {
   const content = SYMBOL_CONTENT[primary];
   const order = symbolOrder(primary);
+  // A stock page (NVDA) reads its own snapshot beside the six, and leaves out
+  // what is not true of a stock: the graded forecast record (no forecast model
+  // runs on one), the AI-assistant block (the /mcp endpoint does not serve
+  // stocks), and the chart-platform blocks whose copy names the six. Everything
+  // else is the same page. For the six market pages these are all the
+  // defaults, so they render exactly as before.
+  const isStock = isStockSymbol(primary);
+  const hasForecast = (MODELED_SYMBOLS as readonly string[]).includes(primary);
+  const pageSymbols: readonly PageSymbol[] = isStock ? [primary, ...SYMBOLS] : SYMBOLS;
   // Free-page data + the ~15-min-delayed chart snapshot for the page's symbol,
   // fetched in parallel. Both go through the same delayed serverApiGetDelayed
   // read (and the shared /api/gex/summary URL is deduped by the Next fetch
   // cache), so the added chart costs no extra latency on a warm cache.
   const [{ snapshots, fromCache }, chartSnapshot, trackRecord] = await Promise.all([
-    loadSnapshots(),
+    loadSnapshots(pageSymbols),
     loadChartSnapshot(primary, '5min'),
-    loadTrackRecord(primary),
+    hasForecast ? loadTrackRecord(primary) : Promise.resolve(null),
   ]);
   const primaryData = snapshots[primary];
-  const anyData = SYMBOLS.some((s) => snapshots[s] !== null);
+  const anyData = pageSymbols.some((s) => snapshots[s] !== null);
 
-  const { cardStatus, latestTimestamp } = snapshotFreshness(snapshots, fromCache);
-  const staleSymbols = new Set<Symbol>(SYMBOLS.filter((s) => cardStatus(s) === 'stale'));
+  const { cardStatus, latestTimestamp } = snapshotFreshness(snapshots, fromCache, pageSymbols);
+  const staleSymbols = new Set<PageSymbol>(pageSymbols.filter((s) => cardStatus(s) === 'stale'));
 
   // The ES and NQ pages name the CME contract behind each futures card's spot
   // and share line ("ES" alone does not say WHICH ES), from the API's
@@ -893,7 +951,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   // is passed to the interactive ShareBlock as a ready-to-post string. Stale
   // tickers are tagged in the snippet from the same freshness read as the cards.
   const shareSnippet = buildShareSnippet(snapshots, primary, staleSymbols, nameContracts);
-  const shareHasData = SYMBOLS.some((s) => {
+  const shareHasData = pageSymbols.some((s) => {
     const spot = snapshots[s]?.spot_price;
     return typeof spot === 'number' && Number.isFinite(spot);
   });
@@ -1172,7 +1230,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             and this is the sentence that earns the request. Reads the full
             archive rather than the rolling window — see core/trackRecord.ts
             for why those disagree. */}
-        <TrackRecordStrip history={trackRecord} symbol={primary} />
+        {hasForecast && <TrackRecordStrip history={trackRecord} symbol={primary} />}
 
         {/* Conversion block (requirement #1): directly after the free delayed
             levels, before the product preview and educational content. */}
@@ -1212,7 +1270,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         {/* Free-indicator funnel: hand the trader a way to plot today's numbers
             on their own chart, then route them to the live dashboard. Shared by
             all three ticker pages via this GammaLevelsView. */}
-        <PlotOnTradingView />
+        {!isStock && <PlotOnTradingView />}
 
         {/* The auto-updating Pro counterpart: NinjaScript can make HTTP calls,
             so this one pulls the levels instead of asking for manual entry.
@@ -1221,7 +1279,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             manifest records that — NT_PACKAGE_PATH is null when there is no
             archive — so this no longer needs to stat the filesystem, and the
             path it does carry is content-addressed against Cloudflare's cache. */}
-        <PlotOnNinjaTrader hasPackage={NT_PACKAGE_PATH !== null} />
+        {!isStock && <PlotOnNinjaTrader hasPackage={NT_PACKAGE_PATH !== null} />}
 
         {/* thinkorswim's study is copied with today's numbers ALREADY IN IT.
             primaryData is the same snapshot the cards above render, so what the
@@ -1249,17 +1307,19 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             and thinkorswim's is here for the pre-fill above. Sierra Chart's
             does not benefit the same way — it fetches its own levels, so its
             landing page serves it just as well. */}
-        <IntegrationsStrip
-          exclude={['tradingview', 'ninjatrader', 'thinkorswim']}
-          heading="On Sierra Chart instead?"
-        />
+        {!isStock && (
+          <IntegrationsStrip
+            exclude={['tradingview', 'ninjatrader', 'thinkorswim']}
+            heading="On Sierra Chart instead?"
+          />
+        )}
 
         {/* The same funnel step for people who work in an assistant rather than
             on a chart. It belongs with the blocks above — hand the reader a way
             to use today's numbers where they already are — but it is not a
             chart platform, so it is not in the integrations registry and does
             not appear in the strip. */}
-        <ReadInAssistant symbol={primary} />
+        {!isStock && <ReadInAssistant symbol={primary} />}
 
         {/* The same funnel step aimed at a different person. Everything above
             hands a TRADER today's numbers where they already work; this hands
@@ -1373,7 +1433,10 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                   free Gamma Terminal
                 </Link>{' '}
                 plots them on a delayed chart; they&apos;re not enough on their own for active trading. Pair them with
-                intraday flow, vanna/charm, and the regime signals on the{' '}
+                {/* No regime signals on a stock page: no signal model runs on a stock. */}
+                {isStock
+                  ? ' intraday flow and vanna/charm on the '
+                  : ' intraday flow, vanna/charm, and the regime signals on the '}
                 <Link href="/real-time-gex-0dte" style={{ color: 'var(--color-brand-primary)' }}>
                   live dashboard
                 </Link>

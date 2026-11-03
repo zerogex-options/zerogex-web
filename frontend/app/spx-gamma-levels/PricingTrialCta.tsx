@@ -2,6 +2,7 @@
 
 import { Rocket } from 'lucide-react';
 import { TrialButton, ComparePlansButton } from './TrialCtaButtons';
+import { isStockSymbol } from '@/core/symbols';
 
 // The pricing/trial CTA that sits after the product preview and before the
 // share block. Closes the page's conversion path with the standardized trial
@@ -47,9 +48,20 @@ export default function PricingTrialCta({ symbol }: { symbol: string }) {
         Get the live ZeroGEX dashboard
       </h2>
       <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-        You&rsquo;ve seen the structural map. The live ZeroGEX dashboard adds the real-time refresh, the full GEX
-        profile, the strike-by-DTE heatmap, options-flow classification, and the Market State Index&nbsp;-
-        the context that turns these levels into a read you can trade around.
+        {/* No Market State Index on a stock page: no signal model runs on one. */}
+        {isStockSymbol(symbol) ? (
+          <>
+            You&rsquo;ve seen the structural map. The live ZeroGEX dashboard adds the real-time refresh, the full GEX
+            profile, the strike-by-DTE heatmap and options-flow classification&nbsp;- the context that turns these
+            levels into a read you can trade around.
+          </>
+        ) : (
+          <>
+            You&rsquo;ve seen the structural map. The live ZeroGEX dashboard adds the real-time refresh, the full GEX
+            profile, the strike-by-DTE heatmap, options-flow classification, and the Market State Index&nbsp;-
+            the context that turns these levels into a read you can trade around.
+          </>
+        )}
       </p>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
         <TrialButton location="paid_landing_footer" symbol={symbol} />
