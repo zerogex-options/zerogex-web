@@ -1,0 +1,48 @@
+[Unit]
+Description=ZeroGEX web IndexNow submission (tell Bing and the IndexNow engines what changed today)
+Documentation=https://github.com/zerogex-options/zerogex-web/blob/release/docs/seo/2026-11-03-traffic-levers.md
+After=network-online.target
+Wants=network-online.target
+
+# Same failure routing as every other job unit: a non-zero exit becomes an
+# email. The script exits non-zero only when something on our side needs
+# fixing (the key file is not live, or the endpoint says the request or the key
+# is invalid); a busy endpoint exits 0 and the next weekday run tries again.
+OnFailure=zerogex-web-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make indexnow` shells through nvm for Node 22 (the script is a .mts needing
+# --experimental-strip-types), so HOME is all this unit has to provide.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web indexnow
+
+# Three reads (the built sitemap on disk, the dated sitemap from the local Next
+# server twice, the key file) and at most two POSTs 30 s apart, each capped at
+# 20 s.
+TimeoutStartSec=300
+
+# What the job has already sent, so it never resends an unchanged page
+# (core/indexNow.ts). systemd creates /var/lib/zerogex-web-indexnow owned by
+# the User above, keeps it writable under ProtectSystem=strict, and passes its
+# path to the script as $STATE_DIRECTORY. It is the only thing the job writes.
+StateDirectory=zerogex-web-indexnow
+
+# Security hardening (mirrors the other job units).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-indexnow
+
+[Install]
+WantedBy=multi-user.target

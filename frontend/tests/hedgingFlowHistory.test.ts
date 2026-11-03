@@ -274,7 +274,10 @@ test('cursor pages are followable but not indexed', () => {
   // `follow` is the part that matters: those older permalinks have no other
   // route in for a crawler, so noindex,nofollow would strand them.
   const page = read('app/hedging-flow/sessions/page.tsx');
-  assert.match(page, /robots: cursor \? \{ index: false, follow: true \}/);
+  // Spread in only when there is a cursor, so the first page keeps the root
+  // layout's site-wide robots directives (a present-but-undefined `robots`
+  // key would reset them; see tests/robotsPreview.test.ts).
+  assert.match(page, /\.\.\.\(cursor \? \{ robots: \{ index: false, follow: true \} \} : \{\}\)/);
   // And every page still canonicalises to the first one.
   assert.match(page, /canonical: `\$\{SITE_URL\}\/hedging-flow\/sessions`/);
 });

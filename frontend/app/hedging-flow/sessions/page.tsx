@@ -92,7 +92,10 @@ export async function generateMetadata({
     // they link to. `follow` is the part that matters, because those older
     // permalinks have no other route in for a crawler.
     alternates: { canonical: `${SITE_URL}/hedging-flow/sessions` },
-    robots: cursor ? { index: false, follow: true } : undefined,
+    // Spread, not `robots: undefined`: Next resets a key that is present even
+    // when its value is undefined, which would drop the root layout's
+    // site-wide robots directives from the first page of the archive.
+    ...(cursor ? { robots: { index: false, follow: true } } : {}),
     // A page-level openGraph replaces the root's wholesale, so without `images`
     // here the card had no picture; `twitter` is listed for the same reason.
     openGraph: {

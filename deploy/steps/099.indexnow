@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# ==============================================
+# Step 099: IndexNow Submission Timer (systemd)
+# ==============================================
+#
+# Installs and enables the weekday IndexNow submission (see
+# deploy/systemd/zerogex-web-indexnow.{service,timer} and
+# frontend/core/indexNow.ts). After the close it runs `make indexnow`, which
+# tells Bing, and every engine that shares IndexNow submissions, which pages
+# changed: the levels pages, the receipt indexes, the session's new dated
+# permalinks, and any page a deploy changed.
+#
+# Nothing to configure. The IndexNow key is public by design and ships as
+# frontend/public/<key>.txt, so the only precondition is that the code is
+# deployed (`make deploy`) before this runs; the check below says so if not.
+#
+# Idempotent - safe to re-run. Unit files are overwritten from the repo (they
+# are version-controlled, so that is the desired behavior) and
+# `systemctl enable --now` is a no-op for an already-enabled timer.
+
+set -e
+
+# Re-point HOME when this step is run directly under `sudo` (same reason as
+# 099.search-console: the repo and nvm live in the invoking user's home).
+if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
+    STEP_SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    [ -n "$STEP_SUDO_HOME" ] && export HOME="$STEP_SUDO_HOME"
+fi
+[ -z "${HOME:-}" ] && export HOME="/home/ubuntu"
+
+# Fallback log if this step is invoked directly.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "IndexNow Submission Timer Setup"
+
+OWNER="${SUDO_USER:-$USER}"
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-indexnow"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh - run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Key file check (soft) --------------------------------------------
+# The engines fetch the key from the live site, so check it there.
+KEY=$(grep -oE "INDEXNOW_KEY = '[a-zA-Z0-9-]+'" "$APP_DIR/frontend/core/indexNow.ts" | cut -d"'" -f2)
+if [ -n "$KEY" ] && [ "$(curl -fsS --max-time 15 "https://zerogex.io/${KEY}.txt" 2>/dev/null | tr -d '[:space:]')" = "$KEY" ]; then
+    log "  ✓ key file is live at https://zerogex.io/${KEY}.txt"
+else
+    log "  ⚠ key file not live yet - run 'make deploy' first; the timer installs anyway and its runs fail (and email) until it is"
+fi
+
+# --- State directory ---------------------------------------------------
+# What the job has already sent. The unit's StateDirectory= creates this on its
+# first run; creating it now as well, owned by $OWNER, means a hand-run
+# `make indexnow ALL=1` before that first run is remembered too, so the timer
+# does not send the same pages again.
+STATE_DIR="/var/lib/${UNIT}"
+sudo install -d -m 0755 -o "$OWNER" -g "$OWNER" "$STATE_DIR"
+log "  ✓ state directory $STATE_DIR (owner $OWNER)"
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (weekdays 17:43 America/New_York, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2, $3}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# --- Smoke test --------------------------------------------------------
+# DRY_RUN reads both sitemaps and prints what would be sent, sending and
+# remembering nothing, so a broken sitemap read shows up now rather than at
+# 17:43.
+log "  → Smoke test (DRY_RUN=1)..."
+# Captured first, not piped: a pipeline's status is its last command's, so
+# `make ... | sed` would report success whatever make did.
+if SMOKE_OUT=$(sudo -u "$OWNER" -H bash -lc "cd '$APP_DIR' && make indexnow DRY_RUN=1" 2>&1); then
+    echo "$SMOKE_OUT" | grep '\[indexnow\]' | sed 's/^/       /' || true
+    log "     ✓ sitemaps read"
+else
+    echo "$SMOKE_OUT" | tail -n 10 | sed 's/^/       /'
+    log "     ⚠ smoke test failed - check the message above; the timer is still installed"
+fi
+
+log ""
+log "IndexNow timer setup complete!"
+log ""
+log "Once, now that the key file is live, introduce the whole site (every page"
+log "and every past permalink; later runs send only what changed):"
+log "  • cd $APP_DIR && make indexnow ALL=1"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                  - next/last run"
+log "  • cd $APP_DIR && make indexnow DRY_RUN=1               - today's URLs, nothing sent"
+log "  • cd $APP_DIR && make indexnow URLS=\"https://zerogex.io/education/<slug>\"  - one page, e.g. a new article"
+log "  • sudo systemctl start ${UNIT}.service                 - run the submission now"
+log "  • journalctl -u ${UNIT} -n 50                           - recent runs"

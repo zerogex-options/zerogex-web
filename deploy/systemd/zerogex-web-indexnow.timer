@@ -1,0 +1,32 @@
+[Unit]
+Description=ZeroGEX web IndexNow submission timer (weekdays 17:43 ET, after the close)
+
+[Timer]
+# 17:43 Eastern, Monday to Friday.
+#
+# After the session's pages exist: the 4:00 PM close, the 4:01 PM forecast
+# receipt, the 4:15 PM scorecard, and the session lists the dated sitemap reads.
+# The levels pages then hold the closing read, which is what a search engine
+# should index for the evening and the next morning.
+#
+# Explicit timezone, for the reason zerogex-web-daily-levels.timer gives: a UTC
+# hour drifts an hour against the market twice a year.
+#
+# :43, with at most a minute of jitter, stays clear of the hourly units'
+# minutes (:00 auth backup, :07/:22/:37/:52 cancellation alerts, :20, :25, :30,
+# :35, :50).
+#
+# Weekends are skipped here. An exchange holiday is handled in the script: it
+# reads the same NEXT_PUBLIC_NYSE_HOLIDAYS list the daily levels email does and
+# sends the daily pages once per session, so not again on a day with none.
+OnCalendar=Mon..Fri 17:43:00 America/New_York
+RandomizedDelaySec=1m
+
+# A run missed while the box was down still has something to say (the session
+# that closed, and its new permalinks), so it runs as soon as the box is back.
+# The script keys the daily pages on the last closed session, so a catch-up run
+# the next morning does not use up that evening's run.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
