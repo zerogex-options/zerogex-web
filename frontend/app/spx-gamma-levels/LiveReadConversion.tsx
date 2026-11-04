@@ -2,6 +2,7 @@
 
 import { Zap } from 'lucide-react';
 import { TrialButton, ComparePlansButton } from './TrialCtaButtons';
+import { isStockSymbol } from '@/core/symbols';
 
 // Requirement #1 — the strong conversion block placed directly after the free
 // delayed levels, before the product preview and educational content. Makes the
@@ -41,9 +42,21 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
       </h2>
 
       <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-        These are the delayed free preview levels. Inside ZeroGEX, SPY, SPX, QQQ, NDX, ES, and NQ levels update in real time with
-        the full GEX profile, strike-level heatmaps, options-flow classification, dealer positioning, and Market State
-        signals&nbsp;- so you know the levels that matter before price gets there.
+        {/* A stock page (NVDA) names its own symbol and leaves out the Market
+            State signals: no signal model runs on a stock. */}
+        {isStockSymbol(symbol) ? (
+          <>
+            These are the delayed free preview levels. Inside ZeroGEX, {symbol} levels update in real time with the
+            full GEX profile, strike-level heatmaps, options-flow classification and dealer positioning&nbsp;- so you
+            know the levels that matter before price gets there.
+          </>
+        ) : (
+          <>
+            These are the delayed free preview levels. Inside ZeroGEX, SPY, SPX, QQQ, NDX, ES, and NQ levels update in real time with
+            the full GEX profile, strike-level heatmaps, options-flow classification, dealer positioning, and Market State
+            signals&nbsp;- so you know the levels that matter before price gets there.
+          </>
+        )}
       </p>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>

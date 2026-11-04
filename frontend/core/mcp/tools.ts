@@ -9,7 +9,7 @@
 // The snapshot source is injected rather than imported so this module stays
 // free of 'server-only' and can be exercised end to end in tests with a stub.
 
-import { LEVELS_PAGE_SYMBOLS, type PickerSymbol } from '../symbols.ts';
+import { MARKET_LEVELS_SYMBOLS, type PickerSymbol } from '../symbols.ts';
 import type { McpToolDefinition, McpToolResult, ToolRegistry } from './protocol.ts';
 import {
   DELAY_SECONDS,
@@ -31,10 +31,11 @@ export interface ToolDeps {
   now: () => Date;
 }
 
-// The free levels product's symbols: this server serves the same delayed data
-// as the public /<sym>-gamma-levels pages, so a symbol without one (a stock,
-// today) is not offered here either.
-const SYMBOL_ENUM = [...LEVELS_PAGE_SYMBOLS];
+// The free levels product's market-wide symbols: this server serves the same
+// delayed data as the public /<sym>-gamma-levels pages. A stock with its own
+// page (NVDA) is not offered: the overview tool returns every symbol here, and
+// adding one changes what partners already read (see core/symbols.ts).
+const SYMBOL_ENUM = [...MARKET_LEVELS_SYMBOLS];
 
 // Spending the description on when NOT to reach for a tool is the highest-value
 // prompt real estate available here — a description that only restates the name
@@ -103,7 +104,7 @@ function errorResult(text: string): McpToolResult {
 function resolveSymbolArg(raw: unknown): PickerSymbol | null {
   if (typeof raw !== 'string') return null;
   const upper = raw.trim().toUpperCase();
-  return (LEVELS_PAGE_SYMBOLS as readonly string[]).includes(upper) ? (upper as PickerSymbol) : null;
+  return (MARKET_LEVELS_SYMBOLS as readonly string[]).includes(upper) ? (upper as PickerSymbol) : null;
 }
 
 /**
@@ -155,7 +156,7 @@ export function createToolRegistry(deps: ToolDeps): ToolRegistry {
     // same shared, delayed cache entry the public pages use, so a burst of
     // overview calls costs the backend nothing extra.
     const snapshots = await Promise.all(
-      (LEVELS_PAGE_SYMBOLS as readonly PickerSymbol[]).map(async (symbol) => ({
+      (MARKET_LEVELS_SYMBOLS as readonly PickerSymbol[]).map(async (symbol) => ({
         symbol,
         snapshot: await deps.fetchSnapshot(symbol),
       })),

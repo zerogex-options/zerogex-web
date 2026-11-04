@@ -16,6 +16,7 @@ import {
   type GammaLevelSymbol,
 } from '@/app/spx-gamma-levels/gammaLevels';
 import { detectRegime } from '@/app/live-bulletin/bulletinHelpers';
+import { LEVELS_PAGE_STOCKS } from '@/core/symbols';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gexSummary';
 import {
@@ -411,8 +412,12 @@ export default async function GexLevelsPage() {
       { '@type': 'Thing', name: 'Call wall' },
       { '@type': 'Thing', name: 'Put wall' },
     ],
-    // The six instrument pages this one exists to route readers to.
-    relatedLink: ORDER.map((s) => `${SITE_URL}${levelsPath(s)}`),
+    // The six instrument pages this one exists to route readers to, and the
+    // single-stock pages it links below them.
+    relatedLink: [
+      ...ORDER.map((s) => `${SITE_URL}${levelsPath(s)}`),
+      ...LEVELS_PAGE_STOCKS.map((s) => `${SITE_URL}/${s.toLowerCase()}-gamma-levels`),
+    ],
   };
   // FAQPage markup mirrors the visible FAQ below from the same array. Google
   // shows FAQ rich results only for a few authoritative sites now, so this is
@@ -495,6 +500,20 @@ export default async function GexLevelsPage() {
               <InstrumentPanel key={s} symbol={s} data={snapshots[s]} status={cardStatus(s)} />
             ))}
           </div>
+          {/* The single-stock pages sit outside the six: one line here rather
+              than a seventh panel, so this stays the market-wide view. */}
+          <p style={{ margin: '14px 0 0 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>
+            Single stocks:{' '}
+            {LEVELS_PAGE_STOCKS.map((s, i) => (
+              <span key={s}>
+                {i > 0 ? ', ' : ''}
+                <Link href={`/${s.toLowerCase()}-gamma-levels`} style={{ color: 'var(--color-brand-primary)' }}>
+                  {s} gamma levels
+                </Link>
+              </span>
+            ))}
+            .
+          </p>
 
           {/* The same numbers as one table: the shape an answer engine or a
               screen reader takes them in most easily, and one quotable row per

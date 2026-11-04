@@ -44,6 +44,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
       { href: '/ndx-gamma-levels', label: 'NDX gamma levels' },
       { href: '/es-gamma-levels', label: 'ES gamma levels' },
       { href: '/nq-gamma-levels', label: 'NQ gamma levels' },
+      { href: '/nvda-gamma-levels', label: 'NVDA gamma levels' },
     ],
   },
   {

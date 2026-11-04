@@ -75,9 +75,25 @@ A second review, run independently of the plan's author, checked each item again
 - **IndexNow.** The draft resent recently changed pages for several days and treated a 422 as an emergency. IndexNow's FAQ asks sites not to resubmit unchanged URLs and lists repeated submissions as one cause of 422, so the job now remembers what it sent, skips holidays, and does not email on a 422. It also takes each permalink whenever its list publishes it, instead of one "newest date" across all four lists, so a list that lags at 5:43 PM is caught the next day.
 - **Smaller fixes.** An existing test pinned the hedging-flow archive's old robots line and was updated; Ecosia came out of the list of engines Bing serves (it now draws mostly on Google) and Amazon went into the IndexNow list; the feed's case no longer claims it carries update dates; the Discover claim was narrowed as above; and the Nov 10 title-test note was added.
 
+## Follow-up: the NVDA levels page (3 November, `claude/nvda-gamma-levels`)
+
+`/nvda-gamma-levels` is the first single-stock levels page: the largest new pool of search demand the site was not answering ("nvda gex", "nvda gamma exposure", "nvda gamma levels", "nvda call wall"). The backend already stored NVDA's chain, levels and flow (the public NVDA replay and hedging-flow pages render), so the page reads the same free, delayed snapshot as the six market pages.
+
+**Where NVDA appears now:** its page (NVDA's card first, then the six market cards, so it links into the cluster), the static sitemap (so IndexNow sends it on its next run), the footer's "Free gamma levels" column, a "Single stocks" line under the panels on `/gex-levels`, on-site search, the embed widget and its builder, llms.txt, and the Data Coverage help page, which had still called single stocks "on the roadmap".
+
+**Where it deliberately does not:** the daily levels email and the `/mcp` endpoint. Both carry every symbol on their list to every reader: the email sends all of them to every subscriber, and the MCP overview tool returns all of them to every partner. Adding NVDA there would change what current subscribers and partners already get, so they now read their own list (`MARKET_LEVELS_SYMBOLS` in `core/symbols.ts`: the six) and adding NVDA to it is a one-line change when you want it. The NVDA page's email signup offers the six and starts on SPX.
+
+**What the NVDA page leaves out, because it would be untrue of a stock:** the graded forecast record (no forecast model runs on a stock; the strip would have read "We commit to a NVDA forecast before every open"), the AI-assistant block (the MCP endpoint does not serve NVDA), and the TradingView, NinjaTrader and Sierra Chart blocks, whose copy names the six. The thinkorswim block stays: it is pre-filled with the page's own levels. The trial pitches name NVDA and leave out the Market State signals, which do not run on a stock.
+
+**NVDA-specific answers in its FAQ** (and its FAQ markup): how its levels differ from SPY's or QQQ's (one company; implied volatility well above the Nasdaq-100's, so no Expected Range band; no forecast or signal model yet), whether the wall study covers it (no: it covered SPY, SPX, QQQ and NDX only), and a 0DTE answer that never claims a same-day NVDA expiration.
+
+**The six market pages** render exactly as before apart from the new footer link (checked by rendering all six against the same data before and after), and `/gex-levels` gains only the "Single stocks" line. `frontend/tests/nvdaLevels.test.ts` pins all of the above.
+
+**After deploying:** in Google Search Console, URL Inspection on `https://zerogex.io/nvda-gamma-levels`, then Request Indexing. Bing gets it from the next IndexNow run on its own. Measure it with `make search-console-report PAGE=/nvda-gamma-levels QUERY=nvda` after four weeks.
+
 ## Considered and not built
 
-- **An NVDA levels page.** The largest new pool of search demand ("nvda gex", "nvda gamma exposure", "nvda max pain"), and the code already expects one (`core/symbols.ts`: a stock joins `LEVELS_PAGE_SYMBOLS` with its page). Not built because the levels template is hard-wired to the six current instruments and feeds the six best-performing pages, because adding NVDA to the widget, the daily email and the assistant endpoints is a product decision, and because free delayed NVDA data could not be confirmed from outside the server. It is the best next step if you want one.
+- **An NVDA levels page.** Built after this plan, on Michael's go-ahead; see "Follow-up: the NVDA levels page" below.
 - **Search-visible translations.** 124 German, Spanish, French and Italian translations exist but are served by cookie at the English URL, so search engines only see English. Giving them their own URLs is a site-wide routing change.
 - **A GEX glossary.** See "Audit".
 - **An nginx cache for logged-out visitors.** Not needed at today's response times.

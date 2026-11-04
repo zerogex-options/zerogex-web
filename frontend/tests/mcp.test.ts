@@ -31,7 +31,7 @@ import {
   type GexSnapshot,
 } from '../core/mcp/levels.ts';
 import { createToolRegistry, TOOL_DEFINITIONS } from '../core/mcp/tools.ts';
-import { LEVELS_PAGE_SYMBOLS, STOCK_SYMBOLS } from '../core/symbols.ts';
+import { MARKET_LEVELS_SYMBOLS, STOCK_SYMBOLS } from '../core/symbols.ts';
 
 // --- helpers ---------------------------------------------------------------
 
@@ -232,7 +232,7 @@ test('tools/list advertises both read-only tools with usable schemas', async () 
   const props = levels.inputSchema.properties as Record<string, { enum?: string[] }>;
   // Same data as the public levels pages, so a stock without one is not offered.
   for (const stock of STOCK_SYMBOLS) assert.ok(!props.symbol.enum?.includes(stock), stock);
-  assert.deepEqual(props.symbol.enum, [...LEVELS_PAGE_SYMBOLS]);
+  assert.deepEqual(props.symbol.enum, [...MARKET_LEVELS_SYMBOLS]);
   assert.deepEqual(levels.inputSchema.required, ['symbol']);
 });
 
@@ -355,7 +355,7 @@ test('an unsupported symbol is an isError result listing the supported ones', as
   assert.equal(result(res).isError, true);
   const text = toolText(res);
   assert.match(text, /Unknown symbol "TSLA"/);
-  for (const symbol of LEVELS_PAGE_SYMBOLS) assert.match(text, new RegExp(symbol));
+  for (const symbol of MARKET_LEVELS_SYMBOLS) assert.match(text, new RegExp(symbol));
 });
 
 test('a missing snapshot tells the model not to answer from memory', async () => {
@@ -371,9 +371,9 @@ test('a missing snapshot tells the model not to answer from memory', async () =>
 test('the overview covers every symbol in one call', async () => {
   const res = await call('get_market_gamma_overview');
   const text = toolText(res);
-  for (const symbol of LEVELS_PAGE_SYMBOLS) assert.match(text, new RegExp(`- ${symbol}: spot`));
+  for (const symbol of MARKET_LEVELS_SYMBOLS) assert.match(text, new RegExp(`- ${symbol}: spot`));
   const structured = result(res).structuredContent as { symbols: unknown[]; unavailable: string[] };
-  assert.equal(structured.symbols.length, LEVELS_PAGE_SYMBOLS.length);
+  assert.equal(structured.symbols.length, MARKET_LEVELS_SYMBOLS.length);
   assert.deepEqual(structured.unavailable, []);
 });
 

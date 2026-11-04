@@ -3,6 +3,7 @@
 import { CheckCircle2, LineChart } from 'lucide-react';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { TrialButton } from './TrialCtaButtons';
+import { isStockSymbol } from '@/core/symbols';
 
 // Requirement #5 — a preview of what a subscriber actually gets inside the live
 // dashboard. Reuses the existing dashboard screenshot already shipped for the
@@ -23,7 +24,17 @@ const FEATURES: { label: string; detail: string }[] = [
   { label: 'Market State / signal tools', detail: 'The composite regime read and the proprietary signals' },
 ];
 
+// A stock page (NVDA) leads with its own symbol and drops the signal row: no
+// signal model runs on a stock, so the list must not promise one.
+function featuresFor(symbol: string): { label: string; detail: string }[] {
+  if (!isStockSymbol(symbol)) return FEATURES;
+  return FEATURES.filter((f) => !f.label.startsWith('Market State')).map((f, i) =>
+    i === 0 ? { ...f, label: `Real-time ${symbol} gamma levels` } : f,
+  );
+}
+
 export default function DashboardPreview({ symbol }: { symbol: string }) {
+  const features = featuresFor(symbol);
   return (
     <section
       aria-labelledby="dashboard-preview-heading"
@@ -81,7 +92,7 @@ export default function DashboardPreview({ symbol }: { symbol: string }) {
           gap: 12,
         }}
       >
-        {FEATURES.map((f) => (
+        {features.map((f) => (
           <li key={f.label} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <CheckCircle2 size={18} style={{ color: 'var(--color-brand-primary)', marginTop: 2, flexShrink: 0 }} />
             <div>

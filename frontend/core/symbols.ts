@@ -11,8 +11,9 @@
 // their own option chain, extended-hours trading. A stock behaves like an ETF
 // on the live surfaces. Where it differs is spelled out below: the ETF it is
 // compared against (STOCK_LISTING), no price range projected from VIX / VXN
-// (volIndexPricesSymbol), and no levels page or models yet
-// (LEVELS_PAGE_SYMBOLS, MODELED_SYMBOLS).
+// (volIndexPricesSymbol), no models yet (MODELED_SYMBOLS), and a free levels
+// page only once it is listed in LEVELS_PAGE_STOCKS, which still keeps it out
+// of the daily email and the MCP overview (MARKET_LEVELS_SYMBOLS).
 //
 // Indexes are cash indexes: no share volume, and a price only in the cash
 // session.
@@ -37,14 +38,31 @@ export const DEFAULT_SYMBOL: PickerSymbol = 'SPY';
 export type AssetClass = 'etf' | 'index' | 'future' | 'stock';
 
 /**
- * The symbols with a free /<sym>-gamma-levels landing page. The public levels
- * product hangs off that page: the embed widget links back to it, llms.txt
- * lists it, and the daily levels email links its reader's ticker to it. So
- * those surfaces offer only these symbols. Stocks have no landing page yet and
- * live in the app only; a stock joins this list in the same change that adds
- * its page (tests/embedWidget.test.ts checks that each one has a page).
+ * The market-wide instruments in the free levels product's shared feeds: the
+ * daily levels email, which carries every one of these to every subscriber,
+ * and the public /mcp endpoint, whose overview tool returns all of them. The
+ * ETFs, indexes and futures only. A stock with its own levels page is NOT
+ * here, because joining these would change the email every current subscriber
+ * receives and the overview partners already read; that is a separate call.
  */
-export const LEVELS_PAGE_SYMBOLS = [...ETF_SYMBOLS, ...INDEX_SYMBOLS, ...FUTURES_SYMBOLS] as const;
+export const MARKET_LEVELS_SYMBOLS = [...ETF_SYMBOLS, ...INDEX_SYMBOLS, ...FUTURES_SYMBOLS] as const;
+export type MarketLevelsSymbol = (typeof MARKET_LEVELS_SYMBOLS)[number];
+
+/**
+ * The stocks with a free /<sym>-gamma-levels page (NVDA since 2026-11-03). A
+ * stock is added here in the same change that adds its page; it then gets the
+ * embed widget and a line in llms.txt, but not the shared feeds above.
+ */
+export const LEVELS_PAGE_STOCKS = ['NVDA'] as const satisfies readonly StockSymbol[];
+
+/**
+ * The symbols with a free /<sym>-gamma-levels landing page: the market-wide
+ * instruments plus LEVELS_PAGE_STOCKS. The page-level surfaces hang off it:
+ * the embed widget links back to the page, and llms.txt lists it, so those
+ * offer exactly these symbols (tests/embedWidget.test.ts checks that each one
+ * has a page, and that every page is listed here).
+ */
+export const LEVELS_PAGE_SYMBOLS = [...MARKET_LEVELS_SYMBOLS, ...LEVELS_PAGE_STOCKS] as const;
 export type LevelsPageSymbol = (typeof LEVELS_PAGE_SYMBOLS)[number];
 
 /**
