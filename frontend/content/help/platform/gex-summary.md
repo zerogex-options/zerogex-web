@@ -1,12 +1,12 @@
 # GEX Summary
 
-*The headline GEX numbers and the levels they imply on one screen - plus how the gamma flip holds up across horizons, and whether today's dealer gamma is unusual.*
+*The headline GEX numbers and the levels they imply on one screen - plus how much options close to expiry move the gamma flip, and whether today's dealer gamma is unusual.*
 
 ---
 
 ## What this page shows
 
-The GEX Summary page is the **by-the-numbers** view of the options book. Where Dealer Positioning is structural (profile, walls, heatmaps), this page puts ten headline numbers on one screen, maps dealer gamma across price and time, then shows how the gamma flip changes across option horizons and how today's dealer gamma compares with its own history.
+The GEX Summary page is the **by-the-numbers** view of the options book. Where Dealer Positioning is structural (profile, walls, heatmaps), this page puts ten headline numbers on one screen, maps dealer gamma across price and time, then shows how much the gamma flip depends on options close to expiry and how today's dealer gamma compares with its own history.
 
 The **GEX unit** toggle in the header switches every dollar GEX figure between gamma per 1% move (the default) and per 1 point. The exposure is the same either way; only the unit changes.
 
@@ -48,11 +48,15 @@ The **Expiry** control picks which expirations it prices: **All** by default, or
 
 ## Gamma Flip · Term Structure
 
-Today's gamma flip, resolved separately for each option horizon - 1 to 60 days by default, with **Std**, **Short**, and **Long** presets. Each point is colored by the sign of dealer gamma at spot. Diamond outlines mark the flip recorded that many days ago, and a red X flags a horizon where no crossing could be resolved. Use it to see whether the flip holds across horizons or is a near-dated effect.
+Today's gamma flip, recomputed at five horizon settings from 12 hours to 5 days. The horizon is a weighting, not a date range: each contract counts in proportion to how much of the horizon it lives through (days to expiration ÷ horizon, capped at 1), so a shorter horizon lets options close to expiry count for more.
+
+Every horizon uses the same options: the nearest three expirations, which reach about 2 to 4 days out on SPX, SPY, QQQ and NDX (ES and NQ use the SPX and NDX options) and about a week on NVDA. No longer-dated options are added, so this is not a 20- or 60-day flip, and it isn't the zero-gamma level you'd get from 90 days of open interest. Once the horizon passes the last of those expirations, every contract's weight shrinks by the same factor: the flip stops moving, and only Net GEX @ spot gets smaller. From Monday to Wednesday the last of them is usually under 3 days away on SPX, SPY, QQQ and NDX, so 3d and 5d match.
+
+Each point is colored by the sign of dealer gamma at spot. Diamond outlines mark the flip recorded that many days ago, and a red X flags a horizon where no crossing could be resolved. Use it to see how much the flip depends on options close to expiry.
 
 ## Horizon × Price Contour
 
-The same question as a surface: modeled dealer gamma across hypothetical spot prices (x) and option horizons (y). Blue cells are long gamma (stabilizing), red cells short gamma (destabilizing), and a black line traces the zero crossing - the flip at each horizon. Guides mark current spot and the heaviest call and put walls.
+The same question as a surface: modeled dealer gamma across hypothetical spot prices (x) and the same five horizon settings (y), all on the same nearest three expirations. Blue cells are long gamma (stabilizing), red cells short gamma (destabilizing), and a black line traces the zero crossing - the flip at each setting. Guides mark current spot and the heaviest call and put walls.
 
 ## Gamma Pulse
 
@@ -72,7 +76,7 @@ When you're reading another GEX provider, double-check the sign convention. Most
 Two patterns:
 
 1. **Cross-check with Dealer Positioning.** If Net GEX is meaningfully positive but the GEX profile shows the curve crossing negative just below spot, you're sitting at the regime line - risk is asymmetric.
-2. **Compare the flip with Raw nearest.** When the two sit far apart, near-dated gamma is doing the pulling. The flip term structure shows whether the level holds across horizons.
+2. **Compare the flip with Raw nearest.** When the two sit far apart, near-dated gamma is doing the pulling. The term structure chart shows how far the flip moves as options close to expiry count for more or less.
 
 ## See also
 

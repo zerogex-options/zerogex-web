@@ -1,12 +1,12 @@
 # GEX Summary
 
-*I numeri principali del GEX e i livelli che ne derivano, su un'unica schermata - più la tenuta del gamma flip tra i diversi orizzonti, e se il gamma dei dealer di oggi è insolito.*
+*I numeri principali del GEX e i livelli che ne derivano, su un'unica schermata - più quanto le opzioni vicine alla scadenza spostano il gamma flip, e se il gamma dei dealer di oggi è insolito.*
 
 ---
 
 ## Cosa mostra questa pagina
 
-La pagina GEX Summary è la vista **in numeri** del book di opzioni. Mentre Dealer Positioning è strutturale (profilo, wall, heatmap), questa pagina riunisce dieci numeri principali su un'unica schermata, mappa il gamma dei dealer lungo prezzo e tempo, poi mostra come il gamma flip cambia tra gli orizzonti delle opzioni e come il gamma dei dealer di oggi si confronta con il proprio storico.
+La pagina GEX Summary è la vista **in numeri** del book di opzioni. Mentre Dealer Positioning è strutturale (profilo, wall, heatmap), questa pagina riunisce dieci numeri principali su un'unica schermata, mappa il gamma dei dealer lungo prezzo e tempo, poi mostra quanto il gamma flip dipende dalle opzioni vicine alla scadenza e come il gamma dei dealer di oggi si confronta con il proprio storico.
 
 Il selettore **GEX unit** nell'intestazione passa ogni valore GEX in dollari da gamma per movimento dell'1% (predefinito) a gamma per 1 punto. L'esposizione è la stessa in entrambi i casi; cambia solo l'unità.
 
@@ -48,11 +48,15 @@ Il controllo **Expiry** sceglie quali scadenze valutare: **All** come impostazio
 
 ## Gamma Flip · Term Structure
 
-Il gamma flip di oggi, calcolato separatamente per ogni orizzonte delle opzioni - da 1 a 60 giorni come impostazione predefinita, con i preset **Std**, **Short** e **Long**. Ogni punto è colorato in base al segno del gamma dei dealer allo spot. I contorni a rombo segnano il flip registrato altrettanti giorni fa, e una X rossa indica un orizzonte in cui non è stato possibile risolvere alcun attraversamento. Usalo per capire se il flip regge tra gli orizzonti o è un effetto delle scadenze ravvicinate.
+Il gamma flip di oggi, ricalcolato con cinque impostazioni di orizzonte, da 12 ore a 5 giorni. L'orizzonte è una ponderazione, non un intervallo di date: ogni contratto conta in proporzione a quanta parte dell'orizzonte vive ancora (giorni alla scadenza ÷ orizzonte, al massimo 1), quindi un orizzonte più corto fa contare di più le opzioni vicine alla scadenza.
+
+Tutti gli orizzonti usano le stesse opzioni: le tre scadenze più vicine, che arrivano a circa 2-4 giorni su SPX, SPY, QQQ e NDX (ES e NQ usano le opzioni di SPX e NDX) e a circa una settimana su NVDA. Non vengono aggiunte opzioni a scadenza più lunga, quindi non è un flip a 20 o 60 giorni, né il livello di zero gamma che otterresti da 90 giorni di open interest. Appena l'orizzonte supera l'ultima di queste scadenze, il peso di ogni contratto si riduce dello stesso fattore: il flip smette di muoversi e cala solo il Net GEX @ spot. Da lunedì a mercoledì l'ultima di solito è a meno di 3 giorni su SPX, SPY, QQQ e NDX, quindi 3d e 5d coincidono.
+
+Ogni punto è colorato in base al segno del gamma dei dealer allo spot. I contorni a rombo segnano il flip registrato altrettanti giorni fa, e una X rossa indica un orizzonte in cui non è stato possibile risolvere alcun attraversamento. Usalo per capire quanto il flip dipende dalle opzioni vicine alla scadenza.
 
 ## Horizon × Price Contour
 
-La stessa domanda come superficie: il gamma modellato dei dealer lungo prezzi spot ipotetici (x) e orizzonti delle opzioni (y). Le celle blu sono long gamma (stabilizzanti), quelle rosse short gamma (destabilizzanti), e una linea nera segue l'attraversamento dello zero - il flip a ogni orizzonte. Delle guide segnano lo spot corrente e i call e put wall più pesanti.
+La stessa domanda come superficie: il gamma modellato dei dealer lungo prezzi spot ipotetici (x) e le stesse cinque impostazioni di orizzonte (y), tutte sulle stesse tre scadenze più vicine. Le celle blu sono long gamma (stabilizzanti), quelle rosse short gamma (destabilizzanti), e una linea nera segue l'attraversamento dello zero - il flip a ogni impostazione. Delle guide segnano lo spot corrente e i call e put wall più pesanti.
 
 ## Gamma Pulse
 
@@ -72,7 +76,7 @@ Quando consulti un altro provider di dati GEX, verifica sempre la convenzione de
 Due schemi:
 
 1. **Verifica incrociata con Dealer Positioning.** Se il Net GEX è significativamente positivo ma il profilo GEX mostra la curva che scende in negativo appena sotto lo spot, ti trovi sulla linea di regime - il rischio è asimmetrico.
-2. **Confronta il flip con Raw nearest.** Quando i due sono molto distanti, è il gamma a scadenza ravvicinata a tirare. La term structure del flip mostra se il livello regge tra gli orizzonti.
+2. **Confronta il flip con Raw nearest.** Quando i due sono molto distanti, è il gamma a scadenza ravvicinata a tirare. La term structure mostra quanto si sposta il flip quando le opzioni vicine alla scadenza contano di più o di meno.
 
 ## Vedi anche
 
