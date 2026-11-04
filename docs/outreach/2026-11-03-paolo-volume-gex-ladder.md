@@ -258,25 +258,20 @@ Your description also makes the request much clearer: gamma × volume on the lad
   buy it, and the research harness has never run on real data. The draft says
   we don't use it today and promises nothing, the same line as Gabriela's note.
 - **The correction.** The second reply said the flip "uses only the three
-  nearest expirations". Nov 3's replay data shows the book carried at least
-  seven: Nov 3, 4, 5, 6, 9 and 10, plus later dates that held about half the
-  put gamma at some strikes. The repo docs and the methodology page say three,
-  so production's setting has moved past them. One line owns it in the draft.
-  The methodology page's "currently the three nearest expirations" needs the
-  same fix once the number is confirmed; that can wait.
+  nearest expirations". Production loads the ten nearest plus two monthlies
+  (see "Verify first"). One line owns it in the draft. The same stale "three"
+  and "0-2DTE" wording on the methodology page, the Dashboard, GEX Summary and
+  Pin Strike help, and the wall tooltips is fixed on zerogex-web
+  `claude/chain-depth-wording`.
 
 ### Verify first
 
-- **How many expirations production loads.** On the EC2 box:
-
-  ```bash
-  grep -E '^INGEST_(EXPIRATIONS|MONTHLY_EXPIRATIONS)=' ~/zerogex-oa/.env
-  ```
-
-  Anything above 3, or monthlies above 0, confirms the correction as written.
-  If it shows 3 and 0 (or nothing), send the correction anyway (the data shows
-  more than three), but tell me: something else is adding expirations to the
-  book.
+- **Done, Nov 4.** Production runs `INGEST_EXPIRATIONS=10` and
+  `INGEST_MONTHLY_EXPIRATIONS=2`. Nov 3's replay data agrees: near the money,
+  the expirations past Nov 10 held 15-19% of SPX's gamma and 6-14% of NDX's,
+  far more than four more dailies could carry, so the SPX and NDX monthlies
+  (Nov 20 and Dec 18) are in the book. The chain reaches Dec 18, 44 days out,
+  so the second reply's "we don't load expirations 90 days out" stands.
 
 ### Draft
 
@@ -290,7 +285,7 @@ Good news on the volume ladder: I've decided to add it. The ladders will get a s
 
 You're right that Cboe's Open-Close data is what answers the opening-versus-closing question. It isn't something we use today.
 
-One correction to my last email: I said our flip uses only the three nearest expirations. It uses more than that; I was going by an outdated note. The weighting point stands: same-day options count for less, so the flip moves slowly by design.
+One correction to my last email: I said our flip uses only the three nearest expirations. It actually uses the ten nearest, plus the next two monthly expirations on SPX and NDX, so it reaches about six weeks out. I was going by an outdated note. The weighting point stands: same-day options count for less, so the flip moves slowly by design.
 
 Since you mentioned your community, I'd like to invite you to our creator program. You'd get your own link and code. Anyone who signs up through it gets 25% off their first year on any plan, and you earn 30% of what they pay for their first 12 months, paid monthly. There's no commitment and nothing you have to post. If you share the link publicly, just say it's an affiliate link. Would you like me to set it up?
 

@@ -56,7 +56,7 @@ Unter der Karte erklärt **How to read these signals** (eingeklappt), wie Trade 
 ### 6. Positionierung & Flow
 
 - **Call GEX** und **Put GEX** - die gesamte Gamma-Exposition aus Calls bzw. aus Puts.
-- **Call Wall (Widerstand)** und **Put Wall (Unterstützung)** - das größte Call-Gamma auf oder über dem Spot und das größte Put-Gamma auf oder unter dem Spot, jeweils mit dem Abstand zum Spot. Sie werden über den heutigen Verfallstermin und die zwei folgenden (0-2DTE) ermittelt; hast du den Chart nur auf 0DTE gefiltert, kann die Leiste Key Levels deshalb einen anderen Strike zeigen.
+- **Call Wall (Widerstand)** und **Put Wall (Unterstützung)** - das größte Call-Gamma auf oder über dem Spot und das größte Put-Gamma auf oder unter dem Spot, jeweils mit dem Abstand zum Spot. Sie werden über alle Verfallstermine ermittelt, die ZeroGEX lädt; hast du den Chart nur auf 0DTE gefiltert, kann die Leiste Key Levels deshalb einen anderen Strike zeigen.
 - **Netto-Flow**, **Netto-Prämie** und **Put/Call-Verhältnis** - für die aktuelle Sitzung: Netto-Call-Kontrakte minus Netto-Put-Kontrakte, dasselbe in Prämien-Dollar und Put-Volumen geteilt durch Call-Volumen. "Netto" heißt käuferinitiiert minus verkäuferinitiiert, ein positiver Netto-Flow ist also ein Flow, der zu Calls neigt.
 
 Ganz unten auf der Seite stehen der Hinweis, dass die Dealer-Positionierung modelliert und nicht direkt beobachtet wird, und die Uhrzeit der letzten Aktualisierung.

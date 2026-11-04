@@ -14,7 +14,7 @@ That makes it a distinct metric, not a rename of one you already have:
 
 | Level | What it measures |
 | --- | --- |
-| **Call / Put Wall** | The strike at or above / at or below spot with the largest *current* dollar call / put gamma, summed over today's expiration and the next two. A concentration, measured at today's spot. |
+| **Call / Put Wall** | The strike at or above / at or below spot with the largest *current* dollar call / put gamma, summed over every expiration ZeroGEX loads. A concentration, measured at today's spot. |
 | **Gamma Flip** | The hypothetical spot at which *aggregate* dealer gamma changes sign. |
 | **Max Pain** | The strike minimizing aggregate option-holder intrinsic payout at settlement. |
 | **GEX King** | The strike with the largest current `\|net GEX\|`, across the whole chain. |
