@@ -15,11 +15,7 @@ interface FlipSurfaceChartProps {
   horizons?: number[];
 }
 
-// Same horizons as the Gamma Flip · Term Structure chart above it, for the same
-// reason (see FlipTermStructureChart): a horizon re-weights the nearest three
-// expirations and adds no options, so rows past the last loaded expiration are
-// the same profile scaled down. 10d to 60d drew paler copies of one row.
-const DEFAULT_HORIZONS = [0.5, 1, 2, 3, 5];
+const DEFAULT_HORIZONS = [1, 3, 5, 10, 20, 60];
 
 type Pads = { L: number; R: number; T: number; B: number };
 const DESKTOP_PADS: Pads = {
@@ -700,7 +696,7 @@ export default function FlipSurfaceChart({
             <h3 className="zg-h3" style={{ color: textColor }}>
               Horizon × Price Contour
             </h3>
-            <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and horizon settings (y). The horizon changes how much options close to expiry count; every row uses the same nearest three expirations. Blue cells are long-gamma (stabilizing), red cells are short-gamma (destabilizing). The black line traces the zero crossing&nbsp;- the gamma flip at each horizon setting. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
+            <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and horizon settings (y). Every row uses the same loaded expirations; the horizon only changes how much each one counts, so rows past the last loaded expiration repeat the same crossing. Blue cells are long-gamma (stabilizing), red cells are short-gamma (destabilizing). The black line traces the zero crossing&nbsp;- the per-horizon gamma flip. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
           </div>

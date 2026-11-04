@@ -1,12 +1,12 @@
 # GEX Summary
 
-*Las cifras principales de GEX y los niveles que implican, en una sola pantalla - además de cuánto mueven el gamma flip las opciones cercanas al vencimiento y si el gamma de los dealers de hoy es inusual.*
+*Las cifras principales de GEX y los niveles que implican, en una sola pantalla - además de cómo se sostiene el gamma flip en distintos horizontes y si el gamma de los dealers de hoy es inusual.*
 
 ---
 
 ## Qué muestra esta página
 
-La página GEX Summary es la vista **en cifras** del libro de opciones. Mientras que Dealer Positioning es estructural (perfil, walls, heatmaps), esta página reúne diez cifras principales en una sola pantalla, traza el gamma de los dealers a lo largo del precio y el tiempo, y después muestra cuánto depende el gamma flip de las opciones cercanas al vencimiento y cómo se compara el gamma de los dealers de hoy con su propio historial.
+La página GEX Summary es la vista **en cifras** del libro de opciones. Mientras que Dealer Positioning es estructural (perfil, walls, heatmaps), esta página reúne diez cifras principales en una sola pantalla, traza el gamma de los dealers a lo largo del precio y el tiempo, y después muestra cómo cambia el gamma flip entre horizontes de opciones y cómo se compara el gamma de los dealers de hoy con su propio historial.
 
 El selector **GEX unit** del encabezado cambia todas las cifras de GEX en dólares entre gamma por movimiento del 1% (por defecto) y por 1 punto. La exposición es la misma en ambos casos; solo cambia la unidad.
 
@@ -48,15 +48,15 @@ El control **Expiry** elige qué vencimientos se valoran: **All** por defecto, o
 
 ## Gamma Flip · Term Structure
 
-El gamma flip de hoy, recalculado con cinco ajustes de horizonte, de 12 horas a 5 días. El horizonte es una ponderación, no un rango de fechas: cada contrato cuenta en proporción a cuánto del horizonte llega a vivir (días hasta el vencimiento ÷ horizonte, con un máximo de 1), así que un horizonte más corto hace que las opciones cercanas al vencimiento cuenten más.
+El gamma flip de hoy, resuelto por separado para cada ajuste de horizonte - de 1 a 60 días por defecto, con los presets **Std**, **Short** y **Long**. El horizonte es una ponderación, no un rango de fechas: cada contrato cuenta en proporción a cuánto del horizonte llega a vivir (días hasta el vencimiento ÷ horizonte, con un máximo de 1), así que un horizonte corto hace que los vencimientos más cercanos cuenten más y uno largo se apoya en los posteriores.
 
-Todos los horizontes usan las mismas opciones: los tres vencimientos más cercanos, que llegan hasta unos 2 a 4 días en SPX, SPY, QQQ y NDX (ES y NQ usan las opciones de SPX y NDX) y hasta una semana aproximadamente en NVDA. No se añaden opciones de vencimiento más largo, así que no es un flip a 20 o 60 días, ni el nivel de zero gamma que obtendrías con 90 días de open interest. En cuanto el horizonte supera el último de esos vencimientos, el peso de cada contrato se reduce en el mismo factor: el flip deja de moverse y solo baja el Net GEX @ spot. De lunes a miércoles, el último de ellos suele estar a menos de 3 días en SPX, SPY, QQQ y NDX, así que 3d y 5d coinciden.
+Todos los horizontes usan las mismas opciones: los vencimientos cargados para el símbolo (el gráfico indica el último bajo su título). No se añade nada posterior, así que todo horizonte que vaya más allá de ese último vencimiento muestra el mismo flip y solo baja el Net GEX @ spot. No es el nivel de zero gamma que obtendrías con 90 días de open interest.
 
-Cada punto se colorea según el signo del gamma de los dealers en el spot. Los contornos en rombo marcan el flip registrado hace ese mismo número de días, y una X roja señala un horizonte en el que no se pudo resolver ningún cruce. Úsalo para ver cuánto depende el flip de las opciones cercanas al vencimiento.
+Cada punto se colorea según el signo del gamma de los dealers en el spot. Los contornos en rombo marcan el flip registrado hace ese mismo número de días, y una X roja señala un horizonte en el que no se pudo resolver ningún cruce. Úsalo para ver si el flip se sostiene entre horizontes o es un efecto de vencimiento cercano.
 
 ## Horizon × Price Contour
 
-La misma pregunta como superficie: el gamma modelado de los dealers a lo largo de precios spot hipotéticos (x) y los mismos cinco ajustes de horizonte (y), todos sobre los mismos tres vencimientos más cercanos. Las celdas azules son long gamma (estabilizadoras), las rojas short gamma (desestabilizadoras), y una línea negra sigue el cruce por cero - el flip en cada ajuste. Unas guías marcan el spot actual y los call y put walls más pesados.
+La misma pregunta como superficie: el gamma modelado de los dealers a lo largo de precios spot hipotéticos (x) y ajustes de horizonte (y), cada fila con los mismos vencimientos cargados. Las celdas azules son long gamma (estabilizadoras), las rojas short gamma (desestabilizadoras), y una línea negra sigue el cruce por cero - el flip en cada horizonte. Unas guías marcan el spot actual y los call y put walls más pesados.
 
 ## Gamma Pulse
 
@@ -76,7 +76,7 @@ Cuando consultes a otro proveedor de datos de GEX, verifica siempre la convenci�
 Dos patrones:
 
 1. **Verificación cruzada con Dealer Positioning.** Si el Net GEX es significativamente positivo pero el perfil GEX muestra que la curva cruza a negativo justo por debajo del spot, estás sobre la línea de régimen - el riesgo es asimétrico.
-2. **Compara el flip con Raw nearest.** Cuando los dos están muy separados, es el gamma de vencimiento cercano el que tira. La term structure muestra cuánto se mueve el flip cuando las opciones cercanas al vencimiento cuentan más o menos.
+2. **Compara el flip con Raw nearest.** Cuando los dos están muy separados, es el gamma de vencimiento cercano el que tira. La term structure del flip muestra si el nivel se sostiene entre horizontes.
 
 ## Ver también
 

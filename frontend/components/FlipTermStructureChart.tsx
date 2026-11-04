@@ -15,7 +15,9 @@ import {
 import { Info } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
-import { useFlipTermStructure } from '@/hooks/useApiData';
+import { optionChainSymbolFor } from '@/core/symbols';
+import { etTodayDateKey } from '@/core/utils';
+import { useApiData, useFlipTermStructure } from '@/hooks/useApiData';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
@@ -25,16 +27,27 @@ interface FlipTermStructureChartProps {
   symbol: string;
 }
 
-// A horizon only changes each contract's weight, min(1, DTE / horizon), on the
-// same chain: the nearest three expirations (zerogex-oa INGEST_EXPIRATIONS=3),
-// which reach about 2 to 4 days out on SPX/SPY/QQQ/NDX and up to about 6 on
-// NVDA. It adds no options. Past the last loaded expiration every weight is
-// DTE / horizon, one factor across the whole profile, so the flip, its resolved
-// state and its span stop changing and only Net GEX @ spot shrinks as
-// 1 / horizon. The 10d to 120d chips this chart used to offer always matched
-// each other and read like a long-dated flip, so the chips stop at 5d.
-const AVAILABLE_HORIZONS = [0.5, 1, 2, 3, 5];
-const DEFAULT_HORIZONS = AVAILABLE_HORIZONS;
+// A horizon only changes each contract's weight, min(1, DTE / horizon), over the
+// chain the engine loaded. It never adds expirations. Past the last loaded
+// expiration every weight is DTE / horizon, one factor across the whole profile,
+// so the flip, its resolved state and its span repeat and only Net GEX @ spot
+// shrinks as 1 / horizon. How deep the chain runs is zerogex-oa's
+// INGEST_EXPIRATIONS / INGEST_MONTHLY_EXPIRATIONS, so the note under the title
+// reads the last loaded expiration from /api/gex/expirations rather than naming
+// a number that goes stale when those settings change.
+const DEFAULT_HORIZONS = [1, 3, 5, 10, 20, 60];
+const AVAILABLE_HORIZONS = [0.5, 1, 3, 5, 10, 20, 60, 120];
+
+// The note under the title. `last` is the last loaded expiration and its whole
+// calendar days from today (ET); null when the list hasn't loaded or is empty.
+function chainNote(last: { label: string; days: number } | null): string {
+  const notLongDated = 'This is not a 60- or 90-day open-interest flip.';
+  if (!last || last.days < 1) {
+    return `Every horizon uses the same options: the expirations loaded for this symbol. The horizon changes how much each one counts, so every horizon past the last of them shows the same flip. ${notLongDated}`;
+  }
+  const out = last.days === 1 ? '1 day out' : `${last.days} days out`;
+  return `Every horizon uses the same options: the expirations loaded for this symbol, the last on ${last.label}, ${out}. The horizon changes how much each one counts, so every horizon longer than that shows the same flip. ${notLongDated}`;
+}
 
 const FLIP_LINE_COLOR = '#C9A36A';
 const HISTORICAL_COLOR = '#8FA8C9';
@@ -228,6 +241,33 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
 
   const { data, loading, error } = useFlipTermStructure(symbol, selectedHorizons, 7000);
 
+  // The expirations the engine has priced for this book, for the note under
+  // the title. Same list the Gamma Surface chart reads; it changes at most once
+  // a day, so a slow poll is plenty.
+  const chainSymbol = optionChainSymbolFor(symbol);
+  const { data: expirationList } = useApiData<string[] | null>(
+    `/api/gex/expirations?symbol=${encodeURIComponent(chainSymbol)}&underlying=${encodeURIComponent(chainSymbol)}&lookback_hours=168`,
+    { refreshInterval: 300000 },
+  );
+  const todayKey = etTodayDateKey();
+  const lastLoaded = useMemo(() => {
+    const live = (Array.isArray(expirationList) ? expirationList : [])
+      .filter((e): e is string => typeof e === 'string' && e >= todayKey)
+      .sort();
+    const last = live[live.length - 1];
+    if (!last) return null;
+    const days = Math.round(
+      (Date.parse(`${last}T00:00:00Z`) - Date.parse(`${todayKey}T00:00:00Z`)) / 86_400_000,
+    );
+    if (!Number.isFinite(days)) return null;
+    const label = new Date(`${last}T00:00:00Z`).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    });
+    return { label, days };
+  }, [expirationList, todayKey]);
+
   const { chartData, priceDomain } = useMemo(() => {
     if (!data) return { chartData: [] as ChartRow[], priceDomain: undefined };
     const historicalByHorizon = new Map<number, number | null>();
@@ -280,6 +320,10 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
     });
   };
 
+  const applyPreset = (preset: number[]) => {
+    setSelectedHorizons(preset);
+  };
+
   const hasData = chartData.length > 0;
   const hasHistorical = chartData.some((row) => row.historicalFlip != null);
   const anyUnresolved = chartData.some((row) => !row.resolved);
@@ -297,20 +341,19 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
           <h3 className="zg-h3" style={{ color: textColor }}>
             Gamma Flip · Term Structure
           </h3>
-          <TooltipWrapper text="Today's gamma flip, recomputed at horizon settings from 12 hours to 5 days. The horizon is a weighting, not a date range: each contract counts in proportion to how much of the horizon it lives through (days to expiry ÷ horizon, capped at 1), so a short horizon lets options close to expiry count for more. Every horizon uses the same nearest three expirations, so once it passes the last of them the flip stops moving and only Net GEX @ spot gets smaller. Dots are colored by the sign of dealer gamma at spot. Diamond outlines mark the production flip that was recorded h days ago&nbsp;- read 'above spot' as 'regime sat above price then.' Red X markers flag horizons where no flip could be resolved near spot.">
+          <TooltipWrapper text="Today's gamma flip at each horizon setting (1d → 60d by default), versus the persisted production flip from h days ago. The horizon is a weighting, not a date range: each contract counts in proportion to how much of the horizon it lives through (days to expiry ÷ horizon, capped at 1), so a short horizon lets the nearest expirations count for more. Every horizon uses the same loaded expirations, so horizons past the last of them show the same flip and only Net GEX @ spot gets smaller. Dots are colored by the sign of dealer gamma at spot. Diamond outlines mark the production flip that was recorded h days ago&nbsp;- read 'above spot' as 'regime sat above price then', not 'h-day flip h days ago.' Red X markers flag horizons where no flip could be resolved near spot.">
             <Info size={14} />
           </TooltipWrapper>
         </div>
         <p className="mb-4 text-xs leading-relaxed" style={{ color: mutedText }}>
-          The horizon changes how much options close to expiry count, not which options are used.
-          Every horizon uses the same nearest three expirations, a few days out, so once it passes the
-          last of them the flip stops changing. This is not a long-dated flip.
+          {chainNote(lastLoaded)}
         </p>
 
-        {/* Horizon controls. On a phone the horizon chips ride one
-            sideways-scrolling line under the label (finger-sized) instead of
-            wrapping. From sm up the chip wrapper is display:contents, so the
-            label and chips read as one row. */}
+        {/* Horizon controls. On a phone: the label and presets share the first
+            line, and the eight horizon chips ride one sideways-scrolling line
+            under them (finger-sized) instead of wrapping into three rows. From
+            sm up the chip wrapper is display:contents and the order classes
+            don't apply, so the row reads exactly as before. */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-xs" style={{ color: mutedText }}>Horizons:</span>
           <div className="flex w-full min-w-0 max-sm:order-2 items-center gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] max-sm:[&>*]:shrink-0 sm:contents">
@@ -342,6 +385,47 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
               </button>
             );
           })}
+          </div>
+          <div className="ml-2 max-sm:order-1 max-sm:ml-auto inline-flex gap-1">
+            <button
+              type="button"
+              onClick={() => applyPreset([1, 3, 5, 10, 20, 60])}
+              className="max-sm:min-h-8 px-2 py-1 text-xs rounded border"
+              style={{
+                backgroundColor: 'var(--color-surface-subtle)',
+                borderColor: 'var(--color-border)',
+                color: mutedText,
+              }}
+              title="Apply default 1/3/5/10/20/60 preset"
+            >
+              Std
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset([0.5, 1, 3, 5])}
+              className="max-sm:min-h-8 px-2 py-1 text-xs rounded border"
+              style={{
+                backgroundColor: 'var(--color-surface-subtle)',
+                borderColor: 'var(--color-border)',
+                color: mutedText,
+              }}
+              title="Short-dated preset"
+            >
+              Short
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset([10, 20, 60, 120])}
+              className="max-sm:min-h-8 px-2 py-1 text-xs rounded border"
+              style={{
+                backgroundColor: 'var(--color-surface-subtle)',
+                borderColor: 'var(--color-border)',
+                color: mutedText,
+              }}
+              title="Long-dated preset"
+            >
+              Long
+            </button>
           </div>
         </div>
 

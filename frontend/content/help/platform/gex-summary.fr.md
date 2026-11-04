@@ -1,12 +1,12 @@
 # GEX Summary
 
-*Les chiffres clés du GEX et les niveaux qu'ils impliquent, sur un seul écran - ainsi que l'effet des options proches de l'échéance sur le gamma flip, et le caractère inhabituel ou non du gamma des dealers du jour.*
+*Les chiffres clés du GEX et les niveaux qu'ils impliquent, sur un seul écran - ainsi que la tenue du gamma flip selon les horizons, et le caractère inhabituel ou non du gamma des dealers du jour.*
 
 ---
 
 ## Ce que montre cette page
 
-La page GEX Summary est la vue **en chiffres** du book d'options. Là où Dealer Positioning est structurel (profil, walls, heatmaps), cette page réunit dix chiffres clés sur un seul écran, cartographie le gamma des dealers selon le prix et le temps, puis montre à quel point le gamma flip dépend des options proches de l'échéance et comment le gamma des dealers du jour se compare à son propre historique.
+La page GEX Summary est la vue **en chiffres** du book d'options. Là où Dealer Positioning est structurel (profil, walls, heatmaps), cette page réunit dix chiffres clés sur un seul écran, cartographie le gamma des dealers selon le prix et le temps, puis montre comment le gamma flip évolue selon les horizons d'options et comment le gamma des dealers du jour se compare à son propre historique.
 
 Le sélecteur **GEX unit** de l'en-tête bascule tous les montants GEX en dollars entre le gamma par mouvement de 1 % (par défaut) et par 1 point. L'exposition est la même dans les deux cas ; seule l'unité change.
 
@@ -48,15 +48,15 @@ Le sélecteur **Expiry** choisit les échéances valorisées : **All** par défa
 
 ## Gamma Flip · Term Structure
 
-Le gamma flip du jour, recalculé pour cinq réglages d'horizon, de 12 heures à 5 jours. L'horizon est une pondération, pas une plage de dates : chaque contrat compte en proportion de la part de l'horizon qu'il vit encore (jours jusqu'à l'échéance ÷ horizon, plafonné à 1), donc un horizon plus court fait compter davantage les options proches de l'échéance.
+Le gamma flip du jour, résolu séparément pour chaque réglage d'horizon - de 1 à 60 jours par défaut, avec les préréglages **Std**, **Short** et **Long**. L'horizon est une pondération, pas une plage de dates : chaque contrat compte en proportion de la part de l'horizon qu'il vit encore (jours jusqu'à l'échéance ÷ horizon, plafonné à 1), donc un horizon court fait compter davantage les échéances les plus proches et un horizon long s'appuie sur les suivantes.
 
-Tous les horizons utilisent les mêmes options : les trois échéances les plus proches, qui vont jusqu'à environ 2 à 4 jours sur SPX, SPY, QQQ et NDX (ES et NQ utilisent les options de SPX et NDX) et environ une semaine sur NVDA. Aucune option plus longue n'est ajoutée : ce n'est donc pas un flip à 20 ou 60 jours, ni le niveau de zero gamma que vous obtiendriez avec 90 jours d'open interest. Dès que l'horizon dépasse la dernière de ces échéances, le poids de chaque contrat diminue du même facteur : le flip ne bouge plus, et seul le Net GEX @ spot baisse. Du lundi au mercredi, la dernière est en général à moins de 3 jours sur SPX, SPY, QQQ et NDX, si bien que 3d et 5d coïncident.
+Tous les horizons utilisent les mêmes options : les échéances chargées pour le symbole (le graphique indique la dernière sous son titre). Rien de plus lointain n'est ajouté : tout horizon qui dépasse cette dernière échéance affiche donc le même flip, et seul le Net GEX @ spot diminue. Ce n'est pas le niveau de zero gamma que vous obtiendriez avec 90 jours d'open interest.
 
-Chaque point est coloré selon le signe du gamma des dealers au spot. Les contours en losange marquent le flip enregistré il y a autant de jours, et un X rouge signale un horizon pour lequel aucun passage à zéro n'a pu être résolu. Utilisez-le pour voir à quel point le flip dépend des options proches de l'échéance.
+Chaque point est coloré selon le signe du gamma des dealers au spot. Les contours en losange marquent le flip enregistré il y a autant de jours, et un X rouge signale un horizon pour lequel aucun passage à zéro n'a pu être résolu. Utilisez-le pour voir si le flip tient sur l'ensemble des horizons ou s'il s'agit d'un effet d'échéance proche.
 
 ## Horizon × Price Contour
 
-La même question sous forme de surface : le gamma modélisé des dealers selon des prix spot hypothétiques (x) et les cinq mêmes réglages d'horizon (y), tous sur les trois mêmes échéances les plus proches. Les cellules bleues sont long gamma (stabilisantes), les rouges short gamma (déstabilisantes), et une ligne noire suit le passage à zéro - le flip à chaque réglage. Des repères marquent le spot actuel et les call et put walls les plus lourds.
+La même question sous forme de surface : le gamma modélisé des dealers selon des prix spot hypothétiques (x) et des réglages d'horizon (y), chaque ligne construite sur les mêmes échéances chargées. Les cellules bleues sont long gamma (stabilisantes), les rouges short gamma (déstabilisantes), et une ligne noire suit le passage à zéro - le flip à chaque horizon. Des repères marquent le spot actuel et les call et put walls les plus lourds.
 
 ## Gamma Pulse
 
@@ -76,7 +76,7 @@ Lorsque vous consultez un autre fournisseur de données GEX, vérifiez toujours 
 Deux approches :
 
 1. **Recouper avec Dealer Positioning.** Si le Net GEX est nettement positif mais que le profil GEX montre la courbe basculer en négatif juste sous le spot, vous vous trouvez sur la ligne de régime - le risque est asymétrique.
-2. **Comparer le flip et Raw nearest.** Quand les deux sont très éloignés, c'est le gamma à échéance proche qui tire. La term structure montre de combien le flip bouge quand les options proches de l'échéance comptent plus ou moins.
+2. **Comparer le flip et Raw nearest.** Quand les deux sont très éloignés, c'est le gamma à échéance proche qui tire. La term structure du flip montre si le niveau tient sur l'ensemble des horizons.
 
 ## Voir aussi
 

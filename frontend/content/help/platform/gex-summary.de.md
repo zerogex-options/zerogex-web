@@ -1,12 +1,12 @@
 # GEX Summary
 
-*Die wichtigsten GEX-Kennzahlen und die Levels, die sich daraus ergeben, auf einem Bildschirm - dazu, wie stark Optionen kurz vor dem Verfall den Gamma Flip bewegen, und ob das heutige Dealer-Gamma ungewöhnlich ist.*
+*Die wichtigsten GEX-Kennzahlen und die Levels, die sich daraus ergeben, auf einem Bildschirm - dazu, wie stabil der Gamma Flip über verschiedene Horizonte ist und ob das heutige Dealer-Gamma ungewöhnlich ist.*
 
 ---
 
 ## Was diese Seite zeigt
 
-Die Seite GEX Summary ist die **Zahlenansicht** des Optionsbuchs. Während Dealer Positioning strukturell ist (Profil, Walls, Heatmaps), bringt diese Seite zehn Kennzahlen auf einen Bildschirm, bildet das Dealer-Gamma über Preis und Zeit ab und zeigt dann, wie stark der Gamma Flip von Optionen kurz vor dem Verfall abhängt und wie das heutige Dealer-Gamma im Vergleich zu seiner eigenen Historie dasteht.
+Die Seite GEX Summary ist die **Zahlenansicht** des Optionsbuchs. Während Dealer Positioning strukturell ist (Profil, Walls, Heatmaps), bringt diese Seite zehn Kennzahlen auf einen Bildschirm, bildet das Dealer-Gamma über Preis und Zeit ab und zeigt dann, wie sich der Gamma Flip über Options-Horizonte verändert und wie das heutige Dealer-Gamma im Vergleich zu seiner eigenen Historie dasteht.
 
 Der **GEX unit**-Umschalter im Seitenkopf stellt jeden GEX-Dollarwert zwischen Gamma pro 1 % Bewegung (Standard) und pro 1 Punkt um. Das Exposure ist in beiden Fällen dasselbe; nur die Einheit ändert sich.
 
@@ -48,15 +48,15 @@ Die Auswahl **Expiry** legt fest, welche Verfälle bewertet werden: standardmä�
 
 ## Gamma Flip · Term Structure
 
-Der heutige Gamma Flip, neu berechnet für fünf Horizont-Einstellungen von 12 Stunden bis zu 5 Tagen. Der Horizont ist eine Gewichtung, kein Zeitraum: Jeder Kontrakt zählt im Verhältnis dazu, wie viel des Horizonts er noch erlebt (Tage bis zum Verfall ÷ Horizont, höchstens 1). Ein kürzerer Horizont lässt Optionen kurz vor dem Verfall also stärker zählen.
+Der heutige Gamma Flip, für jede Horizont-Einstellung separat bestimmt - standardmäßig 1 bis 60 Tage, mit den Voreinstellungen **Std**, **Short** und **Long**. Der Horizont ist eine Gewichtung, kein Zeitraum: Jeder Kontrakt zählt im Verhältnis dazu, wie viel des Horizonts er noch erlebt (Tage bis zum Verfall ÷ Horizont, höchstens 1). Ein kurzer Horizont lässt die nächsten Verfälle stärker zählen, ein langer stützt sich auf die späteren.
 
-Jeder Horizont verwendet dieselben Optionen: die nächsten drei Verfälle. Sie reichen bei SPX, SPY, QQQ und NDX etwa 2 bis 4 Tage weit (ES und NQ verwenden die Optionen von SPX und NDX), bei NVDA etwa eine Woche. Länger laufende Optionen kommen nicht hinzu. Das ist also kein 20- oder 60-Tage-Flip und nicht das Zero-Gamma-Level, das du aus 90 Tagen Open Interest erhalten würdest. Sobald der Horizont den letzten dieser Verfälle überschreitet, schrumpft das Gewicht jedes Kontrakts um denselben Faktor: Der Flip bewegt sich nicht mehr, nur Net GEX @ spot wird kleiner. Von Montag bis Mittwoch ist der letzte davon bei SPX, SPY, QQQ und NDX meist weniger als 3 Tage entfernt, dann zeigen 3d und 5d denselben Wert.
+Jeder Horizont verwendet dieselben Optionen: die für das Symbol geladenen Verfälle, deren letzten der Chart unter seinem Titel nennt. Spätere kommen nicht hinzu. Jeder Horizont, der über diesen letzten Verfall hinausreicht, zeigt daher denselben Flip, nur Net GEX @ spot wird kleiner. Es ist nicht das Zero-Gamma-Level, das du aus 90 Tagen Open Interest erhalten würdest.
 
-Jeder Punkt ist nach dem Vorzeichen des Dealer-Gammas am Spot eingefärbt. Rauten-Umrisse markieren den Flip, der vor ebenso vielen Tagen erfasst wurde, und ein rotes X kennzeichnet einen Horizont, für den kein Nulldurchgang bestimmt werden konnte. So siehst du, wie stark der Flip von Optionen kurz vor dem Verfall abhängt.
+Jeder Punkt ist nach dem Vorzeichen des Dealer-Gammas am Spot eingefärbt. Rauten-Umrisse markieren den Flip, der vor ebenso vielen Tagen erfasst wurde, und ein rotes X kennzeichnet einen Horizont, für den kein Nulldurchgang bestimmt werden konnte. So siehst du, ob der Flip über die Horizonte hält oder ein kurzfristiger Effekt ist.
 
 ## Horizon × Price Contour
 
-Dieselbe Frage als Fläche: modelliertes Dealer-Gamma über hypothetische Spotpreise (x) und dieselben fünf Horizont-Einstellungen (y), alle auf denselben nächsten drei Verfällen. Blaue Zellen sind long Gamma (stabilisierend), rote short Gamma (destabilisierend), und eine schwarze Linie folgt dem Nulldurchgang - dem Flip pro Einstellung. Hilfslinien markieren den aktuellen Spot und die schwersten Call- und Put-Walls.
+Dieselbe Frage als Fläche: modelliertes Dealer-Gamma über hypothetische Spotpreise (x) und Horizont-Einstellungen (y), jede Zeile aus denselben geladenen Verfällen. Blaue Zellen sind long Gamma (stabilisierend), rote short Gamma (destabilisierend), und eine schwarze Linie folgt dem Nulldurchgang - dem Flip pro Horizont. Hilfslinien markieren den aktuellen Spot und die schwersten Call- und Put-Walls.
 
 ## Gamma Pulse
 
@@ -76,7 +76,7 @@ Wenn du einen anderen GEX-Anbieter liest, prüfe unbedingt die Vorzeichenkonvent
 Zwei Muster:
 
 1. **Gegenprüfung mit Dealer Positioning.** Wenn Net GEX deutlich positiv ist, das GEX-Profil aber zeigt, dass die Kurve knapp unter dem Spot ins Negative kippt, befindest du dich genau auf der Regimegrenze - das Risiko ist asymmetrisch.
-2. **Flip und Raw nearest vergleichen.** Liegen die beiden weit auseinander, zieht kurzlaufendes Gamma. Die Term Structure zeigt, wie weit sich der Flip bewegt, wenn Optionen kurz vor dem Verfall mehr oder weniger zählen.
+2. **Flip und Raw nearest vergleichen.** Liegen die beiden weit auseinander, zieht kurzlaufendes Gamma. Die Flip-Term-Structure zeigt, ob das Niveau über die Horizonte hält.
 
 ## Siehe auch
 
