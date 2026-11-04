@@ -69,6 +69,7 @@ Il primo ladder mostra il simbolo del grafico. Il secondo serve a confrontare qu
 
 I controlli in cima al pannello:
 
+- **Basis: OI / Volume** - in base a cosa viene pesato il gamma di ogni strike. **OI** (l'impostazione predefinita) è il book dei dealer: gamma × open interest, che viene pubblicato una volta al giorno. **Volume** pesa lo stesso gamma con i contratti scambiati nella sessione, quindi mostra dove si sta scambiando il gamma di oggi, comprese le posizioni che l'open interest non vede ancora. La colonna dei valori diventa allora **Γ × Vol** al posto di Net GEX, con le stesse unità e gli stessi segni (call positive, put negative). Il volume non distingue un'operazione di apertura da una di chiusura, né chi stava da quale parte, quindi va letto come attività, non come posizionamento. Il chip **LONG Γ** / **SHORT Γ** e i livelli restano sul book dell'open interest, e Session Δ vale solo per OI. Solo in tempo reale: il Rewind mostra il book dell'open interest.
 - **Strikes: Active / All** - **Active** (l'impostazione predefinita) nasconde gli strike senza open interest. **All** mostra tutti gli strike quotati vicino al prezzo.
 - **Session Δ: On / Off** - segna con un ▲ verde ogni strike in cui il gamma dei dealer è cresciuto dall'apertura delle 9:30 ET, o con un ▼ rosso quelli in cui si è ridotto. Le variazioni piccole non vengono segnate. Solo in tempo reale.
 - **Unit: 1% / 1pt** - mostra il gamma per movimento dell'1% (l'impostazione predefinita) o per movimento di 1 punto. Stessa esposizione, unità diversa. L'impostazione vale per tutto il sito.
@@ -350,7 +351,7 @@ ZeroGEX legge le opzioni sugli indici, non le opzioni sui futures, quindi i live
 |---|---|---|
 | Dati | In ritardo di circa 15 minuti; ricarica per uno snapshot più recente | In tempo reale |
 | Simboli e timeframe | SPY su barre da 5 minuti | Tutti e sette i simboli, da 1M a 1D |
-| Pannello | Ladder di SPY e SPX; Strike Panel solo in vista Silhouette | Qualsiasi coppia; tutte e quattro le viste dello Strike Panel; Session Δ |
+| Pannello | Ladder di SPY e SPX; Strike Panel solo in vista Silhouette | Qualsiasi coppia; tutte e quattro le viste dello Strike Panel; Basis e Session Δ |
 | Overlay | Gamma Levels, Regime, VWAP, Max Pain | Tutti |
 | Strumenti | Zoom, mirino, Save | In più il filtro Expiry, il Rewind e gli avvisi sui wall |
 
@@ -358,14 +359,14 @@ ZeroGEX legge le opzioni sugli indici, non le opzioni sui futures, quindi i live
 
 ## Cosa ricorda il terminal
 
-Su questo browser, il terminal salva i tuoi overlay, lo stile del grafico, la modalità del volume, l'orizzonte dell'Expected Range, l'opacità delle ribbon, la scelta del pannello e la vista dello Strike Panel, insieme al simbolo e alle impostazioni Strikes, Session Δ e Unit dei ladder. Il filtro Expiry viene mantenuto per singola scheda del browser.
+Su questo browser, il terminal salva i tuoi overlay, lo stile del grafico, la modalità del volume, l'orizzonte dell'Expected Range, l'opacità delle ribbon, la scelta del pannello e la vista dello Strike Panel, insieme al simbolo e alle impostazioni Basis, Strikes, Session Δ e Unit dei ladder. Il filtro Expiry viene mantenuto per singola scheda del browser.
 
 Non salva il timeframe (si apre su 5M), il simbolo del secondo ladder, zoom e spostamento, né il Rewind.
 
 ## Cosa il Gamma Terminal non può dirti
 
 - **Chi detiene davvero le opzioni.** Il gamma dei dealer è modellato dall'open interest con una convenzione standard. I book reali dei dealer differiscono, e i desk fanno hedging in modi che i dati pubblici non mostrano.
-- **Le nuove posizioni aperte durante la giornata.** L'open interest si aggiorna una volta al giorno, dopo la chiusura. Durante la sessione, i livelli si muovono perché prezzo, tempo e volatilità cambiano il gamma delle posizioni già aperte.
+- **Le nuove posizioni aperte durante la giornata.** L'open interest si aggiorna una volta al giorno, dopo la chiusura. Durante la sessione, i livelli si muovono perché prezzo, tempo e volatilità cambiano il gamma delle posizioni già aperte. La base Volume dei ladder mostra dove si concentrano gli scambi della sessione, ma non se hanno aperto o chiuso posizioni.
 - **Dove andrà il prezzo.** I wall, il pin, il max pain, l'expected range e i centroidi sono contesto, non target né promesse. I livelli di gamma sono un supporto alle decisioni, non una consulenza di investimento.
 
 ## Vedi anche

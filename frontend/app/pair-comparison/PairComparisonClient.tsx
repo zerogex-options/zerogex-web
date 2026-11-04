@@ -18,6 +18,7 @@ import { FilterBar, FilterGroup } from "@/components/controls/Filters";
 import PairGammaHeatmap, { type HeatmapCell, type HeatmapColumnInput } from "@/components/PairGammaHeatmap";
 import StrikeFilterToggle from "@/components/StrikeFilterToggle";
 import SessionDeltaToggle from "@/components/SessionDeltaToggle";
+import LadderBasisToggle from "@/components/LadderBasisToggle";
 import ExpirationMultiSelect from "@/components/ExpirationMultiSelect";
 import PairReplayScrubber from "@/components/PairReplayScrubber";
 import PairCandleChart from "@/components/PairCandleChart";
@@ -35,6 +36,7 @@ import { etTodayDateKey } from "@/core/utils";
 import { useGexUnit } from "@/core/GexUnitContext";
 import { useStrikeFilter } from "@/core/StrikeFilterContext";
 import { useSessionDelta } from "@/core/SessionDeltaContext";
+import { useLadderBasis } from "@/core/LadderBasisContext";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { likePairFor } from "@/core/symbols";
@@ -177,6 +179,9 @@ export default function PairComparisonClient() {
   const liveEnabled = mode === "live";
   // Session-Δ overlay preference (shared with the dashboard ladder tile).
   const { showSessionDelta } = useSessionDelta();
+  // Ladder basis (open interest or the session's volume), shared the same way.
+  // Live columns only: replay rebuilds the open-interest book from its frames.
+  const { ladderBasis } = useLadderBasis();
 
   // Expiration filter — one tab-shared selection, reconciled PER SYMBOL (each
   // column only passes dates its own chain can serve). The page's selector
@@ -200,10 +205,12 @@ export default function PairComparisonClient() {
   const live1 = useGammaLadderColumn(sym1, liveEnabled, {
     expirations: exp1.selection,
     sessionDelta: showSessionDelta,
+    basis: ladderBasis,
   });
   const live2 = useGammaLadderColumn(sym2, liveEnabled, {
     expirations: exp2.selection,
     sessionDelta: showSessionDelta,
+    basis: ladderBasis,
   });
   const replay1 = usePairReplay(sym1, replayArmed, mode === "replay");
   const replay2 = usePairReplay(sym2, replayArmed, mode === "replay");
@@ -315,11 +322,14 @@ export default function PairComparisonClient() {
         tooltip={INFO_TEXT}
       />
 
-      {/* Global controls: candle timeframe · ladder strike filter · expiry
-          filter · session-Δ overlay (left) · GEX unit (right) */}
+      {/* Global controls: candle timeframe · ladder basis · strike filter ·
+          expiry filter · session-Δ overlay (left) · GEX unit (right) */}
       <FilterBar className="mb-4 gap-x-3">
         <FilterGroup label="Candles">
           <TimeframeSeg value={timeframe} onChange={setTimeframe} />
+        </FilterGroup>
+        <FilterGroup label="Basis">
+          <LadderBasisToggle showHint={false} />
         </FilterGroup>
         <FilterGroup label="Strikes">
           <StrikeFilterToggle showHint={false} />

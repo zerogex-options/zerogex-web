@@ -74,6 +74,7 @@ import PairGammaHeatmap, { ROW_H, type HeatmapColumnInput, type LadderFit } from
 import SymbolSelect from "@/components/SymbolSelect";
 import StrikeFilterToggle from "@/components/StrikeFilterToggle";
 import SessionDeltaToggle from "@/components/SessionDeltaToggle";
+import LadderBasisToggle from "@/components/LadderBasisToggle";
 import GexUnitToggle from "@/components/GexUnitToggle";
 import ChartCaption from "@/components/ChartCaption";
 import { useGammaLadderColumn } from "@/hooks/useGammaLadder";
@@ -81,6 +82,7 @@ import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useGexUnit } from "@/core/GexUnitContext";
 import { useStrikeFilter } from "@/core/StrikeFilterContext";
 import { useSessionDelta } from "@/core/SessionDeltaContext";
+import { useLadderBasis } from "@/core/LadderBasisContext";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { SYMBOLS, sameIndexPairFor } from "@/core/symbols";
 import type { LadderSnapshot } from "./snapshot";
@@ -372,6 +374,7 @@ export default function TerminalSurface({
   // dashboard ladder tile. The toggle UIs live on the panel card below.
   const { activeOnly } = useStrikeFilter();
   const { showSessionDelta } = useSessionDelta();
+  const { ladderBasis } = useLadderBasis();
 
   // The chart's underlying. Live, it is the app-wide symbol, so the chart, the
   // first ladder, the header picker and the Key Levels strip above all agree.
@@ -425,11 +428,13 @@ export default function TerminalSurface({
   const leftLive = useGammaLadderColumn(sym1, laddersEnabled, {
     expirations: exp1.selection,
     sessionDelta: showSessionDelta,
+    basis: ladderBasis,
     rewindTime,
   });
   const rightLive = useGammaLadderColumn(sym2, laddersEnabled, {
     expirations: exp2.selection,
     sessionDelta: showSessionDelta,
+    basis: ladderBasis,
     rewindTime,
   });
   const left = delayed ? snapshotColumn(ladders?.primary ?? null, sym1) : leftLive;
@@ -545,6 +550,15 @@ export default function TerminalSurface({
             >
               {laddersView ? (
                 <>
+                  {/* Basis needs the live volume read, which the delayed
+                      snapshot does not carry, so like Session Δ it is only
+                      offered live. */}
+                  {live && (
+                    <div className="flex items-center gap-2">
+                      <span className="zg-eyebrow" style={{ fontSize: 10 }}>Basis</span>
+                      <LadderBasisToggle showHint={false} />
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <span className="zg-eyebrow" style={{ fontSize: 10 }}>Strikes</span>
                     <StrikeFilterToggle showHint={false} />

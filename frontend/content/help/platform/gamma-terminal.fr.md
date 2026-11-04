@@ -69,6 +69,7 @@ La première échelle correspond au symbole du graphique. La seconde sert à com
 
 Les contrôles en haut du panneau :
 
+- **Basis: OI / Volume** - ce qui pondère le gamma de chaque strike. **OI** (par défaut) est le carnet des dealers : gamma × open interest, publié une fois par jour. **Volume** pondère le même gamma par les contrats échangés pendant la séance, et montre donc où se traite le gamma du jour, y compris les positions que l'open interest ne voit pas encore. La colonne des valeurs devient alors **Γ × Vol** au lieu de Net GEX, dans les mêmes unités et avec les mêmes signes (calls positifs, puts négatifs). Le volume ne distingue pas une opération d'ouverture d'une opération de clôture, ni qui était de quel côté : lis-le comme de l'activité, pas comme du positionnement. Le chip **LONG Γ** / **SHORT Γ** et les niveaux restent sur le carnet de l'open interest, et Session Δ ne s'applique qu'à OI. En direct uniquement : Rewind affiche le carnet de l'open interest.
 - **Strikes: Active / All** - **Active** (par défaut) masque les strikes sans open interest. **All** affiche tous les strikes listés proches du prix.
 - **Session Δ: On / Off** - marque chaque strike d'un ▲ vert là où le gamma des dealers s'est accru depuis l'ouverture de 9h30 ET, ou d'un ▼ rouge là où il s'est érodé. Les petites variations ne sont pas marquées. En direct uniquement.
 - **Unit: 1% / 1pt** - affiche le gamma pour un mouvement de 1 % (par défaut) ou pour un mouvement d'un point. Même exposition, unité différente. Ce réglage s'applique à tout le site.
@@ -350,7 +351,7 @@ ZeroGEX lit les options sur indice, pas les options sur futures : les niveaux d'
 |---|---|---|
 | Données | Différées d'environ 15 minutes ; recharge la page pour un instantané plus récent | En direct |
 | Symboles et timeframes | SPY en barres de 5 minutes | Les sept symboles, de 1M à 1D |
-| Panneau | Échelles SPY et SPX ; Strike Panel en silhouette uniquement | N'importe quelle paire ; les quatre vues du Strike Panel ; Session Δ |
+| Panneau | Échelles SPY et SPX ; Strike Panel en silhouette uniquement | N'importe quelle paire ; les quatre vues du Strike Panel ; Basis et Session Δ |
 | Superpositions | Gamma Levels, Regime, VWAP, Max Pain | Toutes |
 | Outils | Zoom, réticule, Save | Également le filtre Expiry, Rewind et les alertes de wall |
 
@@ -358,14 +359,14 @@ ZeroGEX lit les options sur indice, pas les options sur futures : les niveaux d'
 
 ## Ce que le terminal mémorise
 
-Sur ce navigateur, le terminal enregistre tes superpositions, le style du graphique, le mode de volume, l'horizon d'Expected Range, l'opacité des ribbons, ton choix de panneau et la vue du Strike Panel, ainsi que ton symbole et les réglages Strikes, Session Δ et Unit des échelles. Le filtre Expiry est conservé par onglet de navigateur.
+Sur ce navigateur, le terminal enregistre tes superpositions, le style du graphique, le mode de volume, l'horizon d'Expected Range, l'opacité des ribbons, ton choix de panneau et la vue du Strike Panel, ainsi que ton symbole et les réglages Basis, Strikes, Session Δ et Unit des échelles. Le filtre Expiry est conservé par onglet de navigateur.
 
 Il n'enregistre pas le timeframe (il s'ouvre en 5M), le symbole de la seconde échelle, le zoom et le déplacement, ni le Rewind.
 
 ## Ce que le Gamma Terminal ne peut pas te dire
 
 - **Qui détient réellement les options.** Le gamma des dealers est modélisé à partir de l'open interest selon une convention standard. Les carnets réels des dealers diffèrent, et les desks se couvrent d'une manière que les données publiques ne montrent pas.
-- **Les nouvelles positions en cours de journée.** L'open interest est mis à jour une fois par jour, après la clôture. Pendant la séance, les niveaux bougent parce que le prix, le temps et la volatilité modifient le gamma des positions déjà ouvertes.
+- **Les nouvelles positions en cours de journée.** L'open interest est mis à jour une fois par jour, après la clôture. Pendant la séance, les niveaux bougent parce que le prix, le temps et la volatilité modifient le gamma des positions déjà ouvertes. La base Volume des échelles montre où se concentrent les échanges de la séance, mais pas s'ils ont ouvert ou fermé des positions.
 - **Où ira le prix.** Les walls, le pin, le max pain, la fourchette attendue et les centroïdes sont du contexte, pas des objectifs ni des promesses. Les niveaux de gamma sont une aide à la décision, pas un conseil en investissement.
 
 ## Voir aussi

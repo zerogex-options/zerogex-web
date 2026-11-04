@@ -69,6 +69,7 @@ Die erste Leiter zeigt das Symbol des Charts. Die zweite vergleicht ein beliebig
 
 Die Bedienelemente oben im Panel:
 
+- **Basis: OI / Volume** - womit das Gamma jedes Strikes gewichtet wird. **OI** (Standard) ist das Dealer-Buch: Gamma × Open Interest, das einmal am Tag veröffentlicht wird. **Volume** gewichtet dasselbe Gamma mit den in der Sitzung gehandelten Kontrakten und zeigt so, wo das heutige Gamma gehandelt wird, auch Positionen, die das Open Interest noch nicht sieht. Die Wertespalte heißt dann **Γ × Vol** statt Net GEX, in denselben Einheiten und mit denselben Vorzeichen (Calls positiv, Puts negativ). Das Volumen unterscheidet nicht zwischen eröffnenden und schließenden Trades und zeigt nicht, wer auf welcher Seite stand. Lies es also als Aktivität, nicht als Positionierung. Der Chip **LONG Γ** / **SHORT Γ** und die Levels bleiben beim Open-Interest-Buch, und Session Δ gilt nur für OI. Nur live: Rewind zeigt das Open-Interest-Buch.
 - **Strikes: Active / All** - **Active** (Standard) blendet Strikes ohne Open Interest aus. **All** zeigt jeden gelisteten Strike nahe am Kurs.
 - **Session Δ: On / Off** - markiert jeden Strike, an dem sich seit der Eröffnung um 9:30 Uhr ET Dealer-Gamma aufgebaut hat, mit einem grünen ▲ und jeden, an dem es geschrumpft ist, mit einem roten ▼. Kleine Veränderungen bleiben unmarkiert. Nur live.
 - **Unit: 1% / 1pt** - zeigt das Gamma pro 1 % Bewegung (Standard) oder pro 1 Punkt Bewegung. Dasselbe Exposure, andere Einheit. Diese Einstellung gilt auf der ganzen Website.
@@ -350,7 +351,7 @@ ZeroGEX liest Indexoptionen, keine Optionen auf Futures. Die Levels für ES und 
 |---|---|---|
 | Daten | Etwa 15 Minuten verzögert; neu laden für einen neueren Snapshot | Live |
 | Symbole und Timeframes | SPY auf 5-Minuten-Balken | Alle sieben Symbole, 1M bis 1D |
-| Panel | Leitern für SPY und SPX; Strike Panel nur als Silhouette | Beliebige Paare; alle vier Ansichten des Strike Panel; Session Δ |
+| Panel | Leitern für SPY und SPX; Strike Panel nur als Silhouette | Beliebige Paare; alle vier Ansichten des Strike Panel; Basis und Session Δ |
 | Overlays | Gamma Levels, Regime, VWAP, Max Pain | Alle |
 | Werkzeuge | Zoom, Fadenkreuz, Save | Zusätzlich Expiry-Filter, Rewind und Wall-Alarme |
 
@@ -358,14 +359,14 @@ ZeroGEX liest Indexoptionen, keine Optionen auf Futures. Die Levels für ES und 
 
 ## Was sich das Terminal merkt
 
-In diesem Browser speichert das Terminal deine Overlays, den Chart-Stil, den Volumenmodus, den Horizont der Expected Range, die Deckkraft der Ribbons, die Panel-Auswahl und die Ansicht des Strike Panel, dazu dein Symbol und die Einstellungen Strikes, Session Δ und Unit der Leitern. Der Expiry-Filter bleibt pro Browser-Tab erhalten.
+In diesem Browser speichert das Terminal deine Overlays, den Chart-Stil, den Volumenmodus, den Horizont der Expected Range, die Deckkraft der Ribbons, die Panel-Auswahl und die Ansicht des Strike Panel, dazu dein Symbol und die Einstellungen Basis, Strikes, Session Δ und Unit der Leitern. Der Expiry-Filter bleibt pro Browser-Tab erhalten.
 
 Nicht gespeichert werden der Timeframe (er öffnet auf 5M), das Symbol der zweiten Leiter, Zoom und Verschiebung sowie Rewind.
 
 ## Was dir das Gamma Terminal nicht sagen kann
 
 - **Wer die Optionen tatsächlich hält.** Das Dealer-Gamma wird nach einer üblichen Konvention aus dem Open Interest modelliert. Echte Dealer-Bücher weichen davon ab, und Desks hedgen auf eine Art, die öffentliche Daten nicht zeigen.
-- **Neue Positionen im Tagesverlauf.** Das Open Interest aktualisiert sich einmal am Tag, nach Handelsschluss. Während der Sitzung bewegen sich die Levels, weil Kurs, Zeit und Volatilität das Gamma bereits offener Positionen verändern.
+- **Neue Positionen im Tagesverlauf.** Das Open Interest aktualisiert sich einmal am Tag, nach Handelsschluss. Während der Sitzung bewegen sich die Levels, weil Kurs, Zeit und Volatilität das Gamma bereits offener Positionen verändern. Die Volume-Basis der Leitern zeigt, wo in der Sitzung gehandelt wird, aber nicht, ob dabei Positionen eröffnet oder geschlossen wurden.
 - **Wohin der Kurs geht.** Walls, Pin, Max Pain, Expected Range und Centroids sind Kontext, keine Kursziele oder Versprechen. Gamma-Levels sind eine Entscheidungshilfe, keine Anlageberatung.
 
 ## Siehe auch

@@ -17,6 +17,7 @@ import { TimeframeProvider } from '@/core/TimeframeContext';
 import { GexUnitProvider } from '@/core/GexUnitContext';
 import { StrikeFilterProvider } from '@/core/StrikeFilterContext';
 import { SessionDeltaProvider } from '@/core/SessionDeltaContext';
+import { LadderBasisProvider } from '@/core/LadderBasisContext';
 import { DensityProvider } from '@/core/DensityContext';
 import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
@@ -345,17 +346,19 @@ export default async function RootLayout({
               <GexUnitProvider>
                 <StrikeFilterProvider>
                   <SessionDeltaProvider>
-                    <DensityProvider>
-                      <TelemetryProvider />
-                      <TwitterPixelProvider />
-                      <PageAnalytics />
-                      <ClientLayout
-                        initialHeaderCollapsed={headerCollapsed}
-                        initialSidebarVisible={sidebarVisible}
-                      >
-                        {children}
-                      </ClientLayout>
-                    </DensityProvider>
+                    <LadderBasisProvider>
+                      <DensityProvider>
+                        <TelemetryProvider />
+                        <TwitterPixelProvider />
+                        <PageAnalytics />
+                        <ClientLayout
+                          initialHeaderCollapsed={headerCollapsed}
+                          initialSidebarVisible={sidebarVisible}
+                        >
+                          {children}
+                        </ClientLayout>
+                      </DensityProvider>
+                    </LadderBasisProvider>
                   </SessionDeltaProvider>
                 </StrikeFilterProvider>
               </GexUnitProvider>

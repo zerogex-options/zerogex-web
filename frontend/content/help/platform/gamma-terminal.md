@@ -69,6 +69,7 @@ The first ladder is the chart's symbol. The second compares any other symbol, an
 
 The controls at the top of the panel:
 
+- **Basis: OI / Volume** - what each strike's gamma is weighted by. **OI** (the default) is the dealer book: gamma × open interest, which is published once a day. **Volume** weights the same gamma by the contracts traded this session, so it shows where today's gamma is trading, including positions that open interest can't see yet. The value column then reads **Γ × Vol** instead of Net GEX, in the same units and with the same signs (calls positive, puts negative). Volume can't tell an opening trade from a closing one, or who was on each side, so read it as activity, not positioning. The **LONG Γ** / **SHORT Γ** chip and the levels stay on the open-interest book, and Session Δ applies to OI only. Live only: Rewind shows the open-interest book.
 - **Strikes: Active / All** - **Active** (the default) hides strikes with no open interest. **All** shows every listed strike near price.
 - **Session Δ: On / Off** - marks each strike with a green ▲ where dealer gamma has built since the 9:30 AM ET open, or a red ▼ where it has eroded. Small changes are left unmarked. Live only.
 - **Unit: 1% / 1pt** - shows gamma per 1% move (the default) or per 1-point move. Same exposure, different unit. This setting applies across the site.
@@ -370,7 +371,7 @@ ZeroGEX reads index options, not options on futures, so the ES and NQ levels com
 |---|---|---|
 | Data | About 15 minutes behind; reload for a newer snapshot | Live |
 | Symbols and timeframes | SPY on 5-minute bars | All seven symbols, 1M to 1D |
-| Panel | SPY and SPX ladders; Strike Panel silhouette only | Any pair; all four Strike Panel views; Session Δ |
+| Panel | SPY and SPX ladders; Strike Panel silhouette only | Any pair; all four Strike Panel views; Basis and Session Δ |
 | Overlays | Gamma Levels, Regime, VWAP, Max Pain | All of them |
 | Tools | Zoom, crosshair, Save | Also the Expiry filter, Rewind and wall alerts |
 
@@ -378,14 +379,14 @@ ZeroGEX reads index options, not options on futures, so the ES and NQ levels com
 
 ## What the terminal remembers
 
-On this browser, the terminal saves your overlays, chart style, volume mode, Expected Range horizon, ribbon opacity, panel choice and Strike Panel view, along with your symbol and the ladders' Strikes, Session Δ and Unit settings. The Expiry filter is kept per browser tab.
+On this browser, the terminal saves your overlays, chart style, volume mode, Expected Range horizon, ribbon opacity, panel choice and Strike Panel view, along with your symbol and the ladders' Basis, Strikes, Session Δ and Unit settings. The Expiry filter is kept per browser tab.
 
 It doesn't save the timeframe (it opens on 5M), the second ladder's symbol, zoom and pan, or Rewind.
 
 ## What the Gamma Terminal can't tell you
 
 - **Who actually holds the options.** Dealer gamma is modeled from open interest using a standard convention. Real dealer books differ, and desks hedge in ways public data doesn't show.
-- **New positions during the day.** Open interest updates once a day, after the close. During the session, levels move because price, time and volatility change the gamma of positions already open.
+- **New positions during the day.** Open interest updates once a day, after the close. During the session, levels move because price, time and volatility change the gamma of positions already open. The ladders' Volume basis shows where the session's trading is, but not whether it opened positions or closed them.
 - **Where price will go.** The walls, the pin, max pain, the expected range and the centroids are context, not targets or promises. Gamma levels are decision-support, not investment advice.
 
 ## See also

@@ -28,6 +28,7 @@ import GammaSurfaceChart from '@/components/GammaSurfaceChart';
 import GexUnitToggle from '@/components/GexUnitToggle';
 import StrikeFilterToggle from '@/components/StrikeFilterToggle';
 import SessionDeltaToggle from '@/components/SessionDeltaToggle';
+import LadderBasisToggle from '@/components/LadderBasisToggle';
 import ExpirationMultiSelect from '@/components/ExpirationMultiSelect';
 import { GammaLadder } from '@/components/PairGammaHeatmap';
 import OptionsFlowChart from '@/components/OptionsFlowChart';
@@ -73,6 +74,7 @@ import { useHedgingFlow } from '@/hooks/useHedgingFlow';
 import { useGexUnit } from '@/core/GexUnitContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { useSessionDelta } from '@/core/SessionDeltaContext';
+import { useLadderBasis } from '@/core/LadderBasisContext';
 import { getMarketSession, etTodayDateKey } from '@/core/utils';
 import {
   useApiData,
@@ -424,12 +426,14 @@ export function GammaLadderPanel() {
   const { gexUnit } = useGexUnit();
   const { activeOnly } = useStrikeFilter();
   const { showSessionDelta } = useSessionDelta();
+  const { ladderBasis } = useLadderBasis();
   const t = usePageT(dict);
   const expirations = useChartExpirations(symbol, true);
   const ladderZeroDte = useZeroDteOption(expirations.available, etTodayDateKey());
   const column = useGammaLadderColumn(symbol, true, {
     expirations: expirations.selection,
     sessionDelta: showSessionDelta,
+    basis: ladderBasis,
   });
   const ladderColumn = useMemo(
     () => ({ ...column, control: <WidgetSymbolSelect scale={scale} /> }),
@@ -456,6 +460,7 @@ export function GammaLadderPanel() {
       className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
       style={{ borderBottom: '1px solid var(--border-subtle)' }}
     >
+      <LadderBasisToggle showHint={false} />
       <StrikeFilterToggle showHint={false} />
       <ExpirationMultiSelect
         options={expirations.available}
