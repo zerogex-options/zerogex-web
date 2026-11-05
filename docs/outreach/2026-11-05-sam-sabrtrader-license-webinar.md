@@ -2,7 +2,7 @@
 
 Sam Eells, "Co Founder | Partner" at SabrTrader, joined the Erwin thread
 (`2026-10-29-erwin-sabrtrader-partnership.md`), to support@ and Erwin. Read
-Thu Nov 5:
+Wed Nov 4, evening ET:
 
 > We are happy to offer you a free license to Sabrtrader. You can download the
 > full "ultimate version" directly from our website: https://sabrtrader.com
@@ -16,6 +16,15 @@ Thu Nov 5:
 >
 > If we can get all posted this week, we could schedule a webinar for next
 > Wednesday.
+
+> **Status:** the link went live Wed Nov 4 at 11:23 PM ET (Nov 5, 04:23 UTC).
+> `SABRTRADER` is on `tradedevils@gmail.com` (`user_3b8efe97733109d68ac42520`),
+> SabrTrader's team account (their site says it's built by the TradeDevils
+> team). Stripe promotion code `promo_1UYICy4AOiqteMYY1QppkhW5` on `Yg3BPJPx`,
+> partner grant to 2027-11-05. That account already pays for Pro
+> (`sub_1TxQEI4AOiqteMYYlFwmMH0G`, active; registered Jul 26), so the reply
+> below no longer has the "I've also put Pro" paragraph. Reply not sent as of
+> this update.
 
 ## What he's saying
 
@@ -70,14 +79,10 @@ cd ~/zerogex-web && make grant-partner-pro EMAIL=<their-email> PROMO_CODE=SABRTR
   note).
 - `DAYS=365`, `COMMISSION_BPS=0`: same reasons as the Oct 29 note.
 
-If it finds nothing, send the reply with the alternate paragraph below, then
-run the two commands once they send an email.
-
 ## Draft reply
 
 Same thread. Each paragraph is one line so it pastes straight into a mail
-client. Fill in their email. Change the Wednesday line if that day doesn't
-work.
+client. Change the Wednesday line if that day doesn't work.
 
 ```
 Hi Sam,
@@ -98,8 +103,6 @@ To connect ZeroGEX in SabrTrader:
 
 Anyone who already has a ZeroGEX key, say for NinjaTrader, should paste that same key. Generating a new one switches off the old one everywhere it's used.
 
-I've also put Pro on your team's ZeroGEX account ([their email]) free for the next year, so you can keep testing the connector and run the webinar on live levels.
-
 As promised, SabrTrader is now in our GEX tools article too: https://zerogex.io/education/best-gex-tools
 
 Next Wednesday works for me. What time are you thinking, and would you like me on the call to take questions about the levels?
@@ -110,18 +113,6 @@ Founder, ZeroGEX
 Know the levels that matter before price gets there.
 zerogex.io
 ```
-
-### If they have no ZeroGEX account
-
-Replace everything from "The 25% offer is ready" through the "I've also put
-Pro" paragraph with:
-
-```
-For the 25% offer, I'll attach the link to your team's ZeroGEX account, and that account gets Pro free for a year so you can test the connector and run the webinar on live levels. Could you sign up at https://zerogex.io/register with the email you'd like to use and send it to me? I'll switch it on the same day and send you the link, the code, and the setup steps to post.
-```
-
-Once they answer, run the two commands above and send the link, code, and
-steps blocks from the main draft.
 
 ## Facts behind the draft (checked Nov 5)
 
@@ -136,3 +127,7 @@ steps blocks from the main draft.
   the way `/methodology` describes them (see the Oct 29 note).
 - **After the webinar:** `make partners SIGNUPS=1` shows what the link brought
   in. That's the time to consider a commission, not before.
+- **If Michael comps their Pro later:** run `make comp-member` first, then
+  re-run the grant. The grant alone doesn't survive their subscription
+  ending: `markSubscriptionEnded` (`frontend/core/billingUser.ts`) sets
+  `tier='public'` whatever the grant says (same as the Gabriela note).
