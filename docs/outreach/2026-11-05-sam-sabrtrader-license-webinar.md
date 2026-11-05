@@ -23,8 +23,8 @@ Wed Nov 4, evening ET:
 > team). Stripe promotion code `promo_1UYICy4AOiqteMYY1QppkhW5` on `Yg3BPJPx`,
 > partner grant to 2027-11-05. That account already pays for Pro
 > (`sub_1TxQEI4AOiqteMYYlFwmMH0G`, active; registered Jul 26), so the reply
-> below no longer has the "I've also put Pro" paragraph. Reply not sent as of
-> this update.
+> below no longer has the "I've also put Pro" paragraph. Sent. Sam's second
+> reply and a check of their new ZeroGEX page are at the end.
 
 ## What he's saying
 
@@ -131,3 +131,68 @@ zerogex.io
   re-run the grant. The grant alone doesn't survive their subscription
   ending: `markSubscriptionEnded` (`frontend/core/billingUser.ts`) sets
   `tier='public'` whatever the grant says (same as the Gabriela note).
+
+## Sam's second reply (shared Thu Nov 5)
+
+> Thanks for the setup on your end and the 25% code is a excellent touch.
+>
+> Yes, the Ultimate version will unlock when you log in.
+>
+> For a look at Sabrtrader with real time data. I'd suggest the trial from
+> IQFeed or the trial from Rithmic.
+
+- **License:** no key. Ultimate unlocks on login, presumably with the address
+  they've been writing to.
+- **Feed: Rithmic over IQFeed.** Their ZeroGEX page says the chart's
+  wall-defense labels (stacking, defended, cracking, broken) need a feed with
+  order-book depth, "such as Rithmic or Databento". Rithmic is futures-only,
+  which is all ES and NQ need.
+- **Webinar time:** still unanswered.
+
+### Their ZeroGEX page (checked Nov 5, 17:16 UTC)
+
+<https://www.sabrtrader.com/pages/zerogex>, an "Integration partner" page,
+listed under Partners in their nav next to gexbot, MenthorQ and
+quantedOptions. Their Gamma Levels page and homepage link to it.
+
+- **No partner link.** Every "get your key" link goes to plain
+  `https://zerogex.io` (5 links), plus `/help/platform/api-access` and
+  `/integrations`. No `?ref=SabrTrader`, no `SABRTRADER`, and no 25% in the
+  visible text, so signups from it get no discount and no attribution.
+- **Doesn't say Pro.** "You need your own ZeroGEX subscription for the key."
+  A Basic buyer gets no key (`/help/platform/api-access`).
+- **The rest is accurate.** The steps match ours (they say "account → API";
+  ours is Account → API Access), and "ZeroGEX covers SPX, SPY, QQQ and NDX"
+  matches our help pages. The hold-rate, the regime badge and wall defense
+  are SabrTrader's own features.
+
+To re-check once they say it's changed:
+
+```bash
+curl -s https://www.sabrtrader.com/pages/zerogex | grep -o 'href="[^"]*zerogex.io[^"]*"' | sort | uniq -c
+```
+
+### Reply
+
+Same thread, one line per paragraph. Best sent before the webinar, so
+viewers who visit their page get the discount.
+
+```
+Hi Sam,
+
+Thanks, glad the code helps. I'll grab the Rithmic trial and take a look.
+
+I just saw your new ZeroGEX page, and it looks great. Two small changes would help:
+
+1. Could the zerogex.io links, especially the "Get your ZeroGEX API key" and "Visit zerogex.io" buttons, point to https://zerogex.io/register?ref=SabrTrader instead? Anyone who signs up through that link gets 25% off their first year automatically, so it's worth a mention on the page too. It's also how we'll both see what the page brings in.
+
+2. The API key comes with ZeroGEX Pro. Where the page says you need your own ZeroGEX subscription, could it say Pro? Otherwise someone could buy Basic and find no key.
+
+Are we still on for next Wednesday? What time are you thinking, and would you like me on the call to take questions about the levels?
+
+Best,
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+```
