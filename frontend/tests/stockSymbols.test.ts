@@ -69,7 +69,8 @@ test('assetClassOf names each class, and nothing else', () => {
   assert.equal(assetClassOf('ndx'), 'index');
   assert.equal(assetClassOf('ES'), 'future');
   assert.equal(assetClassOf('NVDA'), 'stock');
-  assert.equal(assetClassOf('TSLA'), null);
+  // An unlisted ticker. Not one of the MAG 7, which join the picker one at a time.
+  assert.equal(assetClassOf('IBM'), null);
   assert.equal(assetClassOf(null), null);
   assert.equal(isStockSymbol('nvda'), true);
   assert.equal(isStockSymbol('QQQ'), false);
@@ -80,13 +81,15 @@ test('NVDA validates and persists like any other underlying', () => {
   assert.equal(isUnderlyingSymbol('NVDA'), true);
   assert.equal(resolveSymbol('nvda'), 'NVDA');
   // An unlisted ticker still falls back rather than leaking through.
-  assert.equal(isUnderlyingSymbol('TSLA'), false);
-  assert.equal(resolveSymbol('TSLA'), 'SPY');
+  assert.equal(isUnderlyingSymbol('IBM'), false);
+  assert.equal(resolveSymbol('IBM'), 'SPY');
 });
 
 test('a stock compares against QQQ when Nasdaq-listed, SPY otherwise', () => {
   assert.equal(STOCK_LISTING.NVDA, 'NASDAQ');
+  assert.equal(STOCK_LISTING.MSFT, 'NASDAQ');
   assert.equal(stockBenchmarkFor('NVDA'), 'QQQ');
+  assert.equal(stockBenchmarkFor('MSFT'), 'QQQ');
   assert.equal(stockBenchmarkFor('SPY'), null);
   for (const s of STOCK_SYMBOLS) {
     const expected = STOCK_LISTING[s] === 'NASDAQ' ? 'QQQ' : 'SPY';
@@ -103,8 +106,10 @@ test('a stock compares against QQQ when Nasdaq-listed, SPY otherwise', () => {
 });
 
 test('a stock reads its benchmark vol index but never prices a range from it', () => {
-  assert.equal(volatilityIndexFor('NVDA'), 'VXN');
-  assert.equal(volIndexPricesSymbol('NVDA'), false);
+  for (const s of STOCK_SYMBOLS) {
+    assert.equal(volatilityIndexFor(s), STOCK_LISTING[s] === 'NASDAQ' ? 'VXN' : 'VIX', s);
+    assert.equal(volIndexPricesSymbol(s), false, s);
+  }
   for (const s of [...ETF_SYMBOLS, ...INDEX_SYMBOLS, ...FUTURES_SYMBOLS]) {
     assert.equal(volIndexPricesSymbol(s), true, s);
   }
@@ -131,7 +136,7 @@ test('a stock gets a levels page only by name, and never the shared feeds or the
     assert.ok(!(MARKET_LEVELS_SYMBOLS as readonly string[]).includes(s), `${s} is not in the email or the MCP overview`);
     assert.ok(!(MODELED_SYMBOLS as readonly string[]).includes(s), `${s} has no signal or forecast model`);
   }
-  assert.deepEqual([...LEVELS_PAGE_STOCKS], ['NVDA']);
+  assert.deepEqual([...LEVELS_PAGE_STOCKS], ['NVDA', 'MSFT']);
   for (const s of SYMBOLS.filter((x) => !isStockSymbol(x))) {
     assert.ok((LEVELS_PAGE_SYMBOLS as readonly string[]).includes(s), `${s} keeps its levels page`);
     assert.ok((MARKET_LEVELS_SYMBOLS as readonly string[]).includes(s), `${s} stays in the shared feeds`);

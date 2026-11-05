@@ -36,6 +36,7 @@ const LABEL: Record<LevelsPageSymbol, string> = {
   ES: 'ES \u00b7 S&P 500 futures',
   NQ: 'NQ \u00b7 Nasdaq-100 futures',
   NVDA: 'NVDA \u00b7 NVIDIA stock',
+  MSFT: 'MSFT \u00b7 Microsoft stock',
 };
 
 async function copy(text: string): Promise<boolean> {

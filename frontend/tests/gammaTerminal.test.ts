@@ -309,6 +309,7 @@ test("the terminal's second ladder defaults to the same-index counterpart", () =
     NQ: "NDX",
     // A stock has no second book on itself, so it opens on its benchmark ETF.
     NVDA: "QQQ",
+    MSFT: "QQQ",
   });
   for (const s of STOCK_SYMBOLS) {
     assert.equal(SAME_INDEX_PAIR[s], LIKE_PAIR[s], `${s} opens on the same partner on both pages`);

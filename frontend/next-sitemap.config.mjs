@@ -110,7 +110,8 @@ function lastmodFor(urlPath) {
 // list is consumed twice below (dedupe + priority) and a ticker added to only
 // one of them either duplicates a <url> or silently loses its SEO priority.
 // ES / NQ are the futures pages: their levels are SPX / NDX option-derived,
-// carried onto the futures price axis. NVDA is the first single-stock page.
+// carried onto the futures price axis. NVDA was the first single-stock page;
+// the rest of the MAG 7 follow it here one at a time.
 const GAMMA_LEVEL_PATHS = [
   '/spx-gamma-levels',
   '/spy-gamma-levels',
@@ -119,6 +120,7 @@ const GAMMA_LEVEL_PATHS = [
   '/es-gamma-levels',
   '/nq-gamma-levels',
   '/nvda-gamma-levels',
+  '/msft-gamma-levels',
 ];
 
 // The force-static multi-instrument hub above the ticker pages (/gex-levels).

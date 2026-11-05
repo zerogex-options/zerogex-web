@@ -45,7 +45,7 @@ test('public, in the marketing shell, the sitemap, the footer, search and the hu
 });
 
 test('NVDA has a levels page and the widget, but not the daily email or the MCP feed', () => {
-  assert.deepEqual([...LEVELS_PAGE_STOCKS], ['NVDA']);
+  assert.ok((LEVELS_PAGE_STOCKS as readonly string[]).includes('NVDA'));
   assert.ok((LEVELS_PAGE_SYMBOLS as readonly string[]).includes('NVDA'));
   assert.ok(!(MARKET_LEVELS_SYMBOLS as readonly string[]).includes('NVDA'));
   // Every current subscriber's email is unchanged: NVDA is not a choosable
@@ -91,7 +91,7 @@ test('the NVDA answers say only what the site already establishes', () => {
   assert.match(study, /S&P walls held about two times in three within the hour/);
   assert.match(nvda, /S&P walls held about two times in three within an hour, and Nasdaq walls about half/);
   // No Expected Range on NVDA, as the Gamma Terminal guide says.
-  assert.match(read('content/help/platform/gamma-terminal.md'), /It isn't drawn on NVDA/);
+  assert.match(read('content/help/platform/gamma-terminal.md'), /It isn't drawn on a single stock/);
   assert.match(nvda, /Expected Range band ZeroGEX draws for the ETFs and indexes is not drawn for NVDA/);
   // The 0DTE answer never claims a same-day NVDA expiration.
   assert.match(nvda, /zeroDteAnswer:/);

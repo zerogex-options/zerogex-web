@@ -106,6 +106,7 @@ const PUBLIC_ROUTE_PATTERNS = [
   // The single-stock levels pages (core/symbols.ts LEVELS_PAGE_STOCKS). The
   // same public, delayed view as the six above.
   '/nvda-gamma-levels',
+  '/msft-gamma-levels',
   // /chart is the Gamma Terminal, and a dual-mode page: anonymous visitors get
   // the same ~15-min-delayed snapshot the gamma-levels pages serve (rendered as
   // the full interactive terminal — chart AND both gamma ladders), while

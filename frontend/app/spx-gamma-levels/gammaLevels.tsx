@@ -31,6 +31,7 @@ import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import {
   LEVELS_PAGE_STOCKS,
   MODELED_SYMBOLS,
+  SYMBOL_DESCRIPTIONS,
   futuresLevelsLabel,
   isFuturesSymbol,
   isStockSymbol,
@@ -76,13 +77,21 @@ type Symbol = (typeof SYMBOLS)[number];
 export const GAMMA_LEVEL_SYMBOLS = SYMBOLS;
 export type GammaLevelSymbol = Symbol;
 
-// The stocks with a page of their own (core/symbols.ts LEVELS_PAGE_STOCKS:
-// NVDA). A stock page leads with its own card and then carries the six above,
-// so it links into the cluster; no market page carries a stock's card, and the
-// six market pages render exactly as they did before stocks had pages.
+// The stocks with a page of their own (core/symbols.ts LEVELS_PAGE_STOCKS). A
+// stock page leads with its own card and then carries the six above, so it
+// links into the cluster; no market page carries a stock's card, and the six
+// market pages render exactly as they did before stocks had pages.
 type LevelsPageStock = (typeof LEVELS_PAGE_STOCKS)[number];
 export type GammaLevelsPageSymbol = Symbol | LevelsPageStock;
 type PageSymbol = GammaLevelsPageSymbol;
+
+/**
+ * One entry per stock with a levels page, built the same way for each, so a
+ * stock added to LEVELS_PAGE_STOCKS needs no edit here.
+ */
+function perStock<T>(value: (stock: LevelsPageStock) => T): Record<LevelsPageStock, T> {
+  return Object.fromEntries(LEVELS_PAGE_STOCKS.map((s) => [s, value(s)])) as Record<LevelsPageStock, T>;
+}
 
 // Per-ticker copy. Each page leads with its own symbol so it reads as the best
 // possible answer for that symbol's query ("SPY gamma levels today", "QQQ call
@@ -109,7 +118,8 @@ const SYMBOL_AUDIENCE: Record<PageSymbol, string> = {
   NDX: 'NDX and Nasdaq-100 options traders',
   ES: 'ES and S&P 500 futures traders',
   NQ: 'NQ and Nasdaq-100 futures traders',
-  NVDA: 'NVIDIA (NVDA) options traders',
+  // "NVIDIA (NVDA) options traders"
+  ...perStock((s) => `${SYMBOL_DESCRIPTIONS[s]} (${s}) options traders`),
 };
 
 // The options chain each symbol's levels are actually computed from. ES and
@@ -124,7 +134,8 @@ export const SYMBOL_CHAIN: Record<PageSymbol, PageSymbol> = {
   NDX: 'NDX',
   ES: 'SPX',
   NQ: 'NDX',
-  NVDA: 'NVDA',
+  // A stock's levels come from its own chain.
+  ...perStock((s) => s),
 };
 
 // Copy that is true of one symbol only, for a page whose template copy left a
@@ -137,9 +148,10 @@ export const SYMBOL_CHAIN: Record<PageSymbol, PageSymbol> = {
 // cites (content/articles/how-often-do-gamma-walls-break.md, whose table these
 // figures quote). One sentence after the intro, and two FAQ answers right after
 // the net GEX answer, also in the FAQ markup. The NVDA page has an entry for
-// the same reason: what a single stock's levels are and are not. Only those two
-// have one, so every other page renders exactly as before
-// (tests/qqqLevels.test.ts, tests/nvdaLevels.test.ts).
+// the same reason: what a single stock's levels are and are not, and every
+// other stock page gets the same answers from stockExtras below. No other
+// market page has one, so the other five render exactly as before
+// (tests/qqqLevels.test.ts, tests/nvdaLevels.test.ts, tests/stockLevels.test.ts).
 interface SymbolExtras {
   /** Appended to the intro, after the derivation note. Starts with a space. */
   introNote: string;
@@ -185,6 +197,39 @@ const SYMBOL_EXTRAS: Partial<Record<PageSymbol, SymbolExtras>> = {
       'The levels on this page are computed across the full NVDA options chain, every listed expiration together. On a day an NVDA expiration settles they include it, but they are never 0DTE-only. The ZeroGEX dashboard\'s expiration filter narrows the walls and the flip to a single expiration.',
   },
 };
+
+/**
+ * The same three answers for every other stock with a page, each one true of
+ * any single stock: how its levels differ from an ETF's, that the wall study
+ * did not cover it, and a 0DTE answer that never claims a same-day expiration.
+ * NVDA keeps its own wording above. Every claim is one the site already makes:
+ * the Expected Range band is projected from VIX / VXN (core/symbols.ts
+ * volIndexPricesSymbol, help/platform/gamma-terminal.md), the wall study's
+ * scope (content/articles/how-often-do-gamma-walls-break.md), and no forecast
+ * or signal model on a stock (MODELED_SYMBOLS). tests/stockLevels.test.ts
+ * holds them to that.
+ */
+function stockExtras(symbol: LevelsPageStock): SymbolExtras {
+  const company = SYMBOL_DESCRIPTIONS[symbol];
+  return {
+    introNote: ` ${symbol} is ${company}'s stock, and these levels are computed from its own options chain, the same way as for SPY and QQQ.`,
+    faq: [
+      {
+        q: `How are ${symbol} gamma levels different from SPY or QQQ levels?`,
+        a: `They are computed the same way, from ${symbol}'s own options chain under the same modeled dealer convention, and they read the same: the gamma flip as the regime line, the walls as the strikes where modeled dealer gamma is heaviest. Three things differ. ${symbol} is one company, so earnings and company news can carry it through levels that index flows would not. The Expected Range band ZeroGEX draws for the ETFs and indexes is not drawn for ${symbol}, because it is projected from VIX and VXN, which price an index rather than any one stock. And the forecast and signal models are tuned on the ETFs and indexes, so they do not run on ${symbol} yet.`,
+      },
+      {
+        q: `Does the gamma wall study cover ${symbol}?`,
+        a: `No. ZeroGEX's study of 737 wall tests covered SPY, SPX, QQQ and NDX: S&P walls held about two times in three within an hour, and Nasdaq walls about half. Single stocks were not in it, so neither base rate is known to hold for ${symbol}. Treat ${symbol}'s walls as unmeasured levels and watch how price behaves around them.`,
+      },
+    ],
+    zeroDteAnswer: `The levels on this page are computed across the full ${symbol} options chain, every listed expiration together. On a day one of its expirations settles they include it, but they are never 0DTE-only. The ZeroGEX dashboard's expiration filter narrows the walls and the flip to a single expiration.`,
+  };
+}
+
+for (const stock of LEVELS_PAGE_STOCKS) {
+  SYMBOL_EXTRAS[stock] ??= stockExtras(stock);
+}
 
 /** Sentence disclosing the derivation, for symbols that have one. */
 function derivationNote(primary: PageSymbol): string {
@@ -233,7 +278,7 @@ const SYMBOL_CONTENT: Record<PageSymbol, SymbolContent> = {
   SPY: buildSymbolContent('SPY'),
   QQQ: buildSymbolContent('QQQ'),
   NDX: buildSymbolContent('NDX'),
-  NVDA: buildSymbolContent('NVDA'),
+  ...perStock(buildSymbolContent),
 };
 
 // Individual dedicated page for a ticker — used to cross-link the sibling cards.
@@ -341,7 +386,7 @@ function faqItems(primary: PageSymbol): { q: string; a: string }[] {
       q: `What is ${primary}'s net gamma exposure (net GEX) right now?`,
       a: `Today's ${primary} net GEX\u00a0- the net dealer gamma across the ${SYMBOL_CHAIN[primary]} options chain, evaluated at spot and expressed as a signed dollar "gamma" figure\u00a0- is shown at the top of this page and refreshed on a roughly 15-minute delay. A positive value means ${primary} is trading above its gamma flip, where dealer hedging tends to suppress volatility; a negative value means it is below the flip, where hedging tends to amplify it. The price where net GEX crosses zero is the gamma flip, also called the zero-gamma level. Net GEX is a modeled estimate, not directly observed dealer inventory.`,
     },
-    // Symbol-specific answers (QQQ only today); empty for every other page.
+    // Symbol-specific answers (QQQ and the stock pages); empty for every other page.
     ...(SYMBOL_EXTRAS[primary]?.faq ?? []),
     {
       q: 'What is the gamma flip?',

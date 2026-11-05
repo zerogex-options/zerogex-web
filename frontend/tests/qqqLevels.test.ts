@@ -21,9 +21,12 @@ function extrasBlock(): string {
   return template.slice(start, template.indexOf('\n};', start));
 }
 
-test('only QQQ and the NVDA page have symbol-specific copy, so the other five market pages render as before', () => {
+test('only QQQ and the stock pages have symbol-specific copy, so the other five market pages render as before', () => {
+  // Written out for QQQ and NVDA; every other stock page gets stockExtras,
+  // filled in for LEVELS_PAGE_STOCKS only, never for a market symbol.
   const keys = [...extrasBlock().matchAll(/^  ([A-Z]+): \{$/gm)].map((m) => m[1]);
   assert.deepEqual(keys, ['QQQ', 'NVDA']);
+  assert.match(template, /for \(const stock of LEVELS_PAGE_STOCKS\) \{\n  SYMBOL_EXTRAS\[stock\] \?\?= stockExtras\(stock\);\n\}/);
   // Both hooks fall back to nothing for a symbol without an entry.
   assert.match(template, /\$\{derivationNote\(primary\)\}\$\{SYMBOL_EXTRAS\[primary\]\?\.introNote \?\? ''\}`,/);
   assert.match(template, /\.\.\.\(SYMBOL_EXTRAS\[primary\]\?\.faq \?\? \[\]\),/);

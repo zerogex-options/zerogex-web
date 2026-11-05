@@ -77,7 +77,7 @@ GEX Heatmap Timeseries, on the GEX Heatmap page and on Dealer Positioning: strik
 
 The price chart on the Gamma Terminal and the ZeroGEX Gamma Chart on the Main Dashboard are the same chart: the underlying's price with the dealer-gamma structure drawn in. For a control-by-control guide to every overlay and panel, see [Using the Gamma Terminal](/help/platform/gamma-terminal).
 
-- **Symbol and timeframe** - SPY, QQQ, SPX, NDX, ES, NQ, or NVDA (click the symbol in the chart's title to switch), on 1m, 5m, 15m, 1H, or 1D bars.
+- **Symbol and timeframe** - SPY, QQQ, SPX, NDX, ES, NQ, or a single stock (click the symbol in the chart's title to switch), on 1m, 5m, 15m, 1H, or 1D bars.
 - **Price style** - Candle, Line, or Area, over a volume pane that shows Up/Down volume or the session's Cumulative net.
 - **Expiry** - on the live chart, scopes the gamma levels and the rail to the expirations you pick; **All** is the whole chain.
 
@@ -89,7 +89,7 @@ The overlays are the ZeroGEX twist, each switched on or off in the **Layers** pa
 - **VWAP**, and **Regime** shading - the long-gamma and short-gamma zones on either side of the flip.
 - Off until you turn them on: **GEX King**, and on the live chart **Expected Range**, **Centroids** (where the session's call and put trading is centered), and **Bar Timer**. **Ribbons** (per-strike gamma through time, behind the tape) are live-only too: off until you turn them on on the Main Dashboard, and on by default on the Gamma Terminal.
 
-On SPY, QQQ, and NVDA, a row just above the live chart lists the previous session's high, low and close and today's pre-market high and low: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. The eye at the end of the row, or the **PD/PM Levels** switch in Layers, draws them on the chart as gray lines with outlined price tags, long dashes for the prior day and dots for the pre-market. They're off until you turn them on. SPX and NDX have no pre-market, and ES and NQ trade almost around the clock, so the row doesn't appear on those four.
+On SPY, QQQ, and the single stocks, a row just above the live chart lists the previous session's high, low and close and today's pre-market high and low: `PDH`, `PDL`, `PDC`, `PMH`, `PML`. The eye at the end of the row, or the **PD/PM Levels** switch in Layers, draws them on the chart as gray lines with outlined price tags, long dashes for the prior day and dots for the pre-market. They're off until you turn them on. SPX and NDX have no pre-market, and ES and NQ trade almost around the clock, so the row doesn't appear on those four.
 
 The finely-dotted line in the theme's hot accent is the **last traded price**, not a gamma level - it's listed as "Last" in the legend under the chart.
 

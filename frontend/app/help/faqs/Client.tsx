@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { ArrowLeft, ChevronDown, ChevronUp, HelpCircle, Search } from 'lucide-react';
+import { STOCK_SYMBOLS } from '@/core/symbols';
 
 type FAQ = {
   id: string;
@@ -16,6 +17,14 @@ type FAQCategory = {
   blurb: string;
   faqs: FAQ[];
 };
+
+// The single stocks live today, and the rest of the Mag 7 still to come, read
+// from the picker's own list so these answers stay true as each one is added.
+const MAG_7 = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA'] as const;
+const listed = (xs: readonly string[]) =>
+  xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+const LIVE_STOCKS = listed(STOCK_SYMBOLS);
+const NEXT_STOCKS = listed(MAG_7.filter((s) => !(STOCK_SYMBOLS as readonly string[]).includes(s)));
 
 const FAQ_DATA: FAQCategory[] = [
   {
@@ -36,7 +45,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'do-i-need-to-sign-up',
         q: 'Do I need to sign up to use ZeroGEX?',
-        a: 'Not for the free tools. The Gamma Terminal and the free Gamma Levels pages\u00a0- SPX, SPY, QQQ, NDX, ES, and NQ\u00a0- are open to anyone with no account: the gamma flip, call and put walls, max pain, and dealer gamma profile, delayed about 15 minutes. The Receipts pages (the daily forecasts, the all-time track record, the daily signal scorecard, and session replay), the Education Hub, articles, and guides are open too. The real-time Main Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
+        a: 'Not for the free tools. The Gamma Terminal and the free Gamma Levels pages\u00a0- SPX, SPY, QQQ, NDX, ES, NQ and the single stocks\u00a0- are open to anyone with no account: the gamma flip, call and put walls, max pain, and dealer gamma profile, delayed about 15 minutes. The Receipts pages (the daily forecasts, the all-time track record, the daily signal scorecard, and session replay), the Education Hub, articles, and guides are open too. The real-time Main Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
       },
       {
         id: 'free-trial',
@@ -58,12 +67,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'symbols',
         q: 'What symbols are currently supported?',
-        a: 'ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and NDX (Nasdaq 100 Index)\u00a0- the four most liquid, most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest intraday impact. ES and NQ (the CME E-mini futures) are also first-class symbols in the picker: they carry the SPX and NDX dealer levels on the futures price axis, with the price series from the real-time CME feed. See the futures question below for how that projection works.',
+        a: `ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and NDX (Nasdaq 100 Index)\u00a0- the four most liquid, most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest intraday impact. ES and NQ (the CME E-mini futures) are also first-class symbols in the picker: they carry the SPX and NDX dealer levels on the futures price axis, with the price series from the real-time CME feed. See the futures question below for how that projection works. Single stocks are live too: ${LIVE_STOCKS}.`,
       },
       {
         id: 'single-names',
         q: 'Will you add single-name equities (AAPL, TSLA, NVDA, etc.)?',
-        a: 'Yes. Single stocks are on the roadmap rather than live today, most likely starting with the Mag 7 (AAPL, MSFT, NVDA, AMZN, GOOGL, META and TSLA), with more added as we scale. The dealer-positioning model works best where institutional options flow dominates the underlying, which is why the index complex came first, and single names carry idiosyncratic-news noise (earnings above all) that makes the GEX read less reliable. That is also why they will be added a few at a time, beginning with the stocks whose options markets are deepest.',
+        a: `Yes, and the first are live: ${LIVE_STOCKS}, each in the symbol picker with a free delayed levels page.${NEXT_STOCKS ? ` The rest of the Mag 7 (${NEXT_STOCKS}) are next, added one at a time.` : ''} The dealer-positioning model works best where institutional options flow dominates the underlying, which is why the index complex came first, and single names carry idiosyncratic-news noise (earnings above all) that makes the GEX read less reliable. The signal and forecast models are tuned on the index complex, so they do not run on a stock yet.`,
       },
       {
         id: 'futures',

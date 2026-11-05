@@ -27,7 +27,7 @@
 export const ETF_SYMBOLS = ['SPY', 'QQQ'] as const;
 export const INDEX_SYMBOLS = ['SPX', 'NDX'] as const;
 export const FUTURES_SYMBOLS = ['ES', 'NQ'] as const;
-export const STOCK_SYMBOLS = ['NVDA'] as const;
+export const STOCK_SYMBOLS = ['NVDA', 'MSFT'] as const;
 
 export const SYMBOLS = [...ETF_SYMBOLS, ...INDEX_SYMBOLS, ...FUTURES_SYMBOLS, ...STOCK_SYMBOLS] as const;
 export type PickerSymbol = (typeof SYMBOLS)[number];
@@ -49,11 +49,13 @@ export const MARKET_LEVELS_SYMBOLS = [...ETF_SYMBOLS, ...INDEX_SYMBOLS, ...FUTUR
 export type MarketLevelsSymbol = (typeof MARKET_LEVELS_SYMBOLS)[number];
 
 /**
- * The stocks with a free /<sym>-gamma-levels page (NVDA since 2026-11-03). A
- * stock is added here in the same change that adds its page; it then gets the
- * embed widget and a line in llms.txt, but not the shared feeds above.
+ * The stocks with a free /<sym>-gamma-levels page (NVDA since 2026-11-03, then
+ * the rest of the MAG 7 one at a time, each once its data is live). A stock is
+ * added here in the same change that adds its page; it then gets the embed
+ * widget and a line in llms.txt, but not the shared feeds above.
+ * tests/stockLevels.test.ts checks every one is wired the same way.
  */
-export const LEVELS_PAGE_STOCKS = ['NVDA'] as const satisfies readonly StockSymbol[];
+export const LEVELS_PAGE_STOCKS = ['NVDA', 'MSFT'] as const satisfies readonly StockSymbol[];
 
 /**
  * The symbols with a free /<sym>-gamma-levels landing page: the market-wide
@@ -102,6 +104,7 @@ export const SYMBOL_DESCRIPTIONS: Readonly<Record<PickerSymbol, string>> = {
   ES: 'E-mini S&P 500',
   NQ: 'E-mini Nasdaq-100',
   NVDA: 'NVIDIA',
+  MSFT: 'Microsoft',
 };
 
 /** The asset class of a picker symbol, or null for anything else. */
@@ -125,6 +128,7 @@ export function isStockSymbol(symbol: string | null | undefined): symbol is Stoc
  */
 export const STOCK_LISTING: Readonly<Record<StockSymbol, 'NASDAQ' | 'NYSE'>> = {
   NVDA: 'NASDAQ',
+  MSFT: 'NASDAQ',
 };
 
 /** A stock's benchmark ETF (QQQ for Nasdaq listings, SPY otherwise); null for a non-stock. */

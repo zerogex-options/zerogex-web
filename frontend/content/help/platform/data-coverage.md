@@ -22,11 +22,12 @@ Two CME equity-index futures are also first-class symbols:
 
 ES and NQ are not a separate options book. ES and SPX track the same index, so the dealer book behind an ES chart *is* the SPX book - the SPX levels (and NDX, for NQ) are projected onto the futures price axis, while the price series itself comes from the CME feed. The projection uses the theoretical cost of carry for the contract we are quoting (interest rates less the index's dividend yield, over the time left to that contract's expiry), so there is no basis offset to configure, and at each quarterly roll the levels move to the new contract along with the price. Because carry is fair value, the levels can sit slightly off when futures trade rich or cheap to it, as they can overnight and around news. Dollar exposures (net, call, and put GEX) are deliberately left unprojected: the histogram scales on *relative* exposure, so the shape is the same either way. The micro contracts (/MES, /MNQ) are the same contract at a tenth the size, so the same levels apply.
 
-One single stock is live:
+Single stocks live today:
 
-- **NVDA** - NVIDIA
+- **NVDA** - NVIDIA: [NVDA gamma levels](/nvda-gamma-levels)
+- **MSFT** - Microsoft: [MSFT gamma levels](/msft-gamma-levels)
 
-Its chain, levels and flow are read the same way as an ETF's, and it has a free delayed [NVDA gamma levels](/nvda-gamma-levels) page like the instruments above. Two things are not built for a stock yet: the signal and forecast models, which are tuned on index-level dealer behavior, and the Expected Range band, since NVDA's own volatility runs well above either index. Other single names are on the roadmap, most likely the rest of the Mag 7 (AAPL, MSFT, AMZN, GOOGL, META and TSLA); this page will list each one as it is added.
+Each one's chain, levels and flow are read the same way as an ETF's, and each has a free delayed levels page like the instruments above. Two things are not built for a stock yet: the signal and forecast models, which are tuned on index-level dealer behavior, and the Expected Range band, which is projected from VIX or VXN and so prices an index rather than any one stock (NVDA's own volatility runs about twice the Nasdaq-100's). The rest of the Mag 7 (AAPL, AMZN, GOOGL, META and TSLA) are next; this page lists each one as it is added.
 
 ## Market hours
 

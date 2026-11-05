@@ -36,13 +36,13 @@ import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gex
 // deciding what to cite should meet SPX first, since that is what the searches
 // this file exists to serve are about. Derived from LEVELS_PAGE_SYMBOLS rather
 // than rewritten, so a ticker that gets a levels page appears here without an
-// edit; NVDA is named so it reads after the six. Each row links to that page,
-// so a symbol without one stays out.
+// edit; the stocks are named so they read after the six, in the order they
+// joined. Each row links to that page, so a symbol without one stays out.
 const DISPLAY_ORDER: readonly PickerSymbol[] = [
-  ...(['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ', 'NVDA'] as const).filter((s) =>
+  ...(['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ', 'NVDA', 'MSFT'] as const).filter((s) =>
     (LEVELS_PAGE_SYMBOLS as readonly string[]).includes(s),
   ),
-  ...LEVELS_PAGE_SYMBOLS.filter((s) => !['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ', 'NVDA'].includes(s)),
+  ...LEVELS_PAGE_SYMBOLS.filter((s) => !['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ', 'NVDA', 'MSFT'].includes(s)),
 ];
 
 /** One row of the "today" table, or null when that symbol has no snapshot. */
@@ -59,10 +59,14 @@ export async function loadSnapshots(): Promise<Snapshot[]> {
   );
 }
 
+// "SPX, SPY, QQQ, NDX, ES, NQ, NVDA and MSFT": every symbol with a page, in
+// reading order, so a stock that gets one is named here without an edit.
+const CHAIN_NAMES = `${DISPLAY_ORDER.slice(0, -1).join(', ')} and ${DISPLAY_ORDER.at(-1)}`;
+
 const HEADER = `# ZeroGEX
 
-> ZeroGEX is an options analytics platform that reads the SPX, SPY, QQQ, NDX,
-> ES, NQ and NVDA option chains and estimates what dealers must hedge: gamma exposure
+> ZeroGEX is an options analytics platform that reads the ${CHAIN_NAMES}
+> option chains and estimates what dealers must hedge: gamma exposure
 > (GEX), the gamma flip, call and put walls, max pain, and 0DTE dealer
 > positioning. Free 15-minute-delayed levels are published with no signup;
 > real-time data and intraday signals are on paid plans.

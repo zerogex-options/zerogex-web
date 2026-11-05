@@ -65,7 +65,7 @@ Two ladders side by side. Each row is a strike, highest at the top, and its numb
 - The **crown** marks the heaviest strike visible in that ladder. It isn't the chart's GEX King, which is the heaviest strike in the whole chain.
 - The **LONG Γ** / **SHORT Γ** chip in each header compares price with that symbol's flip.
 
-The first ladder is the chart's symbol. The second compares any other symbol, and starts on the matching book: SPY with SPX, QQQ with NDX, ES with SPX, NQ with NDX, and NVDA with QQQ. [SPY vs SPX Gamma Levels](/education/spy-vs-spx-gamma-levels) explains why two books on the same index read differently.
+The first ladder is the chart's symbol. The second compares any other symbol, and starts on the matching book: SPY with SPX, QQQ with NDX, ES with SPX, NQ with NDX, and a single stock with its benchmark ETF (QQQ for a Nasdaq-listed stock, SPY otherwise). [SPY vs SPX Gamma Levels](/education/spy-vs-spx-gamma-levels) explains why two books on the same index read differently.
 
 The controls at the top of the panel:
 
@@ -113,13 +113,13 @@ So from the close until the next update, the terminal shows the book that carrie
 
 [Daily Replay](/replay) shows every minute of the session as it happened, expiring options included. Rewind does too, except that after the close its last candle shows the book after the close.
 
-This applies to every symbol. SPY, QQQ and NVDA keep updating in extended hours, and from 4:15 PM those updates leave the expired options out on their own.
+This applies to every symbol. SPY, QQQ and the single stocks keep updating in extended hours, and from 4:15 PM those updates leave the expired options out on their own.
 
 ## The chart header
 
-- **Symbol** - the ticker in the title is the symbol switcher. Click it (or press the down arrow on it) to pick SPY, QQQ, SPX, NDX, ES, NQ or NVDA, grouped by type. Changing the symbol resets the zoom, ends Rewind, and sets the Expiry filter back to All unless it's on 0DTE. On the free preview the symbol is fixed.
+- **Symbol** - the ticker in the title is the symbol switcher. Click it (or press the down arrow on it) to pick SPY, QQQ, SPX, NDX, ES, NQ or a single stock, grouped by type. Changing the symbol resets the zoom, ends Rewind, and sets the Expiry filter back to All unless it's on 0DTE. On the free preview the symbol is fixed.
 - **Session badge** - **● LIVE** in the regular session, **○ PRE-MARKET** and **○ AFTER HOURS** in extended hours, **CLOSED** when the market is shut, **◀ REWIND** while replaying, and **◷ DELAYED ~15 MIN** on the free preview. **◆ FUTURES** appears on a cash index outside regular hours, when the headline price is the futures contract's; the candles stay on the index.
-- **Price and change** - the change is from the previous regular-session close. Outside regular hours the headline holds the 4:00 PM close, and SPY, QQQ and NVDA add a second line with the extended-hours price.
+- **Price and change** - the change is from the previous regular-session close. Outside regular hours the headline holds the 4:00 PM close, and SPY, QQQ and the single stocks add a second line with the extended-hours price.
 - **Updated** - when the last price tick arrived.
 - **Dealer Gamma @ Spot** - **LONG Γ** or **SHORT Γ**, and the net dealer gamma at the current price in dollars, such as +$1.23B. This box is the regime read for the whole page. With an Expiry filter set, it shows the selected expirations' own figure and names them.
 - **On ES and NQ** - an **IMPLIED FROM SPX** (or **NDX**) chip and the futures contract code. See [ES and NQ](/help/platform/gamma-terminal#es-and-nq).
@@ -146,8 +146,8 @@ Each overlay has a switch in the **Layers** panel, which opens from the toolbar.
 | Max Pain | The max pain strike | Yes | Everywhere |
 | Pin Strike | Today's pin strike and its strength | Yes | Live |
 | GEX King | The heaviest gamma strike in the whole chain | No | Live |
-| PD/PM Levels | The prior day's high, low and close; the pre-market high and low | No | Live: SPY, QQQ, NVDA |
-| Expected Range | The ±1σ move implied volatility is pricing | No | Live, except NVDA |
+| PD/PM Levels | The prior day's high, low and close; the pre-market high and low | No | Live: SPY, QQQ, single stocks |
+| Expected Range | The ±1σ move implied volatility is pricing | No | Live, except single stocks |
 | Centroids | Where today's call and put trading is centered | No | Live, 1M to 1H bars |
 | Bar Timer | Time left in the current candle | No | Live |
 
@@ -247,7 +247,7 @@ Without a flip, the chart can't draw the Regime shading either.
 
 **How to read it.** These aren't dealer levels. They're reference prices many traders watch, drawn in gray so they never read as a gamma level.
 
-**Keep in mind.** They're available on SPY, QQQ and NVDA only. SPX and NDX have no pre-market, and ES and NQ trade nearly around the clock, so the levels don't apply there. The numbers are always listed in a row above the chart. The **PD/PM Levels** switch in Layers, or the eye at the end of that row, draws them as lines.
+**Keep in mind.** They're available on SPY, QQQ and the single stocks only. SPX and NDX have no pre-market, and ES and NQ trade nearly around the clock, so the levels don't apply there. The numbers are always listed in a row above the chart. The **PD/PM Levels** switch in Layers, or the eye at the end of that row, draws them as lines.
 
 ### Expected Range
 
@@ -257,7 +257,7 @@ Without a flip, the chart can't draw the Regime shading either.
 
 **How to read it.** Under the usual assumptions, price finishes inside a one-standard-deviation band about 68% of the time. The band tells you how far, not which way. It re-centers as price moves, so it describes the range from here, not from the open.
 
-**Keep in mind.** Expected Range is live only, and hidden during Rewind, since volatility is a live reading. It isn't drawn on NVDA, whose own volatility runs well above either index.
+**Keep in mind.** Expected Range is live only, and hidden during Rewind, since volatility is a live reading. It isn't drawn on a single stock: the band is projected from VIX or VXN, which price an index rather than any one stock, and a stock's own volatility can run well above it (NVDA's about twice the Nasdaq-100's).
 
 ### Centroids
 
