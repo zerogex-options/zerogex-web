@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import type { ChartSideColumnContext } from '@/components/GammaTerminalChart';
-import { formatLadderDelta, placeLabels, type ChangeState, type Instrument } from '@/core/fuselineRadar';
+import { formatLadderDelta, placeLabels, type ChangeState, type Instrument, type LadderView } from '@/core/fuselineRadar';
 
 /**
  * The Fuseline Radar's gamma ladder, drawn inside the dashboard chart in the
@@ -15,7 +15,18 @@ import { formatLadderDelta, placeLabels, type ChangeState, type Instrument } fro
  * Three channels, never mixed: SIGN is the bar's color (blue positive, amber
  * negative), CHANGE is shape (the outline is the window start, the arrows mark
  * a change past the threshold), and the PLAN is the site purple, here only the
- * marker on the next relevant strike.
+ * marker on the next relevant strike. That is why Combined draws its net bar
+ * in the sign colors rather than the dashboard rail's violet.
+ *
+ * Three views of the same strikes:
+ * - Net: one bar, the strike's net gamma, outlined at the window start.
+ * - Split: the call side to the right in blue and the put side to the left in
+ *   amber, each outlined at the window start, so a strike whose net barely
+ *   moved can still show both sides growing.
+ * - Combined: both sides faded, with the net as a narrower solid bar on top
+ *   and the net's outline.
+ * The arrows and figures are the NET change in every view, so switching views
+ * never changes which strikes are flagged.
  *
  * Pointer events stop at the column, so hovering or clicking a strike never
  * pans the chart, moves its crosshair, or resets its zoom.
@@ -29,6 +40,11 @@ export interface LadderRow {
   label: string;
   now: number;
   then: number | null;
+  /** The call and put sides now and at the window start (call >= 0, put <= 0). */
+  call: number | null;
+  put: number | null;
+  callThen: number | null;
+  putThen: number | null;
   state: ChangeState;
   sizeDelta: number | null;
   /** Behind the Fuse, past the last target, or too small to matter today. */
@@ -40,6 +56,8 @@ export interface LadderRow {
 export interface LadderColumnProps {
   ctx: ChartSideColumnContext;
   rows: LadderRow[];
+  view: LadderView;
+  /** The bar scale: the largest net (Net) or the largest side (Split, Combined) on the board. */
   maxAbs: number;
   windowMin: number;
   display: Instrument;
@@ -54,7 +72,7 @@ export interface LadderColumnProps {
 const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
 
 export default function LadderColumn({
-  ctx, rows, maxAbs, windowMin, display, selected, onSelect, describe, dimmed,
+  ctx, rows, view, maxAbs, windowMin, display, selected, onSelect, describe, dimmed,
 }: LadderColumnProps) {
   const [hoverK, setHoverK] = useState<number | null>(null);
   const { left, right, top, bottom, yPrice, compact } = ctx;
@@ -76,6 +94,33 @@ export default function LadderColumn({
   const barH = Math.max(2.5, Math.min(11, rowSp * 0.5));
   const len = (v: number) => Math.max(1.5, (Math.abs(v) / Math.max(1, maxAbs)) * half);
   const x0 = (v: number, l: number) => (v >= 0 ? cx : cx - l);
+  const POS = 'var(--color-gamma-pos)';
+  const NEG = 'var(--color-gamma-neg)';
+  const outline = (x: number, w: number, y: number, k: string) => (
+    <rect key={k} x={x} y={y - barH / 2 - 1.5} width={w} height={barH + 3} rx={2} fill="none" stroke="var(--text-secondary)" />
+  );
+  // One strike's bars for the chosen view. Calls always to the right and puts
+  // always to the left, whatever sign the feed hands back.
+  const bars = (r: LadderRow, y: number) => {
+    const rx = Math.min(2, barH / 2);
+    const net = (h: number) => {
+      const ln = len(r.now);
+      return <rect key="net" x={x0(r.now, ln)} y={y - h / 2} width={ln} height={h} rx={Math.min(2, h / 2)} fill={r.now >= 0 ? POS : NEG} />;
+    };
+    const netOutline = r.then != null ? outline(x0(r.then, len(r.then)), len(r.then), y, 'net-then') : null;
+    if (view === 'net') return [net(barH), netOutline];
+    const faded = view === 'combined' ? 0.35 : 1;
+    const out = [];
+    if (r.call != null) out.push(<rect key="call" x={cx} y={y - barH / 2} width={len(r.call)} height={barH} rx={rx} fill={POS} opacity={faded} />);
+    if (r.put != null) out.push(<rect key="put" x={cx - len(r.put)} y={y - barH / 2} width={len(r.put)} height={barH} rx={rx} fill={NEG} opacity={faded} />);
+    if (view === 'split') {
+      if (r.callThen != null) out.push(outline(cx, len(r.callThen), y, 'call-then'));
+      if (r.putThen != null) out.push(outline(cx - len(r.putThen), len(r.putThen), y, 'put-then'));
+    } else {
+      out.push(net(Math.max(2, barH * 0.5)), netOutline);
+    }
+    return out;
+  };
   const visible = rows.filter((r) => {
     const y = yPrice(r.price);
     return y >= top && y <= bottom;
@@ -142,21 +187,19 @@ export default function LadderColumn({
       <rect x={left - 6} y={top} width={width + 6} height={bottom - top} fill="var(--bg-subtle)" opacity={0.55} />
       <text x={left + 2} y={top - 8} fontSize={font} fill="var(--text-secondary)" style={mono}>{display} strike</text>
       {chgW > 0 && (
-        <text x={right - 2} y={top - 8} textAnchor="end" fontSize={font} fill="var(--text-secondary)" style={mono}>{windowMin} min</text>
+        <text x={right - 2} y={top - 8} textAnchor="end" fontSize={font} fill="var(--text-secondary)" style={mono}>
+          {view === 'net' ? `${windowMin} min` : `${windowMin} min net`}
+        </text>
       )}
       <line x1={cx} x2={cx} y1={top} y2={bottom} stroke="var(--border-default)" />
       <g opacity={dimmed ? 0.35 : 1}>
         {visible.map((r) => {
           const y = yPrice(r.price);
-          const ln = len(r.now);
           const showLabel = strikeLabels.has(r.k);
           const showChange = changeLabels.has(r.k);
           return (
             <g key={r.k} opacity={r.faded && selected !== r.k ? 0.4 : 1}>
-              <rect x={x0(r.now, ln)} y={y - barH / 2} width={ln} height={barH} rx={Math.min(2, barH / 2)} fill={r.now >= 0 ? 'var(--color-gamma-pos)' : 'var(--color-gamma-neg)'} />
-              {r.then != null && (
-                <rect x={x0(r.then, len(r.then))} y={y - barH / 2 - 1.5} width={len(r.then)} height={barH + 3} rx={2} fill="none" stroke="var(--text-secondary)" />
-              )}
+              {bars(r, y)}
               {showLabel && (
                 <text x={left + 2} y={y + font * 0.35} fontSize={font} fill="var(--text-primary)" style={mono}>{r.label}</text>
               )}

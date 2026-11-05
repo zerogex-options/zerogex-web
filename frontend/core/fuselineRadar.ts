@@ -27,6 +27,12 @@ export type ViewMode = 'AB' | 'ABC' | 'WIDE';
 export type ChangeWindow = 1 | 4 | 20;
 
 export const CHANGE_WINDOWS: ChangeWindow[] = [1, 4, 20];
+/**
+ * How the ladder draws a strike: its net gamma as one bar, its call and put
+ * sides as two, or both sides with the net on top.
+ */
+export type LadderView = 'net' | 'split' | 'combined';
+export const LADDER_VIEWS: LadderView[] = ['net', 'split', 'combined'];
 export const DEFAULT_WIDE_POINTS = 100;
 /** Within this many points of a level, a strike counts as AT it. */
 export const NEAR_POINTS = 2.5;
@@ -196,9 +202,11 @@ export function fitPricesFor(
 // Terrain: per-strike modeled net gamma through time
 // ---------------------------------------------------------------------------
 
+type Num = number | string | null;
+
 export interface TerrainBucket {
   timestamp: string;
-  strikes?: { strike?: number | string; net_gamma?: number | string | null }[] | null;
+  strikes?: { strike?: number | string; net_gamma?: Num; call_gamma?: Num; put_gamma?: Num }[] | null;
 }
 
 export interface Terrain {
@@ -206,6 +214,12 @@ export interface Terrain {
   times: number[];
   /** Strike (SPX) to its net gamma at each time; null where the strike was missing. */
   byStrike: Map<number, (number | null)[]>;
+  /**
+   * The same strikes' call and put sides, on the same clock. The feed signs
+   * them call >= 0 and put <= 0, so net = call + put.
+   */
+  callByStrike: Map<number, (number | null)[]>;
+  putByStrike: Map<number, (number | null)[]>;
 }
 
 const num = (v: unknown): number | null => {
@@ -225,19 +239,44 @@ export function buildTerrain(buckets: TerrainBucket[] | null | undefined): Terra
     .sort((a, b) => a.t - b.t);
   const times = rows.map((r) => r.t);
   const byStrike = new Map<number, (number | null)[]>();
+  const callByStrike = new Map<number, (number | null)[]>();
+  const putByStrike = new Map<number, (number | null)[]>();
+  const put = (m: Map<number, (number | null)[]>, k: number, i: number, v: number | null) => {
+    let series = m.get(k);
+    if (!series) {
+      series = new Array(rows.length).fill(null);
+      m.set(k, series);
+    }
+    series[i] = v;
+  };
   rows.forEach((row, i) => {
     for (const s of row.strikes) {
       const k = num(s.strike);
       if (k == null) continue;
-      let series = byStrike.get(k);
-      if (!series) {
-        series = new Array(rows.length).fill(null);
-        byStrike.set(k, series);
-      }
-      series[i] = num(s.net_gamma);
+      put(byStrike, k, i, num(s.net_gamma));
+      put(callByStrike, k, i, num(s.call_gamma));
+      put(putByStrike, k, i, num(s.put_gamma));
     }
   });
-  return { times, byStrike };
+  return { times, byStrike, callByStrike, putByStrike };
+}
+
+/**
+ * The largest single side (a call or a put) at any strike in the newest
+ * bucket: the scale for the ladder's Split and Combined views, which draw
+ * both sides of every strike on one axis. Net is never larger than its larger
+ * side, so the net bar fits the same scale.
+ */
+export function sideMaxAbs(terrain: Terrain): number {
+  const last = terrain.times.length - 1;
+  let max = 0;
+  for (const m of [terrain.callByStrike, terrain.putByStrike]) {
+    m.forEach((series) => {
+      const v = last >= 0 ? series[last] : null;
+      if (v != null) max = Math.max(max, Math.abs(v));
+    });
+  }
+  return max;
 }
 
 export type ChangeState = 'strengthening' | 'weakening' | 'steady' | 'unavailable';

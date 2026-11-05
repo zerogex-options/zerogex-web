@@ -72,6 +72,7 @@ This is separate from how often the page refreshes (see **Freshness** below).
 - **Labels** turns the name tags on the lines (FUSE, T1, CALL WALL and so on) on or off. The price tags on the right axis always stay.
 - **Height: Standard / Tall.** Tall makes the chart about twice as tall, with the extra room going to the price pane, so levels sit further apart at any zoom.
 - **Ladder** shows or hides the ladder column. With it hidden the candles get the width.
+- **Bars: Net / Split / Combined** sets how the ladder draws each strike. See **Reading the ladder**, below.
 
 These choices are remembered in this browser.
 
@@ -79,7 +80,7 @@ These choices are remembered in this browser.
 
 The chart is the dashboard's Gamma Chart, so its controls work the same way there and here. In brief:
 
-- **Timeframe**: 1M, 5M, 15M, 1H, 1D.
+- **Timeframe**: 1M, **4M**, 5M, 15M, 1H, 1D. The radar opens on **4M**, to match the 4-minute chart a Fuse trade is usually planned on (the dashboard's chart has no 4M). 4-minute candles are counted from each instrument's session open, the way charting platforms count them: SPX candles start at 09:30, 09:34, 09:38 and so on; ES candles are counted from the 6:00 pm ET futures open, so they fall on the clock at 09:28, 09:32 and so on. So at any moment, an ES candle and an SPX candle cover minutes two apart.
 - **Candles / Line / Area**, as three icons.
 - **Layers** opens the chart's switches: Gamma Flip, Call Wall, Put Wall, Regime, VWAP, Max Pain and Pin Strike, each on its own; **Expected Range**, which shades the implied-volatility band; **Volume**, where **Up/Down** stacks buying and selling volume per bar and **Cumulative** shows the running net; and **Bar Timer**, which counts down the forming candle. **Quick looks** at the top set them all at once.
 - **Expiry** picks which expirations the chart's levels are built from. It does not change the ladder yet, which always shows all expirations.
@@ -91,14 +92,21 @@ The gamma rail, ribbons, GEX King and centroids are left off this page, because 
 
 ## Reading the ladder
 
-Each row is one strike, drawn at that strike's height on the chart.
+Each row is one strike, drawn at that strike's height on the chart. **Blue is positive gamma, amber is negative.** Neither color means bullish or bearish. Bar lengths are measured against the largest strike on the whole board today, not just the strikes in view, so zooming or moving a target never changes how big a strike looks.
 
-- **The bar** is the modeled net gamma at that strike now. **Blue is positive, amber is negative.** Neither color means bullish or bearish. Bar length is measured against today's largest strike on the whole board, not just the strikes in view, so zooming or moving a target never changes how big a strike looks.
-- **The outline** is the same strike at the start of the change window. A bar that reaches past its outline is **strengthening**; one inside its outline is **weakening**. Strengthening and weakening are about size, whatever the sign: a negative strike going from -760M to -420M is weakening.
-- **▲ and ▼ with a figure** mark a change in size beyond the noise threshold, with the size of the change. When strikes sit close together, figures are placed biggest change first and any that would overprint are left off; the outline still shows the change.
+**Bars** chooses one of three views of the same strikes:
+
+- **Net** (the default): one bar, the strike's modeled net gamma now.
+- **Split**: two bars. The **call** side to the right in blue and the **put** side to the left in amber. A strike whose net barely moved can still have both sides growing, and Split shows that.
+- **Combined**: the call and put bars faded, with the **net** as a narrower solid bar on top, so you see what the net is made of.
+
+In Split and Combined the bars share one scale, set by the largest single side (call or put) on the board, so a strike's call, put and net can be compared directly.
+
+- **The outline** is the same bar at the start of the change window. A bar that reaches past its outline is **strengthening**; one inside its outline is **weakening**. In Split each side has its own outline; in Net and Combined the outline is the net. Strengthening and weakening are about size, whatever the sign: a negative strike going from -760M to -420M is weakening.
+- **▲ and ▼ with a figure** mark a change in the size of the **net** beyond the noise threshold, with the size of the change. They are the net change in every view, so switching views never changes which strikes are flagged (the column header says **net** in Split and Combined as a reminder). When strikes sit close together, figures are placed biggest change first and any that would overprint are left off; the outline still shows the change.
 - **Faded rows** are behind the Fuse, past your last target, or hold less than 3% of today's total gamma.
 - **The purple dot** marks the next relevant strike: the first strike ahead of the current price, on your route, holding at least 8% of today's total.
-- **Hover** a row for its numbers. **Click** it to open its history underneath the chart.
+- **Hover** a row for its numbers, including its call and put sides and how much each changed in size over the window. **Click** it to open its history underneath the chart.
 
 ## The strike history
 

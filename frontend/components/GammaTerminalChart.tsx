@@ -74,6 +74,7 @@ import { resolveRewindBucket } from "@/core/rewindBucket";
 import { useLinkedRewind, type SharedRewind } from "@/core/linkedRewind";
 import { pinLineLabel } from "@/core/pinStrike";
 import { barClock, formatBarDuration } from "@/core/barClock";
+import { candleGridOffsetMs, candleStartMs } from "@/core/candleGrid";
 import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
 import { centroidPath, centroidRange, centroidsForBars } from "@/core/flowCentroids";
 import {
@@ -100,7 +101,7 @@ import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulleti
 import { isFuturesSymbol, volIndexPricesSymbol, volatilityIndexFor } from '@/core/symbols';
 import { chartSessionLevels } from "@/core/sessionLevels";
 
-type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
+type ChartTimeframe = "1min" | "4min" | "5min" | "15min" | "1hr" | "1day";
 type PriceStyle = "candles" | "line" | "area";
 
 // The price-style switch, drawn as icons: the toolbar names them in a tooltip.
@@ -118,17 +119,27 @@ const TIMEFRAMES: Array<{ value: ChartTimeframe; label: string; minutes: number 
   { value: "1day", label: "1D", minutes: 1440 },
 ];
 
+// The Fuseline Radar's 4-minute candle, offered only where `fourMinuteCandles`
+// is set, to match the 4-minute chart a Fuse trade is planned on. The API
+// serves no 4-minute interval, so these are built here from 1-minute bars,
+// counted from the session open (core/candleGrid).
+const FOUR_MINUTE: { value: ChartTimeframe; label: string; minutes: number } = { value: "4min", label: "4m", minutes: 4 };
+const ALL_TIMEFRAMES = [TIMEFRAMES[0], FOUR_MINUTE, ...TIMEFRAMES.slice(1)];
+// What each timeframe asks the API for. Only the built candle differs.
+const fetchTimeframe = (tf: ChartTimeframe): ChartTimeframe => (tf === "4min" ? "1min" : tf);
+
 // The interval one step finer than each candle, used to build the growing
 // replay candle smoothly (same idea as /replay: a 5-min candle plays at 1-min
 // resolution). 1-min has no finer supported interval, so it replays per-candle.
 const SUB_INTERVAL: Record<ChartTimeframe, ChartTimeframe | null> = {
   "1min": null,
+  "4min": "1min",
   "5min": "1min",
   "15min": "5min",
   "1hr": "15min",
   "1day": "1hr",
 };
-const tfMinutes = (tf: ChartTimeframe): number => TIMEFRAMES.find((t) => t.value === tf)?.minutes ?? 5;
+const tfMinutes = (tf: ChartTimeframe): number => ALL_TIMEFRAMES.find((t) => t.value === tf)?.minutes ?? 5;
 
 interface Bar {
   timestamp: string;
@@ -717,14 +728,13 @@ function fmtEtClock(d: Date | null): string | null {
   );
 }
 
-function aggregateBars(data: Bar[], bucketMinutes: number, maxPoints: number): Bar[] {
+function aggregateBars(data: Bar[], bucketMinutes: number, maxPoints: number, gridOffsetMs = 0): Bar[] {
   if (data.length === 0) return [];
   const sorted = [...data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  const bucketMs = bucketMinutes * 60 * 1000;
   const buckets = new Map<number, Bar[]>();
   sorted.forEach((bar) => {
     const t = new Date(bar.timestamp).getTime();
-    const bucket = Math.floor(t / bucketMs) * bucketMs;
+    const bucket = candleStartMs(t, bucketMinutes, gridOffsetMs);
     if (!buckets.has(bucket)) buckets.set(bucket, []);
     buckets.get(bucket)!.push(bar);
   });
@@ -865,6 +875,7 @@ export default function GammaTerminalChart({
   tall = false,
   hideSymbolPicker = false,
   fullscreenWithoutRail = false,
+  fourMinuteCandles = false,
 }: {
   className?: string;
   snapshot?: ChartSnapshot | null;
@@ -972,6 +983,8 @@ export default function GammaTerminalChart({
   hideSymbolPicker?: boolean;
   /** Keep Full screen when `hideRail` drops the column (no panel is left behind). */
   fullscreenWithoutRail?: boolean;
+  /** Offer a 4-minute candle (built from 1-minute bars) and open on it. */
+  fourMinuteCandles?: boolean;
 }) {
   const delayed = delayedProp || !!snapshot;
   const live = !delayed;
@@ -1170,7 +1183,7 @@ export default function GammaTerminalChart({
   // Level names and the gamma bars' $ figures are painted in their own color,
   // shaded where a palette's color is too faint to read on the card.
   const levelInk = useLevelInk();
-  const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
+  const [timeframeState, setTimeframe] = useState<ChartTimeframe>(fourMinuteCandles ? "4min" : "5min");
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
   const [volumeMode, setVolumeMode] = useState<VolumeMode>("updown");
@@ -1463,7 +1476,7 @@ export default function GammaTerminalChart({
     }
   }, [ribbonOpacity, hydrated, ribbonOpacityKey]);
 
-  const intervalMinutes = TIMEFRAMES.find((t) => t.value === timeframe)?.minutes ?? 5;
+  const intervalMinutes = tfMinutes(timeframe);
 
   // ── Data ── Live mode polls the API; delayed mode renders a frozen server
   // snapshot and does zero client fetching (every hook disabled via `live`).
@@ -1473,7 +1486,7 @@ export default function GammaTerminalChart({
   // deliberately do NOT swap in their future: the chart just freezes at the
   // 16:00 ET close until the next cash session opens.
   const symbolIsIndex = isIndexSymbol(symbol);
-  const { rows: liveRows, loading: liveLoading, error: liveError } = useMarketHistorical(symbol, timeframe, !symbolIsIndex, live);
+  const { rows: liveRows, loading: liveLoading, error: liveError } = useMarketHistorical(symbol, fetchTimeframe(timeframe), !symbolIsIndex, live);
   const { data: quote } = useMarketQuote(symbol, 1000, live);
   const { data: liveSessionCloses } = useSessionCloses(symbol, 60000, quote?.session ?? null, live);
   // Prior-day high/low + pre-market high/low for the top row and the PD / PM
@@ -1598,7 +1611,10 @@ export default function GammaTerminalChart({
   }, [liveQuoteKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const data = useMemo(() => dataAll.slice(-POOL), [dataAll]);
+  // A built candle takes several fetched bars, so the pool keeps that many
+  // more of them: POOL candles either way.
+  const fetchedPerCandle = Math.max(1, Math.round(intervalMinutes / tfMinutes(fetchTimeframe(timeframe))));
+  const data = useMemo(() => dataAll.slice(-POOL * fetchedPerCandle), [dataAll, fetchedPerCandle]);
 
   // The bars' own contracts, which are per-row and can differ across the pool:
   // a multi-day futures range spanning a roll really does hold two contracts,
@@ -1668,8 +1684,11 @@ export default function GammaTerminalChart({
       },
       { rows: [] as Bar[], prevClose: seed },
     );
-    return aggregateBars(normalized.rows, intervalMinutes, POOL);
-  }, [data, intervalMinutes, symbol]);
+    // Built candles are counted from the session open (core/candleGrid); the
+    // API's own intervals keep the plain clock grid they have always used.
+    const gridOffsetMs = timeframe === "4min" ? candleGridOffsetMs(4, isFuturesSymbol(symbol)) : 0;
+    return aggregateBars(normalized.rows, intervalMinutes, POOL, gridOffsetMs);
+  }, [data, intervalMinutes, symbol, timeframe]);
 
   // Stage 2 — overlay the live tick onto the tip bar, and open the next bar the
   // second a tick lands in it rather than when the next candle poll does
@@ -4230,7 +4249,7 @@ export default function GammaTerminalChart({
   // the row. The compact canvas lays the same pieces out on two rows.
   const timeframeControl = live ? (
     <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
-      {TIMEFRAMES.map((t) => (
+      {(fourMinuteCandles ? ALL_TIMEFRAMES : TIMEFRAMES).map((t) => (
         <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
           {t.label}
         </button>
@@ -4242,7 +4261,7 @@ export default function GammaTerminalChart({
     // the live chart instead.
     <>
       <span className="zg-chip" style={{ ["--chip-color" as string]: "var(--text-secondary)" }}>
-        {symbol} · {TIMEFRAMES.find((t) => t.value === timeframe)?.label}
+        {symbol} · {ALL_TIMEFRAMES.find((t) => t.value === timeframe)?.label}
       </span>
       <a
         href="/register"
@@ -4750,7 +4769,7 @@ export default function GammaTerminalChart({
               style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums", borderBottom: "1px solid var(--border-subtle)" }}
             >
               <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{symbol}</span>
-              <span style={{ color: "var(--text-muted)" }}>{TIMEFRAMES.find((t) => t.value === timeframe)?.label}</span>
+              <span style={{ color: "var(--text-muted)" }}>{ALL_TIMEFRAMES.find((t) => t.value === timeframe)?.label}</span>
               {(["O", activeBar.open, "H", activeBar.high, "L", activeBar.low, "C", activeBar.close] as const).map((v, i) =>
                 typeof v === "string" ? (
                   <span key={`ck-${i}`} style={{ color: "var(--text-muted)", marginRight: -6 }}>{v}</span>
@@ -5395,7 +5414,7 @@ export default function GammaTerminalChart({
             style={{ background: "color-mix(in srgb, var(--bg-card) 82%, transparent)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-control)", backdropFilter: "blur(3px)" }}
           >
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{symbol}</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{TIMEFRAMES.find((t) => t.value === timeframe)?.label}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{ALL_TIMEFRAMES.find((t) => t.value === timeframe)?.label}</span>
             {(["O", activeBar.open, "H", activeBar.high, "L", activeBar.low, "C", activeBar.close] as const).map((v, i) =>
               typeof v === "string" ? (
                 <span key={`k-${i}`} style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{v}</span>

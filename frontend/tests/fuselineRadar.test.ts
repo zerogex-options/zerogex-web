@@ -27,6 +27,7 @@ import {
   routeReady,
   routeZone,
   sessionBounds,
+  sideMaxAbs,
   sizeContext,
   strikeChange,
   targetPassed,
@@ -161,6 +162,31 @@ test('terrain aligns strikes on one clock and keeps a missing strike missing', (
   assert.equal(t.times.length, 3);
   assert.deepEqual(t.byStrike.get(6730), [1, 2, 3]);
   assert.deepEqual(t.byStrike.get(6735), [5, null, 7]);
+});
+
+test('terrain keeps each strike\'s call and put sides on the same clock', () => {
+  const t = buildTerrain([
+    { timestamp: new Date(T0).toISOString(), strikes: [{ strike: 6730, net_gamma: 500, call_gamma: 800, put_gamma: -300 }] },
+    { timestamp: new Date(T0 + MIN).toISOString(), strikes: [{ strike: 6730, net_gamma: 600, call_gamma: '900', put_gamma: null }] },
+  ]);
+  assert.deepEqual(t.callByStrike.get(6730), [800, 900]);
+  // A missing side stays missing, as a missing net does.
+  assert.deepEqual(t.putByStrike.get(6730), [-300, null]);
+});
+
+test('split bars share one scale: the largest side on the whole board', () => {
+  const t = buildTerrain([
+    {
+      timestamp: new Date(T0).toISOString(),
+      strikes: [
+        { strike: 6730, net_gamma: 940, call_gamma: 1200, put_gamma: -260 },
+        { strike: 6700, net_gamma: -420, call_gamma: 300, put_gamma: -720 },
+      ],
+    },
+  ]);
+  assert.equal(sideMaxAbs(t), 1200);
+  // Net never outgrows its larger side, so it fits the same scale.
+  assert.ok(sizeContext(t).maxAbs <= sideMaxAbs(t));
 });
 
 test('strengthening and weakening are about size, not the signed value', () => {

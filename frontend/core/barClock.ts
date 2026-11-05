@@ -24,10 +24,11 @@
  * unit-tests against fixed instants with no clock mocking.
  */
 
-export type BarClockTimeframe = '1min' | '5min' | '15min' | '1hr' | '1day';
+export type BarClockTimeframe = '1min' | '4min' | '5min' | '15min' | '1hr' | '1day';
 
 const INTERVAL_MINUTES: Record<BarClockTimeframe, number> = {
   '1min': 1,
+  '4min': 4,
   '5min': 5,
   '15min': 15,
   '1hr': 60,

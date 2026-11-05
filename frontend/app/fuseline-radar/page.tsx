@@ -26,6 +26,7 @@ import { etTodayDateKey } from '@/core/utils';
 import { safeTimeLabel } from '@/core/flowSeriesCharts';
 import {
   CHANGE_WINDOWS,
+  LADDER_VIEWS,
   ROUTE_ZONE_TEXT,
   anchorCrossed,
   buildTerrain,
@@ -41,11 +42,13 @@ import {
   routeReady,
   routeZone,
   sessionBounds,
+  sideMaxAbs,
   sizeContext,
   strikeChange,
   targetPassed,
   type ChangeWindow,
   type Instrument,
+  type LadderView,
   type PlanLevels,
   type StrikeChange,
 } from '@/core/fuselineRadar';
@@ -79,6 +82,12 @@ const LADDER_WIDTH_PHONE = 104;
 /** What the ladder replaces, so the chart never draws it twice. */
 const RADAR_FORCED_OFF: ChartOverlayKey[] = ['ribbons', 'king', 'centroids', 'sessionLevels'];
 const LAYER_TEXT: Record<LayerView, string> = { fuse: 'Fuse', levels: 'Levels', both: 'Both' };
+const LADDER_VIEW_TEXT: Record<LadderView, string> = { net: 'Net', split: 'Split', combined: 'Combined' };
+const LADDER_VIEW_TITLE: Record<LadderView, string> = {
+  net: 'One bar per strike: its net gamma',
+  split: 'Two bars per strike: calls to the right, puts to the left',
+  combined: 'Calls and puts faded, with the net as a narrower solid bar on top',
+};
 const PLAN_COLOR = 'var(--color-king)';
 
 interface SummaryWithProjection {
@@ -202,6 +211,8 @@ export default function FuselineRadarPage() {
     terrain.byStrike.forEach((series, k) => {
       const c = strikeChange(series, terrain.times, settings.window, threshold, pctFloor);
       if (c.now == null) return;
+      const call = strikeChange(terrain.callByStrike.get(k), terrain.times, settings.window, threshold, pctFloor);
+      const putSide = strikeChange(terrain.putByStrike.get(k), terrain.times, settings.window, threshold, pctFloor);
       const price = display === 'ES' && ratio != null ? k * ratio : k;
       const zone = route ? routeZone(price, route, direction) : null;
       const share = ctx.share.get(k) ?? 0;
@@ -211,6 +222,10 @@ export default function FuselineRadarPage() {
         label: formatStrike(k, display, ratio ?? 1),
         now: c.now,
         then: c.then,
+        call: call.now,
+        put: putSide.now,
+        callThen: call.then,
+        putThen: putSide.then,
         state: c.state,
         sizeDelta: c.sizeDelta,
         faded: zone === 'behind' || zone === 'beyond' || share < 0.03,
@@ -250,6 +265,9 @@ export default function FuselineRadarPage() {
         ? `ES ${(k * ratio).toFixed(2)} · SPX ${k} strike`
         : `SPX ${k} strike · ES ${(k * ratio).toFixed(2)}`;
 
+  // One side's size now, and its change in size over the window when known.
+  const sideText = (now: number, then: number | null) =>
+    then == null ? formatGamma(now) : `${formatGamma(now)} (${formatSizeDelta(Math.abs(now) - Math.abs(then))})`;
   const describeRow = (r: LadderRow): string[] => {
     const word =
       r.state === 'strengthening' ? '▲ strengthening' : r.state === 'weakening' ? '▼ weakening' : r.state === 'steady' ? 'within the threshold' : 'change unavailable';
@@ -259,6 +277,7 @@ export default function FuselineRadarPage() {
     return [
       coordPair(r.k),
       `Modeled net gamma ${formatGamma(r.now)}`,
+      ...(r.call != null && r.put != null ? [`Calls ${sideText(r.call, r.callThen)} · Puts ${sideText(r.put, r.putThen)}`] : []),
       `${settings.window} min: ${r.sizeDelta != null ? `${formatSizeDelta(r.sizeDelta)} in size, ` : ''}${word}`,
       `${rank ? `#${rank} of ${ctx.rank.size} today · ` : ''}${Math.round(share * 100)}% of gross`,
       `${zone ? `${zone} · ` : ''}Click for history`,
@@ -266,11 +285,17 @@ export default function FuselineRadarPage() {
   };
 
   const ladderOn = settings.showLadder;
+  const ladderView = settings.ladderView;
+  // Net bars are measured against the largest net strike; Split and Combined
+  // against the largest single side, so a strike's call, put and net share one
+  // scale. Either way the whole board, never just the strikes in view.
+  const ladderScale = ladderView === 'net' ? ctx.maxAbs : Math.max(ctx.maxAbs, sideMaxAbs(terrain));
   const renderLadder = (c: ChartSideColumnContext) => (
     <LadderColumn
       ctx={c}
       rows={rows}
-      maxAbs={ctx.maxAbs}
+      view={ladderView}
+      maxAbs={ladderScale}
       windowMin={settings.window}
       display={display}
       selected={selected}
@@ -417,6 +442,15 @@ export default function FuselineRadarPage() {
             </FilterGroup>
             <FilterDivider />
             <FilterToggle active={settings.showLadder} onChange={(v) => update({ showLadder: v })}>Ladder</FilterToggle>
+            {settings.showLadder && (
+              <FilterGroup label="Bars">
+                {LADDER_VIEWS.map((v) => (
+                  <FilterChip key={v} active={ladderView === v} onClick={() => update({ ladderView: v })} title={LADDER_VIEW_TITLE[v]}>
+                    {LADDER_VIEW_TEXT[v]}
+                  </FilterChip>
+                ))}
+              </FilterGroup>
+            )}
           </FilterBar>
           <FilterBar>
             <FilterGroup label="On the chart">
@@ -513,16 +547,18 @@ export default function FuselineRadarPage() {
 
       <div className="mt-4 mb-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
         <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>Ladder</span>
-        <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm align-[-1px]" style={{ backgroundColor: 'var(--color-gamma-pos)' }} />Positive gamma</span>
-        <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm align-[-1px]" style={{ backgroundColor: 'var(--color-gamma-neg)' }} />Negative gamma</span>
+        <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm align-[-1px]" style={{ backgroundColor: 'var(--color-gamma-pos)' }} />{ladderView === 'net' ? 'Positive gamma' : 'Calls (positive)'}</span>
+        <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm align-[-1px]" style={{ backgroundColor: 'var(--color-gamma-neg)' }} />{ladderView === 'net' ? 'Negative gamma' : 'Puts (negative)'}</span>
+        {ladderView === 'combined' && <span>Narrow solid bar: net</span>}
         <span><i className="mr-1.5 inline-block h-2 w-3 rounded-sm border align-[-1px]" style={{ borderColor: 'var(--color-text-secondary)' }} />{settings.window} min ago</span>
-        <span>▲▼ strengthening / weakening</span>
+        <span>▲▼ {ladderView === 'net' ? '' : 'net '}strengthening / weakening</span>
         <span><i className="mr-1.5 inline-block h-2 w-2 rounded-full align-[0px]" style={{ backgroundColor: PLAN_COLOR }} />Next relevant strike</span>
         <span>All expiries · {display} strikes</span>
       </div>
       <TimeframeSymbolScope symbol={display}>
         <GammaTerminalChart
           storageScope="radar"
+          fourMinuteCandles
           hideSymbolPicker
           splitGammaLevels
           forceOffOverlays={RADAR_FORCED_OFF}
