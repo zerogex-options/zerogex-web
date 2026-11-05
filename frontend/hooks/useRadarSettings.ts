@@ -5,8 +5,10 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import {
   DEFAULT_WIDE_POINTS,
   EMPTY_PLAN,
+  LADDER_VIEWS,
   type ChangeWindow,
   type Instrument,
+  type LadderView,
   type RadarPlan,
   type ViewMode,
 } from '@/core/fuselineRadar';
@@ -40,6 +42,8 @@ export interface RadarSettings {
   /** Twice the standard chart height. */
   tall: boolean;
   showLadder: boolean;
+  /** Net, Split (call and put) or Combined bars on the ladder. */
+  ladderView: LadderView;
   mode: UpdateMode;
 }
 
@@ -53,6 +57,7 @@ export const DEFAULT_SETTINGS: RadarSettings = {
   labels: true,
   tall: false,
   showLadder: true,
+  ladderView: 'net',
   mode: '1m',
 };
 
@@ -112,6 +117,7 @@ export function parseSettings(raw: string | null): RadarSettings {
     labels: typeof obj.labels === 'boolean' ? obj.labels : d.labels,
     tall: typeof obj.tall === 'boolean' ? obj.tall : d.tall,
     showLadder: typeof obj.showLadder === 'boolean' ? obj.showLadder : d.showLadder,
+    ladderView: pick(obj.ladderView, LADDER_VIEWS, d.ladderView),
     mode: pick(obj.mode, ['manual', '1m', '5m'] as const, d.mode),
   };
 }
