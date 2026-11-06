@@ -18,8 +18,10 @@ to add EMA's":
 No earlier thread with Ram in this folder.
 
 > **Status:** both checks under "Confirm before sending" passed on Nov 6, so
-> the draft goes as written. It promises the feature, and nothing is built
-> yet. Send it only if you want it built.
+> the first draft goes as written. You asked for the build the same day: it is
+> on branch `claude/chart-ema-lines` (zerogex-web only). The "It's live" draft
+> at the end is unsent: send it once that branch is deployed and the check
+> above it passes.
 
 ## The answer
 
@@ -146,16 +148,76 @@ I'll email you as soon as it's live. In the meantime, if you also chart on Tradi
 Best,
 Michael
 
-## For the "it's live" email
+## What shipped (2026-11-06)
 
-- Where to find it: the Layers button on the chart, under Studies (use the
-  name the build ships with).
-- The lengths are remembered per browser, so a second computer starts on 13,
-  40 and 200.
-- SPY, QQQ and NVDA include pre-market and after-hours candles, so their EMAs
-  do too, and a chart set to regular hours only elsewhere will show a different
-  200. SPX and NDX are regular hours only.
-- Not on the free delayed preview.
+zerogex-web branch `claude/chart-ema-lines`. No backend change, no schema
+change, nothing to run on the database.
+
+- **Layers → Studies → EMAs**, on every Gamma Terminal chart: /chart, the
+  Dashboard, My Dashboard and the Fuseline Radar. Off by default, the chart's
+  rule for new overlays (`DEFAULT_OVERLAYS`). "All" in Quick looks turns it
+  on; the other looks turn it off.
+- **Three lines, 13, 40 and 200.** Under the switch, each line has a color
+  square (shows or hides that line) and a length box, 2 to 200 bars. A length
+  takes effect as it is typed; anything out of range is clamped when the box
+  is left. **Reset to defaults** puts back 13, 40 and 200. Lengths are saved
+  per browser, per page (the Terminal and the Dashboard each keep their own,
+  as they already do for every overlay).
+- **Hover a candle** and the readout card lists each line's value. The legend
+  under the chart names each line, and says "EMA 200 · needs 200 bars" where
+  the chart has too few candles (the daily chart until about mid-April, and the
+  radar's 4-minute candles).
+- **The math** (`frontend/core/movingAverages.ts`): seeded with the simple
+  average of the first `length` closes, as TradingView does, with the 176
+  candles the pool slice leaves out fed in as warm-up. The newest point moves
+  with the live price.
+- **Colors** are three new tokens, `--color-ema-1/2/3`, one set for light
+  themes and one for dark. Each sits at least dE 14.9 from every gamma-level
+  color in all 12 palettes (the levels hold each other to 12), and a new test
+  in `tests/chartLevelPalette.test.ts` keeps it that way.
+- **Not on the free delayed preview**: its switch reads "Live only" (180
+  candles is too few for a 200).
+- **Help**: an EMAs section and table row in the Gamma Terminal guide in all
+  five languages (required by `tests/gammaTerminalGuide.test.ts`), plus a line
+  each in Reading Charts and the Fuseline Radar guide.
+- **Checked**: type check, lint (one warning, already on `release`), the full
+  frontend suite (3,742 pass, 0 fail; `release` is 3,727 and 0, the 15 extra
+  being the new tests), and the real page in a browser against a mock price
+  feed: light and dark themes, a phone, the daily chart, Rewind, and settings
+  surviving a reload.
+
+## It's live: confirm before sending
+
+After the branch is deployed, sign in and open https://zerogex.io/chart:
+
+1. Click **Layers**. **EMAs** should be under Studies. Turn it on: three
+   lines appear over the candles (pink, yellow-green and peach on a dark
+   theme; orchid, navy and crimson on a light one), and the legend under the
+   chart lists `EMA 13`, `EMA 40`, `EMA 200`.
+2. Click **1D**. The legend should read `EMA 200 · needs 200 bars`.
+
+- **No EMAs row in Layers:** the site is still on the old build. Deploy again.
+- **The row is there but no lines draw on 5M:** don't send; ask Claude.
+
+## It's live: draft
+
+**Subject:** Re: Request to add EMA's
+
+Hi Ram,
+
+EMAs are live on the charts.
+
+On the Gamma Terminal (and the same chart on the dashboard), click Layers above the chart and turn on EMAs under Studies. You'll get three lines: 13, 40 and 200. Under the switch, each line has its own box. Type any length from 2 to 200, or click a line's color square to hide it. The chart remembers your lengths on that browser, and hovering a candle shows each line's value there.
+
+Two things to know:
+
+1. On SPY and QQQ the chart includes pre-market and after-hours candles, so the EMAs do too. Next to a chart set to regular hours only, they'll read a bit differently, most of all the 200. SPX and NDX are regular hours only, so those line up.
+2. The 200 doesn't show on the daily chart yet, because our daily history doesn't reach back 200 trading days. The 13 and 40 work there, and the legend under the chart says when a line needs more history.
+
+Thanks again for the suggestion. I'd like to hear how it works for you.
+
+Best,
+Michael
 
 ## If he replies
 
