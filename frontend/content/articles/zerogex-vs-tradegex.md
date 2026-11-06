@@ -55,7 +55,7 @@ List prices before promotions and tax, checked {{tradegex:checked}}. TradeGEX se
 
 Month to month, ZeroGEX Basic costs less than TradeGEX, and ZeroGEX Pro costs about the same. On yearly billing, ZeroGEX Pro costs about half as much as TradeGEX - the same as TradeGEX's six-month plan - and includes API access. The prices buy different things, though: TradeGEX's covers more markets, desktop apps, and a trade simulator, and ZeroGEX's covers six symbols in depth.
 
-The trials and refunds differ too. ZeroGEX Basic monthly starts with a 7-day free trial, with a card on file and nothing charged until it ends, and every other ZeroGEX plan is covered by a 7-day money-back guarantee. TradeGEX offers a 3-day free trial that needs a mobile number but no card and does not turn into a paid plan on its own, and its terms say refunds are given only in exceptional circumstances.
+The trials and refunds differ too. ZeroGEX Basic monthly starts with a 7-day free trial with nothing charged until it ends, and every other ZeroGEX plan is covered by a 7-day money-back guarantee. TradeGEX offers a 3-day free trial that needs a mobile number but no card and does not turn into a paid plan on its own, and its terms say refunds are given only in exceptional circumstances.
 
 ## Where TradeGEX is the stronger choice
 

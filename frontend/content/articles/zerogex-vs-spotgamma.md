@@ -52,7 +52,7 @@ List prices before promotions and tax, as SpotGamma's checkout forms charged the
 
 Both ZeroGEX plans cost less than either SpotGamma plan, monthly or yearly, and a year of ZeroGEX Pro costs the same as one month of SpotGamma Alpha. The prices buy different things, though: SpotGamma's covers thousands of stocks, a twice-daily research note, webinars, and on Alpha, its real-time tools; ZeroGEX's covers six symbols in depth, with levels that move through the session on both plans.
 
-The trials and refunds differ too. ZeroGEX Basic monthly starts with a 7-day free trial, with a card on file and nothing charged until it ends, and every other ZeroGEX plan is covered by a 7-day money-back guarantee. SpotGamma's pricing page lists no free trial on its paid plans; separately, it offers a free week of its Opening Setup daily report, with no card needed. Its terms say subscription payments are non-refundable unless otherwise indicated.
+The trials and refunds differ too. ZeroGEX Basic monthly starts with a 7-day free trial with nothing charged until it ends, and every other ZeroGEX plan is covered by a 7-day money-back guarantee. SpotGamma's pricing page lists no free trial on its paid plans; separately, it offers a free week of its Opening Setup daily report, with no card needed. Its terms say subscription payments are non-refundable unless otherwise indicated.
 
 ## What you can see for free
 

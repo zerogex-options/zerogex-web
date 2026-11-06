@@ -50,6 +50,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { sendVerifiedNeverPaidEmail } from '../core/mailer.ts';
 import { isFoundingLockinOpen } from '../core/foundingLockin.ts';
 import { buildUnsubUrl } from '../core/unsubToken.ts';
+import { isNoCardTrialEnabled } from '../core/noCardTrial.ts';
 
 // 2h lag matches the user-facing intent: give someone a chance to click
 // through the verification link, browse a bit, and either bounce or start
@@ -257,6 +258,11 @@ const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || envLocal.RESEND_API_KEY;
+// New Basic trials start without a card (core/noCardTrial.ts): the email's
+// trial paragraph follows the same switch checkout reads.
+const NO_CARD_TRIAL = isNoCardTrialEnabled({
+  BILLING_NO_CARD_TRIAL: process.env.BILLING_NO_CARD_TRIAL || envLocal.BILLING_NO_CARD_TRIAL,
+});
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_EMAIL;
 const NEXT_PUBLIC_APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || '';
@@ -290,7 +296,10 @@ if (cliArgs.previewTo) {
   console.log(`Sending preview to ${cliArgs.previewTo}...`);
   // Signed for a placeholder account, as scripts/send-winback.mts previews: the
   // link works end to end, and no user has this id.
-  await sendVerifiedNeverPaidEmail(cliArgs.previewTo, { unsubUrl: buildUnsubUrl(appUrl, 'preview-user') });
+  await sendVerifiedNeverPaidEmail(cliArgs.previewTo, {
+    unsubUrl: buildUnsubUrl(appUrl, 'preview-user'),
+    noCardTrial: NO_CARD_TRIAL,
+  });
   console.log(
     'Preview sent. Its unsubscribe link is signed for a "preview-user" account that does not exist, so clicking it shows the confirmation page and changes nothing.',
   );
@@ -421,7 +430,7 @@ for (const user of batch) {
       await new Promise((resolve) => setTimeout(resolve, cliArgs.throttleMs));
     }
     sentInRun += 1;
-    await sendVerifiedNeverPaidEmail(user.email, { unsubUrl: buildUnsubUrl(appUrl, user.id) });
+    await sendVerifiedNeverPaidEmail(user.email, { unsubUrl: buildUnsubUrl(appUrl, user.id), noCardTrial: NO_CARD_TRIAL });
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends
     // doesn't re-send to anyone who already received. Audit row is best-

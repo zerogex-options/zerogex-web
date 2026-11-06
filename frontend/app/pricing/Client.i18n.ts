@@ -8,6 +8,8 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Start your {days}-day free trial of Basic\u00a0- or go straight to Pro.',
     heroTrialNoCharge:
       'Basic trial: no charge until day {days}. Every other plan: 7-day money-back guarantee.',
+    heroTrialNoChargeNoCard:
+      'Basic trial: no card needed, nothing charged. Every other plan: 7-day money-back guarantee.',
     heroTrialBody:
       'Your ZeroGEX account is ready. Pick Basic or Pro to unlock live SPY, SPX, QQQ, NDX, ES, and NQ gamma levels, dealer positioning, flow pressure, and market state signals.',
     heroTitle: 'Trade with a live map of the options levels that matter.',
@@ -15,6 +17,8 @@ export const dict: PageDictionary = {
       'ZeroGEX helps SPY/SPX/QQQ/NDX traders track gamma exposure, call/put walls, gamma flip, dealer positioning, and flow pressure in real time.',
     heroBody:
       '{days}-day free trial on Basic monthly. Every other plan is covered by a 7-day money-back guarantee. Cancel anytime\u00a0- no email or support request required.',
+    heroBodyNoCard:
+      '{days}-day free trial on Basic monthly, no card needed. Every other plan is covered by a 7-day money-back guarantee. Cancel anytime\u00a0- no email or support request required.',
     checkoutCancelledNotice: "No problem\u00a0- nothing was charged. Choose a plan whenever you're ready.",
     referralAppliedLabel: '[ REFERRAL APPLIED ]',
     referralAppliedBody: 'A friend referred you\u00a0- your discount is applied automatically at checkout.',
@@ -63,6 +67,8 @@ export const dict: PageDictionary = {
     trialListLabel: '{days}-day free trial (Basic monthly).',
     trialListBody:
       "You get full access right away. Your card is collected at signup but isn't charged until the trial ends. Cancel before then and you pay nothing. One free trial per account.",
+    trialListBodyNoCard:
+      'You get full access right away, and no card is needed to start. Add one before the trial ends to keep your plan; without one, the trial simply ends and nothing is charged. One free trial per account.',
     cancelAnytimeLabel: 'Cancel anytime.',
     cancelAnytimeBody:
       'Cancel your plan yourself from your account page, and manage it in the billing portal\u00a0- no email or support request required.',
@@ -85,6 +91,7 @@ export const dict: PageDictionary = {
     subscribeToLabel: 'Subscribe to {label}',
     yourPickBadge: 'Your pick',
     trialDaysNote: "{days}-day free trial\u00a0- cancel anytime before it ends and you won't be charged.",
+    trialDaysNoteNoCard: '{days}-day free trial, no card needed\u00a0- add one before it ends to keep your plan.',
     foldsOfHonorLink: 'Includes 3% donation to Folds of Honor',
     noChargeToday: 'No charge today.',
     perMonthSuffix: '/mo',
@@ -149,6 +156,8 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Inizia la prova gratuita di {days} giorni di Basic, oppure passa subito a Pro.',
     heroTrialNoCharge:
       'Prova Basic: nessun addebito fino al giorno {days}. Tutti gli altri piani: garanzia soddisfatti o rimborsati di 7 giorni.',
+    heroTrialNoChargeNoCard:
+      'Prova Basic: nessuna carta richiesta, nessun addebito. Tutti gli altri piani: garanzia soddisfatti o rimborsati di 7 giorni.',
     heroTrialBody:
       'Il tuo account ZeroGEX è pronto. Scegli Basic o Pro per sbloccare i livelli gamma in tempo reale di SPY, SPX, QQQ, NDX, ES e NQ, il posizionamento dei dealer, la pressione dei flussi e i segnali di stato del mercato.',
     heroTitle: 'Fai trading con una mappa in tempo reale dei livelli delle opzioni che contano.',
@@ -156,6 +165,8 @@ export const dict: PageDictionary = {
       'ZeroGEX aiuta i trader di SPY/SPX/QQQ/NDX a monitorare l’esposizione gamma, i call/put wall, il gamma flip, il posizionamento dei dealer e la pressione dei flussi in tempo reale.',
     heroBody:
       'Prova gratuita di {days} giorni su Basic mensile. Tutti gli altri piani sono coperti da una garanzia soddisfatti o rimborsati di 7 giorni. Annulla quando vuoi, senza email o richieste di assistenza.',
+    heroBodyNoCard:
+      'Prova gratuita di {days} giorni su Basic mensile, senza carta. Tutti gli altri piani sono coperti da una garanzia soddisfatti o rimborsati di 7 giorni. Annulla quando vuoi, senza email o richieste di assistenza.',
     checkoutCancelledNotice:
       'Nessun problema: non ti è stato addebitato nulla. Scegli un piano quando sei pronto.',
     referralAppliedLabel: '[ REFERRAL APPLICATO ]',
@@ -205,6 +216,8 @@ export const dict: PageDictionary = {
     trialListLabel: 'Prova gratuita di {days} giorni (Basic mensile).',
     trialListBody:
       'Hai accesso completo da subito. La tua carta viene registrata alla registrazione ma non viene addebitata finché la prova non termina. Annulla prima e non paghi nulla. Una prova gratuita per account.',
+    trialListBodyNoCard:
+      'Hai accesso completo da subito e non serve una carta per iniziare. Aggiungine una prima che la prova termini per mantenere il piano; senza, la prova termina e non paghi nulla. Una prova gratuita per account.',
     cancelAnytimeLabel: 'Annulla quando vuoi.',
     cancelAnytimeBody:
       'Annulla il tuo piano autonomamente dalla tua pagina account e gestiscilo nel portale di fatturazione, senza email o richieste di assistenza.',
@@ -227,6 +240,7 @@ export const dict: PageDictionary = {
     subscribeToLabel: 'Abbonati a {label}',
     yourPickBadge: 'La tua scelta',
     trialDaysNote: 'Prova gratuita di {days} giorni: annulla quando vuoi prima che finisca e non ti verrà addebitato nulla.',
+    trialDaysNoteNoCard: 'Prova gratuita di {days} giorni, senza carta: aggiungine una prima che finisca per mantenere il piano.',
     foldsOfHonorLink: 'Include una donazione del 3% a Folds of Honor',
     noChargeToday: 'Nessun addebito oggi.',
     perMonthSuffix: '/mese',
@@ -295,6 +309,8 @@ export const dict: PageDictionary = {
       'Starte deine {days}-tägige kostenlose Basic-Testphase\u00a0- oder steig direkt mit Pro ein.',
     heroTrialNoCharge:
       'Basic-Testphase: keine Abbuchung bis Tag {days}. Alle anderen Pläne: 7-Tage-Geld-zurück-Garantie.',
+    heroTrialNoChargeNoCard:
+      'Basic-Testphase: keine Karte nötig, keine Abbuchung. Alle anderen Pläne: 7-Tage-Geld-zurück-Garantie.',
     heroTrialBody:
       'Dein ZeroGEX-Konto ist bereit. Wähle Basic oder Pro, um Live-Gamma-Level für SPY, SPX, QQQ, NDX, ES und NQ, Dealer-Positionierung, Flow-Druck und Marktzustandssignale freizuschalten.',
     heroTitle: 'Handle mit einer Live-Karte der Optionslevel, die wirklich zählen.',
@@ -302,6 +318,8 @@ export const dict: PageDictionary = {
       'ZeroGEX hilft SPY/SPX/QQQ/NDX-Tradern, Gamma-Exposure, Call-/Put-Walls, Gamma-Flip, Dealer-Positionierung und Flow-Druck in Echtzeit zu verfolgen.',
     heroBody:
       '{days}-tägige kostenlose Testphase für Basic monatlich. Alle anderen Pläne sind durch eine 7-Tage-Geld-zurück-Garantie abgesichert. Jederzeit kündbar\u00a0- ohne E-Mail oder Support-Anfrage.',
+    heroBodyNoCard:
+      '{days}-tägige kostenlose Testphase für Basic monatlich, ohne Karte. Alle anderen Pläne sind durch eine 7-Tage-Geld-zurück-Garantie abgesichert. Jederzeit kündbar\u00a0- ohne E-Mail oder Support-Anfrage.',
     checkoutCancelledNotice:
       'Kein Problem\u00a0- es wurde nichts abgebucht. Wähle einen Plan, wann immer du bereit bist.',
     referralAppliedLabel: '[ EMPFEHLUNG ANGEWENDET ]',
@@ -351,6 +369,8 @@ export const dict: PageDictionary = {
     trialListLabel: '{days}-tägige kostenlose Testphase (Basic monatlich).',
     trialListBody:
       'Du erhältst sofort vollen Zugriff. Deine Karte wird bei der Anmeldung hinterlegt, aber erst nach Ende der Testphase belastet. Kündige vorher und du zahlst nichts. Eine kostenlose Testphase pro Konto.',
+    trialListBodyNoCard:
+      'Du erhältst sofort vollen Zugriff, und zum Start ist keine Karte nötig. Hinterlege vor Ende der Testphase eine, um deinen Plan zu behalten; ohne Karte endet die Testphase einfach und es wird nichts abgebucht. Eine kostenlose Testphase pro Konto.',
     cancelAnytimeLabel: 'Jederzeit kündbar.',
     cancelAnytimeBody:
       'Kündige deinen Plan selbst über deine Kontoseite und verwalte ihn im Kundenportal\u00a0- ohne E-Mail oder Support-Anfrage.',
@@ -373,6 +393,7 @@ export const dict: PageDictionary = {
     subscribeToLabel: '{label} abonnieren',
     yourPickBadge: 'Deine Wahl',
     trialDaysNote: '{days}-tägige kostenlose Testphase\u00a0- jederzeit vor Ablauf kündbar, ohne Kosten.',
+    trialDaysNoteNoCard: '{days}-tägige kostenlose Testphase ohne Karte\u00a0- hinterlege vor Ablauf eine, um deinen Plan zu behalten.',
     foldsOfHonorLink: 'Beinhaltet eine Spende von 3 % an Folds of Honor',
     noChargeToday: 'Heute keine Kosten.',
     perMonthSuffix: '/Monat',
@@ -440,6 +461,8 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Comienza tu prueba gratuita de {days} días de Basic, o pasa directamente a Pro.',
     heroTrialNoCharge:
       'Prueba de Basic: sin cargos hasta el día {days}. Todos los demás planes: garantía de devolución de 7 días.',
+    heroTrialNoChargeNoCard:
+      'Prueba de Basic: sin tarjeta y sin cargos. Todos los demás planes: garantía de devolución de 7 días.',
     heroTrialBody:
       'Tu cuenta de ZeroGEX está lista. Elige Basic o Pro para desbloquear los niveles de gamma en tiempo real de SPY, SPX, QQQ, NDX, ES y NQ, el posicionamiento de los dealers, la presión de flujo y las señales de estado del mercado.',
     heroTitle: 'Opera con un mapa en tiempo real de los niveles de opciones que importan.',
@@ -447,6 +470,8 @@ export const dict: PageDictionary = {
       'ZeroGEX ayuda a los traders de SPY/SPX/QQQ/NDX a seguir la exposición gamma, los call/put walls, el gamma flip, el posicionamiento de los dealers y la presión de flujo en tiempo real.',
     heroBody:
       'Prueba gratuita de {days} días en Basic mensual. Todos los demás planes cuentan con una garantía de devolución de 7 días. Cancela cuando quieras, sin correo ni solicitudes de soporte.',
+    heroBodyNoCard:
+      'Prueba gratuita de {days} días en Basic mensual, sin tarjeta. Todos los demás planes cuentan con una garantía de devolución de 7 días. Cancela cuando quieras, sin correo ni solicitudes de soporte.',
     checkoutCancelledNotice: 'No hay problema: no se te cobró nada. Elige un plan cuando estés listo.',
     referralAppliedLabel: '[ REFERIDO APLICADO ]',
     referralAppliedBody: 'Un amigo te refirió: tu descuento se aplica automáticamente al pagar.',
@@ -495,6 +520,8 @@ export const dict: PageDictionary = {
     trialListLabel: 'Prueba gratuita de {days} días (Basic mensual).',
     trialListBody:
       'Obtienes acceso completo de inmediato. Tu tarjeta se registra al suscribirte, pero no se cobra hasta que termine la prueba. Cancela antes y no pagarás nada. Una prueba gratuita por cuenta.',
+    trialListBodyNoCard:
+      'Obtienes acceso completo de inmediato y no necesitas tarjeta para empezar. Añade una antes de que termine la prueba para mantener tu plan; sin tarjeta, la prueba simplemente termina y no se cobra nada. Una prueba gratuita por cuenta.',
     cancelAnytimeLabel: 'Cancela cuando quieras.',
     cancelAnytimeBody:
       'Cancela tu plan tú mismo desde tu página de cuenta y gestiónalo en el portal de facturación, sin correo ni solicitudes de soporte.',
@@ -517,6 +544,7 @@ export const dict: PageDictionary = {
     subscribeToLabel: 'Suscribirse a {label}',
     yourPickBadge: 'Tu elección',
     trialDaysNote: 'Prueba gratuita de {days} días: cancela cuando quieras antes de que termine y no se te cobrará nada.',
+    trialDaysNoteNoCard: 'Prueba gratuita de {days} días, sin tarjeta: añade una antes de que termine para mantener tu plan.',
     foldsOfHonorLink: 'Incluye una donación del 3 % a Folds of Honor',
     noChargeToday: 'Sin cargos hoy.',
     perMonthSuffix: '/mes',
@@ -583,6 +611,8 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Démarrez votre essai gratuit de {days} jours de Basic\u00a0- ou passez directement à Pro.',
     heroTrialNoCharge:
       'Essai Basic : aucun prélèvement avant le jour {days}. Toutes les autres offres : garantie satisfait ou remboursé de 7 jours.',
+    heroTrialNoChargeNoCard:
+      'Essai Basic : sans carte, aucun prélèvement. Toutes les autres offres : garantie satisfait ou remboursé de 7 jours.',
     heroTrialBody:
       "Votre compte ZeroGEX est prêt. Choisissez Basic ou Pro pour débloquer les niveaux gamma en temps réel de SPY, SPX, QQQ, NDX, ES et NQ, le positionnement des dealers, la pression de flux et les signaux d'état du marché.",
     heroTitle: 'Tradez avec une carte en temps réel des niveaux d’options qui comptent.',
@@ -590,6 +620,8 @@ export const dict: PageDictionary = {
       'ZeroGEX aide les traders SPY/SPX/QQQ/NDX à suivre l’exposition gamma, les call/put walls, le gamma flip, le positionnement des dealers et la pression de flux en temps réel.',
     heroBody:
       "Essai gratuit de {days} jours sur Basic mensuel. Toutes les autres offres sont couvertes par une garantie satisfait ou remboursé de 7 jours. Annulez à tout moment, sans e-mail ni demande d'assistance.",
+    heroBodyNoCard:
+      "Essai gratuit de {days} jours sur Basic mensuel, sans carte. Toutes les autres offres sont couvertes par une garantie satisfait ou remboursé de 7 jours. Annulez à tout moment, sans e-mail ni demande d'assistance.",
     checkoutCancelledNotice:
       'Pas de problème\u00a0- rien ne vous a été prélevé. Choisissez une offre quand vous serez prêt.',
     referralAppliedLabel: '[ PARRAINAGE APPLIQUÉ ]',
@@ -639,6 +671,8 @@ export const dict: PageDictionary = {
     trialListLabel: 'Essai gratuit de {days} jours (Basic mensuel).',
     trialListBody:
       "Vous bénéficiez d'un accès complet immédiatement. Votre carte est enregistrée à l'inscription mais n'est débitée qu'à la fin de l'essai. Annulez avant et vous ne payez rien. Un essai gratuit par compte.",
+    trialListBodyNoCard:
+      "Vous bénéficiez d'un accès complet immédiatement, sans carte pour commencer. Ajoutez-en une avant la fin de l'essai pour garder votre abonnement ; sans carte, l'essai prend simplement fin et rien n'est prélevé. Un essai gratuit par compte.",
     cancelAnytimeLabel: 'Annulez à tout moment.',
     cancelAnytimeBody:
       "Résiliez votre offre vous-même depuis votre page compte et gérez-la dans le portail de facturation\u00a0- sans e-mail ni demande d'assistance.",
@@ -661,6 +695,7 @@ export const dict: PageDictionary = {
     subscribeToLabel: "S'abonner à {label}",
     yourPickBadge: 'Votre choix',
     trialDaysNote: "Essai gratuit de {days} jours\u00a0- annulez à tout moment avant la fin et vous ne serez pas facturé.",
+    trialDaysNoteNoCard: "Essai gratuit de {days} jours, sans carte\u00a0- ajoutez-en une avant la fin pour garder votre abonnement.",
     foldsOfHonorLink: 'Inclut un don de 3 % à Folds of Honor',
     noChargeToday: "Aucun prélèvement aujourd'hui.",
     perMonthSuffix: '/mois',

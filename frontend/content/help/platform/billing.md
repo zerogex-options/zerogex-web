@@ -17,9 +17,11 @@ Two tiers - **Basic** and **Pro** - each available **monthly**, **quarterly** 
 
 ## Free trial (Basic monthly)
 
-Basic monthly starts with a **7-day free trial**: full access right away, your card on file, and no charge until the trial ends. About 48 hours before it ends, we email you a reminder with the amount that will be charged. At the end of the trial, the subscription continues automatically at the rate you signed up at - no second confirmation step.
+Basic monthly starts with a **7-day free trial**: full access right away and no charge until the trial ends. About 48 hours before it ends, we email you a reminder. If a card is on file, the reminder names the amount that will be charged, and at the end of the trial the subscription continues automatically at the rate you signed up at - no second confirmation step.
 
 To prevent that auto-renew: cancel before the trial ends with **Cancel subscription** on your Account page. You keep access through the end of the trial. One free trial per account.
+
+**Started your trial without a card?** Nothing is charged. To keep your plan after the trial, click **Add a card** on your [Account](/account) page before it ends; from then on it renews automatically like any other plan. If you don't add one, the trial simply ends and your account goes back to the free plan, with your settings kept.
 
 ## 7-day money-back guarantee (every other plan)
 

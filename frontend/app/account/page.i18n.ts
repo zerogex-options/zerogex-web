@@ -116,6 +116,14 @@ export const dict: PageDictionary = {
     xHandleSaved: 'X handle saved.',
     xHandleRemoved: 'X handle removed.',
     couldNotOpenBillingPortal: 'Could not open billing portal.',
+    noCardTrialTitle:
+      'Add a card to keep your plan',
+    noCardTrialBody:
+      'Your free trial ends on {date}. There’s no card on your account, so nothing will be charged, and when the trial ends your account goes back to the free plan. Add a card before then and your access carries straight on.',
+    noCardTrialButton:
+      'Add a card',
+    cardAddedNotice:
+      'Card added. Your plan carries on when your free trial ends.',
     dangerZoneTitle: 'Delete account',
     deleteAccountDescription:
       'Permanently delete your ZeroGEX account. Any active subscription is canceled and you’ll be signed out. This also stops all emails from us. This cannot be undone from here\u00a0- you’d need to contact support to restore access.',
@@ -234,6 +242,14 @@ export const dict: PageDictionary = {
     xHandleSaved: 'Handle X salvato.',
     xHandleRemoved: 'Handle X rimosso.',
     couldNotOpenBillingPortal: 'Impossibile aprire il portale di fatturazione.',
+    noCardTrialTitle:
+      'Aggiungi una carta per mantenere il piano',
+    noCardTrialBody:
+      'La tua prova gratuita termina il {date}. Sul tuo account non c’è nessuna carta, quindi non ti verrà addebitato nulla, e al termine della prova il tuo account torna al piano gratuito. Aggiungi una carta prima di allora e il tuo accesso continua senza interruzioni.',
+    noCardTrialButton:
+      'Aggiungi una carta',
+    cardAddedNotice:
+      'Carta aggiunta. Il tuo piano continua al termine della prova gratuita.',
   },
   de: {
     loadingAccount: 'Konto wird geladen...',
@@ -342,6 +358,14 @@ export const dict: PageDictionary = {
     xHandleSaved: 'X-Handle gespeichert.',
     xHandleRemoved: 'X-Handle entfernt.',
     couldNotOpenBillingPortal: 'Abrechnungsportal konnte nicht geöffnet werden.',
+    noCardTrialTitle:
+      'Hinterlege eine Karte, um deinen Plan zu behalten',
+    noCardTrialBody:
+      'Deine kostenlose Testphase endet am {date}. In deinem Konto ist keine Karte hinterlegt, daher wird nichts abgebucht, und nach der Testphase wechselt dein Konto zurück in den kostenlosen Plan. Hinterlege vorher eine Karte, und dein Zugang läuft nahtlos weiter.',
+    noCardTrialButton:
+      'Karte hinterlegen',
+    cardAddedNotice:
+      'Karte hinterlegt. Dein Plan läuft nach dem Ende der Testphase weiter.',
   },
   es: {
     loadingAccount: 'Cargando cuenta...',
@@ -450,6 +474,14 @@ export const dict: PageDictionary = {
     xHandleSaved: 'Identificador de X guardado.',
     xHandleRemoved: 'Identificador de X eliminado.',
     couldNotOpenBillingPortal: 'No se pudo abrir el portal de facturación.',
+    noCardTrialTitle:
+      'Añade una tarjeta para mantener tu plan',
+    noCardTrialBody:
+      'Tu prueba gratuita termina el {date}. No hay ninguna tarjeta en tu cuenta, así que no se te cobrará nada, y cuando termine la prueba tu cuenta volverá al plan gratuito. Añade una tarjeta antes de esa fecha y tu acceso continuará sin interrupciones.',
+    noCardTrialButton:
+      'Añadir una tarjeta',
+    cardAddedNotice:
+      'Tarjeta añadida. Tu plan continúa cuando termine la prueba gratuita.',
   },
   fr: {
     loadingAccount: 'Chargement du compte...',
@@ -558,5 +590,13 @@ export const dict: PageDictionary = {
     xHandleSaved: 'Identifiant X enregistré.',
     xHandleRemoved: 'Identifiant X supprimé.',
     couldNotOpenBillingPortal: 'Impossible d’ouvrir le portail de facturation.',
+    noCardTrialTitle:
+      'Ajoutez une carte pour garder votre abonnement',
+    noCardTrialBody:
+      'Votre essai gratuit se termine le {date}. Aucune carte n’est enregistrée sur votre compte, donc rien ne vous sera prélevé, et à la fin de l’essai votre compte repassera au plan gratuit. Ajoutez une carte avant cette date et votre accès continue sans interruption.',
+    noCardTrialButton:
+      'Ajouter une carte',
+    cardAddedNotice:
+      'Carte ajoutée. Votre abonnement continue à la fin de votre essai gratuit.',
   },
 };

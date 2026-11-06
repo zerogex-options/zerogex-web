@@ -18,6 +18,7 @@ import {
   type ProWallTerms,
 } from '@/core/proWall';
 import { requireSession } from '@/core/serverAuth';
+import { isNoCardTrialEnabled } from '@/core/noCardTrial';
 import { priceIdToSku, skuHasFreeTrial } from '@/core/stripe';
 import { pricingHrefFor, resolveWall } from '@/core/returningMember';
 import { getChurnContext } from '@/core/returningMemberServer';
@@ -190,6 +191,9 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
     // checkout enforces, so this screen can never promise a Pro trial checkout
     // would not grant.
     const proTrials = skuHasFreeTrial({ tier: 'pro', cadence: 'monthly' });
+    // New standard trials start without a card (core/noCardTrial.ts): say so,
+    // since it is the reason to click.
+    const noCardTrial = isNoCardTrialEnabled();
     return (
       <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
         <div className="w-full max-w-xl">
@@ -207,9 +211,13 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
             </p>
             {wall.promiseTrial && (
               <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
-                {proTrials
-                  ? '7-day free trial. No charge until day 7. Cancel anytime.'
-                  : '7-day free trial on Basic monthly · 7-day money-back guarantee on every other plan.'}
+                {noCardTrial
+                  ? proTrials
+                    ? '7-day free trial, no card needed. Cancel anytime.'
+                    : '7-day free trial on Basic monthly, no card needed · 7-day money-back guarantee on every other plan.'
+                  : proTrials
+                    ? '7-day free trial. No charge until day 7. Cancel anytime.'
+                    : '7-day free trial on Basic monthly · 7-day money-back guarantee on every other plan.'}
               </p>
             )}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">

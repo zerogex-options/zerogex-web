@@ -35,6 +35,14 @@ import {
 } from '@/core/creatorPartners';
 import { getCampaignCouponId, normalizeCampaignCode } from '@/core/campaigns';
 import { isUnstartedSubscriptionStatus, releaseUnstartedSubscription } from '@/core/billingUser';
+import {
+  NO_CARD_TRIAL_METADATA_KEY,
+  NO_CARD_TRIAL_SETTINGS,
+  inboxHadTrial,
+  isNoCardTrialEnabled,
+  qualifiesForNoCardTrial,
+  type NoCardTrialSibling,
+} from '@/core/noCardTrial';
 
 // Stripe renders its own "I agree to the Terms of Service" checkbox when a
 // session asks for it, and records the acceptance on the session
@@ -97,6 +105,28 @@ const TRIAL_PERIOD_DAYS = 7;
 // the email promised. Clamped to [TRIAL_PERIOD_DAYS, 90] so a fat-fingered env
 // can neither give away a year nor shorten it below the standard trial.
 const REACTIVATION_TRIAL_DAYS_DEFAULT = 30;
+
+// Every other account, deleted ones included, whose address could fold to this
+// one's under canonicalEmail: the same domain, or either Gmail domain for a
+// Gmail address. The exact match is made by core/noCardTrial.inboxHadTrial;
+// this only narrows the rows it reads. Deleted accounts stay in on purpose, or
+// deleting the old account would hand the inbox a fresh trial.
+function siblingAccountsOnInbox(
+  db: ReturnType<typeof getDb>,
+  userId: string,
+  email: string,
+): NoCardTrialSibling[] {
+  const at = email.lastIndexOf('@');
+  if (at <= 0) return [];
+  const domain = email.slice(at + 1).trim().toLowerCase();
+  const domains = domain === 'gmail.com' || domain === 'googlemail.com' ? ['gmail.com', 'googlemail.com'] : [domain];
+  return db
+    .prepare(
+      `SELECT email, paid_welcome_email_sent_at, subscription_lapsed FROM users
+        WHERE id != ? AND lower(substr(email, instr(email, '@') + 1)) IN (${domains.map(() => '?').join(', ')})`,
+    )
+    .all(userId, ...domains) as NoCardTrialSibling[];
+}
 function getReactivationTrialDays(): number {
   const raw = Number(process.env.REACTIVATION_TRIAL_DAYS);
   if (!Number.isFinite(raw)) return REACTIVATION_TRIAL_DAYS_DEFAULT;
@@ -464,6 +494,28 @@ export async function POST(request: NextRequest) {
       ? Math.floor(foundingDeadlineMs / 1000)
       : null;
 
+  // The trial without a card (core/noCardTrial.ts): with BILLING_NO_CARD_TRIAL
+  // on, a first-time standard trial starts with no card form, and Stripe cancels
+  // it at trial end unless the member has added one. Not the founding deferral,
+  // not the reactivation trial (its email promises the card at activation), and
+  // not an inbox that has had a trial under another address: a card made that
+  // pointless to farm, and no card would make it free. Those keep the
+  // card-first trial. The sibling lookup only runs when it could matter.
+  const noCardEnabled = isNoCardTrialEnabled();
+  const couldBeNoCard =
+    noCardEnabled && trialDays === TRIAL_PERIOD_DAYS && !foundingTrialEndUnix && !reactivationEligible;
+  const siblingHadTrial = couldBeNoCard
+    ? inboxHadTrial(actor.user.email, siblingAccountsOnInbox(db, actor.user.id, actor.user.email))
+    : false;
+  const noCardTrial = qualifiesForNoCardTrial({
+    enabled: noCardEnabled,
+    trialDays,
+    standardTrialDays: TRIAL_PERIOD_DAYS,
+    foundingDeferred: foundingTrialEndUnix !== null,
+    reactivationTrial: reactivationEligible,
+    inboxHadTrial: siblingHadTrial,
+  });
+
   // Paid up front on a plan sold under the money-back guarantee. Never true for
   // a checkout that grants any trial: a plan carries one protection or the
   // other, never both. A returning member buying the trial plan gets neither —
@@ -503,7 +555,7 @@ export async function POST(request: NextRequest) {
         days: Math.max(1, Math.ceil((foundingTrialEndUnix * 1000 - Date.now()) / 86_400_000)),
       }
     : trialDays
-      ? { kind: 'trial', days: trialDays }
+      ? { kind: noCardTrial ? 'trial_no_card' : 'trial', days: trialDays }
       : moneyBackCovered
         ? { kind: 'money_back', days: MONEY_BACK_GUARANTEE_DAYS }
         : { kind: 'none' };
@@ -608,7 +660,9 @@ export async function POST(request: NextRequest) {
     // reactivation trial or a charge-free week to someone billed just now.
     // Cancels return to the trial-context pricing page — never the free gamma
     // page — with a friendly "trial hasn't started yet" notice.
-    success_url: `${appUrl}/dashboard?trial_started=1&trial=${trialParam}`,
+    // &card=0 tells the welcome banner the trial started without a card, so it
+    // asks for one instead of promising a charge (app/dashboard/trialStartedCopy).
+    success_url: `${appUrl}/dashboard?trial_started=1&trial=${trialParam}${noCardTrial ? '&card=0' : ''}`,
     cancel_url: `${appUrl}/pricing?trial=1&checkout_cancelled=1`,
     // Stripe Tax: enabled so the Tax engine evaluates every session. Today
     // we have no tax registrations, so Stripe calculates $0 tax for every
@@ -628,6 +682,10 @@ export async function POST(request: NextRequest) {
     // the previous behaviour instead of failing checkout.
     ...(tosConsentUnsupported ? {} : { consent_collection: { terms_of_service: 'required' as const } }),
     ...(customTextUnsupported ? {} : { custom_text: { submit: { message: submitMessage } } }),
+    // A trial is $0 due today, so 'if_required' means Checkout shows no card
+    // form. The subscription's trial_settings below decide what happens at the
+    // end if none was added.
+    ...(noCardTrial ? { payment_method_collection: 'if_required' as const } : {}),
     subscription_data: {
       metadata: {
         user_id: actor.user.id,
@@ -650,7 +708,16 @@ export async function POST(request: NextRequest) {
         ...(discountResult.campaignApplied && discountResult.campaignCode
           ? { campaign_code: discountResult.campaignCode }
           : {}),
+        // Started without a card. The webhook copies it onto the users row
+        // (no_card_trial_subscription_id), and every trial email and page that
+        // would otherwise promise a charge reads it from there.
+        ...(noCardTrial ? { [NO_CARD_TRIAL_METADATA_KEY]: '1' } : {}),
       },
+      // With no card at trial end, Stripe cancels the subscription: an
+      // ordinary customer.subscription.deleted, and the member is back on the
+      // free plan. A card added during the trial is wired as the default by
+      // the webhook's setup_intent.succeeded path, and the trial converts.
+      ...(noCardTrial ? { trial_settings: NO_CARD_TRIAL_SETTINGS } : {}),
       // Stripe accepts only one of trial_end / trial_period_days. Founding
       // members get the absolute July-1 trial_end; everyone else (first-time
       // only) gets the 7-day day-count trial.
@@ -727,7 +794,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} heldBefore=${hasHeldSubscriptionBefore ? '1' : '0'} everPaid=${everPaid ? '1' : '0'} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} moneyBack=${moneyBackCovered ? '1' : guaranteeUsed ? 'used' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} heldBefore=${hasHeldSubscriptionBefore ? '1' : '0'} everPaid=${everPaid ? '1' : '0'} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} moneyBack=${moneyBackCovered ? '1' : guaranteeUsed ? 'used' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} card=${trialDays || foundingTrialEndUnix ? (noCardTrial ? '0' : '1') : 'na'}${noCardEnabled && siblingHadTrial ? ' noCardRefused=inbox' : ''} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });

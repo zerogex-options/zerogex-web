@@ -407,9 +407,14 @@ export async function sendPaidWelcomeEmail(
     // plan" includes keys they cannot generate. The webhook passes
     // isApiKeyEligibleTier(tier); omitted keeps the paragraph.
     apiKeyEligible?: boolean;
+    // The trial started without a card (core/noCardTrial.ts). Nothing will be
+    // charged unless the member adds one, so the trial line says how to keep the
+    // plan instead of when the charge lands. Ignored without a trial end.
+    noCardTrial?: boolean;
   },
 ) {
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
+  const noCardTrial = Boolean(trialEndDate) && opts?.noCardTrial === true;
   const promoLabel = opts?.promoIntroLabel ?? null;
   const includeApiKeys = opts?.apiKeyEligible !== false;
   const moneyBackUntil = !opts?.trialEndIso && opts?.moneyBackUntilIso
@@ -430,11 +435,17 @@ export async function sendPaidWelcomeEmail(
   const dashboardUrl = `${getAppUrl()}/dashboard`;
   const safeDashboardUrl = escapeHtml(dashboardUrl);
   const trialLength = describeTrialLength(opts?.trialDays);
+  // A no-card trial (core/noCardTrial.ts) has nothing to cancel to avoid a
+  // charge: it asks for a card to keep the plan, and says what happens without.
   const trialLineText = trialEndDate
-    ? `Your ${trialLength} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then with the Cancel subscription link on your account page (${accountUrl}) and you won't be billed.`
+    ? noCardTrial
+      ? `Your ${trialLength} is now active, so you have full access right away\u00a0- dive in and make the most of it. There's no card on your account, so nothing will be charged. If you want to keep your plan after ${trialEndDate}, add a card on your account page (${accountUrl}) before then. If you don't, the trial simply ends and your account goes back to the free plan.`
+      : `Your ${trialLength} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then with the Cancel subscription link on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your ${escapeHtml(trialLength)} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then with the <strong>Cancel subscription</strong> link on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
+    ? noCardTrial
+      ? `Your ${escapeHtml(trialLength)} is now active, so you have full access right away\u00a0- dive in and make the most of it. There's <strong>no card on your account</strong>, so nothing will be charged. If you want to keep your plan after ${escapeHtml(trialEndDate)}, <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">add a card on your account page</a> before then. If you don't, the trial simply ends and your account goes back to the free plan.`
+      : `Your ${escapeHtml(trialLength)} is now active, so you have full access right away\u00a0- dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then with the <strong>Cancel subscription</strong> link on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
   const promoLineText = promoLabel
     ? `You're on our limited-time introductory rate for the ${promoLabel}\u00a0- it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
@@ -785,6 +796,18 @@ export type TrialReminderEmailOptions = {
     // Pro's monthly list price, e.g. "$59".
     proMonthlyPrice: string;
   } | null;
+  // The trial started without a card and none has been added
+  // (core/noCardTrial.ts). Everything above assumes a card that converts the
+  // trial by itself; here nothing converts unless the member acts, so this is a
+  // different email: what happens without a card, what keeping the plan costs,
+  // and one button to add a card. It replaces the dormant copy and never
+  // carries the Pro offer (a switch needs a card first). `billing` still
+  // supplies the price, with no card to name.
+  noCard?: {
+    // Where the member adds a card: the account page, which opens the billing
+    // portal's add-a-card flow.
+    addCardUrl: string;
+  } | null;
 };
 
 // Pure builder for the ~48h trial-end reminder: assembles subject + HTML + text
@@ -801,6 +824,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // this value in this email is a cutoff ("ends on X", "cancel before X"), not
   // a decorative date.
   const trialEndDate = formatTrialEndDateTime(opts.trialEndIso);
+  if (opts.noCard) return buildNoCardTrialReminderEmail(trialEndDate, opts.billing ?? null, opts.noCard.addCardUrl);
   const promoLabel = opts.promoIntroLabel ?? null;
   const dormant = opts.dormant === true;
   const proUpgrade = dormant ? null : (opts.proUpgrade ?? null);
@@ -1029,6 +1053,70 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
         <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Manage subscription</a>
       </p>`}
       <p>Either way, thanks for giving ZeroGEX a try\u00a0- if there's anything I can do to make it more useful for you, just reply to this email. I read every message.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// The ~48h reminder for a trial that started without a card and still has none
+// (core/noCardTrial.ts). The opposite of the card reminder in every way that
+// matters: the trial does NOT carry on by itself, so this email must never say
+// there is nothing to do if they want to keep it. It says what happens without
+// a card (nothing is charged, the account goes back to the free plan), what
+// keeping the plan costs when the price can be read, and gives one button to
+// add a card. Staying free is stated as an outcome, not sold.
+function buildNoCardTrialReminderEmail(
+  trialEndDate: string,
+  billing: TrialReminderEmailOptions['billing'],
+  addCardUrl: string,
+): { subject: string; html: string; text: string } {
+  const safeAddCardUrl = escapeHtml(addCardUrl);
+  const subject = 'Your ZeroGEX trial ends in 2 days - add a card to keep it';
+
+  const openerText = `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate}. There's no card on your account, so nothing will be charged, and when the trial ends your account goes back to the free plan.`;
+  const openerHtml = `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>. There's <strong>no card on your account</strong>, so nothing will be charged, and when the trial ends your account goes back to the free plan.`;
+
+  // The price comes from Stripe's preview of the first invoice, like the card
+  // reminder's, so a discount on the subscription is already in it.
+  const keepText = billing
+    ? `If ZeroGEX is working for you, add a card before then and your access carries straight on. Your subscription then begins at ${billing.chargeLabel} on ${trialEndDate} and renews by itself until you cancel.`
+    : `If ZeroGEX is working for you, add a card before then and your access carries straight on. Your subscription then begins when the trial ends and renews by itself until you cancel.`;
+  const keepHtml = billing
+    ? `If ZeroGEX is working for you, add a card before then and your access carries straight on. Your subscription then begins at <strong>${escapeHtml(billing.chargeLabel)}</strong> on ${escapeHtml(trialEndDate)} and renews by itself until you cancel.`
+    : `If ZeroGEX is working for you, add a card before then and your access carries straight on. Your subscription then begins when the trial ends and renews by itself until you cancel.`;
+
+  const leaveText = "If it isn't the right fit, you don't need to do anything: the trial ends on its own and you won't be charged.";
+
+  const text = [
+    'Hello,',
+    '',
+    openerText,
+    '',
+    keepText,
+    '',
+    `Add a card: ${addCardUrl}`,
+    '',
+    leaveText,
+    '',
+    "Either way, thanks for giving ZeroGEX a try - if there's anything I can do to make it more useful for you, just reply to this email. I read every message.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${openerHtml}</p>
+      <p>${keepHtml}</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeAddCardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Add a card</a>
+      </p>
+      <p>${leaveText}</p>
+      <p>Either way, thanks for giving ZeroGEX a try - if there's anything I can do to make it more useful for you, just reply to this email. I read every message.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
@@ -3331,9 +3419,15 @@ export async function sendWinbackDigestEmail(
 export async function sendVerifiedNeverPaidEmail(
   to: string,
   // Signed per-user opt-out link (core/unsubToken.ts buildUnsubUrl).
-  opts: { unsubUrl: string },
+  // noCardTrial: new Basic trials start without a card (core/noCardTrial.ts,
+  // BILLING_NO_CARD_TRIAL), so the trial paragraph says so instead of
+  // describing a card on file. The caller reads the flag.
+  opts: { unsubUrl: string; noCardTrial?: boolean },
 ) {
   const subject = 'Quick note from Michael at ZeroGEX';
+  const trialParagraph = opts.noCardTrial
+    ? "If you've been weighing it up: you can start with a 7-day free trial on Basic with no card at all, or pick any other plan with a 7-day money-back guarantee. The Basic trial asks for nothing up front: if you want to keep it, you add a card before it ends, and if you don't, it simply ends and nothing is ever charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment."
+    : "If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel from your account page before then and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.";
   // Land them on the trial-continuation pricing hero ("You're almost done…")
   // rather than the generic pricing intro, so the email and the page tell one
   // consistent "start your trial" story.
@@ -3345,7 +3439,7 @@ export async function sendVerifiedNeverPaidEmail(
     '',
     "I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet\u00a0- wanted to reach out personally rather than route you through a generic marketing flow.",
     '',
-    "If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel from your account page before then and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.",
+    trialParagraph,
     '',
     "If you have a question, a hesitation, or feedback on what's missing\u00a0- just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.",
     '',
@@ -3367,7 +3461,7 @@ export async function sendVerifiedNeverPaidEmail(
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>I'm Michael, the founder of ZeroGEX. I noticed you signed up for an account but haven't tried the full product yet\u00a0- wanted to reach out personally rather than route you through a generic marketing flow.</p>
-      <p>If you've been weighing it up: you can start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee. On the Basic trial your card is on file but won't be charged until day 8, we send a heads-up email 48 hours before the first payment so the conversion is never a surprise, and if it's not the right fit you can cancel from your account page before then and you won't be charged. Any other plan is billed when you subscribe, and if it's not the right fit you can request a full refund from your account page within 7 days of your first payment.</p>
+      <p>${escapeHtml(trialParagraph)}</p>
       <p>If you have a question, a hesitation, or feedback on what's missing\u00a0- just hit reply. I read every message myself, and customer notes are a big part of how I decide what to build next.</p>
       <p style="margin: 24px 0;">
         <a href="${safePricingUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Choose your plan</a>
@@ -3609,16 +3703,25 @@ export async function sendReactivationDigestEmail(
 // is a freshly-minted, 24h single-use verify link (the original signup token
 // has almost certainly expired by the time this fires). Sent at most once per
 // account; see scripts/send-verify-reminders.mts.
-export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
+export async function sendVerifyReminderEmail(
+  to: string,
+  verifyUrl: string,
+  // New Basic trials start without a card (core/noCardTrial.ts). The caller
+  // reads BILLING_NO_CARD_TRIAL.
+  opts: { noCardTrial?: boolean } = {},
+) {
   const safeLink = escapeHtml(verifyUrl);
   const subject = 'Finish setting up your ZeroGEX account';
+  const trialParagraph = opts.noCardTrial
+    ? 'Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic with no card needed (add one before it ends to keep your plan, or let it end and pay nothing), or pick any other plan with a 7-day money-back guarantee.'
+    : 'Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic (no charge until the trial ends: card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial), or pick any other plan with a 7-day money-back guarantee.';
 
   const text = [
     'Hello,',
     '',
     "I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up\u00a0- and right now that's the one thing standing between you and the product.",
     '',
-    'Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic (no charge until the trial ends: card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial), or pick any other plan with a 7-day money-back guarantee.',
+    trialParagraph,
     '',
     'Confirm your email with this link (it expires in 24 hours):',
     verifyUrl,
@@ -3634,7 +3737,7 @@ export async function sendVerifyReminderEmail(to: string, verifyUrl: string) {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>I'm Michael, the founder of ZeroGEX. You created an account but the email address was never confirmed, so the account is still only half-set-up\u00a0- and right now that's the one thing standing between you and the product.</p>
-      <p>Confirming your email unlocks everything. You can then start with a 7-day free trial on Basic (no charge until the trial ends: card on file but not charged until day 8, a heads-up email 48 hours before the first payment, and one-click cancel any time inside the trial), or pick any other plan with a 7-day money-back guarantee.</p>
+      <p>${escapeHtml(trialParagraph)}</p>
       <p style="margin: 24px 0;">
         <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Confirm my email</a>
       </p>

@@ -17,9 +17,11 @@ Zwei Stufen - **Basic** und **Pro** - jeweils verfügbar mit **monatlicher**, 
 
 ## Kostenlose Testphase (Basic monatlich)
 
-Basic monatlich beginnt mit einer **7-tägigen kostenlosen Testphase**: voller Zugang sofort, deine Karte ist hinterlegt, und bis zum Ende der Testphase wird nichts berechnet. Etwa 48 Stunden vor ihrem Ende schicken wir dir eine Erinnerung per E-Mail mit dem Betrag, der abgebucht wird. Am Ende der Testphase läuft das Abonnement automatisch zu dem Satz weiter, zu dem du dich angemeldet hast - ohne einen zweiten Bestätigungsschritt.
+Basic monatlich beginnt mit einer **7-tägigen kostenlosen Testphase**: voller Zugang sofort, und bis zum Ende der Testphase wird nichts berechnet. Etwa 48 Stunden vor ihrem Ende schicken wir dir eine Erinnerung per E-Mail. Ist eine Karte hinterlegt, nennt sie den Betrag, der abgebucht wird, und am Ende der Testphase läuft das Abonnement automatisch zu dem Satz weiter, zu dem du dich angemeldet hast - ohne einen zweiten Bestätigungsschritt.
 
 Um diese automatische Verlängerung zu verhindern: kündige, bevor die Testphase endet, über **Abonnement kündigen** auf deiner Kontoseite. Du behältst den Zugang bis zum Ende der Testphase. Eine kostenlose Testphase pro Konto.
+
+**Testphase ohne Karte gestartet?** Es wird nichts abgebucht. Um deinen Plan nach der Testphase zu behalten, klicke vor ihrem Ende auf deiner [Kontoseite](/account) auf **Karte hinterlegen**; ab dann verlängert er sich automatisch wie jeder andere Plan. Hinterlegst du keine, endet die Testphase einfach und dein Konto wechselt zurück in den kostenlosen Plan, deine Einstellungen bleiben erhalten.
 
 ## 7-tägige Geld-zurück-Garantie (alle anderen Pläne)
 

@@ -32,6 +32,7 @@
     "test:campaigns": "node --experimental-strip-types --test tests/campaigns.test.ts",
     "test:stripe-invoice-preview": "node --experimental-strip-types --test tests/stripeInvoicePreview.test.ts",
     "test:newsletter-offers": "node --experimental-strip-types --test tests/newsletterOffers.test.ts",
+    "test:no-card-trial": "node --experimental-strip-types --test tests/noCardTrial.test.ts",
     "test:promo-code-offer": "node --experimental-strip-types --test tests/promoCodeOffer.test.ts",
     "test:backtest-featured": "node --experimental-strip-types --test tests/backtestFeatured.test.ts",
     "test:insights-view": "node --experimental-strip-types --test tests/insightsView.test.ts",

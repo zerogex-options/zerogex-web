@@ -17,9 +17,11 @@ Dos niveles - **Basic** y **Pro** - cada uno disponible en modalidad **mensual
 
 ## Prueba gratuita (Basic mensual)
 
-Basic mensual empieza con una **prueba gratuita de 7 días**: acceso completo desde el primer momento, tu tarjeta registrada y ningún cargo hasta que termine la prueba. Unas 48 horas antes de que termine, te enviamos un recordatorio por correo con el importe que se cobrará. Al final de la prueba, la suscripción continúa automáticamente a la tarifa con la que te registraste - sin un segundo paso de confirmación.
+Basic mensual empieza con una **prueba gratuita de 7 días**: acceso completo desde el primer momento y ningún cargo hasta que termine la prueba. Unas 48 horas antes de que termine, te enviamos un recordatorio por correo. Si hay una tarjeta registrada, el recordatorio indica el importe que se cobrará y, al final de la prueba, la suscripción continúa automáticamente a la tarifa con la que te registraste - sin un segundo paso de confirmación.
 
 Para evitar esa renovación automática: cancela antes de que finalice la prueba con **Cancelar suscripción** en tu página Cuenta. Conservarás el acceso hasta el final de la prueba. Una prueba gratuita por cuenta.
+
+**¿Empezaste la prueba sin tarjeta?** No se cobra nada. Para mantener tu plan después de la prueba, haz clic en **Añadir una tarjeta** en tu página [Cuenta](/account) antes de que termine; a partir de entonces se renueva automáticamente como cualquier otro plan. Si no la añades, la prueba simplemente termina y tu cuenta vuelve al plan gratuito, con tus ajustes guardados.
 
 ## Garantía de devolución del dinero de 7 días (todos los demás planes)
 

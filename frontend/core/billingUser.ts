@@ -17,7 +17,8 @@ const BILLING_USER_COLUMNS = `id, email, deleted_at, tier, founding_member_start
        founding_lifetime_applied_at, referred_by_code, referral_credit_months, stripe_customer_id,
        stripe_subscription_id, stripe_price_id, subscription_status, cancel_at_period_end,
        payment_grace_started_at, payment_grace_reason, paused_until, trial_converted_email_sent_at,
-       first_payment_at, last_paid_subscription_id, last_paid_invoice_at`;
+       first_payment_at, last_paid_subscription_id, last_paid_invoice_at,
+       no_card_trial_subscription_id, no_card_trial_card_added_at`;
 
 export type BillingUserRow = {
   id: string;
@@ -75,6 +76,11 @@ export type BillingUserRow = {
   // gets cleared.
   last_paid_subscription_id: string | null;
   last_paid_invoice_at: string | null;
+  // The trial without a card (core/noCardTrial.ts): the subscription that
+  // started as one, and when a card was added to it. Read pre-UPDATE so a card
+  // added during that trial is stamped once.
+  no_card_trial_subscription_id: string | null;
+  no_card_trial_card_added_at: string | null;
 };
 
 // The DEFAULT lookup, and deliberately the safe one: it never returns a

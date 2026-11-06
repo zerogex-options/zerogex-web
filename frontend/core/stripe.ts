@@ -390,12 +390,25 @@ export function getAppUrl(): string {
 export function createBillingPortalSession(
   customerId: string,
   returnUrl: string,
+  // Open straight on the portal's add-a-card screen instead of its home page,
+  // and come back to `afterAddCardUrl` once a card is saved. The no-card trial's
+  // "Add a card" (core/noCardTrial.ts). Needs payment_method_update enabled on
+  // the portal configuration, which scripts/setup-billing-portal.mts sets.
+  opts: { afterAddCardUrl?: string } = {},
 ): Promise<Stripe.BillingPortal.Session> {
   const portalConfigId = getPortalConfigId();
   return getStripe().billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
     ...(portalConfigId ? { configuration: portalConfigId } : {}),
+    ...(opts.afterAddCardUrl
+      ? {
+          flow_data: {
+            type: 'payment_method_update' as const,
+            after_completion: { type: 'redirect' as const, redirect: { return_url: opts.afterAddCardUrl } },
+          },
+        }
+      : {}),
   });
 }
 

@@ -72,6 +72,7 @@ The coupon deliberately has **no redeem-by date**: `PROMO_END_AT` is the only cl
 |---|---|---|
 | Give every plan a trial again | `BILLING_TRIAL_PLANS=basic:monthly,pro:monthly,basic:annual,pro:annual`, then `make restart` | Those plans trial and leave the guarantee. The page follows. |
 | Remove the only free trial | `BILLING_TRIAL_PLANS=none`, then restart | Every plan is paid up front under the guarantee. |
+| Start the Basic trial without a card | `BILLING_NO_CARD_TRIAL=1`, then `make restart` | First-time 7-day trials skip the card form; Stripe ends them at the trial end unless a card was added. See `docs/no-card-trial-runbook.md`. |
 | Extend the promo | set `PROMO_END_AT` to the new end, then `make restart` and `make setup-pricing VERIFY=1` | The page shows the new date. End of day New York time is `03:59:59Z` the next day until November 1, and `04:59:59Z` from November 2 (daylight saving ends): the end of November 30 is `2026-12-01T04:59:59Z`. VERIFY prints the date the page will show. |
 | End the promo early | set `PROMO_END_AT` to a past time, then restart | New signups pay list price. Existing promo members keep theirs. |
 | Stop all paid signups | `BILLING_PAID_SIGNUP_DISABLED=1`, then restart | Checkout is refused. |

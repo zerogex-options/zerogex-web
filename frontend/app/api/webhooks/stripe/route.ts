@@ -111,6 +111,7 @@ import {
   maybeAccruePartnerCommission,
   reversePartnerCommissionsForInvoice,
 } from '@/core/creatorPartners';
+import { startedWithoutCard } from '@/core/noCardTrial';
 import { captureServer } from '@/core/telemetry/posthog-server';
 import { captureTwitterConversion } from '@/core/telemetry/twitter-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
@@ -1141,6 +1142,22 @@ async function syncSubscriptionToUser(
     subMetadata.founding === '1' && !user.founding_member_started_at;
   const newlyStampedAt = stampFoundingStart ? nowIso() : null;
 
+  // The trial without a card (core/noCardTrial.ts). Checkout stamps the
+  // subscription's metadata; this copies it onto the row so the account page,
+  // the dashboard banner and the trial-end reminder can tell, without a Stripe
+  // call, that the member still has to add a card to keep the plan. A card
+  // added during that trial arrives here from setup_intent.succeeded with its
+  // payment method (maybeWireDefaultPaymentMethod below makes it the default,
+  // so the trial converts); stamp when, once.
+  const noCardTrialSubId = startedWithoutCard(subMetadata) ? subscription.id : null;
+  const noCardCardAddedAt =
+    noCardTrialSubId &&
+    opts.setupPaymentMethodId &&
+    subscription.status === 'trialing' &&
+    !user.no_card_trial_card_added_at
+      ? nowIso()
+      : null;
+
   getDb()
     .prepare(
       `UPDATE users SET
@@ -1154,6 +1171,8 @@ async function syncSubscriptionToUser(
          payment_grace_reason = ?,
          paused_until = ?,
          founding_member_started_at = COALESCE(founding_member_started_at, ?),
+         no_card_trial_subscription_id = COALESCE(no_card_trial_subscription_id, ?),
+         no_card_trial_card_added_at = COALESCE(no_card_trial_card_added_at, ?),
          updated_at = ?
        WHERE id = ?`,
     )
@@ -1168,9 +1187,20 @@ async function syncSubscriptionToUser(
       graceReason,
       pausedUntilIso,
       newlyStampedAt,
+      noCardTrialSubId,
+      noCardCardAddedAt,
       nowIso(),
       user.id,
     );
+
+  if (noCardCardAddedAt) {
+    logAudit({
+      type: 'no_card_trial_card_added',
+      userId: user.id,
+      email: user.email,
+      message: `Card ${opts.setupPaymentMethodId} added to no-card trial sub ${subscription.id}`,
+    });
+  }
 
   if (stampFoundingStart) {
     user.founding_member_started_at = newlyStampedAt;
@@ -1258,6 +1288,8 @@ async function syncSubscriptionToUser(
       tier: nextTier,
       founding,
       trial_end: trialEndIso,
+      // Split trial starts by whether a card was asked for (core/noCardTrial.ts).
+      no_card: noCardTrialSubId !== null,
     });
     // Report the trial start to X via the Conversions API (server-side truth,
     // survives ad-blockers). Keyed to the subscription id for dedup.
@@ -1612,11 +1644,21 @@ async function maybeSendPaidWelcomeEmail(
               MONEY_BACK_GUARANTEE_DAYS * 86_400_000),
           ).toISOString()
         : null;
+    // A trial that started without a card (core/noCardTrial.ts) is told how to
+    // keep the plan instead of when it will be charged.
+    const noCardTrial = trialEndIso !== null && startedWithoutCard(subMetadata);
     try {
       if (isFounding) {
         await sendFoundingWelcomeEmail(user.email, { trialEndIso, apiKeyEligible });
       } else {
-        await sendPaidWelcomeEmail(user.email, { trialEndIso, trialDays, promoIntroLabel, moneyBackUntilIso, apiKeyEligible });
+        await sendPaidWelcomeEmail(user.email, {
+          trialEndIso,
+          trialDays,
+          promoIntroLabel,
+          moneyBackUntilIso,
+          apiKeyEligible,
+          noCardTrial,
+        });
       }
       logAudit({
         type: 'paid_welcome_email_sent',

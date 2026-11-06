@@ -47,6 +47,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import { normalizeEmail } from '../core/levelsEmail.ts';
 import { sendVerifyReminderEmail } from '../core/mailer.ts';
+import { isNoCardTrialEnabled } from '../core/noCardTrial.ts';
 
 // 2h lag mirrors send-verified-never-paid.mts: give someone a chance to click
 // the original signup verification link on their own before we interrupt with
@@ -216,6 +217,11 @@ const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || envLocal.RESEND_API_KEY;
+// New Basic trials start without a card (core/noCardTrial.ts): the email's
+// trial line follows the same switch checkout reads.
+const NO_CARD_TRIAL = isNoCardTrialEnabled({
+  BILLING_NO_CARD_TRIAL: process.env.BILLING_NO_CARD_TRIAL || envLocal.BILLING_NO_CARD_TRIAL,
+});
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_EMAIL;
 const NEXT_PUBLIC_APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || '';
@@ -244,7 +250,7 @@ if (cliArgs.previewTo) {
   // without touching the DB. A real send mints a per-user token below.
   const sampleUrl = `${appUrl}/api/auth/verify-email?token=preview-sample-token-not-valid`;
   console.log(`Sending preview to ${cliArgs.previewTo}...`);
-  await sendVerifyReminderEmail(cliArgs.previewTo, sampleUrl);
+  await sendVerifyReminderEmail(cliArgs.previewTo, sampleUrl, { noCardTrial: NO_CARD_TRIAL });
   console.log('Preview sent (sample link is not a working token).');
   process.exit(0);
 }
@@ -356,7 +362,7 @@ for (const user of deliverable) {
     );
 
     const verifyUrl = `${appUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
-    await sendVerifyReminderEmail(user.email, verifyUrl);
+    await sendVerifyReminderEmail(user.email, verifyUrl, { noCardTrial: NO_CARD_TRIAL });
 
     // Stamp the latch (source of truth for idempotency) before the best-effort
     // audit row, mirroring send-verified-never-paid.mts.

@@ -17,6 +17,7 @@ import { decidePlanSwitch } from '@/core/planSwitch';
 import { planSwitchDiscounts } from '@/core/switchDiscounts';
 import { previewNextInvoice } from '@/core/stripeInvoicePreview';
 import { hasPriorMoneyBackRefund } from '@/core/moneyBackServer';
+import { hasPaymentMethodOnFile, startedWithoutCard } from '@/core/noCardTrial';
 import {
   attachedCouponIds,
   describeDiscountsParam,
@@ -271,6 +272,42 @@ export async function POST(request: NextRequest) {
   }
 
   const fromLabel = currentSku ? `${currentSku.tier}/${currentSku.cadence}` : 'unknown';
+
+  // A trial that started without a card and still has none (core/noCardTrial.ts)
+  // has nothing to charge: switching to a paid-up-front plan would fail at
+  // Stripe ("no payment method"), and keeping the trial on another plan would
+  // promise a first charge that cannot happen. Send the member to add a card
+  // first, with the reason, instead of a generic failure. Read live, so a card
+  // added a moment ago (before its webhook landed) counts.
+  if (subscription.status === 'trialing' && startedWithoutCard(subscription.metadata)) {
+    const hasCard = await hasPaymentMethodOnFile(stripe, subscription, row.stripe_customer_id).catch(() => false);
+    if (!hasCard) {
+      appendAuditEvent({
+        type: 'billing_plan_switch_needs_card',
+        userId: actor.user.id,
+        email: actor.user.email,
+        ip: getClientIp(request),
+        message: `Plan switch ${fromLabel} → ${tier}/${cadence} on no-card trial sub ${subscription.id}: no card on file yet`,
+      });
+      let portalUrl: string | undefined;
+      try {
+        const session = await createBillingPortalSession(row.stripe_customer_id, `${appUrl}/account`, {
+          afterAddCardUrl: `${appUrl}/account?card_added=1`,
+        });
+        portalUrl = session.url;
+      } catch {
+        // The error still says where to go; the Account page has the button.
+      }
+      return NextResponse.json(
+        {
+          error:
+            "There's no card on your account yet, so the switch can't go through. Nothing changed - you're still on your free trial. Add a card, then switch.",
+          ...(portalUrl ? { portalUrl } : {}),
+        },
+        { status: 402 },
+      );
+    }
+  }
 
   // -------------------------------------------------------------------------
   // Trial → a plan sold under the money-back guarantee: start paying now.

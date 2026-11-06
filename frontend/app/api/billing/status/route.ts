@@ -4,6 +4,7 @@ import { attachSessionCookie, getSessionFromRequest } from '@/core/serverAuth';
 import { lengthenOffers } from '@/core/planSwitch';
 import { isSkuSellable, priceIdToSku } from '@/core/stripe';
 import { isUnstartedSubscriptionStatus } from '@/core/billingUser';
+import { noCardTrialState } from '@/core/noCardTrial';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,8 @@ export async function GET(request: NextRequest) {
   const row = getDb()
     .prepare(
       `SELECT stripe_subscription_id, subscription_status, current_period_end,
-              cancel_at_period_end, retention_offer_claimed_at, paused_until, stripe_price_id
+              cancel_at_period_end, retention_offer_claimed_at, paused_until, stripe_price_id,
+              no_card_trial_subscription_id, no_card_trial_card_added_at
        FROM users WHERE id = ?`,
     )
     .get(session.user.id) as
@@ -39,6 +41,8 @@ export async function GET(request: NextRequest) {
         retention_offer_claimed_at: string | null;
         paused_until: string | null;
         stripe_price_id: string | null;
+        no_card_trial_subscription_id: string | null;
+        no_card_trial_card_added_at: string | null;
       }
     | undefined;
 
@@ -71,6 +75,11 @@ export async function GET(request: NextRequest) {
     planOffers: lengthenOffers({ current: currentPlan, status, paused, isSellable: isSkuSellable }),
     // A break the cancel flow can offer: only a live, unpaused subscription.
     canPause: (status === 'active' || status === 'trialing') && !paused,
+    // A trial that started without a card (core/noCardTrial.ts): when it ends,
+    // and whether a card has been added since. Null outside one. Drives the
+    // account page's "Add a card" panel and the dashboard banner, from the row
+    // alone (the webhook stamps both columns).
+    noCardTrial: noCardTrialState(row),
   });
   // User-specific payload; same no-store rationale as the other account routes.
   response.headers.set('Cache-Control', 'no-store, private');
