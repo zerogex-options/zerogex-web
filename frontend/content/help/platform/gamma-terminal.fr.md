@@ -27,7 +27,7 @@ Les membres Basic et Pro ont le terminal en direct. Tous les autres voient un ap
 2. **Lis le régime.** L'encadré **Dealer Gamma @ Spot**, en haut à droite du graphique, affiche **LONG Γ** ou **SHORT Γ**. En long gamma, le hedging modélisé des dealers s'oppose aux mouvements (pinning). En short gamma, il les renforce (tendance). Le fond teinté du graphique dit la même chose.
 3. **Repère les lignes clés.** La ligne azur `FLIP` marque l'endroit où le régime change. Le `CALL WALL` rouge au-dessus du prix et le `PUT WALL` vert en dessous sont les strikes qui portent le plus de gamma call et de gamma put. Les cartes Key Levels donnent l'écart exact jusqu'à chacun.
 4. **Regarde à côté du graphique.** Les échelles listent le gamma net des dealers à chaque strike proche du prix, alignées sur le graphique. Les plus grandes valeurs correspondent aux strikes qui concentrent le plus de hedging.
-5. **Ajoute ce dont tu as besoin.** Active **Expected Range** pour le mouvement anticipé par la volatilité implicite, **Centroids** pour voir où est centré le trading d'options du jour, ou **PD/PM Levels** pour le plus haut, le plus bas et la clôture de la veille.
+5. **Ajoute ce dont tu as besoin.** Active **Expected Range** pour le mouvement anticipé par la volatilité implicite, **Centroids** pour voir où est centré le trading d'options du jour, **PD/PM Levels** pour le plus haut, le plus bas et la clôture de la veille, ou **EMAs** pour des moyennes mobiles du cours de clôture.
 6. Utilise **Rewind** pour rejouer l'évolution du prix et du carnet de gamma au fil de la séance.
 
 ## Le bandeau Key Levels
@@ -129,13 +129,14 @@ Chaque superposition a un interrupteur dans le panneau **Layers**, qui s'ouvre d
 | PD/PM Levels | Le plus haut, le plus bas et la clôture de la veille ; le plus haut et le plus bas du pre-market | Non | En direct : SPY, QQQ, NVDA |
 | Expected Range | Le mouvement à ±1σ anticipé par la volatilité implicite | Non | En direct, sauf NVDA |
 | Centroids | Là où est centré le trading de calls et de puts du jour | Non | En direct, barres de 1M à 1H |
+| EMAs | Jusqu'à trois moyennes mobiles de la clôture : 13, 40 et 200 au départ | Non | En direct |
 | Bar Timer | Le temps restant dans la bougie en cours | Non | En direct |
 
 Quelques règles valent pour toutes les lignes de niveau :
 
 - Chaque niveau est une ligne en tirets qui traverse le graphique, avec son nom dans un chip au bord gauche et son prix dans une étiquette sur l'axe de droite.
 - Un niveau situé hors de la plage de prix affichée apparaît sous forme d'étiquette épinglée en haut ou en bas de l'axe, marquée ▲ ou ▼. Dézoome l'axe des prix pour voir la ligne elle-même.
-- Le flip, les walls et le VWAP élargissent l'axe des prix pour rester visibles quand ils sont raisonnablement proches du prix, tout comme les lignes PD/PM et Centroids tant qu'elles sont activées. Max Pain, Pin Strike, GEX King et les lignes d'Expected Range ne le font jamais : on ne les voit donc souvent que sous forme d'étiquettes fléchées.
+- Le flip, les walls et le VWAP élargissent l'axe des prix pour rester visibles quand ils sont raisonnablement proches du prix, tout comme les lignes PD/PM, Centroids et EMAs tant qu'elles sont activées. Max Pain, Pin Strike, GEX King et les lignes d'Expected Range ne le font jamais : on ne les voit donc souvent que sous forme d'étiquettes fléchées.
 - Quand le prix se trouve à moins d'environ 0,12 % d'un niveau, la ligne de ce niveau est tracée plus épaisse.
 
 ### Gamma Levels
@@ -258,6 +259,22 @@ Sans flip, le graphique ne peut pas non plus tracer l'ombrage Regime.
 
 **À garder en tête.** Les centroïdes décrivent où le trading a eu lieu ; ils ne prévoient pas où ira le prix. Ils comptent chaque contrat traité, acheté ou vendu : un centroïde des calls à un strike peut vouloir dire que des traders achètent ces calls ou qu'ils les vendent contre des actions qu'ils détiennent. Pour savoir de quel côté penche l'argent, voir [Volume net vs flux directionnel](/education/net-volume-vs-directional-flow). En début de séance, les lignes estompées ne reposent que sur quelques minutes de trading : elles bougent donc plus qu'elles ne le feront ensuite. Les centroïdes comptent toutes les expirations que suit ZeroGEX : le filtre Expiry ne s'applique donc pas. Ils ne comptent en outre que les strikes de la bande que ZeroGEX enregistre autour du prix (voir [Couverture des données et fréquence de mise à jour](/help/platform/data-coverage)) : ils se situent ainsi plus près du prix qu'un outil qui compte tous les strikes listés. Quand un strike entre dans cette bande en cours de journée, son volume antérieur est compté d'un seul coup, ce qui peut faire sauter la ligne à 15 minutes. Les Centroids ne fonctionnent qu'en direct, sur des barres de 1M à 1H.
 
+### EMAs
+
+**Ce qu'on voit.** Jusqu'à trois moyennes mobiles exponentielles (EMAs) du cours de clôture, tracées en lignes continues par-dessus les bougies. Les trois réglages d'origine sont la **13**, la **40** et la **200**. Désactivé par défaut.
+
+**Contrôles.** Une fois les EMAs activées, chaque ligne a son propre champ sous l'interrupteur, dans le panneau Layers. Clique sur son carré de couleur pour afficher ou masquer cette ligne, et saisis une longueur de 2 à 200 barres ; la ligne se redessine pendant la saisie. Le graphique retient tes longueurs sur ce navigateur, et **Reset to defaults** remet 13, 40 et 200. Survole une barre pour lire la valeur de chaque ligne à cet endroit.
+
+**Comment c'est calculé.** Chaque nouvelle clôture rapproche la ligne de 2 ÷ (longueur + 1) de l'écart qui les sépare : les clôtures récentes pèsent le plus et les plus anciennes s'estompent. Une ligne démarre dès qu'il y a autant de barres que sa longueur, à partir de leur moyenne simple, comme le font la plupart des plateformes graphiques. Le graphique charge jusqu'à 576 barres par unité de temps et se sert des plus anciennes pour amorcer les lignes, si bien qu'une 200 se situe à quelques cents d'une 200 calculée sur des années d'historique.
+
+**Comment le lire.** Une EMA courte colle au prix, une longue montre la tendance de fond. Ce sont des études de prix, pas des niveaux des dealers : lis-les à côté des niveaux de gamma, pas à leur place.
+
+**À garder en tête.**
+
+- Les lignes sont calculées à partir des barres du graphique. SPY, QQQ et NVDA incluent des barres de pré-marché et d'après-clôture : un graphique ailleurs, réglé sur les seules heures régulières, affichera donc d'autres valeurs, surtout pour la 200. SPX et NDX n'ont que les heures régulières.
+- Une ligne ne démarre qu'une fois que le graphique a autant de barres que sa longueur. S'il en a moins, la légende l'indique au lieu de la tracer. C'est le cas de la 200 sur les barres de 4 minutes du Fuseline Radar, et sur le graphique journalier tant que l'historique conservé n'atteint pas 200 séances.
+- Les EMAs ne fonctionnent qu'en direct. Le filtre Expiry ne les affecte pas.
+
 ### Bar Timer
 
 **Ce qu'on voit.** Le temps restant avant la clôture de la bougie en cours : un compte à rebours sous l'étiquette du dernier prix, avec une fine barre qui se remplit à mesure que la bougie avance. Survole la bougie en direct pour voir le temps écoulé et le temps restant. Désactivé par défaut.
@@ -287,7 +304,7 @@ Le menu **Expiry** de la barre d'outils choisit les expirations d'options qui al
 | Pin Strike | Non : toujours l'expiration du jour |
 | GEX King | Non : toujours toute la chaîne |
 | Centroids | Non : toutes les expirations |
-| VWAP, PD/PM Levels, Expected Range | Non : pas construits à partir de la chaîne d'options |
+| VWAP, EMAs, PD/PM Levels, Expected Range | Non : pas construits à partir de la chaîne d'options |
 
 À savoir :
 
@@ -303,6 +320,7 @@ Survole le graphique, ou touche-le ou fais un appui long sur téléphone, pour a
 - **Strike Γ near** : le gamma net des dealers aux strikes proches du prix du réticule. Il t'indique combien de hedging s'y trouve. Ce n'est **pas** le régime à ce prix, car un strike long gamma peut se trouver dans un carnet short gamma. Lis le régime dans l'ombrage et dans l'encadré Dealer Gamma @ Spot.
 - Le niveau tracé le plus proche sur le graphique, et sa distance. Les niveaux que tu as désactivés ne sont pas nommés.
 - Avec les Centroids activés : les centroïdes des calls et des puts, la valeur à 15 minutes d'abord, puis la valeur de séance.
+- Avec les EMAs activées : la valeur de chaque ligne sur cette barre.
 - Avec les Ribbons activés : le couloir le plus proche du réticule, son gamma net et sa part par rapport au strike le plus chargé à l'écran.
 
 ## Zoom, déplacement et réinitialisation
@@ -359,7 +377,7 @@ ZeroGEX lit les options sur indice, pas les options sur futures : les niveaux d'
 
 ## Ce que le terminal mémorise
 
-Sur ce navigateur, le terminal enregistre tes superpositions, le style du graphique, le mode de volume, l'horizon d'Expected Range, l'opacité des ribbons, ton choix de panneau et la vue du Strike Panel, ainsi que ton symbole et les réglages Basis, Strikes, Session Δ et Unit des échelles. Le filtre Expiry est conservé par onglet de navigateur.
+Sur ce navigateur, le terminal enregistre tes superpositions, le style du graphique, le mode de volume, l'horizon d'Expected Range, l'opacité des ribbons, les longueurs des EMAs, ton choix de panneau et la vue du Strike Panel, ainsi que ton symbole et les réglages Basis, Strikes, Session Δ et Unit des échelles. Le filtre Expiry est conservé par onglet de navigateur.
 
 Il n'enregistre pas le timeframe (il s'ouvre en 5M), le symbole de la seconde échelle, le zoom et le déplacement, ni le Rewind.
 

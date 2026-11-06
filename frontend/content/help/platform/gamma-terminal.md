@@ -27,7 +27,7 @@ Basic and Pro members get the terminal live. Everyone else sees a free preview o
 2. **Read the regime.** The **Dealer Gamma @ Spot** box at the top right of the chart reads **LONG Γ** or **SHORT Γ**. In long gamma, dealer hedging is modeled to lean against moves (pinning). In short gamma, it is modeled to add to them (trending). The tinted chart background says the same thing.
 3. **Find the key lines.** The azure `FLIP` line is where the regime changes. The red `CALL WALL` above price and the green `PUT WALL` below it are the strikes carrying the most call and put gamma. The Key Levels cards give the exact distance to each.
 4. **Look beside the tape.** The ladders list net dealer gamma at every strike near price, lined up with the chart. The biggest values are the strikes with the most hedging attached.
-5. **Add what you need.** Turn on **Expected Range** for the move implied volatility is pricing, **Centroids** to see where today's option trading is centered, or **PD/PM Levels** for the prior day's high, low and close.
+5. **Add what you need.** Turn on **Expected Range** for the move implied volatility is pricing, **Centroids** to see where today's option trading is centered, **PD/PM Levels** for the prior day's high, low and close, or **EMAs** for moving averages of the close.
 6. **Rewind** to replay how price and the gamma book moved through the session.
 
 ## The Key Levels strip
@@ -149,13 +149,14 @@ Each overlay has a switch in the **Layers** panel, which opens from the toolbar.
 | PD/PM Levels | The prior day's high, low and close; the pre-market high and low | No | Live: SPY, QQQ, single stocks |
 | Expected Range | The ±1σ move implied volatility is pricing | No | Live, except single stocks |
 | Centroids | Where today's call and put trading is centered | No | Live, 1M to 1H bars |
+| EMAs | Up to three moving averages of the close, 13, 40 and 200 out of the box | No | Live |
 | Bar Timer | Time left in the current candle | No | Live |
 
 A few things hold for every level line:
 
 - Each level is a dashed line across the chart, with its name in a chip at the left edge and its price in a tag on the right axis.
 - A level outside the price range on screen shows as a tag pinned to the top or bottom of the axis, marked ▲ or ▼. Zoom the price axis out to see the line itself.
-- The flip, the walls and VWAP widen the price axis to stay in view when they're reasonably close to price, and so do the PD/PM and Centroid lines while they're on. Max Pain, Pin Strike, GEX King and the Expected Range lines never do, so they often appear only as arrowed tags.
+- The flip, the walls and VWAP widen the price axis to stay in view when they're reasonably close to price, and so do the PD/PM, Centroid and EMA lines while they're on. Max Pain, Pin Strike, GEX King and the Expected Range lines never do, so they often appear only as arrowed tags.
 - When price is within about 0.12% of a level, that level's line is drawn bolder.
 
 ### Gamma Levels
@@ -278,6 +279,22 @@ Without a flip, the chart can't draw the Regime shading either.
 
 **Keep in mind.** Centroids describe where trading happened; they don't forecast where price will go. They count every contract traded, bought or sold: a call centroid at a strike can mean traders buying those calls or selling them against stock they own. For which way the money is leaning, see [Options Flow Explained](/education/net-volume-vs-directional-flow). Early in the session the soft lines rest on only a few minutes of trading, so they move more than they will later. Centroids count every expiration ZeroGEX tracks, so the Expiry filter doesn't apply. They also count only the strikes in the band ZeroGEX records around price (see [Data Coverage](/help/platform/data-coverage)), so they sit closer to price than a tool that counts every listed strike. When a strike joins that band during the day, its earlier volume is counted all at once, which can make the 15-minute line jump. Centroids are live only, on 1M to 1H bars.
 
+### EMAs
+
+**What it shows.** Up to three exponential moving averages (EMAs) of the closing price, drawn as solid lines over the candles. Out of the box they're the **13**, **40** and **200**. Off by default.
+
+**Controls.** Once EMAs are on, each line has its own field under the switch in the Layers panel. Click its color square to show or hide that line, and type a length from 2 to 200 bars; the line redraws as you type. The chart remembers your lengths on this browser, and **Reset to defaults** puts back 13, 40 and 200. Hover a bar to read each line's value there.
+
+**How it's calculated.** Each new close moves the line 2 ÷ (length + 1) of the way toward it, so recent closes count most and older ones fade. A line starts once there are as many bars as its length, from their simple average, which is how most charting platforms start an EMA. The chart loads up to 576 bars on each timeframe and uses the oldest to warm the lines up, so a 200 lands within a few cents of one calculated from years of history.
+
+**How to read it.** A short EMA hugs price and a long one shows the broader trend. They're price studies, not dealer levels, so read them beside the gamma levels rather than in place of them.
+
+**Keep in mind.**
+
+- The lines are calculated from the bars on the chart. SPY, QQQ and NVDA include pre-market and after-hours bars, so a chart elsewhere set to regular hours only will show different values, most of all for the 200. SPX and NDX are regular hours only.
+- A line starts once the chart has as many bars as its length. Where it has fewer, the legend says so instead of drawing it. That's the case for the 200 on the Fuseline Radar's 4-minute bars, and on the daily chart until the stored history reaches 200 trading days.
+- EMAs are live only. The Expiry filter doesn't affect them.
+
 ### Bar Timer
 
 **What it shows.** How long until the current candle closes: a countdown under the last-price tag, with a thin bar that fills as the candle ages. Hover the live candle for the elapsed and remaining time. Off by default.
@@ -307,7 +324,7 @@ The **Expiry** menu in the toolbar picks which option expirations feed the gamma
 | Pin Strike | No: always same-day |
 | GEX King | No: always the whole chain |
 | Centroids | No: every expiration |
-| VWAP, PD/PM Levels, Expected Range | No: not built from the option chain |
+| VWAP, EMAs, PD/PM Levels, Expected Range | No: not built from the option chain |
 
 A few things to know:
 
@@ -323,6 +340,7 @@ Hover the chart, or tap or press and hold on a phone, for a crosshair and a card
 - **Strike Γ near** the crosshair price: the net dealer gamma at the strikes nearby. This tells you how much hedging sits there. It is **not** the regime at that price, because a long-gamma strike can sit inside a short-gamma book. Read the regime from the shading and the Dealer Gamma @ Spot box.
 - The nearest level drawn on the chart, and how far away it is. Levels you've switched off aren't named.
 - With Centroids on: the call and put centroids, the 15-minute value first and then the session value.
+- With EMAs on: each line's value at that bar.
 - With Ribbons on: the lane nearest the crosshair, its net gamma, and its share of the heaviest strike on screen.
 
 ## Zooming, panning and resetting
@@ -379,7 +397,7 @@ ZeroGEX reads index options, not options on futures, so the ES and NQ levels com
 
 ## What the terminal remembers
 
-On this browser, the terminal saves your overlays, chart style, volume mode, Expected Range horizon, ribbon opacity, panel choice and Strike Panel view, along with your symbol and the ladders' Basis, Strikes, Session Δ and Unit settings. The Expiry filter is kept per browser tab.
+On this browser, the terminal saves your overlays, chart style, volume mode, Expected Range horizon, ribbon opacity, EMA lengths, panel choice and Strike Panel view, along with your symbol and the ladders' Basis, Strikes, Session Δ and Unit settings. The Expiry filter is kept per browser tab.
 
 It doesn't save the timeframe (it opens on 5M), the second ladder's symbol, zoom and pan, or Rewind.
 

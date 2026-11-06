@@ -78,6 +78,19 @@ import { candleGridOffsetMs, candleStartMs } from "@/core/candleGrid";
 import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
 import { centroidPath, centroidRange, centroidsForBars } from "@/core/flowCentroids";
 import {
+  clampEmaLength,
+  emaPath,
+  emaRange,
+  emaSeries,
+  emaStep,
+  emaWarmupCloses,
+  parseEmaLines,
+  EMA_DEFAULT_LINES,
+  EMA_MAX_LENGTH,
+  EMA_MIN_LENGTH,
+  type EmaLine,
+} from "@/core/movingAverages";
+import {
   buildExpirationSplit,
   expirationOpacityRamp,
   expirationShares,
@@ -166,6 +179,7 @@ interface OverlayState {
   volume: boolean; // volume pane under the tape; off hands its height to the price pane
   sessionLevels: boolean; // prior-day high/low/close + pre-market high/low lines (the top row always shows the numbers)
   centroids: boolean; // call / put centroids: where the session's option trading is centered, through time
+  ema: boolean; // EMAs: up to three exponential moving averages of the close (13 / 40 / 200 out of the box)
   // Per-line switches for the three gamma levels. Read only on a surface that
   // passes `splitGammaLevels`; everywhere else the one `levels` switch rules.
   flipLine: boolean;
@@ -238,6 +252,9 @@ const DEFAULT_OVERLAYS: OverlayState = {
   sessionLevels: false,
   // Off like King: four more lines through the tape is a lot to add unasked.
   centroids: false,
+  // Off for the same reason: three more lines through the tape, asked for by
+  // the members who chart them (13 / 40 / 200), not by everyone.
+  ema: false,
   flipLine: true,
   callWallLine: true,
   putWallLine: true,
@@ -252,6 +269,16 @@ const VOLUME_MODE_STORAGE_KEY = "zg.gammaChart.volumeMode.v1";
 const ER_HORIZON_STORAGE_KEY = "zg.gammaChart.erHorizon.v1";
 // Persisted ribbon opacity multiplier (see RIBBON_OPACITY_DEFAULT).
 const RIBBON_OPACITY_STORAGE_KEY = "zg.gammaChart.ribbonOpacity.v1";
+// Persisted EMA lines: each one's length and switch (core/movingAverages).
+const EMA_STORAGE_KEY = "zg.gammaChart.ema.v1";
+
+// The EMA lines' color and weight, by slot (first, second, third line), not by
+// length, so a line keeps its look when its length is changed. The colors are
+// their own tokens in globals.css, set apart from every level's color in every
+// palette (tests/chartLevelPalette.test.ts holds them there). The slower lines
+// default to the heavier strokes.
+const EMA_COLORS = ["var(--color-ema-1)", "var(--color-ema-2)", "var(--color-ema-3)"] as const;
+const EMA_WIDTHS = [1.3, 1.6, 2] as const;
 
 // ── Geometry (SVG viewBox coordinates; the SVG scales to its container) ──────
 //
@@ -563,6 +590,7 @@ const LAYER_ROWS: ReadonlyArray<LayerDef> = [
   { key: "ribbons", label: "Ribbons", hint: "Each strike's gamma through time", color: RIBBON_POS_GLOW, group: "structure" },
   { key: "regime", label: "Regime", hint: "Long- and short-gamma shading", color: "var(--color-accent-hot)", group: "structure" },
   { key: "vwap", label: "VWAP", hint: "The session's volume-weighted price", color: "var(--color-hazy)", group: "studies" },
+  { key: "ema", label: "EMAs", hint: "Exponential moving averages of the close", color: "var(--color-ema-1)", group: "studies" },
   { key: "centroids", label: "Centroids", hint: "Where today's call and put trading sits", color: "var(--color-bull)", group: "studies" },
   { key: "expectedRange", label: "Expected Range", hint: "The ±1σ move implied volatility prices", color: "var(--color-info)", group: "studies" },
   { key: "sessionLevels", label: "PD/PM Levels", hint: "Prior-day and pre-market highs and lows", color: "var(--text-secondary)", group: "studies" },
@@ -1263,6 +1291,9 @@ export default function GammaTerminalChart({
   }
   const [erHorizon, setErHorizon] = useState<HorizonKey>("daily");
   const [ribbonOpacity, setRibbonOpacity] = useState(RIBBON_OPACITY_DEFAULT);
+  // The EMA lines' lengths and switches; the overlay switch (`overlays.ema`)
+  // draws or hides all three.
+  const [emaLines, setEmaLines] = useState<EmaLine[]>(() => EMA_DEFAULT_LINES.map((l) => ({ ...l })));
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
   // The live view's bar count follows the canvas: when the compact canvas is
@@ -1383,6 +1414,7 @@ export default function GammaTerminalChart({
   const erKey = storageScope ? `${ER_HORIZON_STORAGE_KEY}.${storageScope}` : ER_HORIZON_STORAGE_KEY;
   const railKey = storageScope ? `${RAIL_STORAGE_KEY}.${storageScope}` : RAIL_STORAGE_KEY;
   const ribbonOpacityKey = storageScope ? `${RIBBON_OPACITY_STORAGE_KEY}.${storageScope}` : RIBBON_OPACITY_STORAGE_KEY;
+  const emaKey = storageScope ? `${EMA_STORAGE_KEY}.${storageScope}` : EMA_STORAGE_KEY;
 
   // Restore persisted view preferences once on mount. Server and the first
   // client render intentionally use the defaults; we only reconcile from
@@ -1415,11 +1447,19 @@ export default function GammaTerminalChart({
           if (typeof parsed.labels === "boolean") setRailLabels(parsed.labels);
         }
       }
+      const rawE = localStorage.getItem(emaKey);
+      if (rawE) {
+        try {
+          setEmaLines(parseEmaLines(JSON.parse(rawE)));
+        } catch {
+          /* malformed: keep the default lines */
+        }
+      }
     } catch {
       /* ignore malformed prefs */
     }
     setHydrated(true);
-  }, [overlayKey, styleKey, volumeModeKey, erKey, railKey, ribbonOpacityKey, forcedOff]);
+  }, [overlayKey, styleKey, volumeModeKey, erKey, railKey, ribbonOpacityKey, emaKey, forcedOff]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -1475,6 +1515,15 @@ export default function GammaTerminalChart({
       /* storage unavailable */
     }
   }, [ribbonOpacity, hydrated, ribbonOpacityKey]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(emaKey, JSON.stringify(emaLines));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [emaLines, hydrated, emaKey]);
 
   const intervalMinutes = tfMinutes(timeframe);
 
@@ -1863,6 +1912,57 @@ export default function GammaTerminalChart({
   );
   const centroidSpan = useMemo(() => (centroidPoints ? centroidRange(centroidPoints) : null), [centroidPoints]);
 
+  // ── EMAs ── Computed over every candle in the pool, the live one included,
+  // so the newest point follows the tape tick by tick. The pool keeps 400
+  // candles, but the feed loads up to 576, and the older ones go in first as
+  // warm-up (core/movingAverages), so a 200 has settled long before it reaches
+  // the screen. Live only: the delayed snapshot carries 180 candles, too few
+  // for the 200, and its Layers switch says so.
+  const emaOn = live && overlays.ema;
+  const poolStartTs = historicalBars[0]?.timestamp ?? null;
+  const emaWarmup = useMemo(() => {
+    if (!emaOn || poolStartTs == null) return [];
+    const poolStartMs = new Date(poolStartTs).getTime();
+    if (!Number.isFinite(poolStartMs)) return [];
+    // The rows the pool's own candles were built from are filtered and gridded
+    // exactly like this (Stage 1 above), so the warm-up candles are the ones
+    // the chart would have drawn had it kept them.
+    const rows = shouldOmitClosedMarketTimes(intervalMinutes) ? omitOutOfHoursForSymbol(dataAll, (d) => d.timestamp, symbol) : dataAll;
+    const gridOffsetMs = timeframe === "4min" ? candleGridOffsetMs(4, isFuturesSymbol(symbol)) : 0;
+    return emaWarmupCloses(
+      rows.map((d) => ({ timestamp: d.timestamp, close: Number(d.close ?? d.price) })),
+      poolStartMs,
+      (ms) => candleStartMs(ms, intervalMinutes, gridOffsetMs),
+    );
+  }, [emaOn, poolStartTs, dataAll, intervalMinutes, timeframe, symbol]);
+  // Each line's value at every pool candle (null until it has `length` candles
+  // to start from). A line that is switched off is left out.
+  const emaPool = useMemo(() => {
+    if (!emaOn || allBars.length === 0) return null;
+    const closes = [...emaWarmup, ...allBars.map((b) => b.close)];
+    return emaLines.flatMap((line, slot) =>
+      line.on ? [{ slot, length: line.length, values: emaSeries(closes, line.length).slice(emaWarmup.length) }] : [],
+    );
+  }, [emaOn, emaWarmup, allBars, emaLines]);
+  // The same values for the candles on screen. While Rewind plays, the edge
+  // candle grows from its sub-bars (partialCurrentBar), and so does the edge
+  // point, stepped from the line's value one candle earlier.
+  const emaVisible = useMemo(() => {
+    if (!emaPool) return null;
+    return emaPool.map((line) => {
+      const values = line.values.slice(viewStart, viewEnd);
+      const prev = viewEnd >= 2 ? line.values[viewEnd - 2] : null;
+      if (partialCurrentBar && values.length > 0 && prev != null) {
+        values[values.length - 1] = emaStep(prev, partialCurrentBar.close, line.length);
+      }
+      return { ...line, values };
+    });
+  }, [emaPool, viewStart, viewEnd, partialCurrentBar]);
+  // The span of the lines on screen, which joins the price axis the way the
+  // centroids do: only within the 1.2-bar-span reach, so a 200 far from price
+  // runs off the edge rather than squashing the candles.
+  const emaSpan = useMemo(() => (emaVisible ? emaRange(emaVisible.map((l) => l.values)) : null), [emaVisible]);
+
   // ── Net cumulative volume (the volume pane's second view) ────────────────
   // A running session total of uptick MINUS downtick volume, drawn as an area
   // off a zero line — green while buyers have led the session's tape, red once
@@ -2205,6 +2305,7 @@ export default function GammaTerminalChart({
       vwap,
       ...(sessionLinesOn ? sessionLevels.map((l) => l.value) : []),
       ...(centroidSpan ? [centroidSpan.min, centroidSpan.max] : []),
+      ...(emaSpan ? [emaSpan.min, emaSpan.max] : []),
     ].filter((v): v is number => v != null);
     for (const v of includable) {
       if (v >= dMin - band && v <= dMax + band) {
@@ -2286,7 +2387,7 @@ export default function GammaTerminalChart({
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
     return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, sessionLinesOn, sessionLevels, centroidSpan, fitPricesKey, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
+  }, [bars, flip, callWall, putWall, vwap, sessionLinesOn, sessionLevels, centroidSpan, emaSpan, fitPricesKey, priceView.zoom, priceView.center, pinnedAxis, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight, PLOT_LEFT, INNER_PAD_X, PAD_RIGHT, PAD_TOP, PRICE_BOTTOM, VOL_TOP, VOL_BOTTOM]);
 
   // A chart that joins a linked rewind before its bars have loaded (added to
   // the board mid-replay, or given a new timeframe) had no window to freeze on
@@ -2362,6 +2463,13 @@ export default function GammaTerminalChart({
     const path = (line: "call" | "put" | "callRecent" | "putRecent") => centroidPath(centroidPoints, line, layout.xForIndex, layout.yPrice);
     return { call: path("call"), put: path("put"), callRecent: path("callRecent"), putRecent: path("putRecent") };
   }, [layout, centroidPoints]);
+  const emaPaths = useMemo(() => {
+    if (!layout || !emaVisible) return null;
+    const paths = emaVisible
+      .map((line) => ({ slot: line.slot, d: emaPath(line.values, layout.xForIndex, layout.yPrice) }))
+      .filter((p) => p.d !== "");
+    return paths.length > 0 ? paths : null;
+  }, [layout, emaVisible]);
 
   // Publish this chart's own auto-fit domain so the link can union it with the
   // other half's (see core/linkedPriceAxis). Reports the RAW auto values, which
@@ -3704,6 +3812,11 @@ export default function GammaTerminalChart({
     return { ...best, norm, tier: tierFor(norm), drawn: norm >= RIBBON_MIN_NORM };
   })();
   const hoverCentroid = hover && centroidPoints ? centroidPoints[Math.max(0, Math.min(hover.idx, bars.length - 1))] ?? null : null;
+  // Each EMA that is on, at the hovered candle: null before the line starts.
+  const hoverEma =
+    hover && emaVisible && emaVisible.length > 0
+      ? emaVisible.map((line) => ({ slot: line.slot, length: line.length, value: line.values[Math.max(0, Math.min(hover.idx, bars.length - 1))] ?? null }))
+      : null;
   const nearestLevel = hover ? nearestDrawnLevel(levelDefs, hover.price) : null;
 
   // ── Strike panel hover ── what the card on the panel describes. The pointer
@@ -4298,6 +4411,8 @@ export default function GammaTerminalChart({
   // doesn't rearrange itself when the symbol or timeframe changes.
   const layerUnavailable = (key: ChartOverlayKey): string | undefined => {
     switch (key) {
+      // The snapshot's 180 candles are too few for a 200 (see emaOn).
+      case "ema":
       // Drawn from live feeds the delayed snapshot doesn't carry.
       case "ribbons":
       case "king":
@@ -4320,6 +4435,7 @@ export default function GammaTerminalChart({
     // Panelled, the rail's views ride the panel instead (railControlsTarget).
     rail: railOn && !inPanel ? railViewControls : null,
     ribbons: <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />,
+    ema: <EmaLinesControl lines={emaLines} onChange={setEmaLines} />,
     expectedRange: (
       <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
         {([
@@ -4414,6 +4530,7 @@ export default function GammaTerminalChart({
   const resetLayers = () => {
     setOverlays({ ...DEFAULT_OVERLAYS, ...overlayDefaults, ...forcedOff });
     setRibbonOpacity(RIBBON_OPACITY_DEFAULT);
+    setEmaLines(EMA_DEFAULT_LINES.map((l) => ({ ...l })));
     setErHorizon("daily");
     setVolumeMode("updown");
     setRailMode("silhouette");
@@ -5004,6 +5121,17 @@ export default function GammaTerminalChart({
                 })}
             </g>
 
+            {/* ── EMAs — over the candles, so a line reads across the bodies
+                it runs through, and under the levels, their chips and the
+                axis tags. Clipped to the plot like the tape. */}
+            {emaPaths && (
+              <g clipPath={`url(#${PLOT_CLIP_ID})`} pointerEvents="none" aria-hidden fill="none" strokeLinejoin="round" strokeLinecap="round">
+                {emaPaths.map((p) => (
+                  <path key={`ema-${p.slot}`} d={p.d} stroke={EMA_COLORS[p.slot]} strokeWidth={EMA_WIDTHS[p.slot]} />
+                ))}
+              </g>
+            )}
+
             {/* ── Expected-range band: a subtle wash between the ER lines ── */}
             {overlays.expectedRange && erModel && (() => {
               const yHi = clamp(yPrice(erModel.high), PAD_TOP, PRICE_BOTTOM);
@@ -5543,6 +5671,20 @@ export default function GammaTerminalChart({
                   </div>
                 </>
               )}
+              {hoverEma && (
+                <>
+                  <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "var(--color-brand-primary)", marginBottom: 4 }}>EMA</div>
+                  {hoverEma.map((e, i) => (
+                    <div key={e.slot} className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginTop: i === 0 ? 0 : 2, fontVariantNumeric: "tabular-nums" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>EMA {e.length}</span>
+                      <span style={{ fontWeight: 600, color: e.value != null ? levelInk(EMA_COLORS[e.slot]) : "var(--text-muted)" }}>
+                        {e.value != null ? fmtPrice(e.value) : "—"}
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
               {hoverRibbon && (
                 <>
                   <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />
@@ -5740,6 +5882,22 @@ export default function GammaTerminalChart({
         <LegendDot color="var(--color-maxpain)" label="Max Pain" />
         <LegendDot color="var(--color-pin)" label="Pin Strike" />
         <LegendDot color="var(--color-hazy)" label="VWAP" />
+        {/* A line with too few candles to start from (a 200 on the daily
+            chart, or on the radar's 4-minute candles) still gets its key, with
+            the reason, rather than silently drawing nothing. */}
+        {emaPool?.map((line) =>
+          line.values.some((v) => v != null) ? (
+            <LegendDot key={`ema-${line.slot}`} color={EMA_COLORS[line.slot]} label={`EMA ${line.length}`} />
+          ) : (
+            <LegendDot
+              key={`ema-${line.slot}`}
+              color={EMA_COLORS[line.slot]}
+              label={`EMA ${line.length} · needs ${line.length} bars`}
+              title={`An EMA ${line.length} starts once there are ${line.length} bars to average, and this chart has ${emaWarmup.length + allBars.length} at this timeframe. A shorter timeframe has more.`}
+              muted
+            />
+          ),
+        )}
         {centroidsOn && <LegendDot color="var(--color-bull)" label="Call Centroid" />}
         {centroidsOn && <LegendDot color="var(--color-bear)" label="Put Centroid" />}
         {sessionLinesOn && <LegendDot color="var(--text-secondary)" label="PD / PM" />}
@@ -6093,6 +6251,104 @@ function RibbonOpacityControl({ value, onChange }: { value: number; onChange: (v
   );
 }
 
+// The EMAs' settings under their switch in Layers: one field per line, with
+// its color (a switch for that line alone) and its length.
+function EmaLinesControl({ lines, onChange }: { lines: EmaLine[]; onChange: (next: EmaLine[]) => void }) {
+  const update = (slot: number, patch: Partial<EmaLine>) => onChange(lines.map((l, i) => (i === slot ? { ...l, ...patch } : l)));
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="EMA lines">
+      {lines.map((line, slot) => (
+        <EmaLineField
+          key={slot}
+          slot={slot}
+          line={line}
+          onToggle={() => update(slot, { on: !line.on })}
+          onLength={(length) => update(slot, { length })}
+        />
+      ))}
+    </div>
+  );
+}
+
+// A length takes effect as soon as it reads as one the chart can draw, so the
+// arrows and typing both move the line at once. Anything else is held as typed
+// until Enter or leaving the field, which clamps it to 2-200 (or puts the old
+// length back if it isn't a number). Escape drops an edit in progress; a second
+// Escape closes the panel.
+function EmaLineField({ slot, line, onToggle, onLength }: { slot: number; line: EmaLine; onToggle: () => void; onLength: (length: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const color = EMA_COLORS[slot];
+  const settle = () => {
+    if (draft == null) return;
+    const next = clampEmaLength(draft, line.length);
+    setDraft(null);
+    if (next !== line.length) onLength(next);
+  };
+  return (
+    <span
+      className="flex items-center gap-1.5"
+      style={{ height: 26, padding: "0 6px 0 4px", border: "1px solid var(--border-default)", borderRadius: "var(--radius-control)", background: "var(--bg-card)" }}
+    >
+      <button
+        type="button"
+        role="switch"
+        aria-checked={line.on}
+        aria-label={`EMA ${line.length}`}
+        title={line.on ? `Hide the EMA ${line.length}` : `Show the EMA ${line.length}`}
+        onClick={onToggle}
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: 3,
+          border: `2px solid ${color}`,
+          background: line.on ? color : "transparent",
+          cursor: "pointer",
+          flex: "0 0 auto",
+        }}
+      />
+      <input
+        type="number"
+        inputMode="numeric"
+        min={EMA_MIN_LENGTH}
+        max={EMA_MAX_LENGTH}
+        step={1}
+        value={draft ?? String(line.length)}
+        aria-label={`EMA line ${slot + 1} length, ${EMA_MIN_LENGTH} to ${EMA_MAX_LENGTH} bars`}
+        title={`Length in bars, ${EMA_MIN_LENGTH} to ${EMA_MAX_LENGTH}`}
+        onChange={(e) => {
+          const text = e.target.value;
+          setDraft(text);
+          const n = Number(text);
+          if (text.trim() !== "" && Number.isInteger(n) && n >= EMA_MIN_LENGTH && n <= EMA_MAX_LENGTH && n !== line.length) onLength(n);
+        }}
+        onBlur={settle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            settle();
+          } else if (e.key === "Escape" && draft != null) {
+            e.stopPropagation();
+            setDraft(null);
+          }
+        }}
+        // The type size is the class's (globals.css), which goes to 16px on a
+        // touch screen so iOS doesn't zoom the page on focus.
+        className="zg-gc-ema-length"
+        style={{
+          width: 46,
+          height: 20,
+          fontFamily: "var(--font-mono)",
+          fontVariantNumeric: "tabular-nums",
+          color: line.on ? "var(--text-primary)" : "var(--text-muted)",
+          background: "transparent",
+          border: "none",
+          padding: 0,
+        }}
+      />
+    </span>
+  );
+}
+
 function OverlayPill({ label, color, active, onClick, title }: { label: string; color: string; active: boolean; onClick: () => void; title?: string }) {
   return (
     <button type="button" className="zg-gc-pill" data-active={active} onClick={onClick} style={{ ["--pill-color" as string]: color }} aria-pressed={active} title={title}>
@@ -6144,10 +6400,14 @@ function RibbonKey() {
   );
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function LegendDot({ color, label, title, muted = false }: { color: string; label: string; title?: string; muted?: boolean }) {
   return (
-    <span className="flex items-center gap-1.5" style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-secondary)", letterSpacing: "0.03em" }}>
-      <span style={{ width: 12, height: 2, background: color, display: "inline-block", borderRadius: 1 }} />
+    <span
+      className="flex items-center gap-1.5"
+      title={title}
+      style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: muted ? "var(--text-muted)" : "var(--text-secondary)", letterSpacing: "0.03em" }}
+    >
+      <span style={{ width: 12, height: 2, background: color, display: "inline-block", borderRadius: 1, opacity: muted ? 0.4 : 1 }} />
       {label}
     </span>
   );

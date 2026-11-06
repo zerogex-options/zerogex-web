@@ -140,6 +140,15 @@
   --color-pin: #14B8A6;
   --color-pin-soft: rgba(20, 184, 166, 0.16);
 
+  /* The Gamma Terminal's three EMA lines, by slot. Set here and in :root.dark
+     only, never per palette: each clears every level color of every palette by
+     at least dE 14.9 (12 is the bar the levels hold each other to), the three
+     stay at least dE 31 apart, and each holds 3:1 on every light surface.
+     tests/chartLevelPalette.test.ts keeps all of that true. */
+  --color-ema-1: #D926D9;
+  --color-ema-2: #0000B3;
+  --color-ema-3: #8E0B37;
+
   /* MSI regime bands — deliberately NOT bull/bear. The Composite Score is a
      regime gauge (chop vs trend), so its ramp is blue→cyan→amber→violet, not
      green→red, to stop a low score reading as "bearish". */
@@ -256,6 +265,11 @@
   --ribbon-pos-core: #FFF1B8;
   --ribbon-neg-glow: #7C6CFF;
   --ribbon-neg-core: #E4E0FF;
+  /* The EMA lines on dark surfaces (see :root): dE 18.3 or more from every
+     palette's levels, 38 or more apart, 3:1 or better on every dark surface. */
+  --color-ema-1: #FF1AB3;
+  --color-ema-2: #D9FF1A;
+  --color-ema-3: #F7BEA1;
   --background: #00202E;
   --foreground: #FFF1E6;
 
@@ -2724,6 +2738,10 @@ body {
   padding: 2px 8px 8px 27px;
 }
 .zg-gc-layer-settings .zg-gc-seg-btn { padding: 4px 7px; font-size: 10px; }
+/* The EMA length fields under the EMAs switch (GammaTerminalChart's
+   EmaLineField). 16px under a finger, below, keeps iOS from zooming the page
+   when one takes focus. */
+.zg-gc-ema-length { font-size: 11px; }
 .zg-gc-layers-foot {
   display: flex;
   align-items: center;
@@ -2748,6 +2766,7 @@ body {
 @media (pointer: coarse) {
   .zg-gc-menu-item { min-height: 42px; }
   .zg-gc-layer-row { padding-top: 10px; padding-bottom: 10px; }
+  .zg-gc-ema-length { font-size: 16px; }
 }
 
 /* ============================================================

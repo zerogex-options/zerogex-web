@@ -527,3 +527,60 @@ test('--text-primary is readable on the chip and plot background, in every theme
   }
   assert.deepEqual(weak, [], `on-plot label text below 4.5:1:\n  ${weak.join('\n  ')}`);
 });
+
+// ── EMA lines ────────────────────────────────────────────────────────────────
+// The Gamma Terminal's three EMA lines are curves, not levels, so they carry no
+// chip or tag. A colour that drifted onto a level's would still let a reader
+// take one for the other, and the three lines are told apart from each other by
+// colour alone. They are set in :root and :root.dark only, so every palette
+// inherits them, and they were chosen against every palette at once.
+const EMA_TOKENS = ['--color-ema-1', '--color-ema-2', '--color-ema-3'];
+// Above the levels' own MIN_DELTA_E, since a thin solid curve crossing a dashed
+// rule of a near colour is easy to misread; the three were picked at 14.9+.
+const EMA_MIN_DELTA_E_TO_LEVELS = 14;
+const EMA_MIN_DELTA_E_APART = 25;
+
+test('the EMA lines stay clear of every level and of each other, and readable, in every theme', () => {
+  const problems: string[] = [];
+  for (const p of PALETTES) {
+    for (const isDark of [false, true]) {
+      const pal = resolve(p, isDark);
+      const where = `${p.replace('palette-', '')}/${isDark ? 'dark' : 'light'}`;
+      const emas = EMA_TOKENS.map((tok) => {
+        const c = parse(pal[tok]);
+        assert.ok(c, `${where}: ${tok} should resolve to a hex colour, got ${pal[tok]}`);
+        return c;
+      });
+      emas.forEach((c, i) => {
+        for (const [name, tok] of LEVELS) {
+          const other = parse(pal[tok]);
+          if (!other) continue;
+          const d = deltaE(c, other);
+          if (d < EMA_MIN_DELTA_E_TO_LEVELS) {
+            problems.push(`${where}: ${EMA_TOKENS[i]} ${pal[EMA_TOKENS[i]]} vs ${name} ${pal[tok]} — ΔE ${d.toFixed(1)}`);
+          }
+        }
+        for (const surface of ['--bg-card', '--bg-main']) {
+          const bg = parse(pal[surface]);
+          if (!bg) continue;
+          const cr = contrast(c, bg);
+          if (cr < 3) problems.push(`${where}: ${EMA_TOKENS[i]} on ${surface} ${pal[surface]} — ${cr.toFixed(2)}:1`);
+        }
+        for (let j = i + 1; j < emas.length; j++) {
+          const d = deltaE(c, emas[j]);
+          if (d < EMA_MIN_DELTA_E_APART) problems.push(`${where}: ${EMA_TOKENS[i]} vs ${EMA_TOKENS[j]} — ΔE ${d.toFixed(1)}`);
+        }
+      });
+    }
+  }
+  assert.deepEqual(problems, [], `EMA colours:\n  ${problems.join('\n  ')}`);
+});
+
+test('no palette sets its own EMA colours', () => {
+  // One set in a palette's light block alone would also win in dark mode
+  // (see above), and none was checked against the other palettes.
+  for (const b of blocks) {
+    if (b.sel === ':root' || b.sel === ':root.dark') continue;
+    for (const tok of EMA_TOKENS) assert.ok(!(tok in b.vars), `${b.sel} sets ${tok}`);
+  }
+});
