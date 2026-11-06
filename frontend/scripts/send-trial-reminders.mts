@@ -500,6 +500,19 @@ if (!fs.existsSync(dbPath)) {
 
 ensureSqlite3Cli();
 
+// The no-card trial columns (core/noCardTrial.ts) are added by the migration the
+// app runs when it starts on the new code (core/db.ts). Between a merge and that
+// restart they do not exist yet, and a timer firing in that gap must not fail
+// the whole run: nobody can be on a no-card trial before the app knows about
+// them, so read them as NULL until they appear.
+const userColumns = new Set(
+  querySqlite<{ name: string }>(dbPath, 'PRAGMA table_info(users);').map((c) => c.name),
+);
+const NO_CARD_COLUMNS =
+  userColumns.has('no_card_trial_subscription_id') && userColumns.has('no_card_trial_card_added_at')
+    ? 'no_card_trial_subscription_id, no_card_trial_card_added_at'
+    : 'NULL AS no_card_trial_subscription_id, NULL AS no_card_trial_card_added_at';
+
 // --render <email>: dry-run preview of one member's REAL reminder. Resolves the
 // same live-from-Stripe charge + card the send loop would, builds the exact wire
 // copy via buildTrialReminderEmail, and writes it to files — no send, no DB
@@ -511,7 +524,7 @@ if (cliArgs.render) {
     dbPath,
     `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id,
             created_at, last_seen_at, stripe_price_id, marketing_unsubscribed_at,
-            subscription_status, no_card_trial_subscription_id, no_card_trial_card_added_at
+            subscription_status, ${NO_CARD_COLUMNS}
      FROM users
      WHERE email = '${escapeSqlLiteral(email)}'
      LIMIT 1;`,
@@ -673,7 +686,7 @@ const eligible = querySqlite<UserRow>(
   dbPath,
   `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id,
           created_at, last_seen_at, stripe_price_id, marketing_unsubscribed_at,
-          subscription_status, no_card_trial_subscription_id, no_card_trial_card_added_at
+          subscription_status, ${NO_CARD_COLUMNS}
    FROM users
    WHERE subscription_status = 'trialing'
      AND trial_reminder_email_sent_at IS NULL
