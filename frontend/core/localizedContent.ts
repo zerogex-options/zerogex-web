@@ -1,8 +1,22 @@
 import 'server-only';
 import fs from 'node:fs';
 import { cookies } from 'next/headers';
-import { DEFAULT_LOCALE, normalizeLocale } from '@/core/i18n/locales';
+import { DEFAULT_LOCALE, normalizeLocale, type Locale } from '@/core/i18n/locales';
 import type { PageDictionary } from '@/core/LanguageContext';
+
+// The reader's language from the `lang` cookie, for a server component that
+// hands it to a pure module rather than to a dictionary (core/proWall.ts takes
+// a locale). English outside a request scope. Reading the cookie opts the route
+// into dynamic rendering.
+export async function getServerLocale(): Promise<Locale> {
+  try {
+    const store = await cookies();
+    return normalizeLocale(store.get('lang')?.value);
+  } catch {
+    // Outside a request scope — fall back to English.
+    return DEFAULT_LOCALE;
+  }
+}
 
 // Server-component counterpart to usePageT (which is a client hook and can't run
 // in a server component). Reads the `lang` cookie and returns a translator bound

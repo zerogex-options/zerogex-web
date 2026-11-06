@@ -336,18 +336,37 @@ export function navSubcategoryLabel(pathname: string | null | undefined): string
  *
  * Deliberately returns the stable ENGLISH `label`, never the `labelKey`
  * translation. Callers are server components rendering prose that is already
- * English, and a half-translated sentence is worse than a consistent one.
+ * English, and a half-translated sentence is worse than a consistent one. A
+ * sentence that is itself translated names the page with navItemLabelKey.
  */
 export function navItemLabel(pathname: string | null | undefined): string | undefined {
+  return navEntry(pathname)?.label;
+}
+
+/**
+ * The menu's translation key for a route's label, for prose that is itself
+ * translated (the locked Pro screen): passed to translate(), it names the page
+ * the way the reader's own menu does ("Gesamtscore" for '/signal-score' in
+ * German). Undefined where the menu keeps the English name in every language
+ * (trading feature names, tickers, brand names) and for a route that isn't in
+ * the menu; callers then fall back to navItemLabel.
+ */
+export function navItemLabelKey(pathname: string | null | undefined): TranslationKey | undefined {
+  return navEntry(pathname)?.labelKey;
+}
+
+// The menu entry for a route: top-level items, subgroup headers, and subgroup
+// items, in that order.
+function navEntry(pathname: string | null | undefined): { label: string; labelKey?: TranslationKey } | undefined {
   if (!pathname) return undefined;
   for (const group of NAV_GROUPS) {
     for (const item of group.items ?? []) {
-      if (item.id === pathname) return item.label;
+      if (item.id === pathname) return item;
     }
     for (const subgroup of group.subgroups ?? []) {
-      if (subgroup.id === pathname) return subgroup.label;
+      if (subgroup.id === pathname) return subgroup;
       for (const item of subgroup.items) {
-        if (item.id === pathname) return item.label;
+        if (item.id === pathname) return item;
       }
     }
   }

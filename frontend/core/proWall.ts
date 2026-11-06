@@ -11,11 +11,19 @@
 // the screen promises nothing the product docs don't. The screenshots are real
 // product shots from assets/blog, served at /blog/ (make blog-images).
 //
+// Every line is in the member's language (the `lang` cookie, which the page
+// reads and passes in). English is written here; the other languages are in
+// core/proWall.i18n.ts. Without a locale, everything is English, which is what
+// the Pro interest email (core/proInterest.ts) uses.
+//
 // Pure (no env, no DB): the page reads the member's plan and passes it in, and
 // tests/proWall.test.ts pins the copy.
 
 import type { BillableTier, BillingCadence } from './billingPlans.ts';
 import { LIST_PRICE_USD, MONEY_BACK_GUARANTEE_DAYS, formatPerMonthUsd, formatUsd, perMonthEquivalentUsd } from './billingPlans.ts';
+import type { Locale } from './i18n/locales.ts';
+import { DEFAULT_LOCALE } from './i18n/locales.ts';
+import { PRO_WALL_TRANSLATIONS } from './proWall.i18n.ts';
 import { isTrialProUpgradeOpen, proSwitchPath, trialProUpgradeOpensAtMs } from './trialProUpgrade.ts';
 
 export type ProPagePitch = {
@@ -111,8 +119,24 @@ const GENERIC_PITCH: ProPagePitch = {
     'Pro adds Trade Bias and the Composite Score, all eight Advanced Signals, TradeWorkz bots, backtesting and pattern insights, API access, and auto-updating NinjaTrader and Sierra Chart indicators.',
 };
 
-export function proPagePitch(path: string | null | undefined): ProPagePitch {
-  return (path && PRO_PAGE_PITCHES[path]) || GENERIC_PITCH;
+// The pitch for the page they reached for, in their language: the same
+// screenshot and help link, with the words and the screenshot's alt text
+// translated. A page with no translation yet keeps its English pitch rather
+// than falling back to the general one.
+export function proPagePitch(path: string | null | undefined, locale: Locale = DEFAULT_LOCALE): ProPagePitch {
+  // Own keys only: ?path= is whatever the visitor typed, and "constructor" is
+  // not a Pro page.
+  const route = path && Object.prototype.hasOwnProperty.call(PRO_PAGE_PITCHES, path) ? path : null;
+  const english = route ? PRO_PAGE_PITCHES[route] : GENERIC_PITCH;
+  if (locale === DEFAULT_LOCALE) return english;
+  const text = proWallText(locale);
+  const translated = route ? text.pitches[route] : { pitch: text.genericPitch };
+  if (!translated) return english;
+  return {
+    ...english,
+    pitch: translated.pitch,
+    ...(english.image ? { image: { src: english.image.src, alt: translated.alt ?? english.image.alt } } : {}),
+  };
 }
 
 // The rest of Pro, listed under the pitch. Mirrors the pricing page's Pro card.
@@ -123,6 +147,11 @@ export const PRO_FEATURES: readonly string[] = [
   'API access: levels, GEX, flow, signals and their history, for your own code',
   'Auto-updating NinjaTrader and Sierra Chart indicators',
 ];
+
+// PRO_FEATURES in the member's language, in the same order.
+export function proFeatures(locale: Locale = DEFAULT_LOCALE): readonly string[] {
+  return proWallText(locale).features;
+}
 
 // ---------------------------------------------------------------------------
 // What switching means for this member, today
@@ -178,9 +207,11 @@ export function proWallTerms(input: {
 }
 
 // "November 2 at 7:59 PM EST": New York time, like every billing cutoff the
-// site and its emails name.
-export function formatEtDateTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+// site and its emails name. In another language the time is still New York's,
+// written that language's way ("2. November um 19:59 GMT-5"), the same way the
+// pricing page writes the trial's end.
+export function formatEtDateTime(iso: string, locale: Locale = DEFAULT_LOCALE): string {
+  return new Intl.DateTimeFormat(locale === DEFAULT_LOCALE ? 'en-US' : locale, {
     timeZone: 'America/New_York',
     month: 'long',
     day: 'numeric',
@@ -188,6 +219,94 @@ export function formatEtDateTime(iso: string): string {
     minute: '2-digit',
     timeZoneName: 'short',
   }).format(new Date(iso));
+}
+
+// ---------------------------------------------------------------------------
+// The words, in one language
+// ---------------------------------------------------------------------------
+
+// Everything the screen says. Amounts and dates arrive already formatted; a
+// missing page label (a path that is not in the menu) is undefined.
+export type ProWallText = {
+  // The screen around the copy (app/unauthorized).
+  labels: {
+    // "Trade Bias is part of Pro"
+    heading: (page: string | undefined) => string;
+    // Under the screenshot.
+    imageCaption: (page: string | undefined) => string;
+    comparePlans: string;
+    backToDashboard: string;
+    // The link after the annual line.
+    seeAnnual: string;
+    // Above the PRO_FEATURES list.
+    featuresHeading: string;
+    // The link to the page's help article.
+    howItWorks: (page: string | undefined) => string;
+  };
+  // proWallCopy's sentences.
+  copy: {
+    priceLine: (v: { pro: string; more: string }) => string;
+    // Appended to a "starts Pro today" sentence when the payment is covered.
+    guarantee: (days: number) => string;
+    keepTrial: (v: { trialEnd: string; pro: string; basic: string }) => string;
+    trialEarly: (v: { pro: string; guarantee: string; opensAt: string }) => string;
+    trialOther: (v: { guarantee: string }) => string;
+    paid: string;
+    pastDue: string;
+    none: string;
+    annual: (v: { annual: string; perMonth: string; basic: string }) => string;
+    switchCta: string;
+    updateCardCta: string;
+  };
+  // PRO_FEATURES, in the same order.
+  features: readonly string[];
+  // Each PRO_PAGE_PITCHES entry's pitch and screenshot alt text, by route.
+  pitches: Readonly<Record<string, { pitch: string; alt?: string }>>;
+  // GENERIC_PITCH's.
+  genericPitch: string;
+};
+
+const ENGLISH: ProWallText = {
+  labels: {
+    heading: (page) => `${page ?? 'This page'} is part of Pro`,
+    imageCaption: (page) => `${page ?? 'Pro'} on a past session: an example reading, not today’s.`,
+    comparePlans: 'Compare plans',
+    backToDashboard: 'Back to the dashboard',
+    seeAnnual: 'See Pro annual',
+    featuresHeading: 'Everything in Basic, plus',
+    howItWorks: (page) => `How ${page ?? 'it'} works`,
+  },
+  copy: {
+    priceLine: ({ pro, more }) => `Pro is ${pro} a month, ${more} more than Basic.`,
+    guarantee: (days) => `, covered by the ${days}-day money-back guarantee`,
+    keepTrial: ({ trialEnd, pro, basic }) =>
+      `Your free trial ends ${trialEnd}. Switch now and the rest of it stays free: your first payment becomes Pro's ${pro} instead of Basic's ${basic}, and you can still cancel any time before then.`,
+    trialEarly: ({ pro, guarantee, opensAt }) =>
+      `Switching now ends your free trial and starts Pro at ${pro} today${guarantee}. Or wait: from ${opensAt}, in the last two days of your trial, you can switch and keep those days free.`,
+    trialOther: ({ guarantee }) =>
+      `Switching now ends your free trial and starts Pro today${guarantee}. You'll see the exact amount before you confirm.`,
+    paid: 'Switch from the pricing page. Stripe shows you the exact amount before anything changes.',
+    pastDue: "Your last payment didn't go through. Update your card on the Account page first, then you can switch.",
+    none: 'Compare the plans to pick the one that fits.',
+    annual: ({ annual, perMonth, basic }) =>
+      `Or pay for a year: Pro annual is ${annual}, about ${perMonth} a month, which is less than Basic's ${basic} monthly price.`,
+    switchCta: 'Switch to Pro',
+    updateCardCta: 'Update your card',
+  },
+  features: PRO_FEATURES,
+  pitches: Object.fromEntries(
+    Object.entries(PRO_PAGE_PITCHES).map(([route, p]) => [route, { pitch: p.pitch, alt: p.image?.alt }]),
+  ),
+  genericPitch: GENERIC_PITCH.pitch,
+};
+
+function proWallText(locale: Locale): ProWallText {
+  return locale === 'en' ? ENGLISH : (PRO_WALL_TRANSLATIONS[locale] ?? ENGLISH);
+}
+
+// The screen's headings and links, in the member's language.
+export function proWallLabels(locale: Locale = DEFAULT_LOCALE): ProWallText['labels'] {
+  return proWallText(locale).labels;
 }
 
 export type ProWallCopy = {
@@ -203,17 +322,19 @@ export type ProWallCopy = {
 const PRO_MONTHLY = LIST_PRICE_USD.pro.monthly;
 const BASIC_MONTHLY = LIST_PRICE_USD.basic.monthly;
 
-export function proWallCopy(terms: ProWallTerms): ProWallCopy {
+export function proWallCopy(terms: ProWallTerms, locale: Locale = DEFAULT_LOCALE): ProWallCopy {
+  const { copy, labels } = proWallText(locale);
   const proMonthly = formatUsd(PRO_MONTHLY);
   const basicMonthly = formatUsd(BASIC_MONTHLY);
-  const priceLine = `Pro is ${proMonthly} a month, ${formatUsd(PRO_MONTHLY - BASIC_MONTHLY)} more than Basic.`;
-  const switchCta = { label: 'Switch to Pro', href: proSwitchPath('locked_page') };
-  const guaranteeClause = (covered: boolean) =>
-    covered ? `, covered by the ${MONEY_BACK_GUARANTEE_DAYS}-day money-back guarantee` : '';
+  const priceLine = copy.priceLine({ pro: proMonthly, more: formatUsd(PRO_MONTHLY - BASIC_MONTHLY) });
+  const switchCta = { label: copy.switchCta, href: proSwitchPath('locked_page') };
+  const guaranteeClause = (covered: boolean) => (covered ? copy.guarantee(MONEY_BACK_GUARANTEE_DAYS) : '');
   const annual = {
-    line: `Or pay for a year: Pro annual is ${formatUsd(LIST_PRICE_USD.pro.annual)}, about ${formatPerMonthUsd(
-      perMonthEquivalentUsd({ tier: 'pro', cadence: 'annual' }),
-    )} a month, which is less than Basic's ${basicMonthly} monthly price.`,
+    line: copy.annual({
+      annual: formatUsd(LIST_PRICE_USD.pro.annual),
+      perMonth: formatPerMonthUsd(perMonthEquivalentUsd({ tier: 'pro', cadence: 'annual' })),
+      basic: basicMonthly,
+    }),
     href: '/pricing?plan=pro&cadence=annual&from=locked_page',
   };
 
@@ -221,43 +342,51 @@ export function proWallCopy(terms: ProWallTerms): ProWallCopy {
     case 'keep_trial':
       return {
         priceLine,
-        termsLine: `Your free trial ends ${formatEtDateTime(terms.trialEndIso)}. Switch now and the rest of it stays free: your first payment becomes Pro's ${proMonthly} instead of Basic's ${basicMonthly}, and you can still cancel any time before then.`,
+        termsLine: copy.keepTrial({
+          trialEnd: formatEtDateTime(terms.trialEndIso, locale),
+          pro: proMonthly,
+          basic: basicMonthly,
+        }),
         cta: switchCta,
         annual: null,
       };
     case 'trial_early':
       return {
         priceLine,
-        termsLine: `Switching now ends your free trial and starts Pro at ${proMonthly} today${guaranteeClause(terms.guarantee)}. Or wait: from ${formatEtDateTime(terms.opensAtIso)}, in the last two days of your trial, you can switch and keep those days free.`,
+        termsLine: copy.trialEarly({
+          pro: proMonthly,
+          guarantee: guaranteeClause(terms.guarantee),
+          opensAt: formatEtDateTime(terms.opensAtIso, locale),
+        }),
         cta: switchCta,
         annual,
       };
     case 'trial_other':
       return {
         priceLine,
-        termsLine: `Switching now ends your free trial and starts Pro today${guaranteeClause(terms.guarantee)}. You'll see the exact amount before you confirm.`,
+        termsLine: copy.trialOther({ guarantee: guaranteeClause(terms.guarantee) }),
         cta: switchCta,
         annual,
       };
     case 'paid':
       return {
         priceLine,
-        termsLine: "Switch from the pricing page. Stripe shows you the exact amount before anything changes.",
+        termsLine: copy.paid,
         cta: switchCta,
         annual,
       };
     case 'past_due':
       return {
         priceLine,
-        termsLine: "Your last payment didn't go through. Update your card on the Account page first, then you can switch.",
-        cta: { label: 'Update your card', href: '/account' },
+        termsLine: copy.pastDue,
+        cta: { label: copy.updateCardCta, href: '/account' },
         annual: null,
       };
     case 'none':
       return {
         priceLine,
-        termsLine: 'Compare the plans to pick the one that fits.',
-        cta: { label: 'Compare plans', href: '/pricing?plan=pro' },
+        termsLine: copy.none,
+        cta: { label: labels.comparePlans, href: '/pricing?plan=pro' },
         annual: null,
       };
   }

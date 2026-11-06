@@ -5,9 +5,18 @@ import { ArrowRight, BarChart2, BookOpen, CheckCircle2, RotateCcw, Sparkles } fr
 
 import { BLOG_IMAGE_DIMENSIONS } from '@/core/blogImageManifest';
 import { getDb } from '@/core/db';
+import { DEFAULT_LOCALE, translate } from '@/core/i18n';
+import { getServerLocale } from '@/core/localizedContent';
 import { hasPriorMoneyBackRefund } from '@/core/moneyBackServer';
-import { navItemLabel } from '@/core/navigation';
-import { PRO_FEATURES, proPagePitch, proWallCopy, proWallTerms, type ProWallTerms } from '@/core/proWall';
+import { navItemLabel, navItemLabelKey } from '@/core/navigation';
+import {
+  proFeatures,
+  proPagePitch,
+  proWallCopy,
+  proWallLabels,
+  proWallTerms,
+  type ProWallTerms,
+} from '@/core/proWall';
 import { requireSession } from '@/core/serverAuth';
 import { priceIdToSku, skuHasFreeTrial } from '@/core/stripe';
 import { pricingHrefFor, resolveWall } from '@/core/returningMember';
@@ -236,10 +245,20 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   // what switching would mean for them today, and one button to the switch
   // (core/proWall.ts). `actor` is necessarily set here: resolveWall only
   // answers 'upgrade' for a session on Basic.
+  //
+  // In the member's language (the `lang` cookie), every word of it. The
+  // screens above are still English-only, so they keep the English menu label
+  // (wantedLabel) rather than mixing languages in one sentence.
   // ---------------------------------------------------------------------------
   if (wall.audience === 'upgrade' && actor) {
-    const pitch = proPagePitch(params.path);
-    const copy = proWallCopy(proWallTermsFor(actor.user.id, actor.user.email));
+    const locale = await getServerLocale();
+    const labels = proWallLabels(locale);
+    // The page's name the way their own menu shows it: translated where the
+    // menu translates it ("Gesamtscore"), English where it doesn't ("Trade Bias").
+    const labelKey = navItemLabelKey(params.path);
+    const pageLabel = locale !== DEFAULT_LOCALE && labelKey ? translate(locale, labelKey) : wantedLabel;
+    const pitch = proPagePitch(params.path, locale);
+    const copy = proWallCopy(proWallTermsFor(actor.user.id, actor.user.email), locale);
     const shot = pitch.image ? BLOG_IMAGE_DIMENSIONS[pitch.image.src] : undefined;
 
     return (
@@ -249,7 +268,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-brand-primary)]">
               <Sparkles size={13} /> Pro
             </div>
-            <h1 className="text-3xl font-bold">{wantedLabel ?? 'This page'} is part of Pro</h1>
+            <h1 className="text-3xl font-bold">{labels.heading(pageLabel)}</h1>
             <p className="mt-3 text-[var(--color-text-secondary)]">{pitch.pitch}</p>
 
             <div className="mt-6 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3">
@@ -265,10 +284,10 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
                 {copy.cta.label} <ArrowRight size={16} />
               </Link>
               <Link href="/pricing?plan=pro" className="text-[var(--color-brand-primary)] hover:underline">
-                Compare plans
+                {labels.comparePlans}
               </Link>
               <Link href="/dashboard" className="text-[var(--color-brand-primary)] hover:underline">
-                Back to the dashboard
+                {labels.backToDashboard}
               </Link>
             </div>
 
@@ -276,7 +295,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               <p className="mt-5 text-sm text-[var(--color-text-secondary)]">
                 {copy.annual.line}{' '}
                 <Link href={copy.annual.href} className="font-semibold text-[var(--color-brand-primary)] hover:underline">
-                  See Pro annual
+                  {labels.seeAnnual}
                 </Link>
               </p>
             )}
@@ -293,15 +312,15 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
                 className="h-auto w-full"
               />
               <figcaption className="px-4 py-2 text-xs text-[var(--color-text-secondary)]">
-                {wantedLabel ?? 'Pro'} on a past session: an example reading, not today&rsquo;s.
+                {labels.imageCaption(pageLabel)}
               </figcaption>
             </figure>
           )}
 
           <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-            <h2 className="text-lg font-semibold">Everything in Basic, plus</h2>
+            <h2 className="text-lg font-semibold">{labels.featuresHeading}</h2>
             <ul className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
-              {PRO_FEATURES.map((feature) => (
+              {proFeatures(locale).map((feature) => (
                 <li key={feature} className="flex items-start gap-2">
                   <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[var(--color-brand-primary)]" />
                   <span>{feature}</span>
@@ -311,7 +330,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
             {pitch.helpHref && (
               <p className="mt-4 text-sm">
                 <Link href={pitch.helpHref} className="text-[var(--color-brand-primary)] hover:underline">
-                  How {wantedLabel ?? 'it'} works
+                  {labels.howItWorks(pageLabel)}
                 </Link>
               </p>
             )}
