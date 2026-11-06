@@ -31,7 +31,9 @@ const readTrialParam = (): string | null => {
     if (params.get('trial_started') !== '1') return null;
     // '' rather than null when `trial` is absent, so "post-checkout, trial
     // undescribed" stays distinguishable from "not a post-checkout view".
-    return params.get('trial') ?? '';
+    // `card` (card=0: a trial started without a card) rides in the same
+    // string after a '|', so the snapshot stays a primitive.
+    return `${params.get('trial') ?? ''}|${params.get('card') ?? ''}`;
   } catch {
     // A malformed query string must never break the dashboard.
     return null;
@@ -46,11 +48,14 @@ export default function TrialStartedBanner() {
 
   if (trialParam === null || dismissed) return null;
 
-  const copy = resolveTrialStartedCopy(trialParam);
+  const [trial, card] = trialParam.split('|');
+  const copy = resolveTrialStartedCopy(trial ?? '', card || null);
   const [welcomeMessage, billingMessage] =
     copy.variant === 'days'
       ? [t('welcomeDays', { days: copy.days }), t('billingDays', { days: copy.days })]
-      : copy.variant === 'deferred'
+      : copy.variant === 'days_no_card'
+        ? [t('welcomeDays', { days: copy.days }), t('billingDaysNoCard')]
+        : copy.variant === 'deferred'
         ? [t('welcomeDeferred'), t('billingDeferred')]
         : copy.variant === 'money_back'
           ? [t('welcomeMoneyBack'), t('billingMoneyBack', { days: copy.days })]

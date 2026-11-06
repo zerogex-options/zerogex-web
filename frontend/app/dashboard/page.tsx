@@ -23,6 +23,7 @@ import TodaysReadCard from '@/components/TodaysReadCard';
 import Collapsible from '@/components/Collapsible';
 import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import TrialStartedBanner from './TrialStartedBanner';
+import NoCardTrialBanner from './NoCardTrialBanner';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useDensity } from '@/core/DensityContext';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -135,6 +136,7 @@ export default function DashboardPage() {
   return (
     <PageShell>
       <TrialStartedBanner />
+      <NoCardTrialBanner />
 
       <div className="flex items-center justify-between gap-3 mb-3">
         <h1 className="zg-h1">{t('dashboardTitle')}</h1>

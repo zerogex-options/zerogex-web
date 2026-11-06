@@ -285,3 +285,58 @@ test('no Pro offer unless the caller passes one, and never in the dormant copy',
   assert.doesNotMatch(dormant.text, /Want Pro instead/);
   assert.doesNotMatch(dormant.html, /Switch to Pro/);
 });
+
+// ---------------------------------------------------------------------------
+// The trial without a card (core/noCardTrial.ts). Everything above guards an
+// email whose premise is that the trial converts by itself. A trial that
+// started without a card, and still has none, does the opposite: it ends unless
+// the member acts. So its reminder must never borrow that premise.
+// ---------------------------------------------------------------------------
+
+const NO_CARD = { addCardUrl: 'https://zerogex.test/account?add_card=1' };
+
+test('the no-card reminder says nothing will be charged and the trial ends without a card', () => {
+  const { subject, text, html } = buildTrialReminderEmail({
+    trialEndIso: TRIAL_END_EDT,
+    billing: { chargeLabel: '$39.00/month' },
+    noCard: NO_CARD,
+  });
+  assert.match(subject, /add a card to keep it/);
+  assert.match(text, /no card on your account, so nothing will be charged/);
+  assert.match(text, /your account goes back to the free plan/);
+  // What keeping it costs, from the same invoice preview as the card reminder.
+  assert.match(text, /begins at \$39\.00\/month on September 14, 2026 at 6:03 AM EDT/);
+  assert.ok(text.includes(`Add a card: ${NO_CARD.addCardUrl}`));
+  assert.ok(html.includes(`href="${NO_CARD.addCardUrl}"`));
+  assert.match(html, />Add a card</);
+});
+
+test('the no-card reminder never says the trial carries on by itself', () => {
+  const { text, html } = buildTrialReminderEmail({ trialEndIso: TRIAL_END_EDT, noCard: NO_CARD });
+  for (const body of [text, html]) {
+    assert.doesNotMatch(body, /turns into a paid subscription automatically/);
+    assert.doesNotMatch(body, /carries straight on and the subscription renews by itself\./);
+    assert.doesNotMatch(body, /Manage subscription/);
+    assert.doesNotMatch(body, /card ending in/);
+  }
+  // "Nothing to do" appears only about leaving, after the way to keep it.
+  assert.ok(text.indexOf("you don't need to do anything") > text.indexOf('Add a card:'));
+});
+
+test('the no-card reminder ignores the Pro offer and the dormant copy', () => {
+  const { text } = buildTrialReminderEmail({
+    trialEndIso: TRIAL_END_EDT,
+    noCard: NO_CARD,
+    dormant: true,
+    proUpgrade: PRO_UPGRADE,
+  });
+  assert.doesNotMatch(text, /Want Pro instead/);
+  assert.doesNotMatch(text, /nothing catches you out/);
+  assert.match(text, /no card on your account/);
+});
+
+test('without a resolvable price the no-card reminder still sends, naming no amount', () => {
+  const { text } = buildTrialReminderEmail({ trialEndIso: TRIAL_END_EDT, noCard: NO_CARD });
+  assert.match(text, /begins when the trial ends/);
+  assert.doesNotMatch(text, /\$\d/);
+});

@@ -27,6 +27,21 @@ test('a day-count trial names the length checkout actually granted', () => {
   assert.deepEqual(resolveTrialStartedCopy('90'), { variant: 'days', days: 90 });
 });
 
+test('a trial started without a card (card=0) asks for one instead of promising a charge date', () => {
+  assert.deepEqual(resolveTrialStartedCopy('7', '0'), { variant: 'days_no_card', days: 7 });
+  // Only card=0 means no card; anything else is the ordinary trial.
+  assert.deepEqual(resolveTrialStartedCopy('7', '1'), { variant: 'days', days: 7 });
+  assert.deepEqual(resolveTrialStartedCopy('7', null), { variant: 'days', days: 7 });
+  // card=0 cannot turn a non-trial checkout into trial copy.
+  assert.deepEqual(resolveTrialStartedCopy('none', '0'), { variant: 'none' });
+  for (const [locale, strings] of Object.entries(dict)) {
+    const line = (strings as Record<string, string>).billingDaysNoCard;
+    assert.ok(line, `${locale} is missing billingDaysNoCard`);
+    // Nothing is charged without a card, so the line must not promise a charge date.
+    assert.doesNotMatch(line, /\{days\}/, `${locale}: billingDaysNoCard names a charge day`);
+  }
+});
+
 test('the founding deferral gets trial copy with no day count', () => {
   assert.deepEqual(resolveTrialStartedCopy('deferred'), { variant: 'deferred' });
 });

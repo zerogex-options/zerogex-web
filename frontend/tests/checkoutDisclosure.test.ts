@@ -31,6 +31,7 @@ test('every variant fits Stripe\'s limit and names the automatic renewal', () =>
     for (const cadence of BILLING_CADENCES) {
       for (const protection of [
         { kind: 'trial' as const, days: 30 },
+        { kind: 'trial_no_card' as const, days: 7 },
         { kind: 'money_back' as const, days: 7 },
         { kind: 'none' as const },
       ]) {
@@ -80,5 +81,38 @@ test('amounts are never restated (Stripe shows the charged figures itself)', () 
       const message = checkoutSubmitMessage({ locale, cadence, protection: { kind: 'money_back', days: 7 } });
       assert.doesNotMatch(message, /\$/, `${locale}/${cadence} quotes a price`);
     }
+  }
+});
+
+// The trial without a card (core/noCardTrial.ts). The member enters no payment
+// details, so the line must say nothing is charged, that a card added before the
+// end keeps the plan (and starts the renewal), and what happens without one.
+const NO_CARD: Record<string, RegExp> = {
+  en: /no card needed/i,
+  it: /senza carta/i,
+  de: /ohne Karte/i,
+  es: /sin tarjeta/i,
+  fr: /sans carte/i,
+};
+const TRIAL_ENDS_WITHOUT: Record<string, RegExp> = {
+  en: /Without a card, the trial simply ends/,
+  it: /Senza una carta, la prova termina/,
+  de: /Ohne Karte endet die Testphase/,
+  es: /Sin tarjeta, la prueba simplemente termina/,
+  fr: /Sans carte, l'essai prend simplement fin/,
+};
+
+test('the no-card trial line says no card, nothing charged, and what happens either way', () => {
+  for (const locale of LOCALES) {
+    const message = checkoutSubmitMessage({ locale, cadence: 'monthly', protection: { kind: 'trial_no_card', days: 7 } });
+    assert.match(message, NO_CARD[locale], `${locale}: no-card line does not say no card is needed`);
+    assert.match(message, TRIAL_ENDS_WITHOUT[locale], `${locale}: no-card line does not say what happens without a card`);
+    assert.match(message, /\b7\b/, `${locale}: no-card line drops the trial length`);
+    // The card trial's "won't be charged until the trial ends" would imply a
+    // charge at the end; nothing is charged without a card.
+    assert.notEqual(
+      message,
+      checkoutSubmitMessage({ locale, cadence: 'monthly', protection: { kind: 'trial', days: 7 } }),
+    );
   }
 });

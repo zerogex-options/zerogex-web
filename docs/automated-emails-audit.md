@@ -276,6 +276,20 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 - `dormant` (member never returned after signup) leads with the charge, puts the help
   offer before the exit, and carries no CTA button at all.
 
+**No-card trial variants** (`BILLING_NO_CARD_TRIAL`, `core/noCardTrial.ts`)
+- A trial that started without a card gets its own copy wherever the card copy
+  would promise a charge. The **welcome** says there is no card, nothing will be
+  charged, and how to keep the plan (`noCardTrial`, from the subscription's
+  `no_card_trial` metadata). The **48h reminder** becomes `Your ZeroGEX trial ends
+  in 2 days - add a card to keep it`, with the price and one **Add a card**
+  button, and never the Pro offer or the dormant copy (`noCard`, chosen per
+  member from `users.no_card_trial_*` and the live card lookup; a member who has
+  added a card gets the ordinary reminder). The **verified-never-paid** note and
+  the **verify reminder** describe the trial as needing no card while the flag is
+  on (the scripts read it from `.env.local`). Preview the reminder with
+  `make trial-reminders PREVIEW_TO=<you> NO_CARD=1`. Runbook:
+  `docs/no-card-trial-runbook.md`.
+
 **Trial-conversion confirmation** — `sendTrialConvertedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextChargeIso?, fullyCredited? })`
 - **Subject:** `Your ZeroGEX trial just became a full membership`
 - Fired from the Stripe webhook's `invoice.paid` when a trial's **first real charge

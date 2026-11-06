@@ -9,6 +9,8 @@ export const dict: PageDictionary = {
   en: {
     welcomeDays: 'Welcome\u00a0- your {days}-day free trial is now active.',
     billingDays: 'No charge until day {days}. Cancel anytime.',
+    billingDaysNoCard:
+      'No card needed, so nothing is charged. To keep your plan after the trial, add one from your Account page before it ends.',
     welcomeDeferred: 'Welcome\u00a0- your free trial is now active.',
     billingDeferred: 'No charge until your trial ends. Cancel anytime.',
     welcomeNone: 'Welcome\u00a0- your subscription is now active.',
@@ -21,6 +23,8 @@ export const dict: PageDictionary = {
   it: {
     welcomeDays: 'Benvenuto\u00a0- la tua prova gratuita di {days} giorni è ora attiva.',
     billingDays: 'Nessun addebito fino al giorno {days}. Annulla in qualsiasi momento.',
+    billingDaysNoCard:
+      'Nessuna carta richiesta, quindi non ti verrà addebitato nulla. Per mantenere il piano dopo la prova, aggiungine una dalla pagina Account prima che finisca.',
     welcomeDeferred: 'Benvenuto\u00a0- la tua prova gratuita è ora attiva.',
     billingDeferred: 'Nessun addebito fino al termine della prova. Annulla in qualsiasi momento.',
     welcomeNone: 'Benvenuto\u00a0- il tuo abbonamento è ora attivo.',
@@ -33,6 +37,8 @@ export const dict: PageDictionary = {
   de: {
     welcomeDays: 'Willkommen\u00a0- deine {days}-tägige kostenlose Testphase ist jetzt aktiv.',
     billingDays: 'Keine Abbuchung bis Tag {days}. Jederzeit kündbar.',
+    billingDaysNoCard:
+      'Keine Karte nötig, daher wird nichts abgebucht. Um deinen Plan nach der Testphase zu behalten, hinterlege vor ihrem Ende eine über deine Kontoseite.',
     welcomeDeferred: 'Willkommen\u00a0- deine kostenlose Testphase ist jetzt aktiv.',
     billingDeferred: 'Keine Abbuchung bis zum Ende der Testphase. Jederzeit kündbar.',
     welcomeNone: 'Willkommen\u00a0- dein Abonnement ist jetzt aktiv.',
@@ -45,6 +51,8 @@ export const dict: PageDictionary = {
   es: {
     welcomeDays: 'Bienvenido\u00a0- tu prueba gratuita de {days} días ya está activa.',
     billingDays: 'Sin cargo hasta el día {days}. Cancela cuando quieras.',
+    billingDaysNoCard:
+      'No necesitas tarjeta, así que no se te cobrará nada. Para mantener tu plan después de la prueba, añade una desde tu página de Cuenta antes de que termine.',
     welcomeDeferred: 'Bienvenido\u00a0- tu prueba gratuita ya está activa.',
     billingDeferred: 'Sin cargo hasta que termine la prueba. Cancela cuando quieras.',
     welcomeNone: 'Bienvenido\u00a0- tu suscripción ya está activa.',
@@ -57,6 +65,8 @@ export const dict: PageDictionary = {
   fr: {
     welcomeDays: 'Bienvenue\u00a0- votre essai gratuit de {days} jours est maintenant actif.',
     billingDays: 'Aucun débit avant le jour {days}. Annulez à tout moment.',
+    billingDaysNoCard:
+      "Aucune carte requise, donc rien ne vous est prélevé. Pour garder votre abonnement après l'essai, ajoutez-en une depuis votre page Compte avant la fin.",
     welcomeDeferred: 'Bienvenue\u00a0- votre essai gratuit est maintenant actif.',
     billingDeferred: "Aucun débit avant la fin de votre essai. Annulez à tout moment.",
     welcomeNone: 'Bienvenue\u00a0- votre abonnement est maintenant actif.',

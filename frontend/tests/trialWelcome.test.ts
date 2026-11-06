@@ -18,7 +18,9 @@ process.env.NEXT_PUBLIC_APP_URL = APP_URL;
 process.env.RESEND_API_KEY = 're_test_key';
 process.env.RESEND_FROM_EMAIL = 'ZeroGEX <hello@zerogex.test>';
 
-const { describeTrialLength, sendPaidWelcomeEmail } = await import('../core/mailer.ts');
+const { describeTrialLength, sendPaidWelcomeEmail, sendVerifiedNeverPaidEmail, sendVerifyReminderEmail } = await import(
+  '../core/mailer.ts'
+);
 
 type SentEmail = { subject: string; text: string; html: string };
 
@@ -120,4 +122,59 @@ test('describeTrialLength only names a plausible day count', () => {
   for (const bad of [undefined, null, 0, 0.4, -1, 366, Number.NaN, Number.POSITIVE_INFINITY]) {
     assert.equal(describeTrialLength(bad), 'free trial', `rejects ${String(bad)}`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// The trial without a card (core/noCardTrial.ts). Nothing is charged unless the
+// member adds a card, so no email may promise a charge date or a card on file.
+// ---------------------------------------------------------------------------
+
+test('a no-card trial welcome says how to keep the plan, not when the charge lands', async () => {
+  const sent = await capture(() =>
+    sendPaidWelcomeEmail('m@example.com', {
+      trialEndIso: '2026-11-13T15:00:00.000Z',
+      trialDays: 7,
+      noCardTrial: true,
+    }),
+  );
+  for (const body of [sent.text, sent.html]) {
+    assert.match(body, /7-day free trial is now active/);
+    assert.match(body, /no card on your account/);
+    assert.match(body, /nothing will be charged/);
+    assert.match(body, /add a card on your account page/);
+    assert.match(body, /goes back to the free plan/);
+    assert.doesNotMatch(body, /You won't be charged until/);
+  }
+});
+
+test('the card trial welcome is unchanged when the flag is absent', async () => {
+  const sent = await capture(() =>
+    sendPaidWelcomeEmail('m@example.com', { trialEndIso: '2026-11-13T15:00:00.000Z', trialDays: 7 }),
+  );
+  assert.match(sent.text, /You won't be charged until/);
+  assert.doesNotMatch(sent.text, /no card on your account/);
+});
+
+test('noCardTrial without a trial end changes nothing (a paid-up-front welcome)', async () => {
+  const sent = await capture(() => sendPaidWelcomeEmail('m@example.com', { noCardTrial: true }));
+  assert.doesNotMatch(sent.text, /no card on your account/);
+});
+
+test('the onboarding emails describe the no-card trial when the flag is on', async () => {
+  const unsubUrl = `${APP_URL}/unsubscribe?u=x&t=y`;
+  const onVnp = await capture(() => sendVerifiedNeverPaidEmail('m@example.com', { unsubUrl, noCardTrial: true }));
+  const offVnp = await capture(() => sendVerifiedNeverPaidEmail('m@example.com', { unsubUrl }));
+  assert.match(onVnp.text, /no card at all/);
+  assert.match(onVnp.html, /no card at all/);
+  assert.doesNotMatch(onVnp.text, /card is on file/);
+  assert.match(offVnp.text, /card is on file/);
+
+  const onVerify = await capture(() =>
+    sendVerifyReminderEmail('m@example.com', `${APP_URL}/verify?t=abc`, { noCardTrial: true }),
+  );
+  const offVerify = await capture(() => sendVerifyReminderEmail('m@example.com', `${APP_URL}/verify?t=abc`));
+  assert.match(onVerify.text, /no card needed/);
+  assert.match(onVerify.html, /no card needed/);
+  assert.doesNotMatch(onVerify.text, /card on file/);
+  assert.match(offVerify.text, /card on file/);
 });

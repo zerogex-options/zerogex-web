@@ -1086,6 +1086,15 @@ function initDb(): DatabaseSync {
   // latch: when it went out. Once per member, ever.
   ensureColumn('users', 'pro_interest_email_sent_at', 'TEXT');
 
+  // The free trial without a card (core/noCardTrial.ts). The webhook stamps the
+  // subscription id when a subscription carrying the no_card_trial metadata
+  // syncs, and the time a card was added to it (a SetupIntent succeeding while
+  // that trial runs). Together they answer, without a Stripe call, whether a
+  // trialing member still needs to add a card to keep their plan: the account
+  // page, the dashboard banner and the trial-end reminder all read them.
+  ensureColumn('users', 'no_card_trial_subscription_id', 'TEXT');
+  ensureColumn('users', 'no_card_trial_card_added_at', 'TEXT');
+
   // ── 7-day money-back guarantee ledger ─────────────────────────────────────
   // One row per guarantee refund request, keyed by the subscription it
   // refunds. Two jobs:

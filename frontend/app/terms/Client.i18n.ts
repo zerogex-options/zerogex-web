@@ -114,7 +114,7 @@ export const dict: PageDictionary = {
     s16Pre: 'Questions about these Terms can be sent to',
     s4TrialLabel: 'Free trial.',
     s4TrialBody:
-      'Where a plan includes a free trial (currently the Basic monthly plan), your payment method is collected at signup and first charged when the trial ends unless you cancel before then. One free trial per account. Switching during a trial to a plan without a trial ends the trial and bills the new plan immediately.',
+      'Where a plan includes a free trial (currently the Basic monthly plan), a payment method may be collected at signup or added during the trial. If one is on file when the trial ends, it is first charged then unless you cancel before; if none is, the trial ends without any charge. One free trial per account. Switching during a trial to a plan without a trial ends the trial and bills the new plan immediately.',
     s4GuaranteeLabel: '7-day money-back guarantee.',
     s4GuaranteeBody:
       'Plans without a free trial are covered by a money-back guarantee: if you request a refund from your account page within 7 days of the first payment on that subscription, we refund that payment (and any charge for an upgrade made within those 7 days) in full, cancel the subscription, and end access immediately. The guarantee is limited to one refund per customer, determined by account, email address, and payment card, and does not apply to renewals, to a trial that converts to a paid subscription, or to plans that include a free trial.',
@@ -236,7 +236,7 @@ export const dict: PageDictionary = {
     s16Pre: 'Le domande su questi Termini possono essere inviate a',
     s4TrialLabel: 'Prova gratuita.',
     s4TrialBody:
-      "Se un piano include una prova gratuita (attualmente il piano Basic mensile), il metodo di pagamento viene registrato all'iscrizione e addebitato per la prima volta al termine della prova, salvo annullamento prima di tale data. Una prova gratuita per account. Passare durante la prova a un piano senza prova termina la prova e addebita subito il nuovo piano.",
+      "Se un piano include una prova gratuita (attualmente il piano Basic mensile), il metodo di pagamento può essere registrato all'iscrizione o aggiunto durante la prova. Se al termine della prova è presente un metodo di pagamento, viene addebitato per la prima volta in quel momento, salvo annullamento prima di tale data; se non è presente, la prova termina senza alcun addebito. Una prova gratuita per account. Passare durante la prova a un piano senza prova termina la prova e addebita subito il nuovo piano.",
     s4GuaranteeLabel: 'Garanzia soddisfatti o rimborsati di 7 giorni.',
     s4GuaranteeBody:
       "I piani senza prova gratuita sono coperti da una garanzia soddisfatti o rimborsati: se richiedi un rimborso dalla pagina del tuo account entro 7 giorni dal primo pagamento dell'abbonamento, rimborsiamo integralmente tale pagamento (e qualsiasi addebito per un upgrade effettuato in quei 7 giorni), annulliamo l'abbonamento e terminiamo subito l'accesso. La garanzia è limitata a un rimborso per cliente, determinato in base ad account, indirizzo email e carta di pagamento, e non si applica ai rinnovi, a una prova che si converte in abbonamento a pagamento né ai piani che includono una prova gratuita.",
@@ -359,7 +359,7 @@ export const dict: PageDictionary = {
     s16Pre: 'Fragen zu diesen Bedingungen können gesendet werden an',
     s4TrialLabel: 'Kostenlose Testphase.',
     s4TrialBody:
-      'Enthält ein Plan eine kostenlose Testphase (derzeit der monatliche Basic-Plan), wird deine Zahlungsmethode bei der Anmeldung hinterlegt und erstmals zum Ende der Testphase belastet, sofern du nicht vorher kündigst. Eine kostenlose Testphase pro Konto. Ein Wechsel während der Testphase zu einem Plan ohne Testphase beendet die Testphase und berechnet den neuen Plan sofort.',
+      'Enthält ein Plan eine kostenlose Testphase (derzeit der monatliche Basic-Plan), kann deine Zahlungsmethode bei der Anmeldung hinterlegt oder während der Testphase hinzugefügt werden. Ist zum Ende der Testphase eine hinterlegt, wird sie dann erstmals belastet, sofern du nicht vorher kündigst; ist keine hinterlegt, endet die Testphase ohne jede Abbuchung. Eine kostenlose Testphase pro Konto. Ein Wechsel während der Testphase zu einem Plan ohne Testphase beendet die Testphase und berechnet den neuen Plan sofort.',
     s4GuaranteeLabel: '7-Tage-Geld-zurück-Garantie.',
     s4GuaranteeBody:
       'Pläne ohne kostenlose Testphase sind durch eine Geld-zurück-Garantie abgesichert: Forderst du innerhalb von 7 Tagen nach der ersten Zahlung für das Abonnement über deine Kontoseite eine Erstattung an, erstatten wir diese Zahlung (sowie Belastungen für ein innerhalb dieser 7 Tage vorgenommenes Upgrade) vollständig, kündigen das Abonnement und beenden den Zugang sofort. Die Garantie ist auf eine Erstattung pro Kunde beschränkt, bestimmt anhand von Konto, E-Mail-Adresse und Zahlungskarte, und gilt nicht für Verlängerungen, für eine Testphase, die in ein bezahltes Abonnement übergeht, oder für Pläne mit kostenloser Testphase.',
@@ -481,7 +481,7 @@ export const dict: PageDictionary = {
     s16Pre: 'Las preguntas sobre estos Términos pueden enviarse a',
     s4TrialLabel: 'Prueba gratuita.',
     s4TrialBody:
-      'Cuando un plan incluye una prueba gratuita (actualmente el plan Basic mensual), tu método de pago se registra al suscribirte y se cobra por primera vez al terminar la prueba, salvo que canceles antes. Una prueba gratuita por cuenta. Cambiar durante la prueba a un plan sin prueba termina la prueba y cobra el nuevo plan de inmediato.',
+      'Cuando un plan incluye una prueba gratuita (actualmente el plan Basic mensual), tu método de pago puede registrarse al suscribirte o añadirse durante la prueba. Si hay uno registrado cuando termina la prueba, se cobra por primera vez en ese momento, salvo que canceles antes; si no lo hay, la prueba termina sin ningún cargo. Una prueba gratuita por cuenta. Cambiar durante la prueba a un plan sin prueba termina la prueba y cobra el nuevo plan de inmediato.',
     s4GuaranteeLabel: 'Garantía de devolución de 7 días.',
     s4GuaranteeBody:
       'Los planes sin prueba gratuita están cubiertos por una garantía de devolución: si solicitas un reembolso desde la página de tu cuenta dentro de los 7 días siguientes al primer pago de esa suscripción, reembolsamos ese pago (y cualquier cargo por una mejora realizada en esos 7 días) en su totalidad, cancelamos la suscripción y terminamos el acceso de inmediato. La garantía se limita a un reembolso por cliente, determinado por cuenta, dirección de correo y tarjeta de pago, y no se aplica a renovaciones, a una prueba que se convierte en suscripción de pago ni a planes que incluyen una prueba gratuita.',
@@ -603,7 +603,7 @@ export const dict: PageDictionary = {
     s16Pre: 'Les questions relatives aux présentes Conditions peuvent être envoyées à',
     s4TrialLabel: 'Essai gratuit.',
     s4TrialBody:
-      "Lorsqu'une offre comprend un essai gratuit (actuellement l'offre Basic mensuelle), votre moyen de paiement est enregistré à l'inscription et débité pour la première fois à la fin de l'essai, sauf annulation avant cette date. Un essai gratuit par compte. Passer pendant l'essai à une offre sans essai met fin à l'essai et facture immédiatement la nouvelle offre.",
+      "Lorsqu'une offre comprend un essai gratuit (actuellement l'offre Basic mensuelle), votre moyen de paiement peut être enregistré à l'inscription ou ajouté pendant l'essai. S'il est enregistré à la fin de l'essai, il est débité pour la première fois à ce moment-là, sauf annulation avant cette date ; s'il ne l'est pas, l'essai prend fin sans aucun prélèvement. Un essai gratuit par compte. Passer pendant l'essai à une offre sans essai met fin à l'essai et facture immédiatement la nouvelle offre.",
     s4GuaranteeLabel: 'Garantie satisfait ou remboursé de 7 jours.',
     s4GuaranteeBody:
       "Les offres sans essai gratuit sont couvertes par une garantie satisfait ou remboursé : si vous demandez un remboursement depuis la page de votre compte dans les 7 jours suivant le premier paiement de cet abonnement, nous remboursons intégralement ce paiement (ainsi que tout montant facturé pour une montée de gamme effectuée pendant ces 7 jours), annulons l'abonnement et mettons fin immédiatement à l'accès. La garantie est limitée à un remboursement par client, déterminé par compte, adresse e-mail et carte de paiement, et ne s'applique pas aux renouvellements, à un essai converti en abonnement payant ni aux offres comprenant un essai gratuit.",

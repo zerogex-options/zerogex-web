@@ -25,9 +25,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // { flow: 'add_card' } opens the portal straight on its add-a-card screen and
+  // comes back with ?card_added=1: the no-card trial's way to keep the plan
+  // (core/noCardTrial.ts). The webhook's setup_intent.succeeded path makes the
+  // new card the subscription's default, so the trial converts at its end. Any
+  // other body (or none, as every existing caller sends) opens the portal home.
+  const body = (await request.json().catch(() => null)) as { flow?: unknown } | null;
+  const addCard = body?.flow === 'add_card';
+
   const session = await createBillingPortalSession(
     row.stripe_customer_id,
     `${getAppUrl()}/account`,
+    addCard ? { afterAddCardUrl: `${getAppUrl()}/account?card_added=1` } : {},
   );
 
   return NextResponse.json({ url: session.url });

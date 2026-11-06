@@ -17,9 +17,11 @@ Deux niveaux - **Basic** et **Pro** - chacun disponible en **mensuel**, en **t
 
 ## Essai gratuit (Basic mensuel)
 
-Basic mensuel commence par un **essai gratuit de 7 jours** : accès complet immédiat, votre carte enregistrée, et aucun prélèvement avant la fin de l'essai. Environ 48 heures avant la fin, nous vous envoyons un rappel par e-mail avec le montant qui sera prélevé. À la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit - sans étape de confirmation supplémentaire.
+Basic mensuel commence par un **essai gratuit de 7 jours** : accès complet immédiat et aucun prélèvement avant la fin de l'essai. Environ 48 heures avant la fin, nous vous envoyons un rappel par e-mail. Si une carte est enregistrée, il indique le montant qui sera prélevé et, à la fin de l'essai, l'abonnement se poursuit automatiquement au tarif auquel vous vous êtes inscrit - sans étape de confirmation supplémentaire.
 
 Pour empêcher ce renouvellement automatique : annulez avant la fin de l'essai via **Résilier l'abonnement** sur votre page Compte. Vous conservez l'accès jusqu'à la fin de l'essai. Un essai gratuit par compte.
+
+**Vous avez commencé l'essai sans carte ?** Rien n'est prélevé. Pour garder votre abonnement après l'essai, cliquez sur **Ajouter une carte** sur votre page [Compte](/account) avant la fin ; il se renouvelle ensuite automatiquement comme n'importe quelle autre offre. Si vous n'en ajoutez pas, l'essai prend simplement fin et votre compte repasse au plan gratuit, vos réglages étant conservés.
 
 ## Garantie satisfait ou remboursé de 7 jours (toutes les autres formules)
 

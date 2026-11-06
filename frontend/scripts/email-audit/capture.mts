@@ -96,9 +96,11 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   { id: 'email-verification', variant: 'default', run: () => capture(() => M.sendEmailVerification(TO, VERIFY_URL)) },
   { id: 'password-reset', variant: 'default', run: () => capture(() => M.sendPasswordResetEmail(TO, `${APP_URL}/reset?token=abc123`)) },
   { id: 'verify-reminder', variant: 'default', run: () => capture(() => M.sendVerifyReminderEmail(TO, VERIFY_URL)) },
+  { id: 'verify-reminder', variant: 'no-card trial on (BILLING_NO_CARD_TRIAL)', run: () => capture(() => M.sendVerifyReminderEmail(TO, VERIFY_URL, { noCardTrial: true })) },
 
   // --- welcome --------------------------------------------------------------
   { id: 'paid-welcome', variant: 'trial (7-day)', run: () => capture(() => M.sendPaidWelcomeEmail(TO, { trialEndIso: TRIAL_END, trialDays: 7 })) },
+  { id: 'paid-welcome', variant: 'trial started without a card', run: () => capture(() => M.sendPaidWelcomeEmail(TO, { trialEndIso: TRIAL_END, trialDays: 7, noCardTrial: true })) },
   { id: 'paid-welcome', variant: 'immediate paid (no trial)', run: () => capture(() => M.sendPaidWelcomeEmail(TO, {})) },
   { id: 'paid-welcome', variant: 'paid up front (7-day money-back guarantee)', run: () => capture(() => M.sendPaidWelcomeEmail(TO, { moneyBackUntilIso: MONEY_BACK_UNTIL })) },
   { id: 'founding-welcome', variant: 'default', run: () => capture(() => M.sendFoundingWelcomeEmail(TO, { trialEndIso: TRIAL_END })) },
@@ -110,6 +112,7 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   { id: 'trial-reminder', variant: 'engaged', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' } })) },
   { id: 'trial-reminder', variant: 'on a promo intro rate', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242' }, promoIntroLabel: 'first 12 months' })) },
   { id: 'trial-reminder', variant: 'dormant (never returned)', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' }, dormant: true })) },
+  { id: 'trial-reminder', variant: 'no card on file (no-card trial)', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$39.00/month' }, noCard: { addCardUrl: 'https://zerogex.io/account?add_card=1' } })) },
   { id: 'trial-converted', variant: 'charged', run: () => capture(() => M.sendTrialConvertedEmail(TO, { amountFormatted: '$59.00', cardBrand: 'Visa', cardLast4: '4242', nextChargeIso: PERIOD_END })) },
   { id: 'trial-converted', variant: 'fully credited ($0 invoice)', run: () => capture(() => M.sendTrialConvertedEmail(TO, { amountFormatted: '$0.00', cardBrand: 'Visa', cardLast4: '4242', nextChargeIso: PERIOD_END, fullyCredited: true })) },
   { id: 'trial-conversion-failed', variant: 'default', run: () => capture(() => M.sendTrialConversionFailedEmail(TO, { amountFormatted: '$59.00', cardBrand: 'Visa', cardLast4: '4242', nextAttemptIso: NEXT_ATTEMPT, graceUntilIso: GRACE_UNTIL })) },
@@ -128,6 +131,7 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
 
   // --- conversion nudges ----------------------------------------------------
   { id: 'verified-never-paid', variant: 'default', run: () => capture(() => M.sendVerifiedNeverPaidEmail(TO, { unsubUrl: UNSUB })) },
+  { id: 'verified-never-paid', variant: 'no-card trial on (BILLING_NO_CARD_TRIAL)', run: () => capture(() => M.sendVerifiedNeverPaidEmail(TO, { unsubUrl: UNSUB, noCardTrial: true })) },
   { id: 'checkout-recovery', variant: 'plain', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: null, unsubUrl: UNSUB })) },
   { id: 'checkout-recovery', variant: 'founding deadline live', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: 'October 1, 2026', unsubUrl: UNSUB })) },
   { id: 'checkout-recovery', variant: 'promo deadline live', run: () => capture(() => M.sendCheckoutRecoveryEmail(TO, { foundingDeadlineLabel: null, promoDeadlineLabel: 'October 1, 2026', promoPricing: { basicMonthly: '$29.00', proMonthly: '$49.00' }, unsubUrl: UNSUB })) },

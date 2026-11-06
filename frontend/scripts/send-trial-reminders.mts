@@ -59,6 +59,7 @@ import {
   isTrialProUpgradeOpen,
   proSwitchPath,
 } from '../core/trialProUpgrade.ts';
+import { needsCard } from '../core/noCardTrial.ts';
 import { LIST_PRICE_USD, formatUsd } from '../core/billingPlans.ts';
 
 // 48h from now is the target; a 6h window centered on it (3h each side)
@@ -80,6 +81,8 @@ type Args = {
   render: string | null;
   // Optional output directory for --render (defaults to the OS temp dir).
   out: string | null;
+  // With --preview-to: send the no-card variant (core/noCardTrial.ts) instead.
+  noCard: boolean;
 };
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -116,6 +119,7 @@ function parseArgs(argv: string[]): Args {
     previewTo: null,
     render: null,
     out: null,
+    noCard: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -129,6 +133,7 @@ function parseArgs(argv: string[]): Args {
       }
       args.windowHours = value;
     } else if (arg === '--preview-to') args.previewTo = argv[++i] ?? null;
+    else if (arg === '--no-card') args.noCard = true;
     else if (arg === '--render') args.render = argv[++i] ?? null;
     else if (arg === '--out') args.out = argv[++i] ?? null;
     else if (arg === '--help' || arg === '-h') args.help = true;
@@ -158,6 +163,8 @@ Options:
       --window-hours N      Override the +/- N/2 hour window (default ${DEFAULT_WINDOW_HOURS}).
       --preview-to <email>  Render the email and send ONE copy to <email>
                             with a sample trial-end date. No DB writes.
+      --no-card             With --preview-to: the reminder for a trial that
+                            started without a card and still has none.
       --render <email>      Render THIS member's real reminder (charge + card
                             resolved live from Stripe) to .html/.txt files and
                             print the text version. Never sends, never writes to
@@ -446,6 +453,9 @@ const PRO_SWITCH_URL = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3
   proSwitchPath('trial_reminder'),
 )}`;
 const PRO_MONTHLY_PRICE = formatUsd(LIST_PRICE_USD.pro.monthly);
+// Where a no-card trialer adds a card: the account page, which opens the billing
+// portal's add-a-card flow (and sends them through /login first if needed).
+const ADD_CARD_URL = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/account?add_card=1`;
 // This reminder carries NO discount. It used to mint a signed one-click
 // /convert link offering 25% off for a year — handed unprompted to a trialer
 // with a card on file who was about to be charged anyway, and spending the
@@ -459,12 +469,22 @@ if (cliArgs.previewTo) {
   // Sample billing so the preview renders the charge/card line. Real sends pull
   // these live from Stripe per user (see resolveBillingDetails); this is just
   // representative data for eyeballing the layout.
-  await sendTrialReminderEmail(cliArgs.previewTo, {
-    trialEndIso: sample,
-    billing: { chargeLabel: '$39.00/month', cardBrand: 'Visa', cardLast4: '4242' },
-    // The engaged Basic monthly copy, which carries the two-day Pro offer.
-    proUpgrade: { switchUrl: PRO_SWITCH_URL, proMonthlyPrice: PRO_MONTHLY_PRICE },
-  });
+  await sendTrialReminderEmail(
+    cliArgs.previewTo,
+    cliArgs.noCard
+      ? {
+          // A trial that started without a card and still has none.
+          trialEndIso: sample,
+          billing: { chargeLabel: '$39.00/month' },
+          noCard: { addCardUrl: ADD_CARD_URL },
+        }
+      : {
+          trialEndIso: sample,
+          billing: { chargeLabel: '$39.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+          // The engaged Basic monthly copy, which carries the two-day Pro offer.
+          proUpgrade: { switchUrl: PRO_SWITCH_URL, proMonthlyPrice: PRO_MONTHLY_PRICE },
+        },
+  );
   console.log('Preview sent.');
   process.exit(0);
 }
@@ -480,6 +500,19 @@ if (!fs.existsSync(dbPath)) {
 
 ensureSqlite3Cli();
 
+// The no-card trial columns (core/noCardTrial.ts) are added by the migration the
+// app runs when it starts on the new code (core/db.ts). Between a merge and that
+// restart they do not exist yet, and a timer firing in that gap must not fail
+// the whole run: nobody can be on a no-card trial before the app knows about
+// them, so read them as NULL until they appear.
+const userColumns = new Set(
+  querySqlite<{ name: string }>(dbPath, 'PRAGMA table_info(users);').map((c) => c.name),
+);
+const NO_CARD_COLUMNS =
+  userColumns.has('no_card_trial_subscription_id') && userColumns.has('no_card_trial_card_added_at')
+    ? 'no_card_trial_subscription_id, no_card_trial_card_added_at'
+    : 'NULL AS no_card_trial_subscription_id, NULL AS no_card_trial_card_added_at';
+
 // --render <email>: dry-run preview of one member's REAL reminder. Resolves the
 // same live-from-Stripe charge + card the send loop would, builds the exact wire
 // copy via buildTrialReminderEmail, and writes it to files — no send, no DB
@@ -490,7 +523,8 @@ if (cliArgs.render) {
   const rows = querySqlite<UserRow>(
     dbPath,
     `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id,
-            created_at, last_seen_at, stripe_price_id, marketing_unsubscribed_at
+            created_at, last_seen_at, stripe_price_id, marketing_unsubscribed_at,
+            subscription_status, ${NO_CARD_COLUMNS}
      FROM users
      WHERE email = '${escapeSqlLiteral(email)}'
      LIMIT 1;`,
@@ -536,12 +570,14 @@ if (cliArgs.render) {
     Date.now(),
     Date.parse(user.current_period_end) - TARGET_HOURS * 3600_000,
   );
-  const renderProUpgrade = proUpgradeFor(user, renderSendMs);
+  const renderNoCard = noCardFor(user, billing);
+  const renderProUpgrade = renderNoCard ? null : proUpgradeFor(user, renderSendMs);
   const { subject, html, text } = buildTrialReminderEmail({
     trialEndIso: user.current_period_end,
     billing,
     dormant: shouldSendDormantTrialCopy(renderEngagement),
     proUpgrade: renderProUpgrade,
+    noCard: renderNoCard,
   });
 
   const outDir = cliArgs.out ?? os.tmpdir();
@@ -561,6 +597,7 @@ if (cliArgs.render) {
         : ' — ordinary copy'
   }`);
   console.log(`Last seen:     ${user.last_seen_at ?? '— (never recorded)'}`);
+  console.log(`No card:       ${renderNoCard ? 'yes — no-card copy: nothing charged, add a card to keep it' : 'no'}`);
   console.log(`Pro offer:     ${renderProUpgrade ? 'included (two-day Pro upgrade)' : 'omitted (not an engaged, opted-in Basic monthly trial)'}`);
   console.log(`Subject:       ${subject}`);
   console.log(
@@ -598,6 +635,11 @@ type UserRow = {
   last_seen_at: string | null;
   stripe_price_id: string | null;
   marketing_unsubscribed_at: string | null;
+  // The trial without a card (core/noCardTrial.ts): which subscription started
+  // as one, when a card was added to it, and the status needsCard reads.
+  subscription_status: string | null;
+  no_card_trial_subscription_id: string | null;
+  no_card_trial_card_added_at: string | null;
 };
 
 // One place that turns a row into its engagement, so the dry-run listing, the
@@ -626,10 +668,25 @@ function proUpgradeFor(user: UserRow, atMs: number): { switchUrl: string; proMon
   return open ? { switchUrl: PRO_SWITCH_URL, proMonthlyPrice: PRO_MONTHLY_PRICE } : null;
 }
 
+// The no-card reminder (core/noCardTrial.ts): the trial started without a card
+// and none has been added, so it will end instead of converting. The row records
+// a card added through the add-a-card flow (setup_intent.succeeded); a card the
+// Stripe lookup finds anyway counts as added too, and gets the ordinary
+// reminder, which names it.
+function noCardFor(
+  user: UserRow,
+  billing: BillingDetails | null,
+): { addCardUrl: string } | null {
+  if (!needsCard(user)) return null;
+  if (billing?.cardLast4) return null;
+  return { addCardUrl: ADD_CARD_URL };
+}
+
 const eligible = querySqlite<UserRow>(
   dbPath,
   `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id,
-          created_at, last_seen_at, stripe_price_id, marketing_unsubscribed_at
+          created_at, last_seen_at, stripe_price_id, marketing_unsubscribed_at,
+          subscription_status, ${NO_CARD_COLUMNS}
    FROM users
    WHERE subscription_status = 'trialing'
      AND trial_reminder_email_sent_at IS NULL
@@ -671,9 +728,17 @@ if (unknownCount > 0) {
   );
 }
 
+const noCardCount = eligible.filter((u) => needsCard(u)).length;
+if (noCardCount > 0) {
+  console.log(
+    `No card:          ${noCardCount} started without a card and have not added one; they get the`,
+  );
+  console.log('                   "add a card to keep it" reminder unless Stripe finds a card');
+}
+
 const sample = eligible.slice(0, 10);
 for (const u of sample) {
-  const pro = proUpgradeFor(u, nowMs) ? ', Pro offer' : '';
+  const pro = needsCard(u) ? ', no card' : proUpgradeFor(u, nowMs) ? ', Pro offer' : '';
   console.log(`  - ${u.email}: trial ends ${u.current_period_end}  [${engagementFor(u)}${pro}]`);
 }
 if (eligible.length > sample.length) {
@@ -727,12 +792,14 @@ for (const user of eligible) {
       }
     }
 
-    const proUpgrade = proUpgradeFor(user, Date.now());
+    const noCard = noCardFor(user, billing);
+    const proUpgrade = noCard ? null : proUpgradeFor(user, Date.now());
     await sendTrialReminderEmail(user.email, {
       trialEndIso: user.current_period_end,
       billing,
       dormant: shouldSendDormantTrialCopy(engagementFor(user)),
       proUpgrade,
+      noCard,
     });
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends
@@ -757,7 +824,7 @@ for (const user of eligible) {
          NULL,
          '${escapeSqlLiteral(user.email)}',
          'cron-script',
-         '${escapeSqlLiteral(`Trial-end reminder sent; current_period_end=${user.current_period_end}${proUpgrade ? '; with two-day Pro offer' : ''}`)}',
+         '${escapeSqlLiteral(`Trial-end reminder sent; current_period_end=${user.current_period_end}${proUpgrade ? '; with two-day Pro offer' : ''}${noCard ? '; no card on file' : ''}`)}',
          '${escapeSqlLiteral(nowIso)}'
        );`,
     );

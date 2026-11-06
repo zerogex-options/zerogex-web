@@ -100,6 +100,11 @@ type Props = {
   trialProUpgradeUntil: string | null;
   // They have already used their one money-back refund (this account or email).
   guaranteeUsed: boolean;
+  // New standard trials start without a card (BILLING_NO_CARD_TRIAL,
+  // core/noCardTrial.ts), so the trial copy says "no card needed" instead of
+  // "your card is collected at signup". Not for a ?reactivate=1 visitor, whose
+  // extended trial still takes a card.
+  noCardTrial: boolean;
 };
 
 // What the promo is worth over its whole run: $10 off × 12 months = $120.
@@ -314,6 +319,7 @@ function TierCard({
   hasGuarantee,
   keepsTrialUntil,
   trialDays,
+  noCard,
   action,
   busy,
   onSubscribe,
@@ -342,6 +348,8 @@ function TierCard({
   // extended REACTIVATION_TRIAL_DAYS for a ?reactivate=1 visitor so the card
   // agrees with the hero and the email.
   trialDays: number;
+  // The trial starts without a card (core/noCardTrial.ts).
+  noCard: boolean;
   action: TierAction;
   busy: boolean;
   onSubscribe: (tier: BillableTier) => void;
@@ -384,7 +392,7 @@ function TierCard({
 
       {startsTrial && (
         <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-          {t('trialDaysNote', { days: trialDays })}
+          {t(noCard ? 'trialDaysNoteNoCard' : 'trialDaysNote', { days: trialDays })}
         </p>
       )}
       {hasGuarantee && (
@@ -832,6 +840,7 @@ function PricingClientInner({
   subscriptionStatus,
   trialProUpgradeUntil,
   guaranteeUsed,
+  noCardTrial,
 }: Props) {
   const t = usePageT(dict);
   const { locale } = useLanguage();
@@ -1034,6 +1043,9 @@ function PricingClientInner({
   // authority on what actually attaches (it re-checks reactivation eligibility),
   // exactly like the win-back discount banner — display reflects intent.
   const trialDaysDisplay = cameFromReactivate ? REACTIVATION_TRIAL_DAYS : TRIAL_DAYS;
+  // "No card needed" copy: the standard trial with BILLING_NO_CARD_TRIAL on.
+  // The reactivation trial still takes a card, so its visitors keep the card copy.
+  const noCardCopy = noCardTrial && !cameFromReactivate;
   // Banner only shows when we have a definitive false. While the session is
   // loading, emailVerified is undefined; rendering the banner then would
   // flash it for everyone on every pricing-page visit.
@@ -1436,7 +1448,7 @@ function PricingClientInner({
                   {t('heroTrialSubtitle', { days: trialDaysDisplay })}
                 </p>
                 <p style={{ margin: '0 auto 14px', maxWidth: 760, color: C.amber, fontSize: 15, lineHeight: 1.7, fontWeight: 700 }}>
-                  {t('heroTrialNoCharge', { days: trialDaysDisplay })}
+                  {t(noCardCopy ? 'heroTrialNoChargeNoCard' : 'heroTrialNoCharge', { days: trialDaysDisplay })}
                 </p>
                 <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
                   {t('heroTrialBody')}
@@ -1451,7 +1463,7 @@ function PricingClientInner({
                   {t('heroSubtitle')}
                 </p>
                 <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-                  {t('heroBody', { days: TRIAL_DAYS })}
+                  {t(noCardCopy ? 'heroBodyNoCard' : 'heroBody', { days: TRIAL_DAYS })}
                 </p>
               </>
             )}
@@ -1624,6 +1636,7 @@ function PricingClientInner({
               hasGuarantee={basicTerms.hasGuarantee}
               keepsTrialUntil={null}
               trialDays={trialDaysDisplay}
+              noCard={noCardCopy}
               accent="var(--color-brand-primary)"
               features={[
                 t('basicFeature1'),
@@ -1651,6 +1664,7 @@ function PricingClientInner({
                 proTerms.keepsTrial && trialProUpgradeUntil ? formatChargeDate(trialProUpgradeUntil) : null
               }
               trialDays={trialDaysDisplay}
+              noCard={noCardCopy}
               accent="var(--color-brand-accent)"
               features={[
                 t('proFeature1'),
@@ -1791,7 +1805,7 @@ function PricingClientInner({
               </p>
               <ul className="zg-policy-list" style={{ marginTop: 12 }}>
                 <li>
-                  <strong>{t('trialListLabel', { days: TRIAL_DAYS })}</strong> {t('trialListBody')}
+                  <strong>{t('trialListLabel', { days: TRIAL_DAYS })}</strong> {t(noCardCopy ? 'trialListBodyNoCard' : 'trialListBody')}
                 </li>
                 <li>
                   <strong>{t('moneyBackListLabel')}</strong> {t('moneyBackListBody')}

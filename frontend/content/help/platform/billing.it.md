@@ -17,9 +17,11 @@ Due livelli - **Basic** e **Pro** - ciascuno disponibile su base **mensile**, 
 
 ## Prova gratuita (Basic mensile)
 
-Basic mensile inizia con una **prova gratuita di 7 giorni**: accesso completo da subito, la tua carta registrata e nessun addebito fino al termine della prova. Circa 48 ore prima della fine ti inviamo un promemoria via email con l'importo che verrà addebitato. Al termine della prova, l'abbonamento continua automaticamente al prezzo con cui ti sei iscritto - senza un secondo passaggio di conferma.
+Basic mensile inizia con una **prova gratuita di 7 giorni**: accesso completo da subito e nessun addebito fino al termine della prova. Circa 48 ore prima della fine ti inviamo un promemoria via email. Se è registrata una carta, il promemoria indica l'importo che verrà addebitato e, al termine della prova, l'abbonamento continua automaticamente al prezzo con cui ti sei iscritto - senza un secondo passaggio di conferma.
 
 Per evitare questo rinnovo automatico: annulla prima che la prova termini con **Annulla abbonamento** nella tua pagina Account. Manterrai l'accesso fino alla fine della prova. Una prova gratuita per account.
+
+**Hai iniziato la prova senza carta?** Non viene addebitato nulla. Per mantenere il piano dopo la prova, clicca **Aggiungi una carta** nella tua pagina [Account](/account) prima che finisca; da quel momento si rinnova automaticamente come qualsiasi altro piano. Se non la aggiungi, la prova termina e il tuo account torna al piano gratuito, con le tue impostazioni conservate.
 
 ## Garanzia soddisfatti o rimborsati di 7 giorni (tutti gli altri piani)
 

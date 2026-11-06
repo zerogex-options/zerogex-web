@@ -61,6 +61,9 @@ type BillingStatusPayload = {
   // a pause.
   planOffers?: LengthenOffer[];
   canPause?: boolean;
+  // A trial that started without a card (core/noCardTrial.ts), else null: when
+  // it ends and whether a card has been added since.
+  noCardTrial?: { trialEndIso: string | null; cardAdded: boolean } | null;
 };
 
 // Statuses that can still be canceled from the Account page. Every cancel goes
@@ -400,7 +403,10 @@ function AccountPageContent() {
   const canManageBilling =
     tier !== 'admin' && (tier !== 'public' || hasBillingAccount || hasActiveSubscription);
 
-  const handleManageSubscription = async () => {
+  // The portal home, or with { flow: 'add_card' } straight to its add-a-card
+  // screen (the no-card trial's way to keep the plan; it comes back with
+  // ?card_added=1).
+  const openBillingPortal = async (body?: { flow: 'add_card' }) => {
     setOpening(true);
     setFeedback(null);
     try {
@@ -413,8 +419,11 @@ function AccountPageContent() {
 
       const response = await fetch('/api/billing/portal', {
         method: 'POST',
-        headers: { 'x-csrf-token': csrf.csrfToken },
+        headers: body
+          ? { 'x-csrf-token': csrf.csrfToken, 'content-type': 'application/json' }
+          : { 'x-csrf-token': csrf.csrfToken },
         credentials: 'include',
+        ...(body ? { body: JSON.stringify(body) } : {}),
       });
       const payload = (await response.json()) as { url?: string; error?: string };
       if (!response.ok || !payload.url) {
@@ -429,6 +438,24 @@ function AccountPageContent() {
       setOpening(false);
     }
   };
+  const handleManageSubscription = () => openBillingPortal();
+  const handleAddCard = () => openBillingPortal({ flow: 'add_card' });
+
+  // Back from the portal's add-a-card flow. The webhook that records the card
+  // can land a moment after this page does, so the notice stands in for the
+  // panel until it has.
+  const cardJustAdded = searchParams.get('card_added') === '1';
+  const noCardTrial = billing?.noCardTrial ?? null;
+  const showAddCard =
+    !!noCardTrial && !noCardTrial.cardAdded && !!noCardTrial.trialEndIso && !cardJustAdded;
+  // The trial-end reminder's button lands here with ?add_card=1: bring the
+  // panel into view once billing has loaded and it renders.
+  const wantsAddCard = searchParams.get('add_card') === '1';
+  useEffect(() => {
+    if (wantsAddCard && showAddCard) {
+      document.getElementById('add-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [wantsAddCard, showAddCard]);
 
   const handleResume = async () => {
     setResuming(true);
@@ -756,6 +783,61 @@ function AccountPageContent() {
               }}
             >
               {t('paymentIssueWarning')}
+            </div>
+          )}
+          {cardJustAdded && (
+            <div
+              role="status"
+              style={{
+                margin: '6px 0 14px',
+                borderRadius: 12,
+                padding: '12px 16px',
+                fontSize: 14,
+                fontWeight: 600,
+                border: '1px solid var(--color-bull)',
+                color: 'var(--color-text-primary)',
+                background: 'var(--color-bull-soft)',
+              }}
+            >
+              {t('cardAddedNotice')}
+            </div>
+          )}
+          {showAddCard && noCardTrial?.trialEndIso && (
+            <div
+              id="add-card"
+              style={{
+                margin: '6px 0 16px',
+                borderRadius: 12,
+                padding: '16px 18px',
+                border: '1px solid var(--color-brand-primary)',
+                background: 'var(--color-brand-primary-soft, rgba(245,180,0,0.12))',
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: 15, color: C.light }}>{t('noCardTrialTitle')}</div>
+              <p style={{ margin: '6px 0 12px', color: C.light, fontSize: 14, lineHeight: 1.5 }}>
+                {t('noCardTrialBody', { date: formatBillingDate(noCardTrial.trialEndIso) })}
+              </p>
+              <button
+                type="button"
+                onClick={handleAddCard}
+                disabled={opening}
+                style={{
+                  background: 'var(--color-brand-primary)',
+                  border: 'none',
+                  color: 'var(--text-inverse)',
+                  borderRadius: 10,
+                  padding: '10px 18px',
+                  fontWeight: 800,
+                  fontSize: 14,
+                  cursor: opening ? 'not-allowed' : 'pointer',
+                  opacity: opening ? 0.6 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <CreditCard size={16} /> {opening ? t('openingPortal') : t('noCardTrialButton')}
+              </button>
             </div>
           )}
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>

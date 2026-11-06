@@ -23,11 +23,17 @@
 //             no trial, paid up front — but on a plan sold under the 7-day
 //             money-back guarantee (core/billingPlans.ts), which the banner
 //             restates with how to use it and the one-refund limit.
+//   days_no_card
+//             a day-count trial that started without a card
+//             (core/noCardTrial.ts, signaled by card=0 beside trial=). Nothing
+//             is charged unless a card is added, so "no charge until day 7" is
+//             replaced by how to keep the plan.
 
 import { MONEY_BACK_GUARANTEE_DAYS } from '../../core/billingPlans.ts';
 
 export type TrialStartedCopy =
   | { variant: 'days'; days: number }
+  | { variant: 'days_no_card'; days: number }
   | { variant: 'deferred' }
   | { variant: 'none' }
   | { variant: 'money_back'; days: number };
@@ -37,12 +43,16 @@ export type TrialStartedCopy =
 // hand-edited URL can't put an arbitrary figure in front of the member.
 const MAX_NAMEABLE_TRIAL_DAYS = 365;
 
-export function resolveTrialStartedCopy(param: string | null): TrialStartedCopy {
+export function resolveTrialStartedCopy(
+  param: string | null,
+  // The `card` param: '0' when checkout started the trial without a card.
+  card: string | null = null,
+): TrialStartedCopy {
   if (param === 'none') return { variant: 'none' };
   if (param === 'money_back') return { variant: 'money_back', days: MONEY_BACK_GUARANTEE_DAYS };
   const days = Number(param);
   if (Number.isInteger(days) && days >= 1 && days <= MAX_NAMEABLE_TRIAL_DAYS) {
-    return { variant: 'days', days };
+    return card === '0' ? { variant: 'days_no_card', days } : { variant: 'days', days };
   }
   // 'deferred', absent (a checkout session created before this param shipped
   // can still land here for up to a day), or anything unrecognized. Naming no

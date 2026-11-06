@@ -18,6 +18,7 @@ import { REFERRAL_COOKIE_NAME, requireSession } from '@/core/serverAuth';
 import { PUBLISHER_REF, SITE_URL } from '@/core/articleRegistry';
 import { pricingJsonLd } from '@/core/pricingJsonLd';
 import { isTrialProUpgradeOpen } from '@/core/trialProUpgrade';
+import { isNoCardTrialEnabled } from '@/core/noCardTrial';
 import PricingClient from './Client';
 
 // The trial end, while a Basic monthly trialer is inside the two-day Pro upgrade
@@ -141,6 +142,7 @@ export default async function PricingPage() {
         subscriptionStatus={subscriptionStatus}
         trialProUpgradeUntil={trialProUpgradeUntil}
         guaranteeUsed={guaranteeUsed}
+        noCardTrial={isNoCardTrialEnabled()}
       />
     </>
   );
