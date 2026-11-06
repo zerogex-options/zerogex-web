@@ -27,8 +27,11 @@
 //   • Not limited to first-time customers. That restriction is what keeps a
 //     forwarded or posted code from discounting a churned member's return (the
 //     win-back owns them) and bounds the damage of a leak to new customers.
-//   • Limited to one customer, to a minimum order, or to some products. The copy
-//     says the code works on any plan; any of those makes that untrue.
+//   • Limited to one customer or to a minimum order, or to products that leave
+//     out a plan the email prices. The copy says the code works on any plan.
+//     A product limit that covers every plan is fine: each tier is one Stripe
+//     product with all its billing periods under it, so a coupon limited to the
+//     Basic and Pro products discounts every plan.
 //   • A coupon shape whose wording would be wrong on some plan:
 //       - duration "once": with the Basic trial the first invoice is the $0
 //         trial invoice, so "your first payment" is not a promise this email can
@@ -255,6 +258,9 @@ export function redemptionsLeft(promo: OfferPromotionCode): number | null {
   return caps.length > 0 ? Math.min(...caps) : null;
 }
 
+/** A plan the email offers, and the Stripe product its price belongs to. */
+export type OfferPlanProduct = { label: string; productId: string };
+
 /**
  * Every reason not to send an email offering this code. Empty means it is safe
  * to describe and every recipient can redeem it.
@@ -262,11 +268,16 @@ export function redemptionsLeft(promo: OfferPromotionCode): number | null {
  * `minLeadHours` is how long the code must still have to run. The first email
  * needs the default two days; a last-call reminder, sent the day the code ends,
  * passes less.
+ *
+ * `plans` are the plans the email offers with their products, so a coupon
+ * limited to products can be checked against them. Without them a product
+ * limit cannot be shown to cover every plan, and is refused.
  */
 export function promoCodeProblems(
   promo: OfferPromotionCode,
   nowMs: number,
   minLeadHours: number = MIN_OFFER_LEAD_HOURS,
+  plans: ReadonlyArray<OfferPlanProduct> = [],
 ): string[] {
   const problems: string[] = [];
   if (!promo.active) problems.push('the promotion code is not active');
@@ -283,8 +294,21 @@ export function promoCodeProblems(
   if (typeof promo.restrictions.minimum_amount === 'number' && promo.restrictions.minimum_amount > 0) {
     problems.push('the code has a minimum order amount, so it would not work on every plan the email offers');
   }
-  if (promo.coupon.applies_to && promo.coupon.applies_to.products.length > 0) {
-    problems.push('the coupon is limited to some products, so it would not work on every plan the email offers');
+  const limitedTo = promo.coupon.applies_to?.products ?? [];
+  if (limitedTo.length > 0) {
+    if (plans.length === 0) {
+      problems.push('the coupon is limited to specific products, and no plan products were given to check it against');
+    } else {
+      const missed = plans.filter((plan) => !limitedTo.includes(plan.productId));
+      if (missed.length > 0) {
+        problems.push(
+          `the coupon is limited to specific products and leaves out ${missed
+            .map((plan) => `${plan.label} (${plan.productId})`)
+            .join(', ')}. A coupon's products cannot be changed in Stripe: make a new coupon ` +
+            'covering both the Basic and the Pro product, or with no product limit',
+        );
+      }
+    }
   }
   const left = redemptionsLeft(promo);
   if (left !== null && left <= 0) problems.push('the code has no redemptions left');

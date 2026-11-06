@@ -105,6 +105,7 @@ import {
   promoCodeProblems,
   redemptionsLeft,
   type ListPrice,
+  type OfferPlanProduct,
   type OfferPromotionCode,
 } from '../core/promoCodeOffer.ts';
 
@@ -763,7 +764,51 @@ async function resolvePromoOffer(code: string): Promise<ResolvedOffer> {
     },
   };
 
-  const problems = promoCodeProblems(promo, Date.now(), campaignSpec.minOfferLeadHours);
+  // The four prices the table quotes, read live, so a list-price change can't
+  // leave the email quoting the old one.
+  const priceEnv = {
+    basicMonthly: 'STRIPE_PRICE_BASIC_MONTHLY',
+    proMonthly: 'STRIPE_PRICE_PRO_MONTHLY',
+    basicAnnual: 'STRIPE_PRICE_BASIC_ANNUAL',
+    proAnnual: 'STRIPE_PRICE_PRO_ANNUAL',
+  } as const;
+  const planLabel: Record<keyof typeof priceEnv, string> = {
+    basicMonthly: 'Basic monthly',
+    proMonthly: 'Pro monthly',
+    basicAnnual: 'Basic annual',
+    proAnnual: 'Pro annual',
+  };
+  const missingPrices = Object.values(priceEnv).filter((k) => !envValue(k));
+  if (missingPrices.length > 0) {
+    console.error(`\nError: the price table needs ${missingPrices.join(', ')} in frontend/.env.local.`);
+    process.exit(1);
+  }
+  const productOf = (price: Stripe.Price): string =>
+    typeof price.product === 'string' ? price.product : price.product.id;
+  const prices = {} as Record<keyof typeof priceEnv, ListPrice>;
+  // Every plan "any plan" covers, with the product its price is on, so a
+  // coupon limited to products can be checked against all of them.
+  const plans: OfferPlanProduct[] = [];
+  for (const [slot, envKey] of Object.entries(priceEnv) as Array<[keyof typeof priceEnv, string]>) {
+    const price = await stripe.prices.retrieve(envValue(envKey));
+    if (typeof price.unit_amount !== 'number' || !price.active) {
+      console.error(`\nError: ${envKey} (${price.id}) has no fixed amount or is archived in Stripe.`);
+      process.exit(1);
+    }
+    prices[slot] = { amount: price.unit_amount, currency: price.currency };
+    plans.push({ label: planLabel[slot], productId: productOf(price) });
+  }
+  // Quarterly is sold only once its prices are configured. The email does not
+  // price it, but "any plan" includes it, so the code has to work there too.
+  for (const [envKey, label] of [
+    ['STRIPE_PRICE_BASIC_QUARTERLY', 'Basic quarterly'],
+    ['STRIPE_PRICE_PRO_QUARTERLY', 'Pro quarterly'],
+  ] as const) {
+    if (!envValue(envKey)) continue;
+    plans.push({ label, productId: productOf(await stripe.prices.retrieve(envValue(envKey))) });
+  }
+
+  const problems = promoCodeProblems(promo, Date.now(), campaignSpec.minOfferLeadHours, plans);
   if (problems.length > 0) {
     console.error(`\nError: promotion code ${promo.code} can't be offered in this email:`);
     for (const p of problems) console.error(`  - ${p}`);
@@ -777,29 +822,6 @@ async function resolvePromoOffer(code: string): Promise<ResolvedOffer> {
         'Use --preview-to to see the email; send with the live key and a live code.',
     );
     process.exit(1);
-  }
-
-  // The four prices the table quotes, read live, so a list-price change can't
-  // leave the email quoting the old one.
-  const priceEnv = {
-    basicMonthly: 'STRIPE_PRICE_BASIC_MONTHLY',
-    proMonthly: 'STRIPE_PRICE_PRO_MONTHLY',
-    basicAnnual: 'STRIPE_PRICE_BASIC_ANNUAL',
-    proAnnual: 'STRIPE_PRICE_PRO_ANNUAL',
-  } as const;
-  const missingPrices = Object.values(priceEnv).filter((k) => !envValue(k));
-  if (missingPrices.length > 0) {
-    console.error(`\nError: the price table needs ${missingPrices.join(', ')} in frontend/.env.local.`);
-    process.exit(1);
-  }
-  const prices = {} as Record<keyof typeof priceEnv, ListPrice>;
-  for (const [slot, envKey] of Object.entries(priceEnv) as Array<[keyof typeof priceEnv, string]>) {
-    const price = await stripe.prices.retrieve(envValue(envKey));
-    if (typeof price.unit_amount !== 'number' || !price.active) {
-      console.error(`\nError: ${envKey} (${price.id}) has no fixed amount or is archived in Stripe.`);
-      process.exit(1);
-    }
-    prices[slot] = { amount: price.unit_amount, currency: price.currency };
   }
 
   const placeholders = buildOfferPlaceholders({

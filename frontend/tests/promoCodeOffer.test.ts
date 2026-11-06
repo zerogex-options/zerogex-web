@@ -158,12 +158,37 @@ test('refuses a code anyone can use on a return, or only one customer can use', 
   assert.match(problemsFor({ customer: 'cus_123' }), /one customer/);
 });
 
+// Each tier is one Stripe product with every billing period's price under it.
+const PLANS = [
+  { label: 'Basic monthly', productId: 'prod_basic' },
+  { label: 'Pro monthly', productId: 'prod_pro' },
+  { label: 'Basic annual', productId: 'prod_basic' },
+  { label: 'Pro annual', productId: 'prod_pro' },
+];
+
 test('refuses a code that would not work on every plan the email lists', () => {
   assert.match(
     problemsFor({ restrictions: { first_time_transaction: true, minimum_amount: 15000 } }),
     /minimum order/,
   );
-  assert.match(problemsFor({}, { applies_to: { products: ['prod_basic'] } }), /some products/);
+  const basicOnly = promoCodeProblems(promo({}, { applies_to: { products: ['prod_basic'] } }), NOW, 48, PLANS);
+  assert.equal(basicOnly.length, 1);
+  assert.match(basicOnly[0], /leaves out Pro monthly \(prod_pro\), Pro annual \(prod_pro\)/);
+});
+
+test('a product limit that covers every plan is not a problem', () => {
+  // The Dashboard's "apply to specific products" with both tiers ticked: every
+  // plan is discounted, so the email's "any plan" is true.
+  const both = promo({}, { applies_to: { products: ['prod_basic', 'prod_pro'] } });
+  assert.deepEqual(promoCodeProblems(both, NOW, 48, PLANS), []);
+  // No limit at all, expanded or not.
+  assert.deepEqual(promoCodeProblems(promo({}, { applies_to: { products: [] } }), NOW, 48, PLANS), []);
+  assert.deepEqual(promoCodeProblems(promo({}, { applies_to: null }), NOW, 48, PLANS), []);
+});
+
+test('a product limit with no plans to check against is refused, not assumed fine', () => {
+  const both = promo({}, { applies_to: { products: ['prod_basic', 'prod_pro'] } });
+  assert.match(promoCodeProblems(both, NOW).join(), /no plan products were given/);
 });
 
 test('refuses a code with no redemptions left, at either level', () => {

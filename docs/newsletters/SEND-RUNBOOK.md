@@ -52,8 +52,10 @@ checkout then applies the promo and Stripe hides the code box.
 Make a coupon, then a promotion code on it:
 
 - **Coupon:** a percentage off (40% is the suggestion) for **multiple months,
-  12** (the email reads that as "your first year"). No product limit and no
-  redemption limit. The sender refuses a "once" coupon: with the Basic trial the
+  12** (the email reads that as "your first year"). No redemption limit. Either
+  no product limit, or both the Basic and the Pro product: each tier is one
+  Stripe product with all its billing periods, so those two cover every plan. A
+  coupon's products can't be changed after it is made. The sender refuses a "once" coupon: with the Basic trial the
   first invoice is the $0 trial invoice, so "your first payment" is not a safe
   promise. It also refuses anything over 12 months.
 - **Promotion code:** the code (e.g. `ZGX40`), **first-time order only** turned
@@ -82,20 +84,20 @@ If the latest went out within the last week, wait a few days.
 cd frontend
 
 # 1. Cohort, held-back counts, and the offer exactly as the email will state it
-node --experimental-strip-types scripts/send-product-update.mts \
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
   --campaign 2026-11-free-member-offer --audience registrants --since 2026-01-01 \
   --promo-code ZGX40 --dry-run
 
 # 2. One copy to yourself; open on desktop and phone
-node --experimental-strip-types scripts/send-product-update.mts \
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
   --campaign 2026-11-free-member-offer --audience registrants --since 2026-01-01 \
   --promo-code ZGX40 --preview-to Michael@zerogex.io
 
 # 3. First 5 real recipients, then everyone else
-node --experimental-strip-types scripts/send-product-update.mts \
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
   --campaign 2026-11-free-member-offer --audience registrants --since 2026-01-01 \
   --promo-code ZGX40 --send --yes --limit 5
-node --experimental-strip-types scripts/send-product-update.mts \
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
   --campaign 2026-11-free-member-offer --audience registrants --since 2026-01-01 \
   --promo-code ZGX40 --send --yes
 ```
