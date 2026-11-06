@@ -13,6 +13,120 @@ self-deleted (`users.deleted_at`) are excluded from every cohort.
 
 ---
 
+## Free-member offer, November 2026 (`--campaign 2026-11-free-member-offer`)
+
+A time-boxed discount for free members who never subscribed, carried by a
+Stripe promotion code they type at checkout. Two sends: the offer, then a last
+call on the day the code ends, to the members the offer reached who still have
+no plan.
+
+| Campaign | Who | Files | Subject |
+|---|---|---|---|
+| `2026-11-free-member-offer` | Verified free members who never subscribed, signed up 7+ days ago, have opened a page while signed in | `2026-11-free-member-offer-registrants.html` / `.txt` | `{{OFFER_HEADLINE}}, through {{OFFER_DEADLINE_SHORT}}`, e.g. "40% off your first year of ZeroGEX, through November 15" |
+| `2026-11-free-member-offer-last-call` | The same, and sent the offer | `2026-11-free-member-offer-last-call-registrants.html` / `.txt` | `Ends {{OFFER_DEADLINE_SHORT}}: {{OFFER_HEADLINE}}` |
+
+**Idempotency keys:** `offer_2026_11_free_members`, `offer_2026_11_free_members_last_call`.
+
+**The copy states nothing about the offer by itself.** `--promo-code` names
+the code; the sender looks it up in Stripe and fills in the rate, the
+deadline, the four prices and the trial/guarantee line from it
+(`core/promoCodeOffer.ts`). To change the offer, change the code in Stripe, not
+the email. The sender refuses a code that is inactive, not limited to
+first-time customers, limited to one customer, to a minimum order or to some
+products, used up, without an expiry, or expiring within two days (six hours
+for the last call). It also refuses while the public promo is open, because
+checkout then applies the promo and Stripe hides the code box.
+
+**Who is left out, and why.** The dry run prints the first two counts.
+
+- Signed up in the last 7 days: still in the onboarding emails at full price.
+- Signed up through a referral, partner or campaign link: checkout applies that
+  link's discount, and Stripe hides the code box when one is applied, so they
+  could not use the code.
+- Churned and trial-canceled accounts: the weekly win-back owns them.
+- Never verified: checkout refuses them until they verify.
+- Unsubscribed from marketing.
+
+### 1. Make the code in Stripe (live mode)
+
+Make a coupon, then a promotion code on it:
+
+- **Coupon:** a percentage off (40% is the suggestion) for **multiple months,
+  12** (the email reads that as "your first year"). No product limit and no
+  redemption limit. The sender refuses a "once" coupon: with the Basic trial the
+  first invoice is the $0 trial invoice, so "your first payment" is not a safe
+  promise. It also refuses anything over 12 months.
+- **Promotion code:** the code (e.g. `ZGX40`), **first-time order only** turned
+  on, and an **expiration date**, e.g. Sunday, November 15, 11:59 PM ET. No
+  customer limit and no minimum order. Cap redemptions only as a backstop
+  against a leaked code, and well above the cohort; the email does not mention
+  a cap.
+
+The dry run checks every one of these and names whichever is wrong.
+
+### 2. Check when free members were last emailed
+
+```
+sqlite3 /var/lib/zerogex/auth.db \
+  "SELECT type, substr(MAX(created_at), 1, 10) AS last_sent, COUNT(*) AS sent
+     FROM audit_events
+    WHERE type LIKE '%_sent' AND message = 'registrants product update sent'
+    GROUP BY type ORDER BY last_sent;"
+```
+
+If the latest went out within the last week, wait a few days.
+
+### 3. Send the offer
+
+```
+cd frontend
+
+# 1. Cohort, held-back counts, and the offer exactly as the email will state it
+node --experimental-strip-types scripts/send-product-update.mts \
+  --campaign 2026-11-free-member-offer --audience registrants --since 2026-01-01 \
+  --promo-code ZGX40 --dry-run
+
+# 2. One copy to yourself; open on desktop and phone
+node --experimental-strip-types scripts/send-product-update.mts \
+  --campaign 2026-11-free-member-offer --audience registrants --since 2026-01-01 \
+  --promo-code ZGX40 --preview-to Michael@zerogex.io
+
+# 3. First 5 real recipients, then everyone else
+node --experimental-strip-types scripts/send-product-update.mts \
+  --campaign 2026-11-free-member-offer --audience registrants --since 2026-01-01 \
+  --promo-code ZGX40 --send --yes --limit 5
+node --experimental-strip-types scripts/send-product-update.mts \
+  --campaign 2026-11-free-member-offer --audience registrants --since 2026-01-01 \
+  --promo-code ZGX40 --send --yes
+```
+
+### 4. Last call, the morning the code ends
+
+The same four commands with `--campaign 2026-11-free-member-offer-last-call`.
+It reaches only members the offer reached, and anyone who has subscribed since
+drops out on their own. The code needs at least six hours left.
+
+### 5. Results
+
+Recipients who opened checkout after the email, and recipients who now have a
+subscription:
+
+```
+sqlite3 /var/lib/zerogex/auth.db \
+  "SELECT COUNT(DISTINCT c.user_id) FROM audit_events c
+     JOIN audit_events s ON s.user_id = c.user_id AND s.type = 'offer_2026_11_free_members_sent'
+    WHERE c.type = 'billing_checkout_started' AND c.created_at > s.created_at;"
+
+sqlite3 /var/lib/zerogex/auth.db \
+  "SELECT COUNT(*) FROM users u
+     JOIN audit_events s ON s.user_id = u.id AND s.type = 'offer_2026_11_free_members_sent'
+    WHERE u.stripe_subscription_id IS NOT NULL;"
+```
+
+Redemptions of the code itself are on the promotion code in Stripe.
+
+---
+
 ## Feature promo: Wall alerts, October 2026 (`--campaign 2026-10-wall-alerts`)
 
 One feature, one call to action. Members already have wall alerts (Basic and

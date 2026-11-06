@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { REQUIRED_OFFER_PLACEHOLDERS, buildOfferPlaceholders } from '../core/promoCodeOffer.ts';
+
 // Guards the two ways a newsletter can promise something the app will not
 // deliver. Both have already happened once, in the 2026-08 registrants send:
 //
@@ -53,10 +55,18 @@ test('every newsletter href separates query parameters with &amp;, not a raw &',
   }
 });
 
+type CampaignFlags = {
+  grantsExtendedTrial: boolean;
+  promoCodeOffer: boolean;
+  hasRegistrants: boolean;
+  registrantHtml: string | null;
+  registrantText: string | null;
+};
+
 // Parses the CAMPAIGNS registry out of the sender. Reading the source rather
 // than importing it because the sender is a CLI that runs its whole pipeline at
 // module scope; there is nothing importable to ask.
-function campaignFlags(): Map<string, { grantsExtendedTrial: boolean; registrantHtml: string | null }> {
+function campaignFlags(): Map<string, CampaignFlags> {
   const src = fs.readFileSync(SENDER, 'utf8');
   const registry = src.slice(
     src.indexOf('const CAMPAIGNS'),
@@ -64,17 +74,24 @@ function campaignFlags(): Map<string, { grantsExtendedTrial: boolean; registrant
   );
   assert.ok(registry.length > 0, 'could not locate the CAMPAIGNS registry in the sender');
 
-  const found = new Map<string, { grantsExtendedTrial: boolean; registrantHtml: string | null }>();
+  const found = new Map<string, CampaignFlags>();
   // Each campaign is a `'<key>': { ... },` block; split on the key lines.
   const keyRe = /^ {2}'([^']+)': \{$/gm;
   const starts: { key: string; at: number }[] = [];
   for (const m of registry.matchAll(keyRe)) starts.push({ key: m[1], at: m.index! });
   for (let i = 0; i < starts.length; i++) {
     const block = registry.slice(starts[i].at, starts[i + 1]?.at ?? registry.length);
-    const grants = /grantsExtendedTrial:\s*true/.test(block);
-    const registrantBlock = block.match(/registrants:\s*\{[\s\S]*?\}/);
-    const html = registrantBlock?.[0].match(/html:\s*'([^']+)'/)?.[1] ?? null;
-    found.set(starts[i].key, { grantsExtendedTrial: grants, registrantHtml: html });
+    // From `registrants: {` to the first file name after it. Not a brace match:
+    // a subject can carry `{{PLACEHOLDERS}}`, whose braces end a lazy `\{...\}`.
+    const html = block.match(/registrants:\s*\{[\s\S]*?html:\s*'([^']+)'/)?.[1] ?? null;
+    const text = block.match(/registrants:\s*\{[\s\S]*?text:\s*'([^']+)'/)?.[1] ?? null;
+    found.set(starts[i].key, {
+      grantsExtendedTrial: /grantsExtendedTrial:\s*true/.test(block),
+      promoCodeOffer: /promoCodeOffer:\s*true/.test(block),
+      hasRegistrants: /registrants:\s*\{/.test(block),
+      registrantHtml: html,
+      registrantText: text,
+    });
   }
   return found;
 }
@@ -116,6 +133,90 @@ test('the 2026-08 registrants CTA carries both trial=1 and reactivate=1', () => 
   ]) {
     const body = fs.readFileSync(path.join(NEWSLETTER_DIR, file), 'utf8');
     assert.match(body, /\/pricing\?trial=1(&|&amp;)reactivate=1/, `${file}: CTA link changed`);
+  }
+});
+
+test('every registrants template is found, including ones whose subject carries placeholders', () => {
+  const flags = campaignFlags();
+  for (const [key, spec] of flags) {
+    if (!spec.hasRegistrants) continue;
+    assert.ok(spec.registrantHtml && spec.registrantText, `${key}: registrants html/text not parsed`);
+  }
+  assert.equal(flags.get('2026-11-free-member-offer')?.promoCodeOffer, true);
+});
+
+test('a registrants email offering a {{PROMO_CODE}} belongs to a promoCodeOffer campaign, and states the offer', () => {
+  // The sender refuses both mismatches at run time; this catches them before
+  // anyone gets as far as a dry run.
+  for (const [key, spec] of campaignFlags()) {
+    if (!spec.registrantHtml || !spec.registrantText) continue;
+    const bodies = [spec.registrantHtml, spec.registrantText].map((f) =>
+      fs.readFileSync(path.join(NEWSLETTER_DIR, f), 'utf8'),
+    );
+    const offersCode = bodies.some((b) => b.includes('{{PROMO_CODE}}'));
+    assert.equal(
+      offersCode,
+      spec.promoCodeOffer,
+      offersCode
+        ? `${key}: the registrants email offers {{PROMO_CODE}} but the campaign is not flagged promoCodeOffer, so no code would be checked`
+        : `${key}: flagged promoCodeOffer but the registrants email never states {{PROMO_CODE}}`,
+    );
+    if (!spec.promoCodeOffer) continue;
+    for (const [i, body] of bodies.entries()) {
+      for (const placeholder of REQUIRED_OFFER_PLACEHOLDERS) {
+        assert.ok(
+          body.includes(`{{${placeholder}}}`),
+          `${key}: ${[spec.registrantHtml, spec.registrantText][i]} is missing {{${placeholder}}}`,
+        );
+      }
+    }
+  }
+});
+
+test('every {{PLACEHOLDER}} in a newsletter is one the sender fills', () => {
+  // A misspelled placeholder ships as literal braces. The sender refuses to send
+  // one, but only once someone is about to send; this fails at test time.
+  const offerKeys = Object.keys(
+    buildOfferPlaceholders({
+      promo: {
+        id: 'promo_x',
+        code: 'CODE',
+        active: true,
+        livemode: true,
+        expires_at: Date.parse('2026-11-16T04:59:00Z') / 1000,
+        max_redemptions: null,
+        times_redeemed: 0,
+        customer: null,
+        restrictions: { first_time_transaction: true, minimum_amount: null },
+        coupon: {
+          id: 'c',
+          valid: true,
+          percent_off: 40,
+          amount_off: null,
+          currency: null,
+          duration: 'repeating',
+          duration_in_months: 12,
+          redeem_by: null,
+          max_redemptions: null,
+          times_redeemed: 0,
+        },
+      },
+      prices: {
+        basicMonthly: { amount: 3900, currency: 'usd' },
+        proMonthly: { amount: 5900, currency: 'usd' },
+        basicAnnual: { amount: 19900, currency: 'usd' },
+        proAnnual: { amount: 29900, currency: 'usd' },
+      },
+      trialPlans: new Set(['basic:monthly']),
+    }),
+  );
+  const known = new Set(['UNSUB_URL', 'DISCOUNT_LABEL', 'DISCOUNT_SHORT', ...offerKeys]);
+  const files = fs.readdirSync(NEWSLETTER_DIR).filter((f) => f.endsWith('.html') || f.endsWith('.txt'));
+  for (const file of files) {
+    const body = fs.readFileSync(path.join(NEWSLETTER_DIR, file), 'utf8');
+    for (const [, name] of body.matchAll(/\{\{([A-Z0-9_]+)\}\}/g)) {
+      assert.ok(known.has(name), `${file}: {{${name}}} is not a placeholder the sender fills`);
+    }
   }
 });
 

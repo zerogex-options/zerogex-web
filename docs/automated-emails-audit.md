@@ -608,6 +608,19 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 - Founder-voice "What's new / What's coming next" product announcement. Per-recipient
   send, invisible `List-Unsubscribe` header, honors `marketing_unsubscribed_at`.
 
+**Free-member offer** — `send-product-update.mts --campaign 2026-11-free-member-offer` and its `-last-call` reminder (copy in `docs/newsletters/2026-11-free-member-offer*.{html,txt}`)
+- **Subject:** filled from the code, e.g. `40% off your first year of ZeroGEX, through November 15`; last call `Ends November 15: 40% off your first year of ZeroGEX`
+- Sent by hand, never on a timer. Verified free members who never subscribed,
+  signed up 7+ days ago, not through a referral, partner or campaign link (their
+  checkout hides the code box). The last call reaches only members the offer
+  reached who still have no plan.
+- The offer is a Stripe promotion code passed with `--promo-code`. The sender
+  checks it against Stripe and fills the rate, deadline and prices from it
+  (`core/promoCodeOffer.ts`), so the copy carries no offer of its own. No latch:
+  the code's first-time-customer restriction bounds who can redeem it. Same
+  unsubscribe footer and header as the product update. See
+  `docs/newsletters/SEND-RUNBOOK.md`, "Free-member offer".
+
 **TradeWorkz bot alert** — `sendTradeworkzNotification(to, { botId, botDisplayName, eventType, payload, dashboardUrl? })`
 - **Subject:** dynamically built, e.g. `{Bot} closed LONG SPY +$1.20K (+8.3%)` /
   `{Bot} opened SHORT SPY · 5 contracts @ $4.20`

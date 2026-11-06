@@ -62,16 +62,34 @@
 // campaign can neither promise the offer without claiming the latch nor claim
 // the latch without promising the offer.
 //
+// PROMOTION CODE (registrants, campaigns flagged promoCodeOffer): the email
+// offers a Stripe promotion code the reader types at checkout, which shows the
+// "Add promotion code" box whenever it applies no discount of its own. The code
+// is not written into the copy. It is passed with --promo-code, looked up in
+// Stripe, and refused unless it is active, limited to first-time customers,
+// usable on every plan and has a real deadline at least two days out, or the
+// campaign's minOfferLeadHours for a last call (core/promoCodeOffer.ts). The
+// rate, the deadline and the four prices are then filled into the template from
+// the code itself, so the email can only state what the code grants.
+// --preview-to and --send need the code; a dry run without it still counts the
+// cohort. A test-mode code is refused for --send, and so is any send while the
+// public promo is open, because checkout then applies the promo and Stripe
+// hides the code box. For the same reason the cohort leaves out members who
+// signed up through a referral, partner or campaign link.
+//
 // Idempotency: a `<campaign key>_sent` row is written to audit_events on each
 // successful send; already-stamped users are skipped on re-run.
 //
 // Env (from process.env or .env.local): RESEND_API_KEY, RESEND_FROM_EMAIL.
+// A promoCodeOffer campaign also reads STRIPE_SECRET_KEY, the four
+// STRIPE_PRICE_{BASIC,PRO}_{MONTHLY,ANNUAL} ids and BILLING_TRIAL_PLANS.
 // AUTH_DB_PATH overrides the DB. Requires the sqlite3 CLI on PATH.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
+import Stripe from 'stripe';
 import { buildUnsubUrl } from '../core/unsubToken.ts';
 import {
   classifyExclusion,
@@ -79,6 +97,16 @@ import {
   type ExclusionCandidate,
   type ExclusionReason,
 } from '../core/excludedAccounts.ts';
+import { parseTrialPlans } from '../core/billingPlans.ts';
+import {
+  REQUIRED_OFFER_PLACEHOLDERS,
+  buildOfferPlaceholders,
+  offerDeadlineMs,
+  promoCodeProblems,
+  redemptionsLeft,
+  type ListPrice,
+  type OfferPromotionCode,
+} from '../core/promoCodeOffer.ts';
 
 type Audience = 'subscribers' | 'registrants' | 'cancelled';
 
@@ -121,6 +149,25 @@ type CampaignSpec = {
   // burn the latch on people who were never made the offer. checkTemplateOffer()
   // below cross-checks this flag against what the template actually links to.
   grantsExtendedTrial: boolean;
+  // Whether this campaign's `registrants` email offers a Stripe promotion code,
+  // passed at send time with --promo-code. The template carries {{PROMO_CODE}}
+  // and the offer placeholders core/promoCodeOffer.ts fills from the code; the
+  // sender refuses a template with {{PROMO_CODE}} in a campaign without this
+  // flag, and the reverse, the same way grantsExtendedTrial is cross-checked.
+  // No latch: the code is the entitlement, and Stripe's first-time-customer
+  // restriction on it is what bounds who can redeem it.
+  promoCodeOffer?: boolean;
+  // Leave out registrants who signed up fewer than this many days ago. They are
+  // still inside the onboarding emails at full price, and an offer aimed at the
+  // members onboarding did not convert should not reach them first.
+  minAccountAgeDays?: number;
+  // Only registrants another campaign already reached: its key (the audit row is
+  // `${key}_sent`). A reminder goes to the people who got the offer, and the
+  // cohort's own filters drop anyone who has subscribed since.
+  onlyRecipientsOf?: string;
+  // How long the promotion code must still have to run when this email goes
+  // out. Default MIN_OFFER_LEAD_HOURS (two days); a last call passes less.
+  minOfferLeadHours?: number;
   // Set when the copy no longer matches the live offer. The campaign stays
   // registered so its cohort can still be counted with --dry-run, but a live
   // --send is refused: it would promise terms a new recipient can't get.
@@ -143,6 +190,8 @@ type Args = {
   // Send the `cancelled` audience even when no win-back coupon is configured
   // (i.e. the discount will be honored by hand instead of at checkout).
   allowMissingCoupon: boolean;
+  // The Stripe promotion code a promoCodeOffer campaign offers.
+  promoCode: string | null;
   subject: string | null;
   throttleMs: number;
   listUnsub: boolean;
@@ -239,6 +288,49 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
       },
     },
   },
+  // A time-boxed discount for free members who never subscribed, carried by a
+  // Stripe promotion code they type at checkout. The copy states no rate, date
+  // or price of its own: --promo-code names the code, the sender checks it
+  // against Stripe and fills all three in from it (core/promoCodeOffer.ts). The
+  // runbook's "Free-member offer" section covers creating the code.
+  '2026-11-free-member-offer': {
+    key: 'offer_2026_11_free_members',
+    excludeOnboardingNudged: false,
+    // A bare /pricing CTA. The discount rides the code, not the extended trial.
+    grantsExtendedTrial: false,
+    promoCodeOffer: true,
+    minAccountAgeDays: 7,
+    // Only free members: churned and trial-canceled accounts belong to the
+    // win-back, which carries its own discount.
+    content: {
+      registrants: {
+        html: '2026-11-free-member-offer-registrants.html',
+        text: '2026-11-free-member-offer-registrants.txt',
+        subject: '{{OFFER_HEADLINE}}, through {{OFFER_DEADLINE_SHORT}}',
+      },
+    },
+  },
+  // The reminder, sent the day the code ends, to the members the offer reached
+  // who have not subscribed since. Same --promo-code. A short note, not a
+  // second copy of the offer email.
+  '2026-11-free-member-offer-last-call': {
+    key: 'offer_2026_11_free_members_last_call',
+    excludeOnboardingNudged: false,
+    grantsExtendedTrial: false,
+    promoCodeOffer: true,
+    minAccountAgeDays: 7,
+    onlyRecipientsOf: 'offer_2026_11_free_members',
+    // Sent on the last day, so a few hours of runway is the point. Six keeps a
+    // late-evening send from landing after the code has stopped working.
+    minOfferLeadHours: 6,
+    content: {
+      registrants: {
+        html: '2026-11-free-member-offer-last-call-registrants.html',
+        text: '2026-11-free-member-offer-last-call-registrants.txt',
+        subject: 'Ends {{OFFER_DEADLINE_SHORT}}: {{OFFER_HEADLINE}}',
+      },
+    },
+  },
 };
 // Still the October update, not the wall-alerts promo registered after it: a
 // bare invocation keeps sending what the runbook's October commands expect,
@@ -285,6 +377,7 @@ function parseArgs(argv: string[]): Args {
     days: DEFAULT_DAYS,
     since: null,
     allowMissingCoupon: false,
+    promoCode: null,
     subject: null,
     throttleMs: DEFAULT_THROTTLE_MS,
     listUnsub: true,
@@ -336,7 +429,15 @@ function parseArgs(argv: string[]): Args {
       }
       args.since = new Date(ts).toISOString();
     } else if (arg === '--allow-missing-coupon') args.allowMissingCoupon = true;
-    else if (arg === '--subject') args.subject = argv[++i] ?? null;
+    else if (arg === '--promo-code') {
+      const v = (argv[++i] ?? '').trim();
+      // Stripe promotion codes are letters, digits, dashes and underscores.
+      if (!/^[A-Za-z0-9_-]{2,64}$/.test(v)) {
+        console.error('Error: --promo-code expects the code as customers type it (e.g. ZGX40).');
+        process.exit(1);
+      }
+      args.promoCode = v;
+    } else if (arg === '--subject') args.subject = argv[++i] ?? null;
     else if (arg === '--throttle-ms') {
       const v = Number(argv[++i] ?? '');
       if (!Number.isFinite(v) || v < 0) {
@@ -356,7 +457,7 @@ function usage() {
     --audience subscribers|registrants|cancelled \\
     [--campaign <id>] [--dry-run] [--preview-to <email>] [--send --yes] \\
     [--limit N] [--days N] [--since <ISO date>] [--subject "..."] \\
-    [--throttle-ms N] [--no-list-unsubscribe] [--csv <path>]
+    [--promo-code CODE] [--throttle-ms N] [--no-list-unsubscribe] [--csv <path>]
 
 Sends a product-update campaign directly, per-recipient, via Resend.
 Campaigns: ${Object.keys(CAMPAIGNS)
@@ -372,6 +473,9 @@ Modes (default is dry-run — counts only, nothing sent):
       --days N                  Registrant signup window (default ${DEFAULT_DAYS}).
       --since <ISO date>        Registrant signup floor; overrides --days.
       --allow-missing-coupon    Send 'cancelled' with no win-back coupon set.
+      --promo-code CODE         The Stripe promotion code an offer campaign
+                                offers. Checked against Stripe; the email's
+                                rate, deadline and prices come from it.
       --subject "..."           Override the default subject.
       --throttle-ms N           Delay between sends (default ${DEFAULT_THROTTLE_MS}).
       --no-list-unsubscribe     Omit the List-Unsubscribe header (not recommended).
@@ -566,7 +670,168 @@ for (const p of [htmlPath, textPath]) {
     process.exit(1);
   }
 }
-const subject = cli.subject || content.subject;
+let subject = cli.subject || content.subject;
+
+// ---- Promotion-code offer --------------------------------------------------
+//
+// Resolved before the cohort so a bad code stops the run before anything else
+// happens, and so the subject printed below is the one that will be sent.
+
+function fillPlaceholders(template: string, values: Record<string, string>): string {
+  let out = template;
+  for (const [key, value] of Object.entries(values)) out = out.replaceAll(`{{${key}}}`, value);
+  return out;
+}
+
+function envValue(key: string): string {
+  return process.env[key] || envLocal[key] || '';
+}
+
+// What the email will say about the offer, and the Stripe facts behind it.
+type ResolvedOffer = {
+  promo: OfferPromotionCode;
+  placeholders: Record<string, string>;
+  deadlineMs: number;
+  redemptionsLeft: number | null;
+};
+
+const STRIPE_API_VERSION = '2025-02-24.acacia';
+
+async function resolvePromoOffer(code: string): Promise<ResolvedOffer> {
+  const key = envValue('STRIPE_SECRET_KEY');
+  if (!key) {
+    console.error('\nError: STRIPE_SECRET_KEY is required to check the promotion code.');
+    process.exit(1);
+  }
+  // While the public promo is open, checkout attaches it to every monthly plan,
+  // and Stripe hides the promotion-code box on any checkout that already has a
+  // discount. Readers would find no box to type the code into.
+  const promoEndMs = Date.parse(envValue('PROMO_END_AT'));
+  const publicPromoCoupon =
+    envValue('STRIPE_COUPON_PROMO_BASIC_MONTHLY') || envValue('STRIPE_COUPON_PROMO_PRO_MONTHLY');
+  if (Number.isFinite(promoEndMs) && promoEndMs > Date.now() && publicPromoCoupon) {
+    console.error(
+      '\nError: the public promo is open (PROMO_END_AT is in the future), so checkout applies it to\n' +
+        'monthly plans and Stripe hides the box for typing a code. Send this after the promo closes.',
+    );
+    process.exit(1);
+  }
+
+  const stripe = new Stripe(key, { apiVersion: STRIPE_API_VERSION });
+
+  // Stripe matches `code` case-insensitively. An inactive code can share its
+  // text with an active one, so prefer the active match.
+  const listed = await stripe.promotionCodes.list({ code, limit: 10 });
+  const matches = listed.data.filter((p) => p.code.toLowerCase() === code.toLowerCase());
+  const raw = matches.find((p) => p.active) ?? matches[0];
+  if (!raw) {
+    console.error(
+      `\nError: no promotion code "${code}" in this Stripe account ` +
+        `(${key.startsWith('sk_live_') || key.startsWith('rk_live_') ? 'live' : 'test'} mode). ` +
+        'Create it first (runbook: "Free-member offer").',
+    );
+    process.exit(1);
+  }
+  // A promotion code carries its coupon, but not the coupon's product limits:
+  // applies_to is only returned when asked for.
+  const coupon = await stripe.coupons.retrieve(raw.coupon.id, { expand: ['applies_to'] });
+  const promo: OfferPromotionCode = {
+    id: raw.id,
+    code: raw.code,
+    active: raw.active,
+    livemode: raw.livemode,
+    expires_at: raw.expires_at ?? null,
+    max_redemptions: raw.max_redemptions ?? null,
+    times_redeemed: raw.times_redeemed ?? 0,
+    customer: typeof raw.customer === 'string' ? raw.customer : (raw.customer?.id ?? null),
+    restrictions: {
+      first_time_transaction: raw.restrictions?.first_time_transaction === true,
+      minimum_amount: raw.restrictions?.minimum_amount ?? null,
+    },
+    coupon: {
+      id: coupon.id,
+      valid: coupon.valid,
+      percent_off: coupon.percent_off ?? null,
+      amount_off: coupon.amount_off ?? null,
+      currency: coupon.currency ?? null,
+      duration: coupon.duration,
+      duration_in_months: coupon.duration_in_months ?? null,
+      redeem_by: coupon.redeem_by ?? null,
+      max_redemptions: coupon.max_redemptions ?? null,
+      times_redeemed: coupon.times_redeemed ?? 0,
+      applies_to: coupon.applies_to ? { products: coupon.applies_to.products ?? [] } : null,
+    },
+  };
+
+  const problems = promoCodeProblems(promo, Date.now(), campaignSpec.minOfferLeadHours);
+  if (problems.length > 0) {
+    console.error(`\nError: promotion code ${promo.code} can't be offered in this email:`);
+    for (const p of problems) console.error(`  - ${p}`);
+    process.exit(1);
+  }
+  // Production checkout runs on the live key, so a test-mode code would be
+  // rejected at the exact moment a reader tries it.
+  if (cli.send && !promo.livemode) {
+    console.error(
+      `\nError: ${promo.code} is a test-mode code. Checkout in production would reject it. ` +
+        'Use --preview-to to see the email; send with the live key and a live code.',
+    );
+    process.exit(1);
+  }
+
+  // The four prices the table quotes, read live, so a list-price change can't
+  // leave the email quoting the old one.
+  const priceEnv = {
+    basicMonthly: 'STRIPE_PRICE_BASIC_MONTHLY',
+    proMonthly: 'STRIPE_PRICE_PRO_MONTHLY',
+    basicAnnual: 'STRIPE_PRICE_BASIC_ANNUAL',
+    proAnnual: 'STRIPE_PRICE_PRO_ANNUAL',
+  } as const;
+  const missingPrices = Object.values(priceEnv).filter((k) => !envValue(k));
+  if (missingPrices.length > 0) {
+    console.error(`\nError: the price table needs ${missingPrices.join(', ')} in frontend/.env.local.`);
+    process.exit(1);
+  }
+  const prices = {} as Record<keyof typeof priceEnv, ListPrice>;
+  for (const [slot, envKey] of Object.entries(priceEnv) as Array<[keyof typeof priceEnv, string]>) {
+    const price = await stripe.prices.retrieve(envValue(envKey));
+    if (typeof price.unit_amount !== 'number' || !price.active) {
+      console.error(`\nError: ${envKey} (${price.id}) has no fixed amount or is archived in Stripe.`);
+      process.exit(1);
+    }
+    prices[slot] = { amount: price.unit_amount, currency: price.currency };
+  }
+
+  const placeholders = buildOfferPlaceholders({
+    promo,
+    prices,
+    trialPlans: parseTrialPlans(envValue('BILLING_TRIAL_PLANS')),
+  });
+  return {
+    promo,
+    placeholders,
+    deadlineMs: offerDeadlineMs(promo)!,
+    redemptionsLeft: redemptionsLeft(promo),
+  };
+}
+
+let offer: ResolvedOffer | null = null;
+if (campaignSpec.promoCodeOffer) {
+  if (!cli.promoCode && (cli.previewTo || cli.send)) {
+    console.error(
+      `\nError: campaign ${cli.campaign} offers a promotion code. Pass it with --promo-code ` +
+        '(a dry run without it only counts the cohort).',
+    );
+    process.exit(1);
+  }
+  if (cli.promoCode) {
+    offer = await resolvePromoOffer(cli.promoCode);
+    subject = fillPlaceholders(subject, offer.placeholders);
+  }
+} else if (cli.promoCode) {
+  console.error(`\nError: campaign ${cli.campaign} doesn't offer a promotion code; drop --promo-code.`);
+  process.exit(1);
+}
 
 // The cancelled variant promises a discount that only materializes if a
 // STRIPE_COUPON_WINBACK_* coupon exists for the plan the member picks — the
@@ -604,6 +869,11 @@ type Row = { id: string; email: string; created_at: string };
 
 let rows: Row[];
 let excludedNudged = 0;
+// Registrants left out for being newer than the campaign's minAccountAgeDays.
+let heldBackNew = 0;
+// Registrants a promo-code campaign leaves out because checkout would apply
+// their referral, partner or campaign discount and hide the code box.
+let heldBackReferred = 0;
 // Accounts the cohort query matched but that are not customers. Only the
 // `cancelled` audience fills this; see below.
 const notCustomers: Array<{ row: Row; reason: ExclusionReason }> = [];
@@ -654,9 +924,7 @@ if (audience === 'subscribers') {
   // --since pins the floor to a date (this campaign: the July send, so only
   // registrants who arrived after it qualify); --days is the relative fallback.
   const sinceIso = cli.since ?? new Date(Date.now() - cli.days * 86_400_000).toISOString();
-  // Shared by the cohort query and the nudged-count query below, so the two can
-  // never drift into reporting on different populations.
-  const registrantBase = `email_verified_at IS NOT NULL
+  const registrantCore = `email_verified_at IS NOT NULL
         AND tier = 'public'
         AND stripe_subscription_id IS NULL
         AND COALESCE(subscription_lapsed, 0) = 0
@@ -665,6 +933,52 @@ if (audience === 'subscribers') {
         AND deleted_at IS NULL
         AND created_at >= '${esc(sinceIso)}'
         AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id)`;
+  // A member who signed up through a referral, partner or campaign link gets
+  // that link's discount applied by checkout itself, and Stripe hides the
+  // promotion-code box whenever checkout applies one. They could not enter the
+  // code the email gives them, so a promo-code campaign leaves them out.
+  const referredSql = `COALESCE(referred_by_code, '') != ''`;
+  // A reminder only reaches members the original offer reached.
+  const priorCampaignSql = campaignSpec.onlyRecipientsOf
+    ? `
+        AND EXISTS (SELECT 1 FROM audit_events pa
+                     WHERE pa.user_id = u.id AND pa.type = '${esc(campaignSpec.onlyRecipientsOf)}_sent')`
+    : '';
+  // Who the campaign is for, before the account-age ceiling below.
+  const registrantFilters = campaignSpec.promoCodeOffer
+    ? `${registrantCore}
+        AND NOT (${referredSql})${priorCampaignSql}`
+    : `${registrantCore}${priorCampaignSql}`;
+  const newestSignupIso = campaignSpec.minAccountAgeDays
+    ? new Date(Date.now() - campaignSpec.minAccountAgeDays * 86_400_000).toISOString()
+    : null;
+  if (campaignSpec.promoCodeOffer) {
+    heldBackReferred =
+      querySqlite<{ n: number }>(
+        dbPath,
+        `SELECT COUNT(*) AS n
+           FROM users u
+          WHERE ${registrantCore}${priorCampaignSql}
+            AND ${referredSql}
+            ${newestSignupIso ? `AND created_at <= '${esc(newestSignupIso)}'` : ''};`,
+      )[0]?.n ?? 0;
+  }
+  // Shared by the cohort query and the nudged-count query below, so the two can
+  // never drift into reporting on different populations.
+  const registrantBase = newestSignupIso
+    ? `${registrantFilters}
+        AND created_at <= '${esc(newestSignupIso)}'`
+    : registrantFilters;
+  if (newestSignupIso) {
+    heldBackNew =
+      querySqlite<{ n: number }>(
+        dbPath,
+        `SELECT COUNT(*) AS n
+           FROM users u
+          WHERE ${registrantFilters}
+            AND created_at > '${esc(newestSignupIso)}';`,
+      )[0]?.n ?? 0;
+  }
   rows = querySqlite<Row>(
     dbPath,
     `SELECT id, email, created_at
@@ -716,16 +1030,60 @@ if (audience === 'registrants') {
       ? `Excluded:       ${excludedNudged} already got the ~2h onboarding nudge`
       : `Second touch:   ${excludedNudged} of these already got the ~2h onboarding nudge`,
   );
-  console.log(
-    campaignSpec.grantsExtendedTrial
-      ? `Offer:          extended trial (stamps reactivation_email_sent_at; ` +
-          `suppresses the daily reactivation email)`
-      : `Offer:          none beyond the standard trial`,
-  );
+  if (campaignSpec.minAccountAgeDays) {
+    console.log(
+      `Held back:      ${heldBackNew} signed up in the last ${campaignSpec.minAccountAgeDays} days ` +
+        '(still in onboarding)',
+    );
+  }
+  if (campaignSpec.promoCodeOffer) {
+    console.log(
+      `Held back:      ${heldBackReferred} signed up through a referral, partner or campaign link ` +
+        '(checkout applies that discount and hides the code box)',
+    );
+  }
+  if (campaignSpec.onlyRecipientsOf) {
+    console.log(
+      `Reminder of:    ${campaignSpec.onlyRecipientsOf} (only members it reached who still have no plan)`,
+    );
+  }
+  if (campaignSpec.promoCodeOffer) {
+    if (offer) {
+      const p = offer.placeholders;
+      const daysLeft = (offer.deadlineMs - Date.now()) / 86_400_000;
+      console.log(`Offer:          code ${p.PROMO_CODE} (${offer.promo.id}, ${offer.promo.livemode ? 'live' : 'TEST'} mode)`);
+      console.log(`  Discount:     ${p.OFFER_LABEL}  [coupon ${offer.promo.coupon.id}]`);
+      console.log(`  Deadline:     ${p.OFFER_DEADLINE} (${daysLeft.toFixed(1)} days from now)`);
+      console.log(`  Redemptions:  ${offer.redemptionsLeft === null ? 'no cap' : `${offer.redemptionsLeft} left`}`);
+      console.log(`  Basic monthly ${p.BASIC_MONTHLY_LIST} -> ${p.BASIC_MONTHLY_OFFER}`);
+      console.log(`  Pro monthly   ${p.PRO_MONTHLY_LIST} -> ${p.PRO_MONTHLY_OFFER}`);
+      console.log(`  Basic annual  ${p.BASIC_ANNUAL_LIST} -> ${p.BASIC_ANNUAL_OFFER}`);
+      console.log(`  Pro annual    ${p.PRO_ANNUAL_LIST} -> ${p.PRO_ANNUAL_OFFER}`);
+      console.log(`  Plan terms:   ${p.PLAN_TERMS}`);
+    } else {
+      console.log('Offer:          promotion code, not checked (pass --promo-code to check it and fill the copy)');
+    }
+  } else {
+    console.log(
+      campaignSpec.grantsExtendedTrial
+        ? `Offer:          extended trial (stamps reactivation_email_sent_at; ` +
+            `suppresses the daily reactivation email)`
+        : `Offer:          none beyond the standard trial`,
+    );
+  }
 }
 console.log(`Cohort size:    ${rows.length}`);
 if (alreadyCount > 0) console.log(`Already emailed: ${alreadyCount} (skipped)`);
 console.log(`To send:        ${toSend.length}`);
+// A cap below the list size means some readers reach checkout after the code
+// has run out, and the email does not warn them. Say so before it goes out.
+if (offer && offer.redemptionsLeft !== null && offer.redemptionsLeft < toSend.length) {
+  console.warn(
+    `\nWarning: ${offer.promo.code} can be redeemed ${offer.redemptionsLeft} more time(s) but this run ` +
+      `emails ${toSend.length}. The email does not mention a cap, so anyone past it will be told ` +
+      'at checkout that the code is invalid. Raise or remove the cap in Stripe unless that is intended.',
+  );
+}
 
 // Only list the recipients that will actually get an email.
 const SAMPLE = 30;
@@ -820,6 +1178,39 @@ if (audience === 'registrants') {
   }
 }
 
+// Same discipline for the promotion code: a template that offers a code belongs
+// to a campaign that checks one, and a campaign that checks one has a template
+// that states the code, what it gives and until when.
+{
+  const offersCode = html.includes('{{PROMO_CODE}}') || text.includes('{{PROMO_CODE}}');
+  if (offersCode && !campaignSpec.promoCodeOffer) {
+    console.error(
+      `\nError: ${content.html} / ${content.text} offers a {{PROMO_CODE}}, but campaign\n` +
+        `${cli.campaign} is not flagged promoCodeOffer, so nothing would check the code.`,
+    );
+    process.exit(1);
+  }
+  if (campaignSpec.promoCodeOffer) {
+    const missing = REQUIRED_OFFER_PLACEHOLDERS.filter(
+      (k) => !html.includes(`{{${k}}}`) || !text.includes(`{{${k}}}`),
+    );
+    if (missing.length > 0) {
+      console.error(
+        `\nError: campaign ${cli.campaign} offers a promotion code, but ${content.html} /\n` +
+          `${content.text} do not both carry ${missing.map((k) => `{{${k}}}`).join(', ')}.`,
+      );
+      process.exit(1);
+    }
+  }
+  if (offer) {
+    const escaped = Object.fromEntries(
+      Object.entries(offer.placeholders).map(([k, v]) => [k, escapeHtmlText(v)]),
+    );
+    html = fillPlaceholders(html, escaped);
+    text = fillPlaceholders(text, offer.placeholders);
+  }
+}
+
 const needsDiscountLabel =
   html.includes('{{DISCOUNT_LABEL}}') ||
   html.includes('{{DISCOUNT_SHORT}}') ||
@@ -851,6 +1242,26 @@ if (needsDiscountLabel) {
   console.log(
     `Discount copy:  "${DISCOUNT_LABEL}"  (button reads "Come back at ${shortDiscount(DISCOUNT_LABEL)}")`,
   );
+}
+
+// Last check before anything leaves: every placeholder but the per-recipient
+// unsubscribe link has been filled. A literal "{{OFFER_DEADLINE}}" in an inbox
+// is the visible failure; the invisible one is a price or a date nobody checked.
+// A dry run without --promo-code legitimately leaves the offer unfilled.
+if (cli.previewTo || cli.send) {
+  const unfilled = [
+    ...new Set(
+      [...`${subject}\n${html}\n${text}`.matchAll(/\{\{([A-Z0-9_]+)\}\}/g)]
+        .map((m) => m[1])
+        .filter((k) => k !== 'UNSUB_URL'),
+    ),
+  ];
+  if (unfilled.length > 0) {
+    console.error(
+      `\nError: the email still has unfilled placeholders: ${unfilled.map((k) => `{{${k}}}`).join(', ')}.`,
+    );
+    process.exit(1);
+  }
 }
 
 function buildPayload(to: string, subj: string, unsubUrl: string): Record<string, unknown> {

@@ -1,0 +1,46 @@
+ZeroGEX · Last call · Ends {{OFFER_DEADLINE_SHORT}}
+
+------------------------------------------------------------
+
+Hi there,
+
+A quick reminder: code {{PROMO_CODE}} stops working at
+{{OFFER_DEADLINE}}. Until then it takes {{OFFER_LABEL}}, on any plan.
+
+  YOUR CODE:  {{PROMO_CODE}}
+
+Pick a plan:
+https://zerogex.io/pricing
+
+At checkout, click "Add promotion code" and enter {{PROMO_CODE}}.
+
+With the code:
+
+  Basic monthly   {{BASIC_MONTHLY_OFFER}}
+  Basic annual    {{BASIC_ANNUAL_OFFER}}
+
+{{PLAN_TERMS}}
+
+This is the last email about this offer. If something other than price
+is in the way, hit reply and tell me what it is. I read every message
+myself.
+
+Trade well,
+Michael
+Founder, ZeroGEX
+
+------------------------------------------------------------
+
+ZeroGEX provides options market-structure data and analytics for
+educational and informational purposes only. Nothing here is investment
+advice or a recommendation to buy or sell any security. Options trading
+involves substantial risk and is not suitable for every investor.
+
+Free levels: https://zerogex.io/spx-gamma-levels
+Pricing:     https://zerogex.io/pricing
+Account:     https://zerogex.io/account
+
+You're receiving this because you have a ZeroGEX account.
+Don't want ZeroGEX offers and updates? Unsubscribe: {{UNSUB_URL}}
+Questions? Just reply, or email Michael@zerogex.io
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
