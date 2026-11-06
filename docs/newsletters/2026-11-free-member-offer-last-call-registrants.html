@@ -1,0 +1,175 @@
+<!--
+  ZeroGEX - Free-member offer, last call (November 2026), registrants
+  -------------------------------------------------------------------
+  The reminder for 2026-11-free-member-offer, sent the day the code ends, only
+  to members that email reached who still have no plan (onlyRecipientsOf).
+
+  Like the offer email, it states no rate, date or price of its own: every
+  placeholder is filled from the promotion code passed with --promo-code
+  (core/promoCodeOffer.ts). The code must have at least 6 hours left.
+
+  SUBJECT (set in the CAMPAIGNS registry):
+      Ends {{OFFER_DEADLINE_SHORT}}: {{OFFER_HEADLINE}}
+      e.g. "Ends November 15: 40% off your first year of ZeroGEX"
+
+  Sent per-recipient via
+  scripts/send-product-update.mts --campaign 2026-11-free-member-offer-last-call --audience registrants --promo-code <CODE>.
+-->
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>ZeroGEX &middot; Last call</title>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td, a { font-family: Arial, Helvetica, sans-serif !important; }
+  </style>
+  <![endif]-->
+  <style type="text/css">
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    table { border-collapse: collapse !important; }
+    img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+    a { text-decoration: none; }
+    @media only screen and (max-width: 620px) {
+      .zg-container { width: 100% !important; }
+      .zg-pad { padding-left: 22px !important; padding-right: 22px !important; }
+      .zg-plan { width: 104px !important; }
+      .zg-code { font-size: 24px !important; letter-spacing: 2px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0; padding:0; background-color:#eceff3;">
+  <!-- Preheader -->
+  <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden; mso-hide:all; color:#eceff3;">
+    Code {{PROMO_CODE}} stops working at {{OFFER_DEADLINE}}: {{OFFER_LABEL}}, on any plan.
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eceff3;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+
+        <table role="presentation" class="zg-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(15,34,52,0.10);">
+
+          <!-- Header: logo on a navy band -->
+          <tr>
+            <td align="center" bgcolor="#0d1d2d" style="background-color:#0d1d2d; padding:20px 0; line-height:0; font-size:0;">
+              <!-- LOGO-IMG -->
+              <a href="https://zerogex.io" target="_blank" style="text-decoration:none; line-height:0;">
+                <img src="https://zerogex.io/email/zerogex-email-header.png" width="400" height="122" alt="ZeroGEX" style="display:block; width:400px; max-width:82%; height:auto; border:0; margin:0 auto;">
+              </a>
+            </td>
+          </tr>
+
+          <!-- Eyebrow -->
+          <tr>
+            <td align="center" class="zg-pad" style="padding:26px 34px 0 34px;">
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:11px; font-weight:800; letter-spacing:2px; color:#c93a34; text-transform:uppercase;">
+                Last call &nbsp;&middot;&nbsp; Ends {{OFFER_DEADLINE_SHORT}}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Intro -->
+          <tr>
+            <td class="zg-pad" style="padding:16px 34px 6px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#28323c; font-size:16px; line-height:1.6;">
+              <p style="margin:0 0 16px 0;">Hi there,</p>
+              <p style="margin:0 0 6px 0;">A quick reminder: code <strong style="color:#12283c;">{{PROMO_CODE}}</strong> stops working at {{OFFER_DEADLINE}}. Until then it takes <strong style="color:#12283c;">{{OFFER_LABEL}}</strong>, on any plan.</p>
+            </td>
+          </tr>
+
+          <!-- The code -->
+          <tr>
+            <td class="zg-pad" style="padding:22px 34px 0 34px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fdeeed; border-left:4px solid #f45854; border-radius:8px;">
+                <tr>
+                  <td align="center" style="padding:22px 22px 22px 22px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+                    <div style="font-size:11px; font-weight:800; letter-spacing:2px; color:#66727e; text-transform:uppercase; margin-bottom:8px;">Your code</div>
+                    <div class="zg-code" style="display:inline-block; padding:8px 18px; border:2px dashed #f45854; border-radius:8px; background-color:#ffffff; font-family:'SFMono-Regular',Menlo,Consolas,'Courier New',monospace; font-size:28px; font-weight:800; letter-spacing:3px; color:#12283c;">{{PROMO_CODE}}</div>
+                    <p style="margin:12px 0 18px 0; font-size:14px; line-height:1.5; color:#3a4650;">Until {{OFFER_DEADLINE}}</p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
+                      <td align="center" bgcolor="#0f2234" style="border-radius:8px;">
+                        <a href="https://zerogex.io/pricing" target="_blank" style="display:inline-block; padding:12px 26px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:15px; font-weight:700; color:#ffffff; border-radius:8px;">Pick a plan &rarr;</a>
+                      </td>
+                    </tr></table>
+                    <p style="margin:14px 0 0 0; font-size:13px; line-height:1.5; color:#66727e;">At checkout, click &ldquo;Add promotion code&rdquo; and enter {{PROMO_CODE}}.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Two prices -->
+          <tr>
+            <td class="zg-pad" style="padding:22px 34px 0 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#3a4650; font-size:15px; line-height:1.5;">
+              <p style="margin:0 0 10px 0; font-size:15px; color:#3a4650;">With the code:</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f4f7; border:1px solid #e4e8ec; border-radius:8px;">
+                <tr>
+                  <td style="padding:6px 16px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="zg-plan" valign="top" style="width:128px; padding:11px 0; border-bottom:1px solid #e4e8ec; font-size:14px; font-weight:700; color:#12283c;">Basic monthly</td>
+                        <td valign="top" style="padding:11px 0; border-bottom:1px solid #e4e8ec; font-size:15px; font-weight:700; color:#12283c;">{{BASIC_MONTHLY_OFFER}}</td>
+                      </tr>
+                      <tr>
+                        <td class="zg-plan" valign="top" style="width:128px; padding:11px 0; font-size:14px; font-weight:700; color:#12283c;">Basic annual</td>
+                        <td valign="top" style="padding:11px 0; font-size:15px; font-weight:700; color:#12283c;">{{BASIC_ANNUAL_OFFER}}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0 0; font-size:14px; line-height:1.6; color:#3a4650;">{{PLAN_TERMS}}</p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td class="zg-pad" style="padding:26px 34px 0 34px;"><div style="border-top:1px solid #e4e8ec; font-size:0; line-height:0;">&nbsp;</div></td></tr>
+
+          <!-- Closer / signature -->
+          <tr>
+            <td class="zg-pad" style="padding:22px 34px 26px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; color:#28323c; font-size:16px; line-height:1.6;">
+              <p style="margin:0 0 16px 0;">This is the last email about this offer. If something other than price is in the way, hit reply and tell me what it is. I read every message myself.</p>
+              <p style="margin:0 0 2px 0;">Trade well,</p>
+              <p style="margin:0; font-weight:700; color:#12283c;">Michael</p>
+              <p style="margin:0; color:#66727e; font-size:14px;">Founder, ZeroGEX</p>
+            </td>
+          </tr>
+
+          <!-- Footer (navy) -->
+          <tr>
+            <td style="padding:26px 34px 30px 34px; background-color:#0f2234;" class="zg-pad">
+              <a href="https://zerogex.io" target="_blank" style="text-decoration:none; line-height:0; display:inline-block; margin-bottom:16px;">
+                <img src="https://zerogex.io/email/zerogex-email-footer.png" width="240" height="68" alt="ZeroGEX" style="display:block; width:240px; max-width:65%; height:auto; border:0;">
+              </a>
+              <p style="margin:0 0 14px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.6; color:#7f90a0;">
+                ZeroGEX provides options market-structure data and analytics for educational and informational purposes only. Nothing here is investment advice or a recommendation to buy or sell any security. Options trading involves substantial risk and is not suitable for every investor.
+              </p>
+              <p style="margin:0 0 14px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:13px; line-height:1.6;">
+                <a href="https://zerogex.io/spx-gamma-levels" target="_blank" style="color:#c3d0da; font-weight:600;">Free levels</a>
+                <span style="color:#3f5064;">&nbsp;&middot;&nbsp;</span>
+                <a href="https://zerogex.io/pricing" target="_blank" style="color:#c3d0da; font-weight:600;">Pricing</a>
+                <span style="color:#3f5064;">&nbsp;&middot;&nbsp;</span>
+                <a href="https://zerogex.io/account" target="_blank" style="color:#c3d0da; font-weight:600;">Account</a>
+              </p>
+              <p style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.6; color:#68798a;">
+                You&rsquo;re receiving this because you have a ZeroGEX account.
+                Don&rsquo;t want ZeroGEX offers and updates? <a href="{{UNSUB_URL}}" style="color:#9fb0be; text-decoration:underline;">Unsubscribe</a>.
+                Questions? Just reply, or email <a href="mailto:Michael@zerogex.io" style="color:#9fb0be; text-decoration:underline;">Michael@zerogex.io</a>.
+                <br>
+                ZeroGEX &middot; 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

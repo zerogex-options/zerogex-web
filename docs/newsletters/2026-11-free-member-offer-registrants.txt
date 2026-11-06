@@ -1,0 +1,89 @@
+ZeroGEX · Free-member offer · Until {{OFFER_DEADLINE_SHORT}}
+
+------------------------------------------------------------
+
+Hi there,
+
+You have a ZeroGEX account, but so far you have only seen the free
+side of it: levels that run about 15 minutes behind the market.
+
+Here's a reason to see the rest. Until {{OFFER_DEADLINE}},
+code {{PROMO_CODE}} takes {{OFFER_LABEL}}, on any plan.
+
+  YOUR CODE:  {{PROMO_CODE}}
+
+Pick a plan:
+https://zerogex.io/pricing
+
+At checkout, click "Add promotion code" and enter {{PROMO_CODE}}.
+
+
+== WHAT THE CODE DOES TO EACH PLAN ==
+
+  Basic monthly   {{BASIC_MONTHLY_OFFER}}
+                  (normally {{BASIC_MONTHLY_LIST}})
+
+  Pro monthly     {{PRO_MONTHLY_OFFER}}
+                  (normally {{PRO_MONTHLY_LIST}})
+
+  Basic annual    {{BASIC_ANNUAL_OFFER}}
+                  (normally {{BASIC_ANNUAL_LIST}})
+
+  Pro annual      {{PRO_ANNUAL_OFFER}}
+                  (normally {{PRO_ANNUAL_LIST}})
+
+{{PLAN_TERMS}} Cancel anytime from your account page.
+
+
+== WHAT YOU GET ==
+
+* Real time, not 15 minutes late. The gamma flip, call and put walls,
+  and max pain for SPX, SPY, QQQ, NDX, ES and NQ, as they move.
+
+* The Main Dashboard and the live Gamma Terminal, plus My Dashboard to
+  build your own board.
+
+* Every Metrics page and the options flow: Dealer Positioning, GEX
+  Heatmap, GEX Strike Profile, Flow Analysis, Smart Money, Hedging
+  Flow and Market Tide.
+
+* Wall alerts: pick a wall, and ZeroGEX tells you when price hits it
+  or breaks through it, in the app and by email.
+
+* Pro adds Trade Bias, the Composite Score, all eight Advanced
+  Signals, API access, and auto-updating NinjaTrader and Sierra Chart
+  indicators.
+
+Your free levels stay free, whatever you decide.
+
+
+------------------------------------------------------------
+
+If a discount isn't what's holding you back, hit reply and tell me
+what is. I read every message myself, and the answers decide what I
+build next.
+
+Trade well,
+Michael
+Founder, ZeroGEX
+
+------------------------------------------------------------
+
+Dealer positioning is modeled, not directly observed: public option data
+does not disclose which side a dealer holds at a strike. See
+https://zerogex.io/methodology
+
+ZeroGEX provides options market-structure data and analytics for
+educational and informational purposes only. Nothing here is investment
+advice or a recommendation to buy or sell any security. Options trading
+involves substantial risk and is not suitable for every investor.
+
+Free levels: https://zerogex.io/spx-gamma-levels
+Pricing:     https://zerogex.io/pricing
+Account:     https://zerogex.io/account
+Help & FAQ:  https://zerogex.io/help/faqs
+
+You're receiving this because you have a ZeroGEX account.
+Don't want ZeroGEX offers and updates? Unsubscribe: {{UNSUB_URL}}
+Questions? Just reply, or email Michael@zerogex.io
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
