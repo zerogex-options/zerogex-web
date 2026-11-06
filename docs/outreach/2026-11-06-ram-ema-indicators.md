@@ -17,8 +17,9 @@ to add EMA's":
 
 No earlier thread with Ram in this folder.
 
-> **Status:** the draft is unsent, and it promises the feature. Nothing is
-> built yet. Send it only if you want it built.
+> **Status:** both checks under "Confirm before sending" passed on Nov 6, so
+> the draft goes as written. It promises the feature, and nothing is built
+> yet. Send it only if you want it built.
 
 ## The answer
 
@@ -51,18 +52,17 @@ the daily chart: we don't store 200 days of price history yet.
   "it's live" email should say so.
 - **The daily chart is short of history.** Daily candles are built from the
   stored 1-minute bars, which were deleted after 60 days until 2026-08-25
-  (zerogex-oa `Makefile`, the note above `DB_MAINTAIN_TABLES`). So the history
-  should start around 2026-06-26, about 94 sessions. Not checked against the
-  database from here; see "Confirm before sending".
+  (zerogex-oa `Makefile`, the note above `DB_MAINTAIN_TABLES`). The history
+  starts on 2026-06-29: 93 sessions for SPY and QQQ, 92 for SPX and NDX
+  (checked on the box, Nov 6).
   - SPY, QQQ, SPX, NDX: the 13 and 40 work. The 200 needs 200 sessions, which
     at today's pace is mid-April 2027.
   - ES, NQ: their bars are still deleted after 60 days (zerogex-oa
     `_futures_retention_days` falls back to `DATA_RETENTION_DAYS=60`), so about
     44 sessions, and the window never grows. Only the 13 means much on their
-    daily chart. That assumes the box's `.env` leaves
-    `FUTURES_BARS_RETENTION_DAYS` blank. The ES/NQ rollout started it at 7, and
-    a week of bars (about 115 hourly candles) is too few for a 200 on the
-    1-hour chart too. The second check below says which.
+    daily chart. The box's `.env` sets `DATA_RETENTION_DAYS=60` and has no
+    `FUTURES_BARS_RETENTION_DAYS` line (checked Nov 6), so the 60 days apply,
+    not the 7 the ES/NQ rollout started with.
   - NVDA: bars only since 2026-10-20, about 14 sessions. The 1-, 5- and
     15-minute charts are fine, the 1-hour 200 needs a few more weeks, and the
     daily chart has too few candles for any of the three.
@@ -93,7 +93,9 @@ the daily chart: we don't store 200 days of price history yet.
 
 ## Confirm before sending
 
-Two checks on the EC2 box. Neither needs the build.
+Two checks on the EC2 box. Neither needs the build. **Both passed on Nov 6:**
+history from 2026-06-29 (92 to 93 sessions), and no
+`FUTURES_BARS_RETENTION_DAYS` override in `.env`.
 
 **1. How far back the price history goes.** Only the daily-chart paragraph
 depends on it. From `~/zerogex-oa`, run `make psql`, then:
