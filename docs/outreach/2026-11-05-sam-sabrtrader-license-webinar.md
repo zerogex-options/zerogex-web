@@ -24,7 +24,8 @@ Wed Nov 4, evening ET:
 > partner grant to 2027-11-05. That account already pays for Pro
 > (`sub_1TxQEI4AOiqteMYYlFwmMH0G`, active; registered Jul 26), so the reply
 > below no longer has the "I've also put Pro" paragraph. Sent. Sam's second
-> reply and a check of their new ZeroGEX page are at the end.
+> reply, a check of their new ZeroGEX page, and Erwin's fixes (verified Nov 7)
+> are at the end. The webinar time is still open.
 
 ## What he's saying
 
@@ -151,6 +152,8 @@ zerogex.io
 
 ### Their ZeroGEX page (checked Nov 5, 17:16 UTC)
 
+**Both problems below were fixed by Sat Nov 7. See Erwin's reply at the end.**
+
 <https://www.sabrtrader.com/pages/zerogex>, an "Integration partner" page,
 listed under Partners in their nav next to gexbot, MenthorQ and
 quantedOptions. Their Gamma Levels page and homepage link to it.
@@ -189,6 +192,50 @@ I just saw your new ZeroGEX page, and it looks great. Two small changes would he
 2. The API key comes with ZeroGEX Pro. Where the page says you need your own ZeroGEX subscription, could it say Pro? Otherwise someone could buy Basic and find no key.
 
 Are we still on for next Wednesday? What time are you thinking, and would you like me on the call to take questions about the levels?
+
+Best,
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
+```
+\n
+## Erwin's reply (Sat Nov 7): both fixes live
+
+> Both changes are live on sabrtrader.com/pages/zerogex: Every zerogex.io
+> link, including the "Get your ZeroGEX API key" and "Visit zerogex.io"
+> buttons, now points to https://zerogex.io/register?ref=SabrTrader. The page
+> mentions the 25% off the first year, and the SABRTRADER code for anyone who
+> types it in at checkout. The links on our Gamma Levels page use the same
+> referral link now. The page now says the API key comes with ZeroGEX Pro,
+> with a short FAQ that Basic has no key. The setup steps follow yours [...]
+> Let us know how the Rithmic trial goes.
+
+Verified Sat Nov 7, 15:31 UTC:
+
+- `/pages/zerogex`: 6 links to `https://zerogex.io/register?ref=SabrTrader`,
+  plus `/help/platform/api-access` and `/integrations`. The copy says Pro, not
+  Basic, 25% off the first year, and the `SABRTRADER` code. The steps match
+  ours, including reusing an existing key.
+- `/pages/gamma-levels`: 3 links to the same referral link.
+- The link itself returns 200.
+
+**Still open: the webinar time.** Asked in both of Michael's replies; neither
+Sam nor Erwin has answered.
+
+**Results:** `make partners EMAIL=tradedevils@gmail.com` lists the signups
+that came through the link.
+
+### Reply
+
+```
+Hi Erwin,
+
+Thanks, that looks great. I checked both pages, and every link goes to the right place.
+
+Is the webinar still on for Wednesday? If so, what time and time zone, and would you like me on the call to take questions about the levels? If Wednesday is too soon, another day works too.
+
+I'll let you know how the Rithmic trial goes.
 
 Best,
 Michael
