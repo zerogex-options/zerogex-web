@@ -199,7 +199,7 @@ Founder, ZeroGEX
 Know the levels that matter before price gets there.
 zerogex.io
 ```
-\n
+
 ## Erwin's reply (Sat Nov 7): both fixes live
 
 > Both changes are live on sabrtrader.com/pages/zerogex: Every zerogex.io
