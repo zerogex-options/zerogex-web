@@ -21,11 +21,13 @@ import { Spinner } from './LoadingNote';
 interface SessionCardProps {
   href: string;
   humanDate: string;
-  /** "Full session" / "Partial" / "Thin". */
+  /** "Full session" / "Partial" / "Thin" / "Levels only". */
   statusLabel: string;
   /** CSS color for the status label, keyed to that tone. */
   statusTone: string;
   barCount: number;
+  /** Short qualifier after the bar count, e.g. "strike detail aged out". */
+  note?: string;
 }
 
 function CardBody({
@@ -33,6 +35,7 @@ function CardBody({
   statusLabel,
   statusTone,
   barCount,
+  note,
 }: Omit<SessionCardProps, 'href'>) {
   const { pending } = useLinkStatus();
 
@@ -64,7 +67,7 @@ function CardBody({
         )}
       </div>
       <div className="mt-1 font-mono text-[11px] text-[var(--color-text-secondary)]">
-        {barCount} bars
+        {barCount} bars{note ? <> · {note}</> : null}
       </div>
     </div>
   );

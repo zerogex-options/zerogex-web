@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 import { serverApiGet } from '@/core/api/serverFetch';
 import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import SymbolPicker from '@/components/SymbolPicker';
 import { SITE_DEFAULT_OG_IMAGE, SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
+import { replaySessionStatus, STRIKE_RETENTION_HREF, strikesAgedOut } from '@/core/replaySessions';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import SessionCard from './SessionCard';
 
@@ -19,6 +21,9 @@ interface ReplaySession {
   bar_count: number;
   first_ts: string | null;
   last_ts: string | null;
+  // False once the session's per-strike rows have aged out (see
+  // core/replaySessions). Absent from an older API; null when it couldn't check.
+  has_strikes?: boolean | null;
 }
 
 interface ReplaySessionList {
@@ -69,12 +74,6 @@ function formatHumanDate(raw: string): string {
   }
 }
 
-function sessionLabel(bars: number): { label: string; tone: 'full' | 'partial' | 'thin' } {
-  if (bars >= 380) return { label: 'Full session', tone: 'full' };
-  if (bars >= 120) return { label: 'Partial', tone: 'partial' };
-  return { label: 'Thin', tone: 'thin' };
-}
-
 async function loadSessions(symbol: string): Promise<ReplaySessionList | null> {
   return serverApiGet<ReplaySessionList>(
     `/api/replay/sessions?symbol=${symbol}&limit=60`,
@@ -90,6 +89,7 @@ export default async function ReplayLanding({
   const symbol = resolveSymbol((await searchParams)?.symbol);
   const data = await loadSessions(symbol);
   const sessions = data?.sessions ?? [];
+  const anyAgedOut = sessions.some((s) => strikesAgedOut(s.has_strikes));
   const pickerHrefs = buildSymbolHrefs((s) => (s === 'SPY' ? '/replay' : `/replay?symbol=${s}`));
 
   return (
@@ -107,9 +107,15 @@ export default async function ReplayLanding({
           <SymbolPicker current={symbol} hrefs={pickerHrefs} />
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          Every per-minute dealer gamma snapshot from the last {sessions.length || '90'} trading
-          days is replayable. Drag the playhead to watch walls shift, gamma flip drift, and
-          per-strike GEX migrate. Replay the whole chain or just that day&rsquo;s 0DTE book&nbsp;- the
+          {sessions.length > 0 ? `The ${sessions.length} sessions below` : 'Recent sessions'} replay
+          minute by minute. Every one carries the walls, gamma flip and max pain; per-strike GEX
+          is{' '}
+          <Link href={STRIKE_RETENTION_HREF} className="underline hover:text-[var(--color-text-primary)]">
+            kept for about 60 days
+          </Link>
+          {anyAgedOut ? <>, so older sessions are marked <em>Levels only</em>.</> : '.'} Drag the
+          playhead to watch walls shift, gamma flip drift, and per-strike GEX migrate. Replay the
+          whole chain or just that day&rsquo;s 0DTE book&nbsp;- the
           walls, flip and max pain follow the expirations you pick. Drop two pins and see the
           strike-by-strike delta between any two moments. Share the exact minute that mattered.
         </p>
@@ -123,7 +129,8 @@ export default async function ReplayLanding({
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {sessions.map((session) => {
-              const meta = sessionLabel(session.bar_count);
+              const meta = replaySessionStatus(session.bar_count, session.has_strikes);
+              const agedOut = meta.tone === 'levels';
               const tone =
                 meta.tone === 'full' ? 'var(--color-bull)' :
                 meta.tone === 'partial' ? 'var(--color-warning)' :
@@ -136,6 +143,7 @@ export default async function ReplayLanding({
                     statusLabel={meta.label}
                     statusTone={tone}
                     barCount={session.bar_count}
+                    note={agedOut ? 'strike detail aged out' : undefined}
                   />
                 </li>
               );

@@ -185,6 +185,11 @@ interface ReplayScrubberProps {
    *  session's last frame. The scope toggle writes it so a switch keeps the
    *  minute you were on across the navigation that remounts this component. */
   initialMinute?: string | null;
+  /** The API says this session's per-strike rows have aged out (see
+   *  core/replaySessions), so every ladder is empty under every scope. The
+   *  page says so above the player; this keeps the scope notes from blaming
+   *  the session's own chain for it. */
+  strikesAgedOut?: boolean;
 }
 
 // Stable empty default for the optional expirations legend — a fresh []
@@ -456,6 +461,7 @@ export default function ReplayScrubber({
   expirations = EMPTY_EXPIRATIONS,
   scope,
   initialMinute = null,
+  strikesAgedOut = false,
 }: ReplayScrubberProps) {
   const frames = initialFrames;
   const candles = initialCandles;
@@ -498,12 +504,15 @@ export default function ReplayScrubber({
   // For Fri it is usually ingestion depth: only the nearest few expirations are
   // collected (INGEST_EXPIRATIONS), and on a daily-expiry symbol the coming
   // Friday falls outside them on Monday, Tuesday and Friday sessions.
+  // An aged-out session's ladders are empty under every scope too, but that
+  // says nothing about its chain, so it is excluded here and gets its own note.
   const scopeHasNoContracts = useMemo(
     () =>
+      !strikesAgedOut &&
       scope !== 'all' &&
       frames.length > 0 &&
       frames.every((f) => (f.strikes?.length ?? 0) === 0),
-    [scope, frames],
+    [strikesAgedOut, scope, frames],
   );
 
   const currentFrame = frames[cursor] ?? frames[0];
@@ -1056,7 +1065,18 @@ export default function ReplayScrubber({
           </div>
         )}
 
-        {scope !== 'all' && !scopeHasNoContracts && (
+        {/* The scoped bars, walls and flip are rebuilt from per-strike rows, so
+            an aged-out session has none to show here. Its max pain, pin and
+            GEX King are stored with the session's levels and still draw. */}
+        {scope !== 'all' && strikesAgedOut && (
+          <div className="mt-3 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+            The {scopeExpiry} expiry&rsquo;s bars, walls and gamma flip are rebuilt from per-strike
+            GEX, which has aged out for this session. Switch back to <strong>All exps</strong> for
+            the walls and flip as recorded.
+          </div>
+        )}
+
+        {scope !== 'all' && !scopeHasNoContracts && !strikesAgedOut && (
           <div className="mt-3 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
             Bars, call wall, put wall, gamma flip and max pain are the {scopeExpiry} expiry alone.
             Pin strike and GEX King stay whole-chain&nbsp;- same as the live charts, where neither
