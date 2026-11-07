@@ -1,66 +1,282 @@
 {
-  "_note": "The 'what's new since you left' bullets. Read by scripts/send-winback.mts and scripts/send-return-intent.mts; rendered by core/mailer.ts and by the returning-member wall at app/unauthorized. Edit freely to keep the copy evergreen \u2014 no code change or redeploy is needed, the next send picks it up. 'title' is bolded, 'body' follows an em-dash. If this file is missing or invalid, the senders fall back to DEFAULT_WINBACK_HIGHLIGHTS in core/mailer.ts.",
+  "_note": "The 'what's new since you left' bullets. Read by scripts/send-winback.mts and scripts/send-return-intent.mts; rendered by core/mailer.ts and by the returning-member wall at app/unauthorized. Edit freely to keep the copy evergreen \u2014 no code change or redeploy is needed, the next send picks it up. 'title' is bolded, 'body' follows an em-dash. If this file is missing or invalid, the senders fall back to DEFAULT_WINBACK_HIGHLIGHTS in core/mailer.ts. Each item's 'translations' holds the same bullet in Italian, German, Spanish and French; the returning-member wall shows the member's language, and the emails stay English. When you change an item's English, change its translations too, or delete them and that bullet shows in English until they are redone.",
   "_since_note": "'since' is the ISO date the item shipped, and it is what makes these emails cohort-correct: core/winbackHighlights.ts shows a reader only what landed AFTER they left, newest first, so a June leaver and a September leaver get different mail from the same template and no reader is ever told 'a lot has changed' about things they already used. OMIT 'since' for an item whose real ship date you can't verify \u2014 undated items are evergreen (shown to everyone, never counted as new), which is the honest default. Do NOT guess a date: an item dated too early silently disappears from the cohort it would most impress. Dates below were read off git history; anything predating this repo's first commit (2026-08-20) is deliberately left undated.",
   "highlights": [
     {
       "title": "A Dots view for the GEX Heatmap",
       "body": "one dot per strike per interval, sized by how much dealer gamma sits there and green or red for its sign, with price drawn through it, for 10, 20 or 40 strikes around price. The heatmap\u2019s dark-mode colors were redone too: strikes with no gamma now fade into the background, so the walls stand out.",
-      "since": "2026-10-16"
+      "since": "2026-10-16",
+      "translations": {
+        "it": {
+          "title": "Una vista a punti per la GEX Heatmap",
+          "body": "un punto per strike per intervallo, grande quanto il gamma dei dealer che vi si trova e verde o rosso a seconda del segno, con il prezzo tracciato sopra, per 10, 20 o 40 strike intorno al prezzo. Anche i colori della heatmap in modalità scura sono stati rifatti: gli strike senza gamma ora sfumano nello sfondo, così i muri risaltano."
+        },
+        "de": {
+          "title": "Eine Punkte-Ansicht für die GEX Heatmap",
+          "body": "ein Punkt pro Strike und Intervall, so groß wie das dort liegende Dealer-Gamma und grün oder rot je nach Vorzeichen, mit dem Kurs darübergelegt, für 10, 20 oder 40 Strikes um den Kurs. Auch die Farben der Heatmap im Dark Mode wurden überarbeitet: Strikes ohne Gamma treten jetzt in den Hintergrund, damit die Walls hervorstechen."
+        },
+        "es": {
+          "title": "Una vista de puntos para el GEX Heatmap",
+          "body": "un punto por strike y por intervalo, con un tamaño según el gamma de los dealers que hay en él y verde o rojo según su signo, con el precio trazado encima, para 10, 20 o 40 strikes alrededor del precio. También se rehicieron los colores del heatmap en modo oscuro: los strikes sin gamma ahora se funden con el fondo, para que los muros destaquen."
+        },
+        "fr": {
+          "title": "Une vue en points pour la GEX Heatmap",
+          "body": "un point par strike et par intervalle, dimensionné selon le gamma des dealers qui s'y trouve et vert ou rouge selon son signe, avec le prix tracé par-dessus, pour 10, 20 ou 40 strikes autour du prix. Les couleurs de la heatmap en mode sombre ont aussi été refaites : les strikes sans gamma se fondent désormais dans le fond, pour que les murs ressortent."
+        }
+      }
     },
     {
       "title": "Wall alerts",
       "body": "pick an SPX, SPY, QQQ or NDX call or put wall and hear when price hits it, breaks through it or bounces off it, in the app or by email. Built to stay quiet in chop: one alert per approach, breaks confirmed by 1-minute closes, and a strength filter so only the walls you care about ever ping you.",
-      "since": "2026-10-14"
+      "since": "2026-10-14",
+      "translations": {
+        "it": {
+          "title": "Avvisi sui muri",
+          "body": "scegli un call wall o un put wall di SPX, SPY, QQQ o NDX e sappi quando il prezzo lo tocca, lo rompe o ci rimbalza sopra, nell'app o via email. Pensati per restare in silenzio nelle fasi laterali: un avviso per ogni avvicinamento, rotture confermate dalle chiusure a 1 minuto e un filtro di forza, così ti avvisano solo i muri che ti interessano."
+        },
+        "de": {
+          "title": "Wand-Alarme",
+          "body": "wähle eine Call- oder Put-Wall bei SPX, SPY, QQQ oder NDX und erfahre, wann der Kurs sie erreicht, durchbricht oder an ihr abprallt, in der App oder per E-Mail. Gebaut, um in unruhigen Seitwärtsphasen still zu bleiben: ein Alarm pro Annäherung, Durchbrüche bestätigt durch 1-Minuten-Schlusskurse und ein Stärkefilter, damit sich nur die Walls melden, die dir wichtig sind."
+        },
+        "es": {
+          "title": "Alertas de muros",
+          "body": "elige una call wall o una put wall de SPX, SPY, QQQ o NDX y entérate de cuándo el precio la toca, la rompe o rebota en ella, en la app o por email. Pensadas para no molestar en mercados laterales: una alerta por aproximación, rupturas confirmadas por cierres de 1 minuto y un filtro de fuerza para que solo te avisen los muros que te importan."
+        },
+        "fr": {
+          "title": "Alertes de murs",
+          "body": "choisissez une call wall ou une put wall sur SPX, SPY, QQQ ou NDX et soyez prévenu quand le prix l'atteint, la casse ou rebondit dessus, dans l'app ou par e-mail. Conçues pour rester discrètes quand le marché hésite : une alerte par approche, des cassures confirmées par des clôtures à 1 minute et un filtre de force, pour que seuls les murs qui vous intéressent vous alertent."
+        }
+      }
     },
     {
       "title": "Rebuilt for phones and tablets",
       "body": "a new phone layout from the top bar down, with a live quote that doubles as the symbol picker and charts redrawn for a small screen: drag to pan, pinch to zoom, press-and-hold for a crosshair.",
-      "since": "2026-09-23"
+      "since": "2026-09-23",
+      "translations": {
+        "it": {
+          "title": "Ricostruito per smartphone e tablet",
+          "body": "un nuovo layout per smartphone dalla barra in alto in giù, con una quotazione live che fa anche da selettore del simbolo e grafici ridisegnati per schermi piccoli: trascina per spostarti, pizzica per lo zoom, tieni premuto per il mirino."
+        },
+        "de": {
+          "title": "Neu gebaut für Smartphones und Tablets",
+          "body": "ein neues Smartphone-Layout von der oberen Leiste an abwärts, mit einem Live-Kurs, der zugleich die Symbolauswahl ist, und Charts, die für kleine Bildschirme neu gezeichnet wurden: Ziehen zum Verschieben, Zwei-Finger-Zoom und Gedrückthalten für ein Fadenkreuz."
+        },
+        "es": {
+          "title": "Rehecho para móviles y tabletas",
+          "body": "un nuevo diseño para móvil desde la barra superior hacia abajo, con una cotización en vivo que también sirve para elegir el símbolo y gráficos redibujados para pantallas pequeñas: arrastra para desplazarte, pellizca para hacer zoom y mantén pulsado para ver una cruz."
+        },
+        "fr": {
+          "title": "Repensé pour les téléphones et les tablettes",
+          "body": "une nouvelle mise en page mobile, de la barre du haut jusqu'en bas, avec une cotation en direct qui sert aussi de sélecteur de symbole et des graphiques redessinés pour les petits écrans : faites glisser pour vous déplacer, pincez pour zoomer, maintenez appuyé pour afficher un réticule."
+        }
+      }
     },
     {
       "title": "Forecasts that keep score",
       "body": "the Intraday Cone redraws a price band every 15 minutes and scores its own odds against a simple baseline, and the Track Record publishes every Daily Forecast ever graded, misses named and dated. Both free.",
-      "since": "2026-09-22"
+      "since": "2026-09-22",
+      "translations": {
+        "it": {
+          "title": "Previsioni che tengono il conto",
+          "body": "il cono intraday ridisegna una fascia di prezzo ogni 15 minuti e valuta le proprie probabilità rispetto a un semplice riferimento, e il track record pubblica ogni previsione giornaliera mai valutata, con gli errori indicati e datati. Entrambi gratuiti."
+        },
+        "de": {
+          "title": "Prognosen, die Buch führen",
+          "body": "der Intraday-Cone zeichnet alle 15 Minuten ein neues Preisband und bewertet seine eigenen Wahrscheinlichkeiten gegen eine einfache Basislinie, und die Erfolgsbilanz veröffentlicht jede je bewertete Tagesprognose, Fehlschläge mit Namen und Datum. Beides kostenlos."
+        },
+        "es": {
+          "title": "Previsiones que llevan la cuenta",
+          "body": "el cono intradía redibuja una banda de precio cada 15 minutos y puntúa sus propias probabilidades frente a una referencia simple, y el historial publica cada previsión diaria calificada, con los fallos señalados y fechados. Ambos gratis."
+        },
+        "fr": {
+          "title": "Des prévisions qui tiennent leurs comptes",
+          "body": "le cône intrajournalier redessine une bande de prix toutes les 15 minutes et note ses propres probabilités face à une référence simple, et l'historique publie chaque prévision quotidienne déjà notée, ratés compris, nommés et datés. Les deux sont gratuits."
+        }
+      }
     },
     {
       "title": "Gamma Terminal",
       "body": "the Gamma Chart and the Gamma Terminal folded into one flagship page: price with the levels drawn on it, and beside it either two strike-aligned gamma ladders or net dealer gamma by price. Live for members, and free on a ~15-minute delay, ladders included.",
-      "since": "2026-09-20"
+      "since": "2026-09-20",
+      "translations": {
+        "it": {
+          "title": "Gamma Terminal",
+          "body": "il Gamma Chart e il Gamma Terminal riuniti in un'unica pagina di punta: il prezzo con i livelli tracciati sopra e, accanto, due scale di gamma allineate per strike oppure il gamma netto dei dealer per prezzo. Live per i membri e gratis con ~15 minuti di ritardo, scale incluse."
+        },
+        "de": {
+          "title": "Gamma Terminal",
+          "body": "Gamma Chart und Gamma Terminal sind zu einer Hauptseite verschmolzen: der Kurs mit eingezeichneten Levels und daneben entweder zwei nach Strikes ausgerichtete Gamma-Leitern oder das Netto-Dealer-Gamma nach Preis. Live für Mitglieder und kostenlos mit ~15 Minuten Verzögerung, Leitern inklusive."
+        },
+        "es": {
+          "title": "Gamma Terminal",
+          "body": "el Gamma Chart y el Gamma Terminal unidos en una sola página principal: el precio con los niveles trazados encima y, al lado, dos escaleras de gamma alineadas por strike o el gamma neto de los dealers por precio. En vivo para los miembros y gratis con un retraso de ~15 minutos, escaleras incluidas."
+        },
+        "fr": {
+          "title": "Gamma Terminal",
+          "body": "le Gamma Chart et le Gamma Terminal réunis en une seule page phare : le prix avec les niveaux tracés dessus et, à côté, soit deux échelles de gamma alignées par strike, soit le gamma net des dealers par prix. En direct pour les membres, et gratuit avec ~15 minutes de différé, échelles comprises."
+        }
+      }
     },
     {
       "title": "0DTE on the Daily Replay",
       "body": "switch any replayed session to the expiry that settled that afternoon, and the walls, flip and max pain are rebuilt from that book alone, so you see what actually had to be hedged into the bell.",
-      "since": "2026-09-16"
+      "since": "2026-09-16",
+      "translations": {
+        "it": {
+          "title": "0DTE nel Daily Replay",
+          "body": "passa qualsiasi sessione riprodotta alla scadenza liquidata quel pomeriggio, e muri, flip e max pain vengono ricostruiti solo da quel book, così vedi cosa doveva davvero essere coperto fino alla campanella."
+        },
+        "de": {
+          "title": "0DTE im Daily Replay",
+          "body": "stelle jede nachgespielte Session auf die Fälligkeit um, die an diesem Nachmittag abgerechnet wurde, und Walls, Flip und Max Pain werden allein aus diesem Buch neu berechnet, damit du siehst, was bis zur Schlussglocke wirklich abgesichert werden musste."
+        },
+        "es": {
+          "title": "0DTE en el Daily Replay",
+          "body": "cambia cualquier sesión reproducida al vencimiento que se liquidó esa tarde, y los muros, el flip y el max pain se reconstruyen solo a partir de ese libro, para que veas lo que realmente hubo que cubrir hasta la campana."
+        },
+        "fr": {
+          "title": "Le 0DTE dans le Daily Replay",
+          "body": "basculez n'importe quelle séance rejouée sur l'échéance qui a expiré cet après-midi-là, et les murs, le flip et le max pain sont reconstruits à partir de ce seul carnet, pour voir ce qui a réellement dû être couvert jusqu'à la cloche."
+        }
+      }
     },
     {
       "title": "Spread Monitor",
       "body": "how wide the option market is quoted, which side is expensive, where the chain thins out and how much has no bid at all, ranked against the same symbol at the same time of day.",
-      "since": "2026-09-10"
+      "since": "2026-09-10",
+      "translations": {
+        "it": {
+          "title": "Spread Monitor",
+          "body": "quanto è ampio lo spread quotato sul mercato delle opzioni, quale lato è caro, dove la catena si assottiglia e quanta parte non ha alcun bid, confrontato con lo stesso simbolo alla stessa ora del giorno."
+        },
+        "de": {
+          "title": "Spread Monitor",
+          "body": "wie breit der Optionsmarkt quotiert wird, welche Seite teuer ist, wo die Kette dünn wird und wie viel überhaupt kein Gebot hat, eingeordnet gegen dasselbe Symbol zur selben Tageszeit."
+        },
+        "es": {
+          "title": "Spread Monitor",
+          "body": "qué tan amplio cotiza el mercado de opciones, qué lado está caro, dónde se adelgaza la cadena y cuánto no tiene ninguna oferta de compra, comparado con el mismo símbolo a la misma hora del día."
+        },
+        "fr": {
+          "title": "Spread Monitor",
+          "body": "l'écart auquel le marché des options est coté, le côté qui est cher, l'endroit où la chaîne s'amincit et la part qui n'a aucune offre d'achat, comparés au même symbole à la même heure de la journée."
+        }
+      }
     },
     {
       "title": "Your levels on your own charts",
       "body": "four integrations across TradingView, thinkorswim, NinjaTrader 8 and Sierra Chart. The first two are free manual-entry scripts; the Pro studies poll the API and keep the Gamma Flip, Call Wall, Put Wall, Max Pain and Pin Strike current on their own.",
-      "since": "2026-09-01"
+      "since": "2026-09-01",
+      "translations": {
+        "it": {
+          "title": "I tuoi livelli sui tuoi grafici",
+          "body": "quattro integrazioni per TradingView, thinkorswim, NinjaTrader 8 e Sierra Chart. Le prime due sono script gratuiti a inserimento manuale; gli studi Pro interrogano l'API e mantengono aggiornati da soli Gamma Flip, Call Wall, Put Wall, Max Pain e Pin Strike."
+        },
+        "de": {
+          "title": "Deine Level auf deinen eigenen Charts",
+          "body": "vier Integrationen für TradingView, thinkorswim, NinjaTrader 8 und Sierra Chart. Die ersten beiden sind kostenlose Skripte zur manuellen Eingabe; die Pro-Studien fragen die API ab und halten Gamma Flip, Call Wall, Put Wall, Max Pain und Pin Strike von selbst aktuell."
+        },
+        "es": {
+          "title": "Tus niveles en tus propios gráficos",
+          "body": "cuatro integraciones para TradingView, thinkorswim, NinjaTrader 8 y Sierra Chart. Las dos primeras son scripts gratuitos de entrada manual; los estudios Pro consultan la API y mantienen actualizados por sí solos el Gamma Flip, la Call Wall, la Put Wall, el Max Pain y el Pin Strike."
+        },
+        "fr": {
+          "title": "Vos niveaux sur vos propres graphiques",
+          "body": "quatre intégrations pour TradingView, thinkorswim, NinjaTrader 8 et Sierra Chart. Les deux premières sont des scripts gratuits à saisie manuelle ; les études Pro interrogent l'API et tiennent à jour d'elles-mêmes le Gamma Flip, la Call Wall, la Put Wall, le Max Pain et le Pin Strike."
+        }
+      }
     },
     {
       "title": "The Daily Gamma Forecast",
       "body": "every morning we commit in public to a projected range, an expected-volatility call and gamma levels with touch odds\u00a0- never a direction call\u00a0- then grade it at 4 PM and publish the receipt. The running hit rate is on every forecast page with its confidence interval, whether it flatters us or not.",
-      "since": "2026-08-28"
+      "since": "2026-08-28",
+      "translations": {
+        "it": {
+          "title": "La previsione gamma giornaliera",
+          "body": "ogni mattina ci impegniamo in pubblico su un range previsto, una stima della volatilità attesa e livelli gamma con le probabilità di tocco - mai una previsione di direzione - poi la valutiamo alle 16:00 ET e pubblichiamo la ricevuta. L'hit rate aggiornato è su ogni pagina di previsione con il suo intervallo di confidenza, che ci lusinghi o no."
+        },
+        "de": {
+          "title": "Die tägliche Gamma-Prognose",
+          "body": "jeden Morgen legen wir uns öffentlich auf eine erwartete Spanne, eine Einschätzung der erwarteten Volatilität und Gamma-Level mit Berührungswahrscheinlichkeiten fest - nie auf eine Richtung - bewerten das um 16 Uhr ET und veröffentlichen den Beleg. Die laufende Trefferquote steht mit ihrem Konfidenzintervall auf jeder Prognoseseite, ob sie uns schmeichelt oder nicht."
+        },
+        "es": {
+          "title": "La previsión diaria de gamma",
+          "body": "cada mañana nos comprometemos en público con un rango proyectado, una estimación de la volatilidad esperada y niveles de gamma con probabilidades de toque - nunca una apuesta de dirección - y luego la calificamos a las 16:00 ET y publicamos el comprobante. La tasa de acierto acumulada está en cada página de previsión con su intervalo de confianza, nos favorezca o no."
+        },
+        "fr": {
+          "title": "La prévision gamma quotidienne",
+          "body": "chaque matin, nous nous engageons publiquement sur une fourchette projetée, une estimation de la volatilité attendue et des niveaux de gamma avec leurs probabilités de contact - jamais un pari sur la direction - puis nous la notons à 16 h ET et publions le reçu. Le taux de réussite cumulé figure sur chaque page de prévision avec son intervalle de confiance, qu'il nous flatte ou non."
+        }
+      }
     },
     {
       "title": "Gamma Shift",
       "body": "what changed, not just where things stand: the per-strike move in modeled dealer gamma between two points in time, with expiry roll-off separated out so it doesn't read as fresh positioning.",
-      "since": "2026-08-28"
+      "since": "2026-08-28",
+      "translations": {
+        "it": {
+          "title": "Gamma Shift",
+          "body": "cosa è cambiato, non solo dove si trovano le cose: lo spostamento per strike del gamma dei dealer modellato tra due momenti, con le scadenze in uscita separate, così non sembrano nuovo posizionamento."
+        },
+        "de": {
+          "title": "Gamma Shift",
+          "body": "was sich verändert hat, nicht nur, wo die Dinge stehen: die Bewegung des modellierten Dealer-Gammas pro Strike zwischen zwei Zeitpunkten, wobei auslaufende Kontrakte getrennt ausgewiesen werden, damit sie nicht wie neue Positionierung wirken."
+        },
+        "es": {
+          "title": "Gamma Shift",
+          "body": "qué cambió, no solo dónde están las cosas: el movimiento por strike del gamma modelado de los dealers entre dos momentos, con los vencimientos que expiran separados para que no parezcan posicionamiento nuevo."
+        },
+        "fr": {
+          "title": "Gamma Shift",
+          "body": "ce qui a changé, pas seulement où en sont les choses : le mouvement par strike du gamma modélisé des dealers entre deux instants, les échéances qui expirent étant isolées pour ne pas passer pour un nouveau positionnement."
+        }
+      }
     },
     {
       "title": "ES and NQ",
       "body": "futures are first-class now, with their own gamma levels, their own free pages, and the same read as SPY, SPX, QQQ and NDX everywhere else, projected onto the futures price at fair value.",
-      "since": "2026-08-24"
+      "since": "2026-08-24",
+      "translations": {
+        "it": {
+          "title": "ES e NQ",
+          "body": "i futures ora sono a pieno titolo, con i loro livelli gamma, le loro pagine gratuite e la stessa lettura di SPY, SPX, QQQ e NDX ovunque, proiettata sul prezzo del future al fair value."
+        },
+        "de": {
+          "title": "ES und NQ",
+          "body": "Futures sind jetzt vollwertig dabei, mit eigenen Gamma-Levels, eigenen kostenlosen Seiten und derselben Lesart wie SPY, SPX, QQQ und NDX überall sonst, zum Fair Value auf den Futures-Kurs projiziert."
+        },
+        "es": {
+          "title": "ES y NQ",
+          "body": "los futuros ya son de primera clase, con sus propios niveles de gamma, sus propias páginas gratuitas y la misma lectura que SPY, SPX, QQQ y NDX en todo lo demás, proyectada sobre el precio del futuro a su valor razonable."
+        },
+        "fr": {
+          "title": "ES et NQ",
+          "body": "les futures sont désormais traités à part entière, avec leurs propres niveaux de gamma, leurs propres pages gratuites et la même lecture que SPY, SPX, QQQ et NDX partout ailleurs, projetée sur le prix du future à sa juste valeur."
+        }
+      }
     },
     {
       "title": "Three new metrics",
       "body": "Market Tide folds gamma and flow across the covered indices into one bearish-to-bullish score, Pair Comparison puts any two indices side by side on strike-aligned Net GEX ladders with a replay scrubber, and Volatility charts put/call IV skew against realized-versus-implied.",
-      "since": "2026-08-24"
+      "since": "2026-08-24",
+      "translations": {
+        "it": {
+          "title": "Tre nuove metriche",
+          "body": "Market Tide riunisce gamma e flusso degli indici coperti in un unico punteggio da ribassista a rialzista, Pair Comparison mette due indici qualsiasi fianco a fianco su scale Net GEX allineate per strike con un cursore di replay, e Volatility mette a confronto lo skew della volatilità implicita put/call con la volatilità realizzata rispetto a quella implicita."
+        },
+        "de": {
+          "title": "Drei neue Kennzahlen",
+          "body": "Market Tide fasst Gamma und Flow der abgedeckten Indizes zu einem Score von bärisch bis bullisch zusammen, Pair Comparison stellt zwei beliebige Indizes auf nach Strikes ausgerichteten Net-GEX-Leitern nebeneinander, mit einem Replay-Regler, und Volatility zeigt den Put/Call-IV-Skew im Vergleich zu realisierter gegenüber impliziter Volatilität."
+        },
+        "es": {
+          "title": "Tres métricas nuevas",
+          "body": "Market Tide reúne el gamma y el flujo de los índices cubiertos en una sola puntuación de bajista a alcista, Pair Comparison pone dos índices cualesquiera lado a lado en escaleras de Net GEX alineadas por strike con un deslizador de repetición, y Volatility grafica el skew de volatilidad implícita put/call frente a la volatilidad realizada contra la implícita."
+        },
+        "fr": {
+          "title": "Trois nouveaux indicateurs",
+          "body": "Market Tide réunit le gamma et le flux des indices couverts en un seul score, de baissier à haussier, Pair Comparison place deux indices au choix côte à côte sur des échelles de Net GEX alignées par strike avec un curseur de replay, et Volatility compare le skew de volatilité implicite put/call à la volatilité réalisée face à l'implicite."
+        }
+      }
     }
   ]
 }
