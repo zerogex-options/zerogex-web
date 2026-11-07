@@ -7,8 +7,10 @@
  * context); column 2 is free-select via its own dropdown, so you can compare
  * the dealer-gamma structure of any two of SPY / QQQ / SPX / NDX. Both stay
  * centered on the latest spot and update in realtime — or drop into Replay to
- * scrub the most-recent session and watch the gamma levels migrate minute by
- * minute, a single playhead driving both columns in lockstep.
+ * scrub a session and watch the gamma levels migrate minute by minute, a single
+ * playhead driving both columns in lockstep. Replay opens on the newest
+ * session; the session menu reaches back to any earlier day both symbols can
+ * replay (core/pairReplaySessions), always the same day in both columns.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -30,7 +32,15 @@ import { useGammaLadderColumn, type GammaLadderColumnData } from "@/hooks/useGam
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useZeroDteOption } from "@/hooks/useZeroDteOption";
-import { usePairReplay, type PairReplayData, type ReplayFrame, type ReplayCandle } from "@/hooks/usePairReplay";
+import {
+  usePairReplay,
+  usePairReplaySessions,
+  type PairReplayData,
+  type PairReplaySessions,
+  type ReplayFrame,
+  type ReplayCandle,
+} from "@/hooks/usePairReplay";
+import { resolvePairReplayDate, sessionLacksStrikes, STRIKE_RETENTION_DAYS } from "@/core/pairReplaySessions";
 import { reconcileExpirations } from "@/core/expirationPersistence";
 import { etTodayDateKey } from "@/core/utils";
 import { useGexUnit } from "@/core/GexUnitContext";
@@ -56,9 +66,11 @@ const INFO_TEXT =
   "walls and flip) to one or more expirations\u00a0- default All; Max Pain reads NA while filtered, as it has no " +
   "per-expiry-set equivalent. Session Δ overlays a small green up / red down triangle beside each strike's " +
   "Net GEX showing whether dealer gamma there has built or eroded since the 09:30 ET open, for the selected " +
-  "expirations. Enter Replay to scrub the most-recent session " +
+  "expirations. Enter Replay to scrub a session " +
   "minute by minute (spot in replay is the underlying close for that minute; the change is vs the session open, " +
-  "while live shows the day change from the prior close; replay is always the whole chain). The Strikes toggle " +
+  "while live shows the day change from the prior close; replay is always the whole chain). Replay opens on the " +
+  `newest session; the session menu picks an earlier day, back about ${STRIKE_RETENTION_DAYS} days, and both ` +
+  "ladders always replay the same day. The Strikes toggle " +
   "shows only strikes carrying " +
   "dealer gamma (Active) or every listed strike near spot (All)\u00a0- Active keeps high-priced chains like NDX, " +
   "which list a fine grid but concentrate open interest on the round strikes, from reading as sparse. " +
@@ -127,9 +139,12 @@ function TimeframeSeg({ value, onChange }: { value: ChartTimeframe; onChange: (v
 }
 
 // Build the replay-mode input for one column at the shared playhead timestamp.
+// `sessions` is the pair's session lists: until they are in there is no day to
+// load, and the column shows that as loading rather than as empty.
 function replayColumn(
   symbol: UnderlyingSymbol,
   replay: PairReplayData,
+  sessions: PairReplaySessions,
   cursorTs: string | null,
 ): GammaLadderColumnData {
   const frame = frameAtOrBefore(replay.frames, cursorTs);
@@ -146,8 +161,8 @@ function replayColumn(
     maxPain: frame?.max_pain ?? null,
     changePercent,
     isPositive: changePercent != null ? changePercent >= 0 : undefined,
-    loading: replay.loading && !frame,
-    error: replay.error,
+    loading: (sessions.loading || replay.loading) && !frame,
+    error: replay.error || sessions.error,
   };
 }
 
@@ -212,8 +227,18 @@ export default function PairComparisonClient() {
     sessionDelta: showSessionDelta,
     basis: ladderBasis,
   });
-  const replay1 = usePairReplay(sym1, replayArmed, mode === "replay");
-  const replay2 = usePairReplay(sym2, replayArmed, mode === "replay");
+  // Replay sessions: the days both symbols can replay, newest first, and the
+  // one day both columns load. A null pick follows the newest session, which is
+  // what Replay showed before the session menu existed, polling and all.
+  const [pickedDate, setPickedDate] = useState<string | null>(null);
+  const sessions = usePairReplaySessions(sym1, sym2, replayArmed);
+  const newestDate = sessions.dates[0] ?? null;
+  const sessionDate = resolvePairReplayDate(pickedDate, sessions.dates);
+  // Only the newest session can still be gaining minutes; an earlier day is
+  // buffered once.
+  const pollNewest = mode === "replay" && sessionDate != null && sessionDate === newestDate;
+  const replay1 = usePairReplay(sym1, sessionDate, replayArmed, pollNewest);
+  const replay2 = usePairReplay(sym2, sessionDate, replayArmed, pollNewest);
 
   // Master timeline — column 1's per-minute frames (fall back to column 2 if
   // column 1 has none). Both columns resolve their own frame at the shared ts.
@@ -222,10 +247,16 @@ export default function PairComparisonClient() {
     return src.map((f) => f.timestamp);
   }, [replay1.frames, replay2.frames]);
 
-  const replayLoading = replay1.loading || replay2.loading;
-  const replayError = replay1.error || replay2.error;
-  const sessionDate = replay1.date ?? replay2.date;
+  const replayLoading = sessions.loading || replay1.loading || replay2.loading;
+  const replayError = sessions.error || replay1.error || replay2.error;
   const isToday = replay1.isToday || replay2.isToday;
+  // A day whose frames came back without a single strike row: its levels and
+  // candles replay, its ladder can't. Named under the transport so an empty
+  // ladder isn't mistaken for a quiet book.
+  const missingStrikes = [
+    !replay1.loading && sessionLacksStrikes(replay1.frames) ? sym1 : null,
+    !replay2.loading && sessionLacksStrikes(replay2.frames) ? sym2 : null,
+  ].filter((s): s is UnderlyingSymbol => s != null);
 
   const lastIdx = Math.max(0, timeline.length - 1);
   const effCursor = cursor < 0 ? lastIdx : Math.min(cursor, lastIdx);
@@ -285,6 +316,14 @@ export default function PairComparisonClient() {
     setIsPlaying(false);
     setCursor(i);
   };
+  const pickSession = (date: string) => {
+    // Picking the newest day goes back to following it, so it behaves exactly
+    // as Replay always has. Any other day opens on its last minute, paused,
+    // like entering Replay does; Play from there starts at that day's open.
+    setPickedDate(date === newestDate ? null : date);
+    setIsPlaying(false);
+    setCursor(-1);
+  };
 
   // Keep the two columns distinct: picking the other column's current symbol
   // swaps them rather than showing a symbol compared against itself. Column 1's
@@ -302,8 +341,8 @@ export default function PairComparisonClient() {
 
   // The React Compiler auto-memoizes these granularly (replayColumn only
   // re-scans when its inputs actually change), so we keep the code plain.
-  const leftData = mode === "live" ? live1 : replayColumn(sym1, replay1, cursorTs);
-  const rightData = mode === "live" ? live2 : replayColumn(sym2, replay2, cursorTs);
+  const leftData = mode === "live" ? live1 : replayColumn(sym1, replay1, sessions, cursorTs);
+  const rightData = mode === "live" ? live2 : replayColumn(sym2, replay2, sessions, cursorTs);
 
   const leftInput: HeatmapColumnInput = {
     ...leftData,
@@ -422,7 +461,11 @@ export default function PairComparisonClient() {
           startTime={timeline[0] ?? null}
           endTime={timeline[timeline.length - 1] ?? null}
           sessionDate={sessionDate}
+          sessionDates={sessions.dates}
+          todayKey={todayKey}
+          onSessionChange={pickSession}
           isToday={isToday}
+          missingStrikes={missingStrikes}
           loading={replayLoading}
           error={replayError}
         />
