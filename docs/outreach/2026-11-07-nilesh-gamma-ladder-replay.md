@@ -309,7 +309,7 @@ Thank you, and I'm glad the API is working for you. Your screen looks great, and
 
 Your plan works, with one change: get "now" and "5 minutes ago" from a single call. The two endpoints you picked return one row per strike per expiration, and their limits count rows, not strikes. /api/gex/by-strike stops at 200 rows, which on ES covers only about 16 strikes near price, since each one has 12 or so expirations. So the outer strikes come back partly added up, and the two calls can cut off at different strikes as price moves, which shows up as false changes at the edges.
 
-Here's what our own ladder does:
+Here's how I'd do it, with the same data our own ladder reads:
 
 1. Every minute, one call per symbol:
 GET /api/gex/strike-profile-timeseries?symbol=ES&timeframe=1min&window_units=6
