@@ -3,13 +3,15 @@
 /**
  * PairReplayScrubber — the transport bar under the two gamma ladders. In LIVE
  * mode it's a slim status strip with a "Replay session" entry point; in REPLAY
- * mode it's a full player (play/pause, step, playhead, speed) that scrubs the
- * most-recent session. It is presentational: the page owns cursor / isPlaying /
- * speed / mode and the auto-advance loop, so a single playhead drives BOTH
- * columns in lockstep.
+ * mode it's a full player (session menu, play/pause, step, playhead, speed).
+ * Replay opens on the newest session and the menu picks an earlier one; both
+ * columns always replay the same day. It is presentational: the page owns the
+ * session, cursor / isPlaying / speed / mode and the auto-advance loop, so a
+ * single playhead drives BOTH columns in lockstep.
  */
 
-import { History, Pause, Play, Repeat, SkipBack, SkipForward } from "lucide-react";
+import { ChevronDown, History, Pause, Play, Repeat, SkipBack, SkipForward } from "lucide-react";
+import { STRIKE_RETENTION_DAYS } from "@/core/pairReplaySessions";
 
 const SPEEDS = [1, 2, 4, 8, 16] as const;
 
@@ -58,8 +60,17 @@ interface Props {
   cursorTime: string | null;
   startTime: string | null;
   endTime: string | null;
+  /** The day both columns replay (YYYY-MM-DD), once one is known. */
   sessionDate: string | null;
+  /** Days the session menu offers, newest first (core/pairReplaySessions). */
+  sessionDates: readonly string[];
+  onSessionChange: (date: string) => void;
+  /** Today's ET date key, to mark an in-progress session in the menu. */
+  todayKey: string;
   isToday: boolean;
+  /** Symbols whose ladder has no strike rows on this day (pruned or never
+   *  written), named in a note so an empty ladder isn't read as a quiet book. */
+  missingStrikes: readonly string[];
   loading: boolean;
   error: string | null;
 }
@@ -82,7 +93,11 @@ export default function PairReplayScrubber({
   startTime,
   endTime,
   sessionDate,
+  sessionDates,
+  onSessionChange,
+  todayKey,
   isToday,
+  missingStrikes,
   loading,
   error,
 }: Props) {
@@ -122,18 +137,50 @@ export default function PairReplayScrubber({
 
   return (
     <div className="flex flex-col gap-3 p-3 sm:p-4" style={bandStyle}>
-      {/* Row 1: date + playhead time (left) · speed + exit (right) */}
+      {/* Row 1: session + playhead time (left) · speed + exit (right) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="zg-chip" style={{ ["--chip-color" as string]: "var(--color-accent-hot)" }}>
             <History size={12} /> Replay
           </span>
-          {sessionDate && (
+          {sessionDate && sessionDates.length > 1 ? (
+            // The session menu. A native <select> keeps it keyboard- and
+            // screen-reader-friendly, styled like the ladders' SymbolSelect.
+            <div className="relative inline-flex items-center">
+              <select
+                value={sessionDate}
+                onChange={(e) => onSessionChange(e.target.value)}
+                aria-label="Session to replay"
+                title={`Pick the session to replay: any day both symbols have from about the last ${STRIKE_RETENTION_DAYS} days. Both ladders replay the same day.`}
+                className="appearance-none font-mono"
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-primary)",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-default)",
+                  borderRadius: "var(--radius-control)",
+                  padding: "3px 22px 3px 8px",
+                  cursor: "pointer",
+                }}
+              >
+                {sessionDates.map((d) => (
+                  <option key={d} value={d}>
+                    {`${fmtDate(d)}${d === todayKey ? " · today" : ""}`}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={12}
+                aria-hidden
+                style={{ position: "absolute", right: 6, pointerEvents: "none", color: "var(--text-secondary)" }}
+              />
+            </div>
+          ) : sessionDate ? (
             <span className="font-mono" style={{ fontSize: 12, color: "var(--text-secondary)" }}>
               {fmtDate(sessionDate)}
               {isToday ? " · today" : ""}
             </span>
-          )}
+          ) : null}
           <span
             className="font-mono"
             style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
@@ -230,6 +277,13 @@ export default function PairReplayScrubber({
       {atStart && !loading && !error && (
         <div className="font-mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
           No replay session available for this pair yet.
+        </div>
+      )}
+      {missingStrikes.length > 0 && sessionDate && !loading && !error && (
+        <div className="font-mono" style={{ fontSize: 11, color: "var(--color-warning)" }}>
+          No per-strike data is stored for {missingStrikes.join(" or ")} on {fmtDate(sessionDate)}, so{" "}
+          {missingStrikes.length > 1 ? "the ladders are" : "its ladder is"} empty. Per-strike history goes back about{" "}
+          {STRIKE_RETENTION_DAYS} days; pick another session.
         </div>
       )}
       {error && (

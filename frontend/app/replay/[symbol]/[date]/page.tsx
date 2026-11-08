@@ -8,6 +8,7 @@ import ReceiptFooterLinks from '@/components/ReceiptFooterLinks';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { SITE_DEFAULT_OG_IMAGE, SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
+import { STRIKE_RETENTION_HREF, strikesAgedOut } from '@/core/replaySessions';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import {
   parseReplayMinute,
@@ -82,6 +83,10 @@ interface ReplayRangePayload {
   // The scope the API resolved, echoed back: null is the whole chain, a list is
   // exactly what the bars and the re-derived levels were built from.
   expiration_filter?: string[] | null;
+  // False once the session's per-strike rows have aged out (see
+  // core/replaySessions). Whole-chain whatever the scope. Absent from an older
+  // API; null when it couldn't check.
+  has_strikes?: boolean | null;
 }
 
 function isValidDate(raw: string): boolean {
@@ -292,6 +297,7 @@ export default async function ReplayDatePage({
     );
   }
   const human = formatHumanDate(date);
+  const agedOut = strikesAgedOut(data.has_strikes);
   const pickerHrefs = buildSymbolHrefs((s) => `/replay/${s}/${date}`);
   const permalink = `${SITE_URL}/replay/${sym}/${date}`;
   const tweetBody = `${sym} ${date} GEX replay\u00a0- scrub the dealer gamma surface minute-by-minute.`;
@@ -324,6 +330,16 @@ export default async function ReplayDatePage({
             <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
               {data.count} per-minute frames · {data.is_today ? 'live (today)' : 'historical'}
             </p>
+            {agedOut && (
+              <p className="mt-2 max-w-2xl text-xs leading-relaxed text-[var(--color-text-secondary)]">
+                Per-strike GEX for this session has aged out&nbsp;- we keep it for{' '}
+                <Link href={STRIKE_RETENTION_HREF} className="underline hover:text-[var(--color-text-primary)]">
+                  about 60 days
+                </Link>
+                , so there is no strike profile to replay.
+                {scope === 'all' ? ' The walls, gamma flip and max pain are the values recorded each minute.' : null}
+              </p>
+            )}
           </div>
           <SymbolPicker current={sym} hrefs={pickerHrefs} />
         </div>
@@ -338,6 +354,7 @@ export default async function ReplayDatePage({
         expirations={data.expirations ?? []}
         scope={scope}
         initialMinute={initialMinute}
+        strikesAgedOut={agedOut}
       />
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-[13px] text-[var(--color-text-secondary)] leading-relaxed sm:p-5 sm:text-xs">

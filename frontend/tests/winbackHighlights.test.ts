@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  localizeHighlight,
   parseHighlightsJson,
   selectHighlightsSince,
   type DatedHighlight,
@@ -100,5 +101,67 @@ test('the shipped highlights file parses and is fully dated', async () => {
   assert.ok(parsed.length >= 3, 'keep at least three bullets so a filtered list stays substantive');
   for (const item of parsed) {
     assert.ok(item.since, `highlight "${item.title}" is missing a valid since date`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Translations: the returning-member wall shows each bullet in the member's
+// language (core/returningWall.ts); the emails stay English.
+// ---------------------------------------------------------------------------
+
+test('parse keeps each complete translation and drops the rest, never the item', () => {
+  const parsed = parseHighlightsJson({
+    highlights: [
+      {
+        title: 'Wall alerts',
+        body: 'pick a wall',
+        since: '2026-10-14',
+        // Parsed from text, as the file is: "__proto__" is then an ordinary key.
+        translations: JSON.parse(
+          JSON.stringify({
+            de: { title: '  Wand-Alarme  ', body: '  wähle eine Wall  ' },
+            it: { title: 'Avvisi sui muri' },
+            fr: 'not an object',
+            deutsch: { title: 'not a locale code', body: 'dropped' },
+          }).replace(/}$/, ', "__proto__": { "title": "x", "body": "y" } }'),
+        ),
+      },
+      { title: 'untranslated', body: 'english only', translations: { de: { title: '', body: '' } } },
+      { title: 'plain', body: 'no field at all' },
+    ],
+  });
+  assert.ok(parsed);
+  assert.deepEqual(titles(parsed), ['Wall alerts', 'untranslated', 'plain']);
+  assert.deepEqual(parsed[0].translations, { de: { title: 'Wand-Alarme', body: 'wähle eine Wall' } });
+  // Nothing usable: no field, so an item without translations parses as before.
+  assert.equal('translations' in parsed[1], false);
+  assert.deepEqual(parsed[2], { title: 'plain', body: 'no field at all', since: null });
+});
+
+test('a bullet shows in the reader\'s language, or in English when it has none', () => {
+  const item: DatedHighlight = {
+    title: 'Wall alerts',
+    body: 'pick a wall',
+    translations: { de: { title: 'Wand-Alarme', body: 'wähle eine Wall' } },
+  };
+  assert.deepEqual(localizeHighlight(item, 'de'), { title: 'Wand-Alarme', body: 'wähle eine Wall' });
+  assert.deepEqual(localizeHighlight(item, 'it'), { title: 'Wall alerts', body: 'pick a wall' });
+  assert.deepEqual(localizeHighlight(item, 'en'), { title: 'Wall alerts', body: 'pick a wall' });
+  assert.deepEqual(localizeHighlight(item, 'constructor'), { title: 'Wall alerts', body: 'pick a wall' });
+  assert.deepEqual(localizeHighlight({ title: 't', body: 'b' }, 'fr'), { title: 't', body: 'b' });
+});
+
+test('the shipped highlights file has every bullet in Italian, German, Spanish and French', async () => {
+  const fs = await import('node:fs');
+  const url = new URL('../content/winback-highlights.json', import.meta.url);
+  const parsed = parseHighlightsJson(JSON.parse(fs.readFileSync(url, 'utf8')));
+  assert.ok(parsed);
+  for (const item of parsed) {
+    assert.deepEqual(Object.keys(item.translations ?? {}).sort(), ['de', 'es', 'fr', 'it'], item.title);
+    for (const [locale, translated] of Object.entries(item.translations ?? {})) {
+      // Same shape as the English: the body continues the title after a dash.
+      assert.notEqual(translated.body, item.body, `${item.title} (${locale}): body is still English`);
+      assert.doesNotMatch(translated.body, /\b(the|and|your|you|with|every|which)\b/i, `${item.title} (${locale}): ${translated.body}`);
+    }
   }
 });

@@ -1,21 +1,27 @@
 'use client';
 
 /**
- * usePairReplay — buffers one symbol's most-recent replayable session into the
- * browser so the Pair Comparison scrubber can replay it with zero per-frame
- * network calls (mirrors the /replay page's single-round-trip pattern, but
- * fetched client-side through the /api/replay BFF passthrough).
+ * usePairReplay — buffers one symbol's replay session into the browser so the
+ * Pair Comparison scrubber can replay it with zero per-frame network calls
+ * (mirrors the /replay page's single-round-trip pattern, but fetched
+ * client-side through the /api/replay BFF passthrough).
  *
- * Two chained reads:
- *   1. /api/replay/sessions?symbol=X&limit=1  → newest session date.
- *   2. /api/replay/range?symbol=X&date=…      → every per-minute frame + candle.
+ * Two reads, split so the two columns agree on a day before either loads one:
+ *   1. usePairReplaySessions: /api/replay/sessions?symbol=X&limit=… for each
+ *      symbol → the days both can replay (core/pairReplaySessions), newest
+ *      first. The page picks one: the newest unless the member chose another.
+ *   2. usePairReplay: /api/replay/range?symbol=X&date=… for that day → every
+ *      per-minute frame + candle.
  *
  * Replay frames carry the dealer-gamma levels (gamma_flip, call/put walls,
  * max_pain) and the per-strike Net GEX, but NOT spot — so callers derive the
  * per-minute spot from the aligned candle close, exactly like ReplayScrubber.
  */
 
+import { useState } from 'react';
 import { useApiData } from './useApiData';
+import { etTodayDateKey } from '@/core/utils';
+import { pairReplaySessionOptions, SESSION_LIST_LIMIT } from '@/core/pairReplaySessions';
 
 export interface ReplayFrame {
   timestamp: string;
@@ -63,31 +69,86 @@ export interface PairReplayData {
   error: string | null;
 }
 
+export interface PairReplaySessions {
+  /** Days both columns can replay with their ladders, newest first. */
+  dates: string[];
+  /** True until both symbols' lists have answered (or failed). */
+  loading: boolean;
+  /** Set only when both lists are in, a list failed, and no day can be offered. */
+  error: string | null;
+}
+
 // Slightly wider than the replay default (0.04) so the scrubbed column spans a
 // comparable strike band to the live /gex/heatmap column it replaces.
 const STRIKE_BAND_PCT = 0.05;
 
+// A list that has neither answered nor failed is still in flight. useApiData's
+// own `loading` stays false through the first fetch after `enabled` turns on,
+// so it can't say that alone.
+function pending(list: { data: unknown; loading: boolean; error: string | null }): boolean {
+  return list.loading || (list.data == null && list.error == null);
+}
+
+// The dates one symbol lists; empty while loading or when the list failed.
+function listedDates(list: ReplaySessionList | null): string[] {
+  return (list?.sessions ?? []).map((s) => s.date);
+}
+
 /**
- * @param enabled  arm the buffer (fetch + keep the session in memory).
- * @param poll     while actively scrubbing an in-progress session, poll so new
- *                 minutes append; when merely armed (e.g. after exiting to live)
- *                 the buffer is kept without re-fetching.
+ * The replay days both symbols can serve, for the session menu.
+ *
+ * Each list is fetched once per symbol: it only grows when a new session
+ * opens, and the newest session's own minutes keep arriving through
+ * usePairReplay's poll.
  */
-export function usePairReplay(symbol: string, enabled: boolean, poll = false): PairReplayData {
+export function usePairReplaySessions(sym1: string, sym2: string, enabled: boolean): PairReplaySessions {
+  const list1 = useApiData<ReplaySessionList>(
+    `/api/replay/sessions?symbol=${encodeURIComponent(sym1)}&limit=${SESSION_LIST_LIMIT}`,
+    { refreshInterval: 0, enabled },
+  );
+  const list2 = useApiData<ReplaySessionList>(
+    `/api/replay/sessions?symbol=${encodeURIComponent(sym2)}&limit=${SESSION_LIST_LIMIT}`,
+    { refreshInterval: 0, enabled },
+  );
+
+  const listed = pairReplaySessionOptions(listedDates(list1.data), listedDates(list2.data), etTodayDateKey());
+  const loading = enabled && (pending(list1) || pending(list2));
+
+  // A symbol change refetches that symbol's list. Until it is back, keep
+  // offering the days already on screen: resolved against a half-loaded pair,
+  // the day being replayed would vanish for a moment, and the column whose
+  // symbol did NOT change would drop its buffered session and fetch it again.
+  // (Adjusting state during render, React's pattern for state derived from a
+  // previous render; the guard makes it settle in one pass.)
+  const [dates, setDates] = useState<string[]>(listed);
+  if (!loading && !sameDates(dates, listed)) setDates(listed);
+
+  return {
+    dates,
+    loading,
+    // Only once both lists are in: a failed list is covered by the other one.
+    error: !loading && listed.length === 0 ? list1.error || list2.error : null,
+  };
+}
+
+function sameDates(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((d, i) => d === b[i]);
+}
+
+/**
+ * @param date     the session to buffer (YYYY-MM-DD); nothing loads while null.
+ * @param enabled  arm the buffer (fetch + keep the session in memory).
+ * @param poll     while actively scrubbing the newest session, poll so new
+ *                 minutes append; when merely armed (e.g. after exiting to live),
+ *                 or on an earlier session, the buffer is kept without re-fetching.
+ */
+export function usePairReplay(
+  symbol: string,
+  date: string | null,
+  enabled: boolean,
+  poll = false,
+): PairReplayData {
   const sym = encodeURIComponent(symbol);
-
-  // Newest session date. Fetched once — the latest replayable date doesn't
-  // change within a page view (a new session only appears next trading day).
-  const {
-    data: sessions,
-    loading: sessionsLoading,
-    error: sessionsError,
-  } = useApiData<ReplaySessionList>(`/api/replay/sessions?symbol=${sym}&limit=1`, {
-    refreshInterval: 0,
-    enabled,
-  });
-
-  const date = sessions?.sessions?.[0]?.date ?? null;
 
   // The whole session's frames + candles. While actively scrubbing, poll gently
   // so an in-progress ("today") session keeps appending fresh minutes; once the
@@ -109,7 +170,7 @@ export function usePairReplay(symbol: string, enabled: boolean, poll = false): P
     isToday: range?.is_today ?? false,
     frames: range?.frames ?? [],
     candles: range?.candles ?? [],
-    loading: enabled && (sessionsLoading || (!!date && rangeLoading)),
-    error: sessionsError || rangeError,
+    loading: enabled && !!date && pending({ data: range, loading: rangeLoading, error: rangeError }),
+    error: rangeError,
   };
 }

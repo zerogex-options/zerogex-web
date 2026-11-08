@@ -47,6 +47,8 @@
     "test:scorecard-day": "node --experimental-strip-types --test tests/scorecardDay.test.ts",
     "test:level-stagger": "node --experimental-strip-types --test tests/levelStagger.test.ts",
     "test:replay-scope": "node --experimental-strip-types --test tests/replayScope.test.ts",
+    "test:replay-sessions": "node --experimental-strip-types --test tests/replaySessions.test.ts",
+    "test:pair-replay-sessions": "node --experimental-strip-types --test tests/pairReplaySessions.test.ts",
     "test:chart-viewport": "node --experimental-strip-types --test tests/chartViewport.test.ts",
     "test:symbol-persistence": "node --experimental-strip-types --test tests/symbolPersistence.test.ts",
     "test:futures-symbols": "node --experimental-strip-types --test tests/futuresSymbols.test.ts",
