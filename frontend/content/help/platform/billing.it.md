@@ -56,6 +56,7 @@ Per annullare, usa invece il link **Annulla abbonamento** nella tua pagina Accou
 
 - Annulla con il link **Annulla abbonamento** sotto Gestisci abbonamento nella tua pagina Account. Prima di annullare, può proporti uno sconto, il passaggio a una cadenza più lunga o una pausa da uno a tre mesi - nessun addebito e nessun accesso durante la pausa, poi riprende automaticamente. Puoi saltare ogni offerta e annullare.
 - L'annullamento ha effetto alla **fine del periodo di fatturazione corrente**. Mantieni l'accesso a pagamento fino ad allora, e la tua pagina Account mostra la data.
+- Se un pagamento è già fallito quando annulli, l'annullamento ha effetto subito e anche la fattura non pagata viene annullata, quindi non ti verrà addebitato nient'altro.
 - Al termine del periodo, il tuo livello torna a Public. Il tuo account non viene eliminato; i dati di referral e le impostazioni salvate rimangono.
 - Puoi riabbonarti in qualsiasi momento.
 

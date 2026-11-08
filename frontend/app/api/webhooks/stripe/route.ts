@@ -29,6 +29,7 @@ import {
   priceIdToTier,
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
+import { isPaymentFailedStatus } from '@/core/pastDueCancel';
 import { decideStaleInvoice, hoursOfValueRemaining } from '@/core/staleInvoice';
 // The customer lookup and its soft-delete guard, and the row clears when a
 // subscription ends or never starts, live in core/ so they are unit-testable
@@ -1384,6 +1385,11 @@ async function syncSubscriptionToUser(
     // Stripe attaches the portal cancellation survey (feedback + free-text
     // comment) here; captured into the audit message so the "why" is queryable.
     cancellationDetails: subscription.cancellation_details,
+    // A cancel scheduled after the payment had already failed. The in-app flow
+    // ends such a subscription on the spot instead (core/pastDueCancel.ts), so
+    // this one came from outside the app; core/cancelAck.ts withholds the email,
+    // which would promise access the grace cutoff has taken, and flags it.
+    paymentFailed: isPaymentFailedStatus(subscription.status),
   });
 
   // Arm/fire the payment-recovered confirmation off the subscription's status:

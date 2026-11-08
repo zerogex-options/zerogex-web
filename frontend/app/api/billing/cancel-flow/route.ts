@@ -13,6 +13,16 @@ import { readAttachedDiscounts, stackedDiscountsParam } from '@/core/subscriptio
 import { canOfferRetentionDiscount, discountAuditType } from '@/core/cancelRetention';
 import { sanitizeCancellationComment, validateCancelFeedback } from '@/core/cancellationReason';
 import { clampPauseMonths, computeResumesAtUnix } from '@/core/subscriptionPause';
+import {
+  billWasVoided,
+  cancelNowAndVoid,
+  isEndedStatus,
+  isPaymentFailedStatus,
+  type CancelNowAndVoidResult,
+} from '@/core/pastDueCancel';
+import { acknowledgeEndedCancel } from '@/core/cancelAck';
+import { subscriptionPaidAt } from '@/core/subscriberBucket';
+import { sendCancellationEmail } from '@/core/mailer';
 
 // In-app cancellation RETENTION flow — the destination of the account page's
 // "Cancel subscription" button (components/CancelRetentionModal). It intercepts a
@@ -39,6 +49,10 @@ import { clampPauseMonths, computeResumesAtUnix } from '@/core/subscriptionPause
 //     is what populates the "Why Members Cancel" dashboard. Capturing the reason
 //     here means it's collected even when the operator never enabled Stripe's
 //     portal cancellation survey.
+//     Except when the payment has already failed (past_due / unpaid): then the
+//     subscription is ended NOW and its open bill voided, so no retry can charge
+//     someone who canceled, and the member is acknowledged from here
+//     (core/pastDueCancel.ts, acknowledgeEndedCancel in core/cancelAck.ts).
 //
 // CSRF + session gated exactly like app/api/billing/change-plan/route.ts.
 
@@ -54,6 +68,8 @@ type UserBillingRow = {
   current_period_end: string | null;
   stripe_price_id: string | null;
   retention_offer_claimed_at: string | null;
+  last_paid_subscription_id: string | null;
+  last_paid_invoice_at: string | null;
 };
 
 function loadBillingRow(userId: string): UserBillingRow | null {
@@ -61,7 +77,8 @@ function loadBillingRow(userId: string): UserBillingRow | null {
     (getDb()
       .prepare(
         `SELECT id, email, stripe_subscription_id, subscription_status, cancel_at_period_end,
-                current_period_end, stripe_price_id, retention_offer_claimed_at
+                current_period_end, stripe_price_id, retention_offer_claimed_at,
+                last_paid_subscription_id, last_paid_invoice_at
          FROM users WHERE id = ?`,
       )
       .get(userId) as UserBillingRow | undefined) ?? null
@@ -333,6 +350,117 @@ export async function POST(request: NextRequest) {
   // -------------------------------------------------------------------------
   const feedback = validateCancelFeedback(body.feedback);
   const comment = sanitizeCancellationComment(typeof body.comment === 'string' ? body.comment : null);
+
+  // Read the LIVE status: the branch below is irreversible, and the mirror can
+  // lag a webhook either way. A stale past_due on a member whose retry just
+  // cleared must not end the period they just paid for.
+  let live: Stripe.Subscription;
+  try {
+    live = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
+  } catch {
+    return NextResponse.json(
+      { error: "Couldn't reach billing just now. Please try again in a minute." },
+      { status: 502 },
+    );
+  }
+
+  // Already over, and the row has not caught up yet: the
+  // customer.subscription.deleted webhook is still on its way. Reached by a
+  // second click before the page refreshed, or by a retry after a cancel that
+  // went through at Stripe but errored on the way back. Nothing to schedule;
+  // say so instead of failing on an update Stripe would refuse.
+  if (isEndedStatus(live.status)) {
+    return NextResponse.json({ ok: true, action: 'cancel', alreadyEnded: true });
+  }
+
+  // -------------------------------------------------------------------------
+  // The payment has already failed: end it now and void the bill. Scheduling
+  // the cancel would leave Stripe retrying that bill for up to two weeks, and a
+  // retry that clears charges someone who canceled (core/pastDueCancel.ts).
+  // -------------------------------------------------------------------------
+  if (isPaymentFailedStatus(live.status)) {
+    const ip = getClientIp(request);
+    let ended: CancelNowAndVoidResult;
+    try {
+      ended = await cancelNowAndVoid(stripe, live.id, { cancellationDetails: { feedback, comment } });
+    } catch (err) {
+      // Usually nothing changed and a retry does it. But a timeout can hide a
+      // cancel that went through, and the retry then only reports it as already
+      // ended, with the bill still open and no email. Leave a trail to finish it.
+      appendAuditEvent({
+        type: 'billing_cancel_failed',
+        userId: row.id,
+        email: row.email,
+        ip,
+        message:
+          `In-app cancel of sub ${live.id} (payment had failed, status ${live.status}) errored: ` +
+          `${err instanceof Error ? err.message : String(err)}. If Stripe shows it canceled anyway, ` +
+          `finish it: make cancel-subscription EMAIL=${row.email} VOID_INVOICE=1 DRY_RUN=1, then YES=1, ` +
+          'and reply to the member yourself.',
+      });
+      return NextResponse.json(
+        { error: "Couldn't cancel your subscription just now. Please try again in a minute." },
+        { status: 502 },
+      );
+    }
+    const billVoided = billWasVoided(ended);
+
+    appendAuditEvent({
+      type: 'billing_cancel_flow_submitted',
+      userId: row.id,
+      email: row.email,
+      ip,
+      message:
+        `In-app cancel ended sub ${live.id} now (payment had failed, status ${live.status})` +
+        `${feedback ? ` (reason ${feedback})` : ' (no reason given)'}; ` +
+        (ended.voided.length > 0 ? `voided ${ended.voided.join(', ')}` : 'no open invoice to void'),
+    });
+    if (!billVoided) {
+      // The member was told only that the plan ended, nothing about the bill.
+      // What is left to do depends on why it was not voided.
+      const voidByHand = `make cancel-subscription EMAIL=${row.email} VOID_INVOICE=1 DRY_RUN=1, then YES=1`;
+      const why = ended.listError
+        ? `could not list its open invoices (${ended.listError}). Void what is still open: ${voidByHand}`
+        : ended.voidFailed.length > 0
+          ? `could not void ${ended.voidFailed.map((f) => `${f.invoiceId} (${f.message})`).join(', ')}. ` +
+            `They can still be paid from the dunning emails' link. Void them: ${voidByHand}`
+          : 'found no open invoice to void. Check the customer in Stripe: a retry may have cleared just ' +
+            'before the cancel (they paid for a period they no longer have, so consider a refund), or the ' +
+            'bill was marked uncollectible, which can still be paid (void it in the Dashboard).';
+      appendAuditEvent({
+        type: 'billing_cancel_bill_not_voided',
+        userId: row.id,
+        email: row.email,
+        ip,
+        message: `In-app cancel ended sub ${live.id} but ${why}`,
+      });
+    }
+
+    // Best-effort, like the webhook's: the cancel already went through, and a
+    // failed send is recorded by acknowledgeEndedCancel itself.
+    await acknowledgeEndedCancel(
+      { id: row.id, email: row.email },
+      {
+        subscriptionId: live.id,
+        neverPaid:
+          subscriptionPaidAt({
+            stripeSubscriptionId: live.id,
+            lastPaidSubscriptionId: row.last_paid_subscription_id,
+            lastPaidInvoiceAt: row.last_paid_invoice_at,
+          }) === null,
+        billVoided,
+        cancellationDetails: { feedback, comment },
+      },
+      {
+        send: sendCancellationEmail,
+        audit: (event) => appendAuditEvent({ ...event, ip }),
+      },
+    );
+
+    // The account row is left to the customer.subscription.deleted webhook,
+    // which drops the tier and revokes API keys on the real drop.
+    return NextResponse.json({ ok: true, action: 'cancel', endedNow: true, billVoided });
+  }
 
   const updateParams: Stripe.SubscriptionUpdateParams = { cancel_at_period_end: true };
   if (feedback || comment) {

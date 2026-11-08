@@ -18,7 +18,7 @@ process.env.AUTH_DB_PATH = dbPath;
 // assignment above has to land first.
 const { getDb } = await import('../core/db.ts');
 const { markSubscriptionEnded } = await import('../core/billingUser.ts');
-const { handleCancelAckTransition } = await import('../core/cancelAck.ts');
+const { acknowledgeEndedCancel, handleCancelAckTransition } = await import('../core/cancelAck.ts');
 
 const db = getDb();
 
@@ -31,6 +31,7 @@ type Sent = {
   cancellationFeedback: string | null;
   cancellationComment: string | null;
   savePercent: number;
+  paymentFailed?: { neverPaid: boolean; billVoided: boolean } | null;
 };
 
 // Fakes for what the webhook passes in: the mailer, the save-link builder and
@@ -261,4 +262,115 @@ test('the survey comment rides along to the email, so they are not asked why aga
     h.deps,
   );
   assert.equal(h.sent[0].cancellationComment, 'Moving to futures only');
+});
+
+// A cancel after the payment had already failed. The in-app flow ends that
+// subscription on the spot and voids its bill (core/pastDueCancel.ts), so there
+// is no 0→1 transition for the webhook to acknowledge: acknowledgeEndedCancel
+// does it, with the failed-payment version of the email. The reason still has
+// to land on stripe_cancellation_requested, which every cancel report reads.
+
+function requestedRows(h: ReturnType<typeof harness>, userId: string) {
+  return h.audits.filter((a) => a.userId === userId && a.type === 'stripe_cancellation_requested');
+}
+
+test('past_due trial conversion: recorded with its reason, trial copy, bill voided, no save link', async () => {
+  const h = harness();
+  const m = seedMember('u_pd_trial');
+
+  const outcome = await acknowledgeEndedCancel(
+    m,
+    {
+      subscriptionId: 'sub_PDT',
+      neverPaid: true,
+      billVoided: true,
+      cancellationDetails: { feedback: 'missing_features', comment: 'No futures' },
+    },
+    h.deps,
+  );
+
+  assert.equal(outcome, 'sent');
+  const requested = requestedRows(h, m.id);
+  assert.equal(requested.length, 1);
+  assert.equal(
+    requested[0].message,
+    'Cancellation requested for sub sub_PDT | cancel_feedback=missing_features cancel_comment="No futures"',
+  );
+  assert.equal(h.sent.length, 1);
+  assert.deepEqual(h.sent[0].paymentFailed, { neverPaid: true, billVoided: true });
+  // Nothing to keep and no date to keep it until: the subscription has ended.
+  assert.equal(h.sent[0].saveUrl, null);
+  assert.equal(h.sent[0].periodEndIso, null);
+  assert.equal(h.sent[0].conversionChargePending, false);
+  assert.equal(h.sent[0].cancellationFeedback, 'missing_features');
+  assert.equal(h.sent[0].cancellationComment, 'No futures');
+  assert.equal(h.acks(m.id).length, 1);
+});
+
+test('past_due renewal: paid copy, and a bill that could not be voided is passed on as such', async () => {
+  const h = harness();
+  const m = seedMember('u_pd_renewal');
+
+  await acknowledgeEndedCancel(m, { subscriptionId: 'sub_PDR', neverPaid: false, billVoided: false }, h.deps);
+
+  assert.deepEqual(h.sent[0].paymentFailed, { neverPaid: false, billVoided: false });
+  assert.equal(h.sent[0].trialing, false);
+  assert.equal(requestedRows(h, m.id)[0].message, 'Cancellation requested for sub sub_PDR');
+});
+
+// No latch on this path: it runs once per click, behind a Stripe cancel that
+// succeeds once. Claiming one here would race the release that
+// customer.subscription.deleted makes, and could outlive the subscription.
+test('an ended cancel neither needs the latch nor touches it', async () => {
+  const h = harness();
+  const leftover = seedMember('u_pd_leftover');
+  db.prepare('UPDATE users SET cancel_ack_email_sent_at = ? WHERE id = ?').run('2026-07-15T09:00:00.000Z', leftover.id);
+  assert.equal(
+    await acknowledgeEndedCancel(leftover, { subscriptionId: 'sub_L', neverPaid: false, billVoided: true }, h.deps),
+    'sent',
+  );
+  assert.equal(latchOf(leftover.id), '2026-07-15T09:00:00.000Z');
+
+  const clean = seedMember('u_pd_clean');
+  await acknowledgeEndedCancel(clean, { subscriptionId: 'sub_C', neverPaid: true, billVoided: true }, h.deps);
+  assert.equal(latchOf(clean.id), null);
+});
+
+test('an ended cancel whose email fails is still recorded as a cancel', async () => {
+  const h = harness({ failSend: true });
+  const m = seedMember('u_pd_send_failed');
+  assert.equal(
+    await acknowledgeEndedCancel(m, { subscriptionId: 'sub_F', neverPaid: true, billVoided: true }, h.deps),
+    'send_failed',
+  );
+  assert.equal(requestedRows(h, m.id).length, 1);
+  const errors = h.audits.filter((a) => a.userId === m.id && a.type === 'cancellation_ack_email_error');
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /sub_F: Resend returned 503/);
+});
+
+// The webhook path. A cancel scheduled at period end on a failed payment can
+// only come from outside the app now (the Stripe Dashboard, or the portal if its
+// Cancel is turned back on). Nothing was ended or voided and Stripe is still
+// retrying, so the usual "full access until …" email would be false.
+test('a cancel scheduled on a failed payment is recorded and flagged, and no email goes out', async () => {
+  const h = harness();
+  const m = seedMember('u_pd_outside');
+  sync(m.id, { id: 'sub_O', cancelAtPeriodEnd: 0 });
+
+  const outcome = await handleCancelAckTransition(
+    m,
+    { ...sync(m.id, { id: 'sub_O', cancelAtPeriodEnd: 1 }), paymentFailed: true, cancellationDetails: { feedback: 'unused' } },
+    h.deps,
+  );
+
+  assert.equal(outcome, 'withheld_payment_failed');
+  assert.equal(h.sent.length, 0);
+  assert.equal(latchOf(m.id), null);
+  assert.equal(requestedRows(h, m.id).length, 1);
+  assert.match(requestedRows(h, m.id)[0].message, /cancel_feedback=unused/);
+  const flagged = h.audits.filter((a) => a.userId === m.id && a.type === 'cancellation_ack_withheld_payment_failed');
+  assert.equal(flagged.length, 1);
+  assert.match(flagged[0].message, /sub_O/);
+  assert.match(flagged[0].message, /make cancel-subscription EMAIL=u_pd_outside@example\.com VOID_INVOICE=1 DRY_RUN=1/);
 });

@@ -56,6 +56,7 @@ Para cancelar, usa en su lugar el enlace **Cancelar suscripción** de tu página
 
 - Cancela con el enlace **Cancelar suscripción** bajo Gestionar suscripción, en tu página Cuenta. Antes de cancelar, puede ofrecerte un descuento, el cambio a una periodicidad más larga o una pausa de uno a tres meses - sin cargos y sin acceso mientras está en pausa, y se reanuda automáticamente. Puedes saltarte todas las ofertas y cancelar.
 - La cancelación entra en vigor al **final del periodo de facturación actual**. Conservas el acceso de pago hasta entonces, y tu página Cuenta muestra la fecha.
+- Si un pago ya ha fallado cuando cancelas, la cancelación entra en vigor de inmediato y la factura pendiente se anula con ella, así que no se cobra nada más.
 - Una vez finalizado el periodo, tu nivel vuelve a Public. Tu cuenta no se elimina; tus datos de referidos y tu configuración guardada permanecen intactos.
 - Puedes volver a suscribirte en cualquier momento.
 

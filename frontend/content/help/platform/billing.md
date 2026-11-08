@@ -56,6 +56,7 @@ To cancel, use the **Cancel subscription** link on your Account page instead (se
 
 - Cancel with the **Cancel subscription** link under Manage Subscription on your Account page. Before it cancels, it may offer a discount, a switch to a longer billing period, or a pause of one to three months - no charge and no access while it's paused, and it resumes automatically. You can skip every offer and cancel.
 - Cancellation takes effect at the **end of the current billing period**. You keep paid access until then, and your Account page shows the date.
+- If a payment has already failed when you cancel, the cancellation takes effect right away instead, and the unpaid bill is canceled with it, so nothing more is charged.
 - After the period ends, your tier reverts to Public. Your account is not deleted; your referral data and saved settings remain.
 - You can resubscribe anytime.
 

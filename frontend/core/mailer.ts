@@ -2539,7 +2539,9 @@ export async function sendPaymentRecoveredEmail(to: string) {
 
 // Sent when a customer clicks Cancel and Stripe flips cancel_at_period_end
 // from false → true. They still have full access until periodEndIso — this
-// is the retention window, not a farewell.
+// is the retention window, not a farewell. The exception is a member whose
+// payment had already failed: their cancel ends the plan on the spot, the
+// in-app cancel flow sends this itself, and paymentFailed below decides the copy.
 //
 // The 25% save is offered exactly once, by the one-click /save button, and
 // there is no second route. The email used to carry a manual one as well
@@ -2589,6 +2591,19 @@ export type CancellationEmailOptions = {
   // Percent off the save link applies: 25 by default, 50 when the reason was
   // "Too expensive" (core/cancelAck picks the matching link).
   savePercent?: number;
+  // Set when they canceled a subscription whose payment had already failed
+  // (past_due or unpaid). That cancel ends the subscription on the spot
+  // (core/pastDueCancel.ts), so "full access until …" would be false: the
+  // payment-grace cutoff has usually removed access already, and the cancel
+  // ends whatever was left. It also overrides trialing and
+  // conversionChargePending, and drops the save offer, because app/save only
+  // un-cancels a live subscription and this one has ended.
+  //   neverPaid  — no payment ever cleared on this subscription: a trial whose
+  //                first charge was declined. Opens the way a trial cancel does,
+  //                not with thanks for being "a real part" of the business.
+  //   billVoided — its open bill was voided, so nothing more can be charged.
+  //                The email says so only when this is true.
+  paymentFailed?: { neverPaid: boolean; billVoided: boolean } | null;
 };
 
 // Pure builder for the cancellation acknowledgment: subject + text + HTML from
@@ -2642,11 +2657,17 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   const periodEndDate = opts.periodEndIso
     ? formatTrialEndDate(opts.periodEndIso)
     : 'the end of your current billing period';
-  const saveUrl = opts.saveUrl ?? null;
-  const chargePending = opts.conversionChargePending === true;
-  const trialCancel = opts.trialing === true && !chargePending;
+  const failed = opts.paymentFailed ?? null;
+  // The save link un-cancels a live subscription (app/save). After a
+  // failed-payment cancel there is none left to keep.
+  const saveUrl = failed ? null : (opts.saveUrl ?? null);
+  const chargePending = !failed && opts.conversionChargePending === true;
+  const trialCancel = failed ? failed.neverPaid : opts.trialing === true && !chargePending;
   const openingSentence = trialCancel
-    ? "I saw you just canceled your ZeroGEX trial, so you won't be charged anything."
+    ? failed
+      ? // Whether anything can still be charged is the next paragraph's to say.
+        'I saw you just canceled your ZeroGEX trial.'
+      : "I saw you just canceled your ZeroGEX trial, so you won't be charged anything."
     : "I saw you just canceled your ZeroGEX subscription\u00a0- first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.";
   const tooComplex = feedback === 'too_complex';
   const tooExpensive = feedback === 'too_expensive';
@@ -2658,13 +2679,31 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   // The one paragraph that has to be true about money. When a conversion charge
   // is already in flight, leading with it is the whole point — the member finds
   // out from us, before their bank, and knows it is the last one.
-  const billingSentenceText = chargePending
-    ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. That is your final charge\u00a0- nothing renews after it\u00a0- and you keep full access until ${periodEndDate}.`
-    : `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
+  //
+  // After a failed payment the cancel has already ended the plan, so it says
+  // that instead, and it says nothing more will be charged only when the bill
+  // was actually voided.
+  const failedEnded = failed
+    ? failed.neverPaid
+      ? "The payment due when your trial ended didn't go through, so your plan ended when you canceled"
+      : "Your last payment didn't go through, so your plan ended when you canceled instead of running to the end of the billing period"
+    : '';
+  const failedNoCharge = failed?.neverPaid ? "You won't be charged anything" : 'Nothing more will be charged';
+  const billingSentenceText = failed
+    ? failed.billVoided
+      ? `${failedEnded}, and I've canceled that unpaid bill. ${failedNoCharge}, and the payment won't be tried again.`
+      : `${failedEnded}.`
+    : chargePending
+      ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. That is your final charge\u00a0- nothing renews after it\u00a0- and you keep full access until ${periodEndDate}.`
+      : `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
 
-  const billingSentenceHtml = chargePending
-    ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. <strong>That is your final charge</strong>\u00a0- nothing renews after it\u00a0- and you keep full access until <strong>${escapeHtml(periodEndDate)}</strong>.`
-    : `You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
+  const billingSentenceHtml = failed
+    ? failed.billVoided
+      ? `${failedEnded}, and I've canceled that unpaid bill. <strong>${failedNoCharge}</strong>, and the payment won't be tried again.`
+      : `${failedEnded}.`
+    : chargePending
+      ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. <strong>That is your final charge</strong>\u00a0- nothing renews after it\u00a0- and you keep full access until <strong>${escapeHtml(periodEndDate)}</strong>.`
+      : `You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
 
   const text = [
     'Hello,',
