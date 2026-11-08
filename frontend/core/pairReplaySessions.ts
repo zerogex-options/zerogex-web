@@ -17,20 +17,39 @@
 //    deleted after DATA_RETENTION_DAYS: 60 in production, by zerogex-oa's
 //    `make db-prune` at 02:00 ET daily (DELETE ... WHERE timestamp < NOW() - 60
 //    days). A day past that still lists, and its frames come back with empty
-//    ladders, so it is left out. Because the prune runs before the open, a
-//    session is kept or deleted whole, and on Nov 7 the first day still kept is
-//    Sep 8, which is exactly what this cutoff says. Between midnight and the
-//    prune one more day survives; leaving it off is the safe side to err on.
+//    ladders, so it is left out. The API says which days those are: each
+//    session carries `has_strikes`, read here by the same rule as the /replay
+//    pages (strikesAgedOut: only an explicit false). A day either symbol's
+//    session flags false is left out, whatever its date.
+//
+//    The date cutoff is only the fallback for a session with no verdict:
+//    `has_strikes: null` (the API couldn't check) or no field at all (an API
+//    from before it). There the picker behaves exactly as it did before the
+//    flag. The cutoff mirrors the backend setting: because the prune runs
+//    before the open, a session is kept or deleted whole, and on Nov 7 the
+//    first day still kept is Sep 8, which is exactly what the cutoff says.
+//    Between midnight and the prune one more day survives, which the cutoff
+//    leaves off: the safe side to err on. A session flagged true is not held
+//    to the cutoff: the API checked, and the mirror goes stale the day
+//    DATA_RETENTION_DAYS changes.
 //
 // 3. The newest shared day is the default, and it is what Replay opened on
 //    before the picker existed. It is always offered, even in the unlikely case
-//    it is older than the window, so choosing it never shows less than before.
+//    it is older than the window or flagged, so choosing it never shows less
+//    than before.
 //
-// The cutoff is a mirror of a backend setting, so the page also checks what
-// actually came back: a day whose frames carry no strike rows at all says so
-// under the transport (sessionLacksStrikes) rather than showing blank ladders.
+// Neither the flag nor the cutoff looks at the frames themselves, so the page
+// also checks what actually came back: a day whose frames carry no strike rows
+// at all says so under the transport (sessionLacksStrikes) rather than showing
+// blank ladders.
 
-/** How long production keeps per-strike rows (zerogex-oa DATA_RETENTION_DAYS). */
+import { strikesAgedOut } from './replaySessions.ts';
+
+/**
+ * How long production keeps per-strike rows (zerogex-oa DATA_RETENTION_DAYS).
+ * A mirror, so the picker uses it only as the fallback for a session without
+ * a has_strikes verdict.
+ */
 export const STRIKE_RETENTION_DAYS = 60;
 
 /**
@@ -42,6 +61,16 @@ export const SESSION_LIST_LIMIT = 60;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 86_400_000;
+
+/**
+ * One symbol's session as /api/replay/sessions lists it, as far as the picker
+ * reads it. `has_strikes` is false once the day's per-strike rows have aged
+ * out, null when the API couldn't check, and absent on an API from before it.
+ */
+export interface ListedSession {
+  date: string;
+  has_strikes?: boolean | null;
+}
 
 /**
  * The oldest session date whose per-strike rows are still stored, as
@@ -56,8 +85,9 @@ export function strikeRetentionCutoff(todayKey: string, days: number = STRIKE_RE
 }
 
 /**
- * The sessions the picker offers, newest first: the days both symbols list,
- * inside the per-strike retention window.
+ * The sessions the picker offers, newest first: the days both symbols list
+ * whose ladders still have their strike rows (2 above), and always the newest
+ * of them (3).
  *
  * A side that lists nothing, or whose list could not be read, can't narrow the
  * day, so the other side's list stands in for it. Its column then replays as
@@ -67,24 +97,35 @@ export function strikeRetentionCutoff(todayKey: string, days: number = STRIKE_RE
  * until both lists are in.)
  */
 export function pairReplaySessionOptions(
-  left: readonly string[],
-  right: readonly string[],
+  left: readonly ListedSession[],
+  right: readonly ListedSession[],
   todayKey: string,
   days: number = STRIKE_RETENTION_DAYS,
 ): string[] {
-  let shared: readonly string[];
+  let shared: readonly ListedSession[];
   if (left.length > 0 && right.length > 0) {
-    const rightDays = new Set(right);
-    shared = left.filter((d) => rightDays.has(d));
+    const leftDays = new Set(left.map((s) => s.date));
+    const rightDays = new Set(right.map((s) => s.date));
+    // Both sides' sessions for each shared day, so either one's flag counts.
+    shared = [...left.filter((s) => rightDays.has(s.date)), ...right.filter((s) => leftDays.has(s.date))];
   } else {
     shared = left.length > 0 ? left : right;
   }
-  const newestFirst = Array.from(new Set(shared.filter((d) => ISO_DATE.test(d))))
+  const valid = shared.filter((s) => ISO_DATE.test(s.date));
+  const newestFirst = Array.from(new Set(valid.map((s) => s.date)))
     .sort()
     .reverse();
   const cutoff = strikeRetentionCutoff(todayKey, days);
-  const kept = cutoff ? newestFirst.filter((d) => d >= cutoff) : newestFirst;
-  return kept.length > 0 ? kept : newestFirst.slice(0, 1);
+  const agedOut = new Set(valid.filter((s) => lacksStrikeRows(s, cutoff)).map((s) => s.date));
+  return newestFirst.filter((d, i) => i === 0 || !agedOut.has(d));
+}
+
+// One side's session has lost its strike rows: the API's word when it gave
+// one, the date cutoff only when it didn't (null, or an API without the field).
+function lacksStrikeRows(session: ListedSession, cutoff: string): boolean {
+  if (strikesAgedOut(session.has_strikes)) return true;
+  if (session.has_strikes === true) return false;
+  return cutoff !== '' && session.date < cutoff;
 }
 
 /**

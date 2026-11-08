@@ -46,7 +46,15 @@ export interface ReplayCandle {
 interface ReplaySessionList {
   symbol: string;
   count: number;
-  sessions: Array<{ date: string; bar_count: number; first_ts: string | null; last_ts: string | null }>;
+  sessions: Array<{
+    date: string;
+    bar_count: number;
+    first_ts: string | null;
+    last_ts: string | null;
+    // False once the day's per-strike rows have aged out, null when the API
+    // couldn't check, absent on an API from before the field.
+    has_strikes?: boolean | null;
+  }>;
 }
 
 interface ReplayRangePayload {
@@ -89,9 +97,10 @@ function pending(list: { data: unknown; loading: boolean; error: string | null }
   return list.loading || (list.data == null && list.error == null);
 }
 
-// The dates one symbol lists; empty while loading or when the list failed.
-function listedDates(list: ReplaySessionList | null): string[] {
-  return (list?.sessions ?? []).map((s) => s.date);
+// The sessions one symbol lists, has_strikes and all; empty while loading or
+// when the list failed.
+function listedSessions(list: ReplaySessionList | null): ReplaySessionList['sessions'] {
+  return list?.sessions ?? [];
 }
 
 /**
@@ -111,7 +120,7 @@ export function usePairReplaySessions(sym1: string, sym2: string, enabled: boole
     { refreshInterval: 0, enabled },
   );
 
-  const listed = pairReplaySessionOptions(listedDates(list1.data), listedDates(list2.data), etTodayDateKey());
+  const listed = pairReplaySessionOptions(listedSessions(list1.data), listedSessions(list2.data), etTodayDateKey());
   const loading = enabled && (pending(list1) || pending(list2));
 
   // A symbol change refetches that symbol's list. Until it is back, keep
