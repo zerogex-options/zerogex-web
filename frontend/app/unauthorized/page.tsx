@@ -23,6 +23,7 @@ import { isNoCardTrialEnabled } from '@/core/noCardTrial';
 import { priceIdToSku, skuHasFreeTrial } from '@/core/stripe';
 import { pricingHrefFor, resolveWall } from '@/core/returningMember';
 import { getChurnContext } from '@/core/returningMemberServer';
+import { returningWall } from '@/core/returningWall';
 import { selectHighlightsSince } from '@/core/winbackHighlights';
 import { loadWinbackHighlights } from '@/core/winbackHighlightsServer';
 
@@ -87,17 +88,25 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   });
 
   const current = actor?.user.tier ?? params.current ?? 'public';
-  const requiredLabel = required === 'pro' ? 'Pro' : 'Basic';
   // Name the page they were actually reaching for, straight from the menu, so
   // renaming a feature renames this sentence too. Undefined for anything not in
   // the menu — we then say nothing rather than printing a raw path at them.
   const wantedLabel = navItemLabel(params.path);
 
+  // The member's language (the `lang` cookie). The returning, newcomer and Pro
+  // screens below are in it, and name the page the way their own menu does:
+  // translated where the menu translates it ("Gesamtscore"), English where it
+  // doesn't ("Trade Bias").
+  const locale = await getServerLocale();
+  const labelKey = navItemLabelKey(params.path);
+  const pageLabel = locale !== DEFAULT_LOCALE && labelKey ? translate(locale, labelKey) : wantedLabel;
+
   // ---------------------------------------------------------------------------
   // Returning member: they have paid before, so checkout will NOT give them a
   // trial. This screen exists because the newcomer screen below promised them
   // one anyway — "7-day free trial, no charge until day 7" — and then handed
-  // them to a checkout that charges immediately.
+  // them to a checkout that charges immediately. Its words, the "what's new"
+  // bullets included, are in their language (core/returningWall.ts).
   // ---------------------------------------------------------------------------
   // `actor` is necessarily non-null here — resolveWall only returns 'returning'
   // for hasPriorPaid === true, which we pass as null without a session — but the
@@ -109,43 +118,46 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
     // the heading honest: a member who left last week is not told a lot has
     // changed, because for them it hasn't.
     const selection = all ? selectHighlightsSince(all, churn.churnedAt, { minItems: 3 }) : null;
-    const hasFresh = (selection?.freshCount ?? 0) > 0;
+    const screen = returningWall(
+      {
+        pageLabel,
+        required: required === 'pro' ? 'pro' : 'basic',
+        showFoundingRestore: wall.showFoundingRestore,
+        highlights: selection,
+        planHref: pricingHrefFor(wall, required === 'pro' ? 'pro' : 'basic'),
+        compareHref: pricingHrefFor(wall),
+      },
+      locale,
+    );
 
     return (
       <main className="min-h-screen px-6 py-12 flex items-start justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
         <div className="w-full max-w-xl space-y-6">
           <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-brand-primary)]">
-              <RotateCcw size={13} /> Welcome back
+              <RotateCcw size={13} /> {screen.badge}
             </div>
-            <h1 className="text-3xl font-bold">Your account is still here</h1>
-            <p className="mt-3 text-[var(--color-text-secondary)]">
-              {wantedLabel
-                ? `You were reaching for ${wantedLabel}, which is included with ${requiredLabel}.`
-                : `That page is included with ${requiredLabel}.`}{' '}
-              Everything you had is exactly where you left it&nbsp;- your layouts, symbols and settings
-              are all still on your account.
-            </p>
+            <h1 className="text-3xl font-bold">{screen.heading}</h1>
+            <p className="mt-3 text-[var(--color-text-secondary)]">{screen.body}</p>
 
-            {wall.showFoundingRestore && (
+            {screen.foundingRestore && (
               <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
-                You&rsquo;re a Founding Member. That rate is still yours and applies automatically
-                when you resubscribe&nbsp;- founding pricing closed to new members, but never to you.
+                {screen.foundingRestore}
               </p>
             )}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
-                href={pricingHrefFor(wall, required === 'pro' ? 'pro' : 'basic')}
+                href={screen.cta.href}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--text-inverse)]"
               >
-                Resubscribe to {requiredLabel} <ArrowRight size={16} />
+                {screen.cta.label} <ArrowRight size={16} />
               </Link>
               <Link
-                href={pricingHrefFor(wall)}
+                href={screen.compare.href}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--color-brand-primary)]"
               >
-                Compare plans <ArrowRight size={16} />
+                {screen.compare.label} <ArrowRight size={16} />
               </Link>
             </div>
 
@@ -154,18 +166,16 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
                 href="/spx-gamma-levels"
                 className="text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-brand-primary)] hover:underline"
               >
-                Or keep using the free delayed levels
+                {screen.freeLevels}
               </Link>
             </p>
           </section>
 
-          {selection && selection.items.length > 0 && (
+          {screen.highlights && (
             <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
-              <h2 className="text-lg font-semibold">
-                {hasFresh ? 'Shipped since you left' : 'Recently shipped'}
-              </h2>
+              <h2 className="text-lg font-semibold">{screen.highlights.heading}</h2>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-[var(--color-text-secondary)]">
-                {selection.items.map((h) => (
+                {screen.highlights.items.map((h) => (
                   <li key={h.title}>
                     <strong className="text-[var(--color-text-primary)]">{h.title}</strong> -{' '}
                     {h.body}
@@ -195,9 +205,6 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   // screen can never promise a trial checkout would not grant.
   // ---------------------------------------------------------------------------
   if (wall.audience === 'newcomer') {
-    const locale = await getServerLocale();
-    const labelKey = navItemLabelKey(params.path);
-    const pageLabel = locale !== DEFAULT_LOCALE && labelKey ? translate(locale, labelKey) : wantedLabel;
     const screen = newcomerWall(
       {
         path: params.path ?? null,
@@ -304,17 +311,10 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   // answers 'upgrade' for a session on Basic.
   //
   // In the member's language (the `lang` cookie), every word of it, like the
-  // newcomer screen above. The returning screen is still English-only, so it
-  // keeps the English menu label (wantedLabel) rather than mixing languages in
-  // one sentence.
+  // returning and newcomer screens above.
   // ---------------------------------------------------------------------------
   if (wall.audience === 'upgrade' && actor) {
-    const locale = await getServerLocale();
     const labels = proWallLabels(locale);
-    // The page's name the way their own menu shows it: translated where the
-    // menu translates it ("Gesamtscore"), English where it doesn't ("Trade Bias").
-    const labelKey = navItemLabelKey(params.path);
-    const pageLabel = locale !== DEFAULT_LOCALE && labelKey ? translate(locale, labelKey) : wantedLabel;
     const pitch = proPagePitch(params.path, locale);
     const copy = proWallCopy(proWallTermsFor(actor.user.id, actor.user.email), locale);
     const shot = pitch.image ? BLOG_IMAGE_DIMENSIONS[pitch.image.src] : undefined;

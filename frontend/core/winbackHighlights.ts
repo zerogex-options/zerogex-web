@@ -16,6 +16,8 @@
 // same discipline as core/cancelRetention.ts. Locked down in
 // tests/winbackHighlights.test.ts.
 
+export type HighlightText = { title: string; body: string };
+
 export type DatedHighlight = {
   title: string;
   body: string;
@@ -25,7 +27,21 @@ export type DatedHighlight = {
   // migration. Unparseable values are treated as absent, never as epoch 0 —
   // guessing a date here would silently mis-file an item into every cohort.
   since?: string | null;
+  // The same bullet in the site's other languages, by locale code ("de"), for
+  // the returning-member wall (app/unauthorized), which shows the member's
+  // language. The emails are English-only and never read it. Optional per item
+  // and per language: a missing translation shows the English.
+  translations?: Readonly<Record<string, HighlightText>>;
 };
+
+// The bullet in the reader's language, or in English when it has none.
+export function localizeHighlight(item: DatedHighlight, locale: string): HighlightText {
+  const translations = item.translations;
+  if (locale !== 'en' && translations && Object.prototype.hasOwnProperty.call(translations, locale)) {
+    return translations[locale];
+  }
+  return { title: item.title, body: item.body };
+}
 
 export type HighlightSelection = {
   // What to render, most recent first, undated items last.
@@ -130,14 +146,38 @@ export function parseHighlightsJson(raw: unknown): DatedHighlight[] | null {
   const items: DatedHighlight[] = [];
   for (const entry of list) {
     if (typeof entry !== 'object' || entry === null) continue;
-    const { title, body, since } = entry as { title?: unknown; body?: unknown; since?: unknown };
+    const { title, body, since, translations } = entry as {
+      title?: unknown;
+      body?: unknown;
+      since?: unknown;
+      translations?: unknown;
+    };
     if (typeof title !== 'string' || title.trim() === '') continue;
     if (typeof body !== 'string' || body.trim() === '') continue;
+    const parsedTranslations = parseTranslations(translations);
     items.push({
       title: title.trim(),
       body: body.trim(),
       since: typeof since === 'string' && parseMs(since) != null ? since.trim() : null,
+      ...(parsedTranslations ? { translations: parsedTranslations } : {}),
     });
   }
   return items.length > 0 ? items : null;
+}
+
+// An item's `translations`: each two-letter language with both a title and a
+// body is kept, anything else is dropped, and so is the field when nothing is
+// left. Like a bad date, a bad translation never costs the reader the bullet;
+// that language just shows it in English.
+function parseTranslations(raw: unknown): Record<string, HighlightText> | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const out: Record<string, HighlightText> = {};
+  for (const [locale, value] of Object.entries(raw)) {
+    if (!/^[a-z]{2}$/.test(locale) || typeof value !== 'object' || value === null) continue;
+    const { title, body } = value as { title?: unknown; body?: unknown };
+    if (typeof title !== 'string' || title.trim() === '') continue;
+    if (typeof body !== 'string' || body.trim() === '') continue;
+    out[locale] = { title: title.trim(), body: body.trim() };
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
