@@ -351,6 +351,8 @@ export default async function ReplayDatePage({
         drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
         the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
         the same price axis so a wick and a strike bar at the same level line up horizontally ·
+        each strike bar is that strike&apos;s total across the expirations in view, the same figure the
+        live Gamma Ladders show ·
         the call wall (resistance), put wall (support), gamma flip, max pain and pin strike draw
         as horizontal levels that migrate minute-by-minute as you scrub&nbsp;- the pin line carries
         its strength, and the row under the plot says which levels are absent this minute
