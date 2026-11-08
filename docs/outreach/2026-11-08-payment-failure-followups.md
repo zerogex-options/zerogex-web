@@ -71,7 +71,7 @@ The read, where it shaped a note:
   The note doesn't repeat "insufficient funds," as the Oct 2 draft also avoided.
 - **acontrerasarellana** is Alexander from the Nov 3 deal
   (`2026-11-03-alexander-pro-25-off.md`). The trial ended Fri Nov 6 at 12:07 AM ET,
-  and the 3-day window runs out around 1 AM ET Monday, so his note goes today.
+  and the 3-day window runs out around 1 AM ET Monday, so this note goes today.
 - **bazigar88** failed on the first try in October too. The cutoff is Tuesday
   morning, so today matches the day-after timing the Oct 7 round used.
 - **17 to 19** first failed Sunday. Retries often catch these (femifunky001 paid
