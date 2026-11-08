@@ -7,6 +7,7 @@ import { resolveSymbol } from '@/core/symbols';
 // PIN_STRIKE_COLOR_HEX, not the CSS var: satori resolves no custom properties,
 // so this card needs the literal the var is defined from (see core/pinStrike).
 import { formatPinStrike, PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { SNAPSHOT_PROFILE_ROW_LIMIT, snapshotNetProfile } from '@/core/replaySnapshotProfile';
 
 export const runtime = 'nodejs';
 export const alt = 'ZeroGEX Replay snapshot - historical dealer gamma surface';
@@ -29,7 +30,9 @@ interface FramePayload {
     pin_strike: number | null;
     net_gex: number | null;
   } | null;
-  strikes?: Array<{ strike: number | null; net_gex: number | null }>;
+  // One row per (strike, expiration), nearest spot first; summed per strike
+  // for the strip (core/replaySnapshotProfile).
+  strikes?: Array<{ strike: number | null; expiration?: string | null; net_gex: number | null }>;
 }
 
 // Green above / red below by sign — the universal gamma-profile convention.
@@ -41,24 +44,6 @@ const OG_NEG = '#F45854';
 // above the footer; at 120 under a 96px spot they ran into the ZeroGEX
 // wordmark and permalink.
 const STRIP_H = 96;
-
-interface ProfileCol {
-  strike: number;
-  net: number;
-}
-
-// Down-sample to at most `max` evenly-spaced columns so a wide strike band
-// stays legible (and the PNG stays light) instead of rendering 100+ hairline
-// bars.
-function evenSample<T>(arr: T[], max: number): T[] {
-  if (arr.length <= max) return arr;
-  const out: T[] = [];
-  const denom = Math.max(1, max - 1);
-  for (let i = 0; i < max; i += 1) {
-    out.push(arr[Math.round((i * (arr.length - 1)) / denom)]);
-  }
-  return out;
-}
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HHMM = /^\d{4}$/;
@@ -114,9 +99,11 @@ export default async function Image({
   const resolvedParams = await params;
   const symbol = resolveSymbol(resolvedParams.symbol);
   const iso = hhmmToIsoUtc(resolvedParams.date, resolvedParams.time);
+  // strike_limit counts (strike, expiration) rows, so the default 60 covered
+  // about five ES strikes; ask for the whole chain and sum it per strike.
   const payload = iso
     ? await serverApiGet<FramePayload>(
-        `/api/replay/frame?symbol=${symbol}&ts=${encodeURIComponent(iso)}`,
+        `/api/replay/frame?symbol=${symbol}&ts=${encodeURIComponent(iso)}&strike_limit=${SNAPSHOT_PROFILE_ROW_LIMIT}`,
         revalidate,
       )
     : null;
@@ -127,20 +114,10 @@ export default async function Image({
     : '—';
   const summary = payload?.summary;
 
-  // Per-strike net-gamma profile for the mini strip below the stats.
-  const profile: ProfileCol[] = evenSample(
-    (payload?.strikes ?? [])
-      .filter(
-        (s): s is { strike: number; net_gex: number } =>
-          s.strike != null &&
-          Number.isFinite(s.strike) &&
-          s.net_gex != null &&
-          Number.isFinite(s.net_gex),
-      )
-      .map((s) => ({ strike: s.strike, net: s.net_gex }))
-      .sort((a, b) => a.strike - b.strike),
-    64,
-  );
+  // Per-strike net-gamma profile for the mini strip below the stats: one bar
+  // per strike, its total across every expiration, for the strikes nearest
+  // spot (at most 64, so the bars stay legible and the PNG light).
+  const profile = snapshotNetProfile(payload?.strikes);
   const profilePeak =
     profile.reduce((acc, c) => Math.max(acc, Math.abs(c.net)), 0) || 1;
 
