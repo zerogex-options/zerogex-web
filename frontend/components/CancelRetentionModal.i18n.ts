@@ -82,6 +82,16 @@ export const dict: PageDictionary = {
       'You’ll keep full access until {date}. Changed your mind later? You can resubscribe anytime from the pricing page.',
     canceledBodyNoDate:
       'You’ll keep full access until the end of your current billing period. Changed your mind later? You can resubscribe anytime from the pricing page.',
+    // Terminal — canceled after a failed payment: ended now, not at period end.
+    canceledNowHeading: 'Your subscription is canceled',
+    canceledNowBody:
+      'Your last payment didn’t go through, so your plan ended now instead of at the end of the billing period, and that unpaid bill is canceled too. Nothing more will be charged. Changed your mind later? You can resubscribe anytime from the pricing page.',
+    canceledNowBodyBillOpen:
+      'Your last payment didn’t go through, so your plan ended now instead of at the end of the billing period. Changed your mind later? You can resubscribe anytime from the pricing page.',
+    // Terminal — there was nothing left to cancel.
+    alreadyEndedHeading: 'Your subscription has already ended',
+    alreadyEndedBody:
+      'There’s nothing left to cancel. Changed your mind later? You can resubscribe anytime from the pricing page.',
     done: 'Done',
 
     // Pause-instead-of-cancel.

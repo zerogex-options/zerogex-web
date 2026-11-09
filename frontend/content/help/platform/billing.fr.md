@@ -56,6 +56,7 @@ Pour résilier, utilisez plutôt le lien **Résilier l'abonnement** de votre pag
 
 - Résiliez via le lien **Résilier l'abonnement** sous Gérer l'abonnement sur votre page Compte. Avant de résilier, il peut vous proposer une réduction, le passage à une périodicité plus longue ou une pause d'un à trois mois - aucun prélèvement et aucun accès pendant la pause, puis reprise automatique. Vous pouvez ignorer chaque offre et résilier.
 - L'annulation prend effet à la **fin de la période de facturation en cours**. Vous conservez l'accès payant jusque-là, et votre page Compte affiche la date.
+- Si un paiement a déjà échoué au moment où vous résiliez, l'annulation prend effet immédiatement et la facture impayée est annulée avec elle, donc plus rien ne sera prélevé.
 - Une fois la période terminée, votre niveau revient à Public. Votre compte n'est pas supprimé ; vos données de parrainage et vos paramètres enregistrés sont conservés.
 - Vous pouvez vous réabonner à tout moment.
 

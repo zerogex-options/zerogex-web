@@ -25,6 +25,10 @@
 //      void on a canceled sub can no longer reactivate it. Voiding is final and
 //      un-collectible by design; use it when you never intend to collect (a trial
 //      that never converted). Omit the flag to leave invoices as-is.
+//      Steps 1 and 2 are cancelNowAndVoid in core/pastDueCancel.ts, which the
+//      in-app cancel flow also runs when a member whose payment has failed
+//      clicks Cancel. This script is still the tool for a member who asks by
+//      email, or whose cancel was scheduled some other way.
 //   3. Mirror the downgrade onto the users row for immediacy — tier='public',
 //      subscription mirror + grace/recovery latches cleared, subscription_lapsed=1
 //      — the SAME columns clearSubscriptionFromUser writes in the webhook
@@ -64,6 +68,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 
+import { cancelNowAndVoid, type CancelNowAndVoidResult } from '../core/pastDueCancel.ts';
 import { decideStaleInvoice } from '../core/staleInvoice.ts';
 import { readInvoicePeriodEndUnix } from '../core/stripeInvoice.ts';
 
@@ -588,44 +593,32 @@ if (!cliArgs.yes) {
 
 // --- Apply -----------------------------------------------------------------
 
-// 1. Cancel the subscription FIRST (unless it is already terminal). Order is
-//    deliberate: canceling a past_due sub moves it past_due -> canceled via
-//    customer.subscription.deleted, whose handler disarms the payment-recovery
-//    latch WITHOUT emailing. Voiding the open invoice first would instead remove
-//    the only unpaid invoice and flip the sub past_due -> active, tripping the
-//    webhook's "payment recovered" email to a customer we're about to cancel.
-let finalStatus = status;
-if (!alreadyTerminal) {
-  try {
-    const canceled = await stripe.subscriptions.cancel(subscription.id);
-    finalStatus = canceled.status;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    console.error(`\nError: Stripe subscription cancel failed: ${message}`);
-    console.error('No DB changes were made.');
-    process.exit(1);
-  }
+// 1. Cancel the subscription FIRST (unless it is already terminal), then
+// 2. void the open invoices listed above (--void-invoice). Both steps are
+//    cancelNowAndVoid in core/pastDueCancel.ts, which the in-app cancel flow
+//    also uses for a member whose payment has failed; the order and why are
+//    documented there. A cancel failure changes nothing. A void failure does not
+//    undo the cancel; it is surfaced and the run exits non-zero, because a
+//    charge attempt may still be live.
+let ended: CancelNowAndVoidResult;
+try {
+  ended = await cancelNowAndVoid(stripe, subscription.id, {
+    skipCancel: alreadyTerminal,
+    voidOpenInvoices: cliArgs.voidInvoice,
+    invoices: openInvoices,
+  });
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(`\nError: Stripe subscription cancel failed: ${message}`);
+  console.error('No DB changes were made.');
+  process.exit(1);
 }
-
-// 2. Void the open invoices (still voidable on a canceled sub, and now unable to
-//    reactivate it). This stops any lingering collection on the failed charge. A
-//    void failure does not undo the cancel above; we surface it and exit non-zero
-//    so the operator knows a charge attempt may still be live.
-const voided: string[] = [];
-const voidFailures: string[] = [];
-if (cliArgs.voidInvoice) {
-  for (const inv of openInvoices) {
-    if (!inv.id) continue;
-    try {
-      await stripe.invoices.voidInvoice(inv.id);
-      voided.push(inv.id);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
-      console.error(`Warning: failed to void invoice ${inv.id}: ${message}`);
-      voidFailures.push(inv.id);
-    }
-  }
+const finalStatus = ended.status ?? status;
+const voided = ended.voided;
+for (const failure of ended.voidFailed) {
+  console.error(`Warning: failed to void invoice ${failure.invoiceId}: ${failure.message}`);
 }
+const voidFailures = ended.voidFailed.map((failure) => failure.invoiceId);
 
 // 3. Mirror the downgrade onto the row — the same columns clearSubscriptionFromUser
 //    writes on customer.subscription.deleted. The webhook reconciles to identical

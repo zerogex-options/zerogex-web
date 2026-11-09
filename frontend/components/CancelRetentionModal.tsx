@@ -16,7 +16,8 @@ import { dict } from './CancelRetentionModal.i18n';
 // monthly or quarterly member, a switch to a longer billing period; only if they
 // decline do we capture a reason and schedule the cancel (forwarding the reason
 // to Stripe so the webhook's existing ack-email + "Why Members Cancel" logging
-// still fire).
+// still fire). A member whose payment has already failed is canceled on the
+// spot instead, and their unpaid bill voided (core/pastDueCancel.ts).
 //
 // Two reasons get an answer before the cancel goes through:
 //   • "Too complex / hard to use" → the Education hub, and My Dashboard, where
@@ -47,6 +48,11 @@ type Step =
   | 'switched'
   | 'saved'
   | 'canceled'
+  // Canceled while the payment had already failed: the server ended it on the
+  // spot instead of at period end (core/pastDueCancel.ts).
+  | 'canceledNow'
+  // Nothing to cancel: Stripe already shows it ended (the page had not caught up).
+  | 'alreadyEnded'
   | 'paused';
 
 // A priced switch awaiting the member's confirmation (from change-plan).
@@ -120,6 +126,9 @@ export default function CancelRetentionModal({
   const [quoteNotice, setQuoteNotice] = useState<string | null>(null);
   // The percent off actually applied, for the "saved" confirmation.
   const [savedPct, setSavedPct] = useState(SAVE_PERCENT);
+  // Whether the server voided the unpaid bill when it ended the plan, for the
+  // "canceledNow" confirmation. It says nothing more will be charged only then.
+  const [billVoided, setBillVoided] = useState(false);
 
   const endDate = formatDate(periodEndIso);
 
@@ -142,6 +151,7 @@ export default function CancelRetentionModal({
       setQuote(null);
       setQuoteNotice(null);
       setSavedPct(SAVE_PERCENT);
+      setBillVoided(false);
     }
   }, [open, entryStep]);
 
@@ -226,6 +236,26 @@ export default function CancelRetentionModal({
         }),
       });
       if (res.ok) {
+        const j = (await res.json().catch(() => ({}))) as {
+          endedNow?: boolean;
+          billVoided?: boolean;
+          alreadyEnded?: boolean;
+        };
+        if (j.alreadyEnded) {
+          setStep('alreadyEnded');
+          onChanged();
+          return;
+        }
+        if (j.endedNow) {
+          setBillVoided(j.billVoided === true);
+          setStep('canceledNow');
+          onChanged();
+          // The account row is cleared by the customer.subscription.deleted
+          // webhook a moment later. Refresh again then, so the page behind the
+          // modal stops showing the failed payment and the Cancel link.
+          window.setTimeout(onChanged, 4000);
+          return;
+        }
         setStep('canceled');
         onChanged();
         return;
@@ -730,6 +760,30 @@ export default function CancelRetentionModal({
             <p style={bodyStyle}>
               {endDate ? t('canceledBody', { date: endDate }) : t('canceledBodyNoDate')}
             </p>
+            <div style={buttonColumn}>
+              <button type="button" onClick={onClose} style={primaryButtonStyle(false)}>
+                {t('done')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'alreadyEnded' && (
+          <>
+            <h2 style={headingStyle}>{t('alreadyEndedHeading')}</h2>
+            <p style={bodyStyle}>{t('alreadyEndedBody')}</p>
+            <div style={buttonColumn}>
+              <button type="button" onClick={onClose} style={primaryButtonStyle(false)}>
+                {t('done')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'canceledNow' && (
+          <>
+            <h2 style={headingStyle}>{t('canceledNowHeading')}</h2>
+            <p style={bodyStyle}>{billVoided ? t('canceledNowBody') : t('canceledNowBodyBillOpen')}</p>
             <div style={buttonColumn}>
               <button type="button" onClick={onClose} style={primaryButtonStyle(false)}>
                 {t('done')}

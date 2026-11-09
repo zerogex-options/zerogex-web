@@ -268,6 +268,124 @@ test('the save box states the percent of the link it carries', () => {
   assert.match(def.html, /claim 25% off/);
 });
 
+// A cancel after the payment had already failed (past_due / unpaid). The cancel
+// ends the plan on the spot and voids the open bill (core/pastDueCancel.ts), so
+// the ordinary copy is wrong three ways: "full access until …" (the 3-day
+// payment-grace cutoff has usually taken access already), the save offer (there
+// is no live subscription left to keep), and, for a trial whose first charge was
+// declined, the thanks for being "a real part" of the business. Members got all
+// three on 2026-10-16 and 2026-11-08.
+
+const VOIDED_TRIAL = { neverPaid: true, billVoided: true };
+const VOIDED_RENEWAL = { neverPaid: false, billVoided: true };
+
+// What no failed-payment cancel may say, whatever else it says.
+function assertNoAccessOrSaveClaims(body: string) {
+  assert.doesNotMatch(body, /full access until/);
+  assert.doesNotMatch(body, /nothing changes yet on your end/);
+  assert.doesNotMatch(body, /October 14, 2026/);
+  assert.doesNotMatch(body, /25% off|50% off|claim \d+% off/);
+  assert.doesNotMatch(body, /zerogex\.io\/save/);
+  assert.doesNotMatch(body, /final charge/);
+}
+
+test('past_due trial conversion, bill voided: trial opening, no charge, no access claim', () => {
+  const { text, html } = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    // The caller passes no save link, but the copy must not offer one even if it did.
+    saveUrl: 'https://zerogex.io/save?t=abc',
+    paymentFailed: VOIDED_TRIAL,
+  });
+  for (const body of [text, html]) {
+    assert.match(body, /canceled your ZeroGEX trial/);
+    assert.doesNotMatch(body, /real part of what/);
+    assert.doesNotMatch(body, /canceled your ZeroGEX subscription/);
+    assert.match(body, /The payment due when your trial ended didn(&#39;|')t go through/);
+    assert.match(body, /your plan ended when you canceled/);
+    assert.match(body, /canceled that unpaid bill/);
+    assert.match(body, /You won(&#39;|')t be charged anything/);
+    assert.match(body, /payment won(&#39;|')t be tried again/);
+    assertNoAccessOrSaveClaims(body);
+  }
+});
+
+test('past_due trial conversion, bill NOT voided: no promise about charges', () => {
+  const { text, html } = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    paymentFailed: { neverPaid: true, billVoided: false },
+  });
+  for (const body of [text, html]) {
+    assert.match(body, /canceled your ZeroGEX trial/);
+    assert.doesNotMatch(body, /real part of what/);
+    assert.match(body, /your plan ended when you canceled/);
+    // The bill may still be open, so nothing says it can't be charged.
+    assert.doesNotMatch(body, /won(&#39;|')t be charged/);
+    assert.doesNotMatch(body, /Nothing more will be charged/);
+    assert.doesNotMatch(body, /canceled that unpaid bill/);
+    assertNoAccessOrSaveClaims(body);
+  }
+});
+
+test('past_due renewal, bill voided: thanks a paying member, says nothing more will be charged', () => {
+  const { text, html } = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    saveUrl: 'https://zerogex.io/save?t=abc',
+    paymentFailed: VOIDED_RENEWAL,
+  });
+  for (const body of [text, html]) {
+    assert.match(body, /canceled your ZeroGEX subscription/);
+    assert.match(body, /real part of what/);
+    assert.doesNotMatch(body, /canceled your ZeroGEX trial/);
+    assert.match(body, /Your last payment didn(&#39;|')t go through/);
+    assert.match(body, /your plan ended when you canceled instead of running to the end of the billing period/);
+    assert.match(body, /canceled that unpaid bill/);
+    assert.match(body, /Nothing more will be charged/);
+    assert.match(body, /payment won(&#39;|')t be tried again/);
+    assertNoAccessOrSaveClaims(body);
+  }
+});
+
+test('past_due renewal, bill NOT voided: says the plan ended, promises nothing about charges', () => {
+  const { text, html } = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    paymentFailed: { neverPaid: false, billVoided: false },
+  });
+  for (const body of [text, html]) {
+    assert.match(body, /real part of what/);
+    assert.match(body, /your plan ended when you canceled/);
+    assert.doesNotMatch(body, /Nothing more will be charged/);
+    assert.doesNotMatch(body, /canceled that unpaid bill/);
+    assertNoAccessOrSaveClaims(body);
+  }
+});
+
+test('a failed payment overrides the trialing and charge-in-flight copy', () => {
+  // Neither flag can be set alongside a failed payment by the callers, but the
+  // failed-payment copy must win if they ever are.
+  const { text } = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    trialing: true,
+    conversionChargePending: true,
+    paymentFailed: VOIDED_RENEWAL,
+  });
+  assert.match(text, /real part of what/);
+  assert.doesNotMatch(text, /trial had already ended/);
+  assertNoAccessOrSaveClaims(text);
+});
+
+test('a failed-payment cancel still answers the reason it was given', () => {
+  const { subject, text } = buildCancellationEmail({
+    periodEndIso: null,
+    cancellationFeedback: 'too_expensive',
+    paymentFailed: VOIDED_TRIAL,
+  });
+  assert.equal(subject, 'Sorry to see you go');
+  assert.match(text, /what would ZeroGEX need to cost/);
+  // No "You said price was the reason" save box: there is nothing left to save.
+  assert.doesNotMatch(text, /You said price was the reason/);
+  assertNoAccessOrSaveClaims(text);
+});
+
 // The one-off cancel-reason follow-up (scripts/send-cancel-reason-followup.mts).
 const UNSUB = 'https://zerogex.io/unsubscribe?u=x&t=y';
 
