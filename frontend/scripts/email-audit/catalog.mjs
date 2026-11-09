@@ -340,7 +340,7 @@ export const CATALOG = {
     trigger: 'systemd timer', triggerDetail: 'zerogex-web-cancellation-alerts.timer → make cancellation-alerts',
     when: 'Within 15 minutes of a churn event. Swept at :07, :22, :37, :52 past every hour.',
     cadence: 'Timer: every 15 min (+0–45s jitter)',
-    cohort: "audit_events of type stripe_cancellation_requested (still has access) or stripe_subscription_deleted (access gone)",
+    cohort: "audit_events of type stripe_cancellation_requested (still has access; or, when the payment had already failed, the plan ended on the spot) or stripe_subscription_deleted (access gone)",
     latch: 'cancellation_alert_sent audit row keyed to the churn event id',
     optOut: 'n/a — internal', foh: false,
     source: 'core/mailer.ts:2383 · scripts/send-cancellation-alerts.mts',

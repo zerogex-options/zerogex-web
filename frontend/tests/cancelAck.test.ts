@@ -19,6 +19,7 @@ process.env.AUTH_DB_PATH = dbPath;
 const { getDb } = await import('../core/db.ts');
 const { markSubscriptionEnded } = await import('../core/billingUser.ts');
 const { acknowledgeEndedCancel, handleCancelAckTransition } = await import('../core/cancelAck.ts');
+const { buildChurnAlert, shouldAlertOnChurn } = await import('../core/cancellationAlert.ts');
 
 const db = getDb();
 
@@ -292,9 +293,12 @@ test('past_due trial conversion: recorded with its reason, trial copy, bill void
   assert.equal(outcome, 'sent');
   const requested = requestedRows(h, m.id);
   assert.equal(requested.length, 1);
+  // The note after the id is what keeps the operator alert from calling this
+  // savable; the reason suffix after it is unchanged.
   assert.equal(
     requested[0].message,
-    'Cancellation requested for sub sub_PDT | cancel_feedback=missing_features cancel_comment="No futures"',
+    'Cancellation requested for sub sub_PDT (ended now, payment had failed, bill voided)' +
+      ' | cancel_feedback=missing_features cancel_comment="No futures"',
   );
   assert.equal(h.sent.length, 1);
   assert.deepEqual(h.sent[0].paymentFailed, { neverPaid: true, billVoided: true });
@@ -315,7 +319,51 @@ test('past_due renewal: paid copy, and a bill that could not be voided is passed
 
   assert.deepEqual(h.sent[0].paymentFailed, { neverPaid: false, billVoided: false });
   assert.equal(h.sent[0].trialing, false);
-  assert.equal(requestedRows(h, m.id)[0].message, 'Cancellation requested for sub sub_PDR');
+  assert.equal(
+    requestedRows(h, m.id)[0].message,
+    'Cancellation requested for sub sub_PDR (ended now, payment had failed, bill not voided)',
+  );
+});
+
+// The operator's cancellation alert reads the row this path writes. Driven
+// end to end so the writer and the alert cannot drift apart.
+test('the cancellation alert reads an ended cancel as ended, with its bill', async () => {
+  for (const billVoided of [true, false]) {
+    const h = harness();
+    const m = seedMember(`u_pd_alert_${billVoided ? 'voided' : 'open'}`);
+    await acknowledgeEndedCancel(
+      m,
+      { subscriptionId: 'sub_PDA', neverPaid: false, billVoided, cancellationDetails: { feedback: 'too_expensive' } },
+      h.deps,
+    );
+    const [row] = requestedRows(h, m.id);
+    const alert = buildChurnAlert(
+      {
+        churnEventId: 'audit_pd_alert',
+        kind: 'pending',
+        email: m.email,
+        userId: m.id,
+        auditMessage: row.message,
+        churnedAtIso: '2026-07-01T12:00:00.000Z',
+        accountCreatedAtIso: null,
+        subscriptionStartedAtIso: null,
+        tier: 'pro',
+        billing: null,
+        // A row the deleted webhook has not cleared yet still has a period end.
+        currentPeriodEndIso: '2026-07-20T12:00:00.000Z',
+      },
+      '2026-07-01T12:05:00.000Z',
+    );
+    assert.deepEqual(alert.endedOnFailedPayment, { billVoided });
+    assert.match(alert.headline, /^Plan already ended/);
+    assert.equal(alert.saveWindowNote, null);
+    assert.equal(alert.reasonLabel, 'Too expensive');
+  }
+  // A bill left open alerts even with no reason given.
+  const h = harness();
+  const silent = seedMember('u_pd_alert_silent');
+  await acknowledgeEndedCancel(silent, { subscriptionId: 'sub_PDS', neverPaid: true, billVoided: false }, h.deps);
+  assert.equal(shouldAlertOnChurn(requestedRows(h, silent.id)[0].message, false), true);
 });
 
 // No latch on this path: it runs once per click, behind a Stripe cancel that
@@ -368,7 +416,9 @@ test('a cancel scheduled on a failed payment is recorded and flagged, and no ema
   assert.equal(h.sent.length, 0);
   assert.equal(latchOf(m.id), null);
   assert.equal(requestedRows(h, m.id).length, 1);
-  assert.match(requestedRows(h, m.id)[0].message, /cancel_feedback=unused/);
+  // Nothing was ended here: Stripe is still retrying. So the row carries no
+  // "ended now" note, only the reason.
+  assert.equal(requestedRows(h, m.id)[0].message, 'Cancellation requested for sub sub_O | cancel_feedback=unused');
   const flagged = h.audits.filter((a) => a.userId === m.id && a.type === 'cancellation_ack_withheld_payment_failed');
   assert.equal(flagged.length, 1);
   assert.match(flagged[0].message, /sub_O/);

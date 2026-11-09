@@ -19,7 +19,9 @@
 import {
   cancellationFeedbackLabel,
   parseCancellationReasonFromMessage,
+  parseEndedOnFailedPayment,
   hasCancellationSignal,
+  type EndedOnFailedPayment,
   type ParsedCancellationReason,
 } from './cancellationReason.ts';
 import type { LedgerRow } from './subscriberBucket.ts';
@@ -31,6 +33,11 @@ import type { LedgerRow } from './subscriberBucket.ts';
 //             clicks Cancel. They STILL HAVE ACCESS until period end. This is the
 //             one that matters: it is the only window in which a reply can
 //             actually save the subscription.
+//             Except when their payment had already failed: then Cancel ends
+//             the subscription on the spot and voids its bill
+//             (core/pastDueCancel.ts), so access is already gone and there is
+//             nothing left to save. The row says so (parseEndedOnFailedPayment)
+//             and the alert reads that way.
 //   lapsed  — `stripe_subscription_deleted`, written when the subscription
 //             actually ends. Access is gone. Useful as a receipt and as the
 //             backstop for a cancel that never emitted a pending row (a Stripe
@@ -193,9 +200,15 @@ export function alertRunExitCode(sent: number, failed: number): 0 | 1 {
 // cancel, so the survey is on the `pending` row the moment it is written. A row
 // with no reason means none was given, not that one is still coming.
 //
+// One silent row still alerts: a cancel on a failed payment whose unpaid bill
+// was NOT voided. That reports more than a departure: a bill that may still be
+// payable after the plan ended, which needs a hand, and nothing else pushes it
+// anywhere.
+//
 // Set includeSilent to restore the unfiltered firehose.
 export function shouldAlertOnChurn(auditMessage: string, includeSilent: boolean): boolean {
   if (includeSilent) return true;
+  if (parseEndedOnFailedPayment(auditMessage)?.billVoided === false) return true;
   return hasCancellationSignal(parseCancellationReasonFromMessage(auditMessage));
 }
 
@@ -243,7 +256,8 @@ export type ChurnAlertInput = {
   // or null when the ledger has no answer.
   billing: ChurnBilling | null;
   // Period end for a pending cancel: the deadline on the save window. Null for a
-  // lapse (already past) or when the DB row has been cleared.
+  // lapse (already past) or when the DB row has been cleared. Ignored for a
+  // cancel that ended the plan on a failed payment: there is no window left.
   currentPeriodEndIso: string | null;
 };
 
@@ -263,6 +277,11 @@ export type ChurnAlert = {
   facts: Array<{ label: string; value: string }>;
   commands: string[];
   saveWindowNote: string | null;
+  // Set when the cancel ended the plan on the spot because the payment had
+  // failed (read off the churn row), else null. Such a cancel has no save window.
+  endedOnFailedPayment: EndedOnFailedPayment | null;
+  // Whether that cancel's unpaid bill was voided, in a sentence. Null otherwise.
+  billNote: string | null;
 };
 
 // Formats an ISO stamp the way the rest of the operator tooling does: ET, so it
@@ -301,6 +320,9 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
     tenureDays(input.subscriptionStartedAtIso, input.churnedAtIso) ??
     tenureDays(input.accountCreatedAtIso, input.churnedAtIso);
   const tenure = describeTenure(days);
+  // A cancel on a failed payment ended the plan on the spot: nothing to save.
+  const endedOnFailedPayment =
+    input.kind === 'pending' ? parseEndedOnFailedPayment(input.auditMessage) : null;
 
   // The subject line is the whole product for anyone reading on a phone: it has
   // to say who left and why WITHOUT being opened. The free-text comment wins the
@@ -311,9 +333,13 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
       ? reasonLabel
       : 'no reason given';
   // Paying or trial leads the subject, so the one fact that decides whether
-  // revenue just walked out is readable from the lock screen.
-  const who =
-    input.billing === 'paying'
+  // revenue just walked out is readable from the lock screen. A plan that has
+  // already ended leads with that instead, and with a bill left unvoided.
+  const who = endedOnFailedPayment
+    ? endedOnFailedPayment.billVoided
+      ? `Canceled, plan ended (payment had failed): ${input.email}`
+      : `Canceled, plan ended, bill not voided: ${input.email}`
+    : input.billing === 'paying'
       ? `Paying member canceled: ${input.email}`
       : input.billing === 'trial'
         ? `Trial canceled, never charged: ${input.email}`
@@ -321,14 +347,23 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
   const subject = `[ZeroGEX] ${who} — ${subjectReason}`;
   const billingLabel = describeBilling(input.billing);
 
-  const headline =
-    input.kind === 'pending'
+  const headline = endedOnFailedPayment
+    ? 'Plan already ended — their payment had failed, so the cancel ended it on the spot instead of at period end. Access is gone and there is no subscription left to save.'
+    : input.kind === 'pending'
       ? 'Cancellation requested — they still have access, so this is savable.'
       : 'Subscription ended — access has been revoked.';
 
+  // The route records why a bill was not voided (billing_cancel_bill_not_voided)
+  // and what to run; diagnose-user prints that row.
+  const billNote = endedOnFailedPayment
+    ? endedOnFailedPayment.billVoided
+      ? 'The unpaid bill was voided, so nothing more can be charged.'
+      : 'The unpaid bill was not voided and may still be payable. Why, and what to run: the billing_cancel_bill_not_voided row in make diagnose-user.'
+    : null;
+
   const remaining = daysUntil(input.currentPeriodEndIso, nowIso);
   const saveWindowNote =
-    input.kind === 'pending' && input.currentPeriodEndIso
+    input.kind === 'pending' && !endedOnFailedPayment && input.currentPeriodEndIso
       ? remaining !== null && remaining >= 0
         ? `Access runs until ${formatEt(input.currentPeriodEndIso)} — ${remaining} day${remaining === 1 ? '' : 's'} left to reply.`
         : `Access ran until ${formatEt(input.currentPeriodEndIso)}.`
@@ -344,17 +379,30 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
     { label: 'Signed up', value: formatEt(input.accountCreatedAtIso) },
     { label: 'Subscribed', value: formatEt(input.subscriptionStartedAtIso) },
     { label: 'Canceled', value: formatEt(input.churnedAtIso) },
-    { label: 'Access ends', value: formatEt(input.currentPeriodEndIso) },
+    {
+      label: 'Access ends',
+      value: endedOnFailedPayment ? 'Already ended' : formatEt(input.currentPeriodEndIso),
+    },
     { label: 'User id', value: input.userId ?? 'unknown' },
   ];
 
-  // The three commands you actually run next, pre-filled with the address so the
+  // The commands you actually run next, pre-filled with the address so the
   // alert is copy-paste actionable instead of a prompt to go find the runbook.
-  const commands = [
-    `make diagnose-user EMAIL=${input.email}`,
-    `make save-url EMAIL=${input.email}`,
-    `make honor-winback-discount EMAIL=${input.email} DRY_RUN=1`,
-  ];
+  // A plan that has already ended has no subscription for save-url or
+  // honor-winback-discount to act on; if its bill was not voided, the dry run
+  // lists what is still open, and YES=1 voids it.
+  const commands = endedOnFailedPayment
+    ? [
+        `make diagnose-user EMAIL=${input.email}`,
+        ...(endedOnFailedPayment.billVoided
+          ? []
+          : [`make cancel-subscription EMAIL=${input.email} VOID_INVOICE=1 DRY_RUN=1`]),
+      ]
+    : [
+        `make diagnose-user EMAIL=${input.email}`,
+        `make save-url EMAIL=${input.email}`,
+        `make honor-winback-discount EMAIL=${input.email} DRY_RUN=1`,
+      ];
 
   return {
     subject,
@@ -372,6 +420,8 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
     facts,
     commands,
     saveWindowNote,
+    endedOnFailedPayment,
+    billNote,
   };
 }
 

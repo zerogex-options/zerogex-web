@@ -27,7 +27,11 @@
 // save-link builder and its audit writer.
 
 import { getDb } from './db.ts';
-import { formatCancellationReasonSuffix, type CancellationDetails } from './cancellationReason.ts';
+import {
+  formatCancellationRequestedMessage,
+  type CancellationDetails,
+  type EndedOnFailedPayment,
+} from './cancellationReason.ts';
 
 // Mirror core/retentionOffer.ts SAVE_PERCENT / PRICE_SAVE_PERCENT. That module
 // imports Stripe through the '@/' alias, which this file must not (it loads
@@ -105,18 +109,22 @@ type SendOptions = Parameters<CancelAckDeps['send']>[1];
 // The row every reader of a cancel keys on: Why Members Cancel, the
 // cancellation alert, daily metrics, cohort and renewal retention. The portal
 // cancellation survey is folded into the message (an empty suffix when nothing
-// was collected, so a silent cancel keeps a clean message).
+// was collected, so a silent cancel keeps a clean message). A cancel that ended
+// the subscription on a failed payment also says so, and whether its bill was
+// voided, so the cancellation alert doesn't call it savable
+// (formatCancellationRequestedMessage in core/cancellationReason.ts).
 function auditCancellationRequested(
   member: { id: string; email: string },
   subscriptionId: string,
   details: CancellationDetails,
   deps: Pick<CancelAckDeps, 'audit'>,
+  endedOnFailedPayment: EndedOnFailedPayment | null = null,
 ): void {
   deps.audit({
     type: 'stripe_cancellation_requested',
     userId: member.id,
     email: member.email,
-    message: `Cancellation requested for sub ${subscriptionId}${formatCancellationReasonSuffix(details)}`,
+    message: formatCancellationRequestedMessage(subscriptionId, details, endedOnFailedPayment),
   });
 }
 
@@ -241,8 +249,10 @@ export type EndedCancel = {
 };
 
 // Records and acknowledges an ended cancel: the same stripe_cancellation_requested
-// row a scheduled cancel writes, so every reader counts it with its reason, and
-// the cancellation email in its failed-payment version.
+// row a scheduled cancel writes, so every reader counts it with its reason, plus
+// a note that the plan ended now and whether the bill was voided, which the
+// operator's cancellation alert reports; and the cancellation email in its
+// failed-payment version.
 //
 // No latch, unlike the 0→1 path. The webhook needs one because Stripe can
 // deliver the transition more than once; this runs once per click, after a
@@ -258,7 +268,9 @@ export async function acknowledgeEndedCancel(
   cancel: EndedCancel,
   deps: Pick<CancelAckDeps, 'send' | 'audit'>,
 ): Promise<'sent' | 'send_failed'> {
-  auditCancellationRequested(member, cancel.subscriptionId, cancel.cancellationDetails, deps);
+  auditCancellationRequested(member, cancel.subscriptionId, cancel.cancellationDetails, deps, {
+    billVoided: cancel.billVoided,
+  });
   return sendAcknowledgment(
     member,
     cancel.subscriptionId,

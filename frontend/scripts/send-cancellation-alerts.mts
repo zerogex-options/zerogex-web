@@ -72,8 +72,9 @@
 //                     neither a survey selection nor a typed comment. Off by
 //                     default: such a row reports a departure and nothing else,
 //                     which the dashboard already carries, and on real data it
-//                     was most of the stream. See shouldAlertOnChurn in
-//                     core/cancellationAlert.ts.
+//                     was most of the stream. (A cancel on a failed payment
+//                     whose bill was not voided alerts regardless.) See
+//                     shouldAlertOnChurn in core/cancellationAlert.ts.
 //   --dry-run         Print what would be sent; send nothing, latch nothing
 //   --mark-only       Latch WITHOUT sending. The "I have already dealt with this
 //                     backlog by hand, don't email me about history" escape hatch:
@@ -510,7 +511,9 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
         billing: billingFor(row, kind),
         // Only a pending cancel has a live period end to report; the lapse path
         // NULLs it in the same transaction that drops the tier, so reading it
-        // there would just print an em dash with extra steps.
+        // there would just print an em dash with extra steps. (A pending row
+        // whose cancel ended the plan on a failed payment has none either;
+        // buildChurnAlert reads that off the row and ignores this.)
         currentPeriodEndIso: kind === 'pending' ? row.current_period_end : null,
       },
       NOW_ISO,
@@ -521,6 +524,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
       console.log(`  --- ${alert.subject}`);
       console.log(`      ${alert.headline}`);
       if (alert.saveWindowNote) console.log(`      ${alert.saveWindowNote}`);
+      if (alert.billNote) console.log(`      ${alert.billNote}`);
       console.log(`      billing: ${alert.billingLabel}`);
       console.log(`      reason: ${alert.reasonLabel}`);
       console.log(`      comment: ${alert.comment ?? '(none)'}`);

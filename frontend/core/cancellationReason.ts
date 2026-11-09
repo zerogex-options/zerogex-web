@@ -142,3 +142,49 @@ export function parseCancellationReasonFromMessage(message: string): ParsedCance
 export function hasCancellationSignal(parsed: ParsedCancellationReason): boolean {
   return parsed.feedback !== null || parsed.comment !== null;
 }
+
+// ── The cancel row's message ─────────────────────────────────────────────────
+// Every stripe_cancellation_requested row is written with this (core/cancelAck.ts),
+// so its sentence, subscription id and reason suffix keep one shape:
+//   Cancellation requested for sub sub_X | cancel_feedback=… cancel_comment="…"
+//
+// A cancel on a failed payment (past_due/unpaid) does not wait for period end:
+// it ends the subscription on the spot and voids its open bill
+// (core/pastDueCancel.ts). Its row says so between the id and the suffix:
+//   Cancellation requested for sub sub_X (ended now, payment had failed, bill voided) | …
+// or "bill not voided" when the bill was not voided (billWasVoided was false).
+// The operator alert reads it back (parseEndedOnFailedPayment), so it no longer
+// calls a plan that is already gone "savable".
+//
+// The other readers of the row are unaffected. They take the subscription id
+// with /sub_[A-Za-z0-9]+/ or /\bsub_\S+/ (the id is still followed by a space),
+// the reason with the cancel_feedback= / cancel_comment= tokens (the marker has
+// neither), or read only the row's type and time.
+export type EndedOnFailedPayment = {
+  // The unpaid bill was voided and nothing was left open (billWasVoided in
+  // core/pastDueCancel.ts), so nothing more can be charged.
+  billVoided: boolean;
+};
+
+export function formatCancellationRequestedMessage(
+  subscriptionId: string,
+  details: CancellationDetails,
+  endedOnFailedPayment: EndedOnFailedPayment | null = null,
+): string {
+  const ended = endedOnFailedPayment
+    ? ` (ended now, payment had failed, bill ${endedOnFailedPayment.billVoided ? 'voided' : 'not voided'})`
+    : '';
+  return `Cancellation requested for sub ${subscriptionId}${ended}${formatCancellationReasonSuffix(details)}`;
+}
+
+// Anchored to the start of the row, right after the subscription id. A typed
+// comment only ever comes after " | ", so no member can write text that makes a
+// scheduled cancel read as ended, or the other way round.
+const ENDED_ON_FAILED_PAYMENT =
+  /^Cancellation requested for sub sub_\S+ \(ended now, payment had failed, bill (voided|not voided)\)(?: \||$)/;
+
+// Null for every cancel scheduled for period end, and for any other row.
+export function parseEndedOnFailedPayment(message: string): EndedOnFailedPayment | null {
+  const m = message.match(ENDED_ON_FAILED_PAYMENT);
+  return m ? { billVoided: m[1] === 'voided' } : null;
+}

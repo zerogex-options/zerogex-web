@@ -84,6 +84,31 @@ const CHURN_ALERT = buildChurnAlert(
   },
   '2026-09-15T18:25:00.000Z',
 );
+// A Cancel after the payment had failed ends the plan on the spot and voids the
+// bill (core/pastDueCancel.ts); its churn row says so, and whether the void
+// happened, in the format the app writes.
+const { formatCancellationRequestedMessage } = await import('../../core/cancellationReason.ts');
+const endedChurnAlert = (billVoided: boolean) =>
+  buildChurnAlert(
+    {
+      churnEventId: 'audit_cancel_2',
+      kind: 'pending',
+      email: TO,
+      userId: 'user_123',
+      auditMessage: formatCancellationRequestedMessage(
+        'sub_1ABC',
+        { feedback: 'unused', comment: 'My card was declined and I was not using it enough to fix it.' },
+        { billVoided },
+      ),
+      churnedAtIso: '2026-09-15T18:20:00.000Z',
+      accountCreatedAtIso: '2026-05-12T14:02:00.000Z',
+      subscriptionStartedAtIso: '2026-05-12T14:05:00.000Z',
+      tier: 'pro',
+      billing: null,
+      currentPeriodEndIso: null,
+    },
+    '2026-09-15T18:25:00.000Z',
+  );
 // The cron's digest draft carries an unsigned placeholder unsubscribe link
 // (scripts/send-winback.mts), so this one does too.
 const WINBACK_DRAFT = M.renderWinbackEmail({ winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS, unsubUrl: `${APP_URL}/unsubscribe` });
@@ -157,6 +182,8 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
 
   // --- operator-only (no member receives these) -----------------------------
   { id: 'cancellation-alert', variant: 'clicked Cancel (still has access)', run: () => capture(() => M.sendCancellationAlertEmail(OPS, CHURN_ALERT)) },
+  { id: 'cancellation-alert', variant: 'canceled on a failed payment (plan ended, bill voided)', run: () => capture(() => M.sendCancellationAlertEmail(OPS, endedChurnAlert(true))) },
+  { id: 'cancellation-alert', variant: 'canceled on a failed payment (bill not voided)', run: () => capture(() => M.sendCancellationAlertEmail(OPS, endedChurnAlert(false))) },
   { id: 'money-back-alert', variant: 'refund issued', run: () => capture(() => M.sendMoneyBackOperatorAlertEmail(OPS, { kind: 'issued', email: TO, planLabel: 'Pro (quarterly)', amountFormatted: '$115.00', source: 'self_serve', reason: 'too_expensive', comment: 'More than I need right now.', problems: [], subscriptionId: 'sub_123', refundIds: ['re_123'] })) },
   { id: 'money-back-alert', variant: 'action needed', run: () => capture(() => M.sendMoneyBackOperatorAlertEmail(OPS, { kind: 'attention', email: TO, planLabel: 'Pro (annual)', amountFormatted: '$299.00', source: 'self_serve', reason: null, comment: null, problems: ['The refund went through but Stripe did not cancel sub_456. Cancel it in the Dashboard, or the member is billed again at renewal.'], subscriptionId: 'sub_456', refundIds: ['re_456'] })) },
   { id: 'winback-digest', variant: 'default', run: () => capture(() => M.sendWinbackDigestEmail(OPS, { recipients: [TO, 'another@example.com'], skipped: [{ email: 'optedout@example.com', reason: 'unsubscribed from marketing on 2026-09-02' }], mode: 'auto', sendCommand: 'make winback YES=1', draft: WINBACK_DRAFT })) },

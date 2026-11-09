@@ -607,6 +607,12 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 - Alerts on **both** churn rows, which mean different things: `stripe_cancellation_requested`
   (they clicked Cancel and **still have access** — the only window in which a reply can
   save them) and `stripe_subscription_deleted` (access is gone).
+- A Cancel after the payment had already failed ends the plan on the spot and voids the
+  bill, and its `stripe_cancellation_requested` row says so: `(ended now, payment had
+  failed, bill voided)` or `bill not voided`. That alert says the plan already ended and
+  whether the bill was voided instead of "savable", drops the save commands, and adds
+  `make cancel-subscription … VOID_INVOICE=1 DRY_RUN=1` when the bill was not voided. A
+  bill left unvoided alerts even when no reason was given.
 - **Sweeper, not a webhook send**, on purpose: the alert is derived from `audit_events`, so
   a failed send simply isn't latched and the next tick retries it, and history is
   backfillable with `SINCE=`. Idempotency is a `cancellation_alert_sent` audit row keyed

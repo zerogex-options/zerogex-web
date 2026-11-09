@@ -20,7 +20,15 @@ import {
   LEDGER_MATCH_WINDOW_MS,
   type ChurnAlertInput,
 } from '../core/cancellationAlert.ts';
-import { formatCancellationReasonSuffix } from '../core/cancellationReason.ts';
+import {
+  formatCancellationReasonSuffix,
+  formatCancellationRequestedMessage,
+  parseCancellationReasonFromMessage,
+  parseEndedOnFailedPayment,
+  type CancellationDetails,
+} from '../core/cancellationReason.ts';
+import { cancelDecisionRows } from '../core/cancelDecisions.ts';
+import { buildCohortReport } from '../core/cohortRetention.ts';
 import { buildSubscriberLedger, type LedgerSyncEvent } from '../core/subscriberBucket.ts';
 
 // The alert is only as trustworthy as two contracts:
@@ -461,4 +469,219 @@ test('subject and facts lead with paying or trial', () => {
   const unknown = buildChurnAlert(BASE, NOW);
   assert.ok(unknown.subject.startsWith('[ZeroGEX] member@example.com canceled — '));
   assert.equal(new Map(unknown.facts.map((f) => [f.label, f.value])).get('Billing'), 'unknown');
+});
+
+// ── A cancel on a failed payment ended the plan on the spot ─────────────────
+// When the payment had already failed (past_due/unpaid), Cancel ends the
+// subscription now and voids its bill (core/pastDueCancel.ts) instead of
+// scheduling it for period end. Its churn row is still
+// stripe_cancellation_requested, written by formatCancellationRequestedMessage
+// (core/cancelAck.ts), with a note after the subscription id. The alert must
+// read it that way: the plan is gone, nothing is savable, and the one thing
+// left to know is whether the bill was voided.
+
+function endedRow(billVoided: boolean, details: CancellationDetails = { feedback: 'too_expensive' }): string {
+  return formatCancellationRequestedMessage('sub_1AbC9', details, { billVoided });
+}
+
+const factsOf = (alert: { facts: Array<{ label: string; value: string }> }) =>
+  new Map(alert.facts.map((f) => [f.label, f.value]));
+
+test('ended on a failed payment: the note on the row round-trips', () => {
+  for (const billVoided of [true, false]) {
+    for (const details of [
+      null,
+      { feedback: 'unused' },
+      { comment: 'card died' },
+      { feedback: 'other', comment: 'Card got declined (again), done' },
+    ] as CancellationDetails[]) {
+      assert.deepEqual(
+        parseEndedOnFailedPayment(formatCancellationRequestedMessage('sub_1AbC9', details, { billVoided })),
+        { billVoided },
+      );
+    }
+  }
+  // The exact shape, which is also what diagnose-user prints.
+  assert.equal(
+    endedRow(true),
+    'Cancellation requested for sub sub_1AbC9 (ended now, payment had failed, bill voided) | cancel_feedback=too_expensive',
+  );
+  assert.equal(
+    formatCancellationRequestedMessage('sub_1AbC9', null, { billVoided: false }),
+    'Cancellation requested for sub sub_1AbC9 (ended now, payment had failed, bill not voided)',
+  );
+});
+
+test('ended on a failed payment: a scheduled cancel is written as before and carries no note', () => {
+  const scheduled = formatCancellationRequestedMessage('sub_1AbC9', { feedback: 'unused' });
+  assert.equal(scheduled, 'Cancellation requested for sub sub_1AbC9 | cancel_feedback=unused');
+  assert.equal(parseEndedOnFailedPayment(scheduled), null);
+  assert.equal(parseEndedOnFailedPayment('Cancellation requested for sub sub_1AbC9'), null);
+  assert.equal(parseEndedOnFailedPayment('Subscription sub_1AbC9 ended; tier reset to public'), null);
+  assert.equal(parseEndedOnFailedPayment(''), null);
+});
+
+test('ended on a failed payment: nothing a member types can fake the note or flip it', () => {
+  for (const comment of [
+    'ended now, payment had failed, bill voided',
+    '(ended now, payment had failed, bill voided)',
+    'Cancellation requested for sub sub_X (ended now, payment had failed, bill not voided)',
+  ]) {
+    assert.equal(parseEndedOnFailedPayment(formatCancellationRequestedMessage('sub_1AbC9', { comment })), null);
+    assert.deepEqual(
+      parseEndedOnFailedPayment(
+        formatCancellationRequestedMessage('sub_1AbC9', { comment: comment.replace('bill voided', 'bill not voided') }, {
+          billVoided: true,
+        }),
+      ),
+      { billVoided: true },
+    );
+  }
+});
+
+// Every reader of stripe_cancellation_requested must still read the row with
+// the note in it. The rest read only the row's type and time.
+test('ended on a failed payment: the readers that count cancels still read the row', () => {
+  const message = endedRow(false, { feedback: 'too_expensive', comment: 'Card got declined, not renewing' });
+
+  // Why Members Cancel, churn-breakdown and the reason follow-up read the survey.
+  assert.deepEqual(parseCancellationReasonFromMessage(message), {
+    feedback: 'too_expensive',
+    comment: 'Card got declined, not renewing',
+  });
+  // The alert's own tenure lookup reads the subscription id.
+  assert.equal(parseChurnSubscriptionId(message), 'sub_1AbC9');
+
+  // The growth-rate card and the Growth tab's cancels count one decision per
+  // subscription: a refund after the click is not counted again, which only
+  // works when the id is read off the click.
+  const decisions = [
+    { type: 'stripe_cancellation_requested', message },
+    {
+      type: 'money_back_refund_issued',
+      message: 'Money-back refund (self_serve) on sub sub_1AbC9: refunded $29.00 [re_1], subscription canceled',
+    },
+  ];
+  assert.deepEqual(cancelDecisionRows(decisions), [decisions[0]]);
+
+  // Cohort retention calls the loss voluntary only when the click names the
+  // subscription the member first paid on, read with the loosest id pattern
+  // (/\bsub_\S+/). Misread, this member would count as a payment failure.
+  const cohort = buildCohortReport(
+    [
+      {
+        id: 'u1',
+        email: 'u1@example.test',
+        createdAt: '2026-06-01T00:00:00.000Z',
+        firstPaymentAt: '2026-06-08T00:00:00.000Z',
+        currentStatus: null,
+        currentTier: 'public',
+        currentPriceId: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+        signupUtmSource: null,
+        foundingRate: false,
+        cadence: 'monthly',
+        cadenceSource: 'current_price',
+      },
+    ],
+    [
+      {
+        userId: 'u1',
+        type: 'stripe_subscription_sync',
+        createdAt: '2026-06-08T00:00:00.000Z',
+        message: 'Subscription sub_1AbC9 status=active tier=pro cancelAtPeriodEnd=false',
+      },
+      {
+        userId: 'u1',
+        type: 'stripe_first_payment',
+        createdAt: '2026-06-08T00:00:01.000Z',
+        message: 'First payment cleared on sub sub_1AbC9 (invoice in_1, 2900 usd)',
+      },
+      {
+        userId: 'u1',
+        type: 'stripe_payment_failed',
+        createdAt: '2026-08-08T00:00:00.000Z',
+        message: 'Invoice in_2 payment failed for sub sub_1AbC9 (attempt 1)',
+      },
+      { userId: 'u1', type: 'stripe_cancellation_requested', createdAt: '2026-08-09T00:00:00.000Z', message },
+      {
+        userId: 'u1',
+        type: 'stripe_subscription_deleted',
+        createdAt: '2026-08-09T00:00:02.000Z',
+        message: 'Subscription sub_1AbC9 ended; tier reset to public | cancel_feedback=too_expensive',
+      },
+    ],
+    '2026-09-12T00:00:00.000Z',
+  );
+  assert.equal(cohort.users[0].churnKind, 'voluntary');
+  assert.equal(cohort.users[0].cancellationReason, 'Too expensive: Card got declined, not renewing');
+});
+
+test('ended on a failed payment: the alert says the plan already ended, not that it is savable', () => {
+  for (const billVoided of [true, false]) {
+    // BASE carries a period end 26 days out, as a row the webhook has not yet
+    // cleared would. It must not turn into a save window.
+    const alert = buildChurnAlert({ ...BASE, auditMessage: endedRow(billVoided) }, NOW);
+    assert.deepEqual(alert.endedOnFailedPayment, { billVoided });
+    assert.match(alert.headline, /^Plan already ended — their payment had failed/);
+    assert.match(alert.headline, /no subscription left to save/);
+    assert.doesNotMatch(alert.headline, /savable|still have access/);
+    assert.equal(alert.saveWindowNote, null);
+    assert.equal(factsOf(alert).get('Access ends'), 'Already ended');
+    // Nothing left for the save link or the win-back discount to act on.
+    assert.ok(!alert.commands.some((c) => /make (save-url|honor-winback-discount)/.test(c)));
+    assert.equal(alert.commands[0], 'make diagnose-user EMAIL=member@example.com');
+    // The reason still comes through.
+    assert.equal(alert.reasonLabel, 'Too expensive');
+    assert.equal(alert.kind, 'pending');
+  }
+});
+
+test('ended on a failed payment: the alert says whether the bill was voided', () => {
+  const voided = buildChurnAlert({ ...BASE, auditMessage: endedRow(true) }, NOW);
+  assert.equal(voided.billNote, 'The unpaid bill was voided, so nothing more can be charged.');
+  assert.ok(voided.subject.startsWith('[ZeroGEX] Canceled, plan ended (payment had failed): member@example.com — '));
+  assert.deepEqual(voided.commands, ['make diagnose-user EMAIL=member@example.com']);
+
+  const notVoided = buildChurnAlert({ ...BASE, auditMessage: endedRow(false) }, NOW);
+  assert.match(notVoided.billNote as string, /^The unpaid bill was not voided and may still be payable\./);
+  // Points at the row the cancel flow wrote with the reason and what to run.
+  assert.match(notVoided.billNote as string, /billing_cancel_bill_not_voided/);
+  assert.ok(notVoided.subject.startsWith('[ZeroGEX] Canceled, plan ended, bill not voided: member@example.com — '));
+  assert.deepEqual(notVoided.commands, [
+    'make diagnose-user EMAIL=member@example.com',
+    'make cancel-subscription EMAIL=member@example.com VOID_INVOICE=1 DRY_RUN=1',
+  ]);
+});
+
+test('ended on a failed payment: the subject leads with it even when the ledger has a label', () => {
+  const alert = buildChurnAlert({ ...BASE, billing: 'paying', auditMessage: endedRow(true) }, NOW);
+  assert.ok(alert.subject.startsWith('[ZeroGEX] Canceled, plan ended (payment had failed): '));
+  // The Billing line still says what the ledger says.
+  assert.equal(factsOf(alert).get('Billing'), 'Paying member');
+});
+
+test('ended on a failed payment: a cancel scheduled for period end still reads as savable', () => {
+  const alert = buildChurnAlert(
+    { ...BASE, auditMessage: formatCancellationRequestedMessage('sub_123', { feedback: 'unused' }) },
+    NOW,
+  );
+  assert.equal(alert.endedOnFailedPayment, null);
+  assert.equal(alert.billNote, null);
+  assert.match(alert.headline, /still have access, so this is savable/);
+  assert.match(alert.saveWindowNote as string, /26 days left/);
+  assert.ok(alert.commands.some((c) => c.startsWith('make save-url')));
+});
+
+test('shouldAlertOnChurn: a bill left unvoided alerts even when no reason was given', () => {
+  assert.equal(shouldAlertOnChurn(formatCancellationRequestedMessage('sub_1', null, { billVoided: false }), false), true);
+  // A voided one with no reason reports a departure and nothing else, like any
+  // other silent cancel.
+  assert.equal(shouldAlertOnChurn(formatCancellationRequestedMessage('sub_1', null, { billVoided: true }), false), false);
+  // With a reason, both alert, as every cancel with a reason does.
+  assert.equal(
+    shouldAlertOnChurn(formatCancellationRequestedMessage('sub_1', { feedback: 'unused' }, { billVoided: true }), false),
+    true,
+  );
 });
