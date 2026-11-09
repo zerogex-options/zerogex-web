@@ -3,129 +3,99 @@
 American English, and each paragraph in the draft is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
 
-**Inbound.** Bryan B, 7:00 PM, replying to his cancellation email ("Sorry to
-see you go", the subject without "mind sharing why?", so he gave a reason or a
-comment when he canceled). He has changed his mind, says he's going to upgrade
-to Pro monthly, loves ZeroGEX, and asks why it isn't promoted more.
+**Inbound.** Bryan B (bryanbans@gmail.com), Sun Nov 8, 7:00 PM ET, replying to
+his cancellation email ("Sorry to see you go"). He has changed his mind, says
+he's going to upgrade to Pro monthly, loves ZeroGEX, and asks why it isn't
+promoted more.
 
-> **Status:** not sent, nothing applied. I couldn't see his account from here
-> (no access to the server or Stripe), and the screenshot doesn't show his
-> email address. Copy it from the thread and use it wherever this note says
-> `BRYAN_EMAIL`.
+> **Status:** discount applied Sun Nov 8 at night ET. `honor-winback-discount`
+> ran clean, cleared his cancel, and ended with `Next charge (after all
+> discounts): 29.25 USD.` (Basic, because he hasn't switched yet). Referral
+> program confirmed on (`REFERRAL_PROGRAM_ENABLED=1`). Reply not sent yet.
+> Best sent tonight, so he can switch before his trial ends at **8:54 AM ET
+> Mon Nov 9**. If he misses that, nothing goes wrong. See "The read".
+
+## His account (`make diagnose-user`, Nov 8)
+
+| | |
+|---|---|
+| User id | `user_48245282f7ba3119e2b3a7c9` |
+| Signed up | Mon Nov 2, Basic monthly with the 7-day trial |
+| Canceled | Sun Nov 8 at 2:29 PM ET, in the app. Reason `switched_service`, comment: "Outstanding overall platform but needs open interest" |
+| Trial ends | **Mon Nov 9 at 8:54 AM ET** (13:54 UTC) |
+| Paid | Nothing yet (a $0 trial invoice only) |
+| Payment method | Stripe Link, no card on file. A card was declined at setup on Nov 2 (`generic_decline`) before Link went through |
+| Stripe | `cus_VYS45o8uZdokEr`, `sub_1UXLh24AOiqteMYYi4jXRuUZ` |
+| Now | Basic monthly, trialing, cancel cleared, `winback-25pct-1yr-monthly` on. Next charge $29.25 at trial end, or $44.25 if he switches to Pro first |
 
 ## The read
 
-- **Help him out with the 25% his cancellation email already offered, on Pro.**
-  That's $44.25 a month instead of $59 for 12 months, then $59. It costs you
-  $14.75 a month, about $177 over the year, from someone who had decided to
-  pay full price. It's worth it here: it's the offer he was already shown, he
-  didn't ask for it, and he's the kind of member who tells other traders. Same
-  tool and coupon as Alexander on Nov 3
-  (`docs/outreach/2026-11-03-alexander-pro-25-off.md`).
-- **If the button in that email (quoted below his reply) says 50%, not 25%,**
-  he picked "Too expensive" when he canceled. 25% is still a fair thank-you,
-  since he isn't asking about price any more. The draft says 25%.
-- **The referral program answers his question and helps him at the same time.**
-  His Account page has a Refer a friend panel with his own link. A friend gets
-  a month free on monthly or quarterly (10% off the first year on annual), and
-  he gets one free month per friend who subscribes, as a credit on his next
-  bill. On Pro monthly that's $59 each, and they stack (`frontend/core/referrals.ts`,
-  `frontend/app/account/page.i18n.ts`). The program was live on Oct 9 (Rod's
-  referral month), but check it's still on before sending, below.
+- **The 25% for a year, on Pro, is the right thank-you.** $44.25 a month
+  instead of $59 for 12 months, then $59. It costs you about $177 over the
+  year. His cancellation email offered 25%, he didn't ask for it, and he's the
+  kind of member who tells other traders.
+- **He's inside the two-day Pro upgrade window right now.** A Basic monthly
+  trialer who switches to Pro monthly in the last 51 hours of the trial keeps
+  the rest of it free. Nothing is charged at the switch, and the first charge
+  at trial end is Pro's price (`frontend/core/trialProUpgrade.ts`). The switch
+  is in-app (`in_app_upgrade` in `frontend/app/api/billing/change-plan/route.ts`).
+  It doesn't touch the discounts, and the webhook's reconcile never strips a
+  win-back coupon (`reconcileSwitchDiscounts`, `frontend/core/planSwitch.ts`).
+  The public promo is off, so nothing gets added next to it. The confirm step
+  prices the trial-end charge with the coupon on, so it should show $44.25.
+- **If he switches after 8:54 AM, nothing goes wrong.** He's charged $29.25 for
+  Basic, then the switch goes through the Stripe portal and bills the
+  difference for the rest of the month. From the next month on it's $44.25.
+- **He canceled over open interest, and now says it has everything.** He
+  probably found it. Open interest is already on Basic pages such as Max
+  Pain, Option Contracts and Strike Profile. The draft
+  shows him you read his note without guessing what he meant, and invites more.
+- **The referral program answers his question and helps him.** His Account
+  page has a Refer a friend panel with his own link. A friend gets a month free
+  on monthly or quarterly (10% off the first year on annual), and he gets one
+  free month per friend who subscribes, as a credit on his next bill. On Pro
+  monthly that's $59 each, and they stack (`frontend/core/referrals.ts`).
 - **Ask to quote him.** "I think ZeroGEX is an incredible tool" is a ready-made
-  testimonial, and the site has none yet. First name only. One line in the
-  draft; delete it if you'd rather not ask.
-- **The honest answer to "why isn't it promoted more" is the right one.** One
-  person builds it, runs it and answers support, so promotion has taken a back
-  seat. The draft says that plainly and makes no claims about where members
-  come from or what's planned.
+  testimonial, and the site has none yet. First name only. Delete that line if
+  you'd rather not ask.
 
 ## Commands
 
-In `~/zerogex-web` on the server.
-
-0. Referral program still on (the draft's referral paragraph depends on it):
-
-   ```bash
-   grep '^REFERRAL_PROGRAM_ENABLED=' frontend/.env.local
-   ```
-
-   Must print `REFERRAL_PROGRAM_ENABLED=1`. If it doesn't, delete the paragraph
-   that starts "If you'd like to help spread the word".
-
-1. See where his account stands (read-only):
-
-   ```bash
-   make diagnose-user EMAIL=BRYAN_EMAIL
-   ```
-
-   Read the plan, the subscription status, and whether a cancel is still
-   scheduled. That picks one of the three cases below, and which version of the
-   draft's second paragraph to send.
-
-### Case A: he's already on Pro monthly (he upgraded himself)
+Done Nov 8, in `~/zerogex-web` on the server:
 
 ```bash
-make honor-winback-discount EMAIL=BRYAN_EMAIL PERCENT=25 CREATE_COUPON=1 DRY_RUN=1
-make honor-winback-discount EMAIL=BRYAN_EMAIL PERCENT=25 CREATE_COUPON=1 YES=1
+grep '^REFERRAL_PROGRAM_ENABLED=' frontend/.env.local   # REFERRAL_PROGRAM_ENABLED=1
+make diagnose-user EMAIL=bryanbans@gmail.com
+make honor-winback-discount EMAIL=bryanbans@gmail.com PERCENT=25 CREATE_COUPON=1 DRY_RUN=1
+make honor-winback-discount EMAIL=bryanbans@gmail.com PERCENT=25 CREATE_COUPON=1 YES=1
 ```
 
-In the preview, check `Stripe: LIVE mode`, `Plan: pro/monthly — list 59.00
-USD`, and `Coupon to apply: winback-25pct-1yr-monthly (25% off, 12 mo)`. If
-`Current discounts` isn't `none`, the 25% stacks on top of it and the next
-charge will be lower than $44.25. The real run's last line should read `Next
-charge (after all discounts): 44.25 USD.` If it shows another amount, change
-the number in the draft to match. Send **version A**.
-
-### Case B: he's still on Basic, and the subscription is still live
-
-Same two commands as Case A. The plan line will say `basic/monthly — list
-39.00 USD`, and the last line should read `Next charge (after all discounts):
-29.25 USD.` It also turns off his scheduled cancel, so the subscription renews
-normally. Send **version B**, which tells him how to switch to Pro himself.
-
-The pricing page's "Switch to Pro" button works whether he's paying or still
-in a trial: a paid plan goes on to the Stripe portal, a trial switches in the
-app (`decidePlanSwitch`, `frontend/core/planSwitch.ts`). The win-back coupon is one the app never strips
-on a plan switch (`reconcileSwitchDiscounts`, same file), so it should come
-across to Pro. Once he's switched, run `make diagnose-user EMAIL=BRYAN_EMAIL`
-again and check the discount is still there. If it isn't, re-run the Case A
-commands. The script replaces an earlier win-back coupon rather than stacking a
-second one, so a re-run is safe.
-
-### Case C: no live subscription (it has already ended)
-
-Alexander's path, word for word:
+**After he switches to Pro,** check it (read-only):
 
 ```bash
-make reactivate-member EMAIL=BRYAN_EMAIL TIER=pro CADENCE=monthly DAYS=3 DRY_RUN=1
-make reactivate-member EMAIL=BRYAN_EMAIL TIER=pro CADENCE=monthly DAYS=3 YES=1
-make honor-winback-discount EMAIL=BRYAN_EMAIL PERCENT=25 CREATE_COUPON=1 DRY_RUN=1
-make honor-winback-discount EMAIL=BRYAN_EMAIL PERCENT=25 CREATE_COUPON=1 YES=1
+make diagnose-user EMAIL=bryanbans@gmail.com
 ```
 
-The reactivate preview shows `Card:` (brand and last four, for the draft) and
-`Trial: 3 days, ending …`. The real run should end with `Webhook landed:
-tier=pro, status=trialing, lapsed=no.` and the discount's last line with `Next
-charge (after all discounts): 44.25 USD.` If the preview shows no card on
-file, stop: this path can't work, and he'll need to upgrade from the pricing
-page himself. Send **version C**, with "free through" set to the day before
-the trial's end date, as in Alexander's draft.
+Under "Stripe subscription", `Item 0 price` should say `$59.00 / month` and
+`Discounts` should list `winback-25pct-1yr-monthly`. If the discount is
+missing, run the two `honor-winback-discount` commands above again. The script
+replaces an earlier win-back coupon rather than stacking a second one, so a
+re-run is safe. The last line should then read `Next charge (after all
+discounts): 44.25 USD.`
 
 ## Draft reply
 
-Reply in the same thread. Pick one version of the second paragraph and delete
-the other two.
+Reply in the same thread.
 
 Hi Bryan,
 
 Thank you, that's really kind of you, and I'm glad you're staying. It means a lot to hear ZeroGEX has everything you need.
 
-**[Version A, already on Pro]** As a thank-you, I've taken 25% off your Pro subscription for the next 12 months, so it's $44.25 a month instead of $59. It's already applied, so there's nothing you need to do.
+As a thank-you, I've added 25% off your subscription for the next 12 months and turned off the cancellation, so your account carries on as normal.
 
-**[Version B, still on Basic]** As a thank-you, I've added 25% off your subscription for the next 12 months and turned off the cancellation, so your account carries on as normal. To move to Pro, go to the Pricing page, pick Monthly, and click Switch to Pro. The 25% comes with you, so Pro is $44.25 a month instead of $59, and Stripe shows you the exact amount before you confirm.
+To move to Pro, go to the Pricing page, pick Monthly, and click Switch to Pro. If you do it before your trial ends at 8:54 AM Eastern on Monday, November 9, nothing is charged when you switch, and your first charge that morning is $44.25 for Pro instead of $59. The page shows you the amount before you confirm. If you switch later, that's fine too: Monday's charge will be $29.25 for Basic, and moving to Pro after that just adds the difference. Either way, Pro is $44.25 a month for the next 12 months.
 
-**[Version C, subscription had ended]** As a thank-you, I've set you up on Pro at 25% off for the next 12 months. It's already on your account and free through [WEEKDAY, MONTH DAY]. After that it's $44.25 a month instead of $59, on your [CARD BRAND] ending in [LAST 4]. There's no checkout and no card to enter: just log in and the Pro pages are open.
+I also saw your note about open interest when you canceled. If there's anything about it you'd still like to see in ZeroGEX, tell me. Feedback like that shapes what I build next.
 
 To answer your question honestly: ZeroGEX is a one-man shop. I build the platform, keep the data running, and answer every email myself, and so far nearly all of my time has gone into making the product as good as I can. Sales and promotion have taken a back seat, and that's something I want to change.
 
@@ -141,6 +111,12 @@ Founder, ZeroGEX
 
 ## Worth knowing
 
+- **Monday's charge isn't under the money-back guarantee.** Trial conversions
+  never are; the free days were his window. If he asks for a refund later, it's
+  your call.
+- **If Monday's charge fails,** the normal payment-failure emails take over.
+  He pays through Link, and a card was declined once at signup, so it's
+  possible but not likely. Nothing to do unless it happens.
 - **If he says he runs a trading group or posts about trading,** the creator
   partner program fits better than refer-a-friend: 30% of what each referred
   member pays for 12 months, and 25% off the first year for his audience
