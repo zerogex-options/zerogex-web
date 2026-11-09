@@ -476,12 +476,25 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   guarantee is one refund per customer. Asks what didn't work. No retention pitch:
   they asked to leave. No FOH footer.
 
-**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso, saveUrl?, conversionChargePending?, trialing?, cancellationFeedback?, cancellationComment?, savePercent? })`
+**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso, saveUrl?, conversionChargePending?, trialing?, cancellationFeedback?, cancellationComment?, savePercent?, cadence? })`
 - **Subject:** `Sorry to see you go — mind sharing why?` when they gave no reason;
   `Sorry to see you go` when they picked one or typed one.
 - Fires at the click-Cancel moment (still has access until period end). Offers 25% off
   for a year (50% for "Too expensive") **through the one-click `/save` button and
   nothing else**. No FOH footer.
+- **Paid cancels say the period is paid for:** "You've already paid through {date}, so
+  you keep full access until then and won't be charged again." The old "nothing changes
+  yet on your end" never said so, and a yearly member who canceled in week one thought
+  they still owed for the year
+  (`docs/outreach/2026-11-09-michasbausrl-yellow-button-annual.md`). Trial,
+  charge-pending and failed-payment cancels keep their own sentences.
+- **Yearly plans** (`cadence: 'annual'`, the subscription's price mapped by
+  `priceIdToSku` in the webhook) get the save offer as the renewal, since the coupon is
+  a one-time discount on the next yearly invoice: "keep ZeroGEX going after {date}, at
+  25% off your next year. Nothing is charged today.", button "Renew at 25% off" (50% for
+  "Too expensive"). "Nothing is charged today" is left out when a conversion charge is
+  in flight. Monthly, quarterly and unknown plans keep "keep your access at 25% off for
+  a full year" and "Keep my access & claim 25% off".
 - **Trial cancels** (`trialing`, status `trialing` at the cancel) open with "canceled
   your ZeroGEX trial, so you won't be charged anything" instead of thanking them for
   being "a real part of what I've been building". Not when `conversionChargePending`

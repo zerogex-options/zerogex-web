@@ -3,28 +3,194 @@ import assert from 'node:assert/strict';
 import { buildCancelReasonFollowupEmail, buildCancellationEmail } from '../core/mailer.ts';
 
 // The cancellation acknowledgment fires the instant Stripe flips
-// cancel_at_period_end 0→1. Its default copy reassures the member that
-// "nothing changes yet on your end" — which is true when they cancel during
-// their trial, and FALSE when they cancel in the hour between trial end and
-// Stripe finalizing the draft cycle invoice, because a charge lands on them
-// within the hour.
+// cancel_at_period_end 0→1. Its default copy reassures the member that nothing
+// more is coming: a paying member that the period is already paid for, a trial
+// member that "nothing changes yet on your end". That is FALSE when they cancel
+// in the hour between trial end and Stripe finalizing the draft cycle invoice,
+// because a charge lands on them within the hour.
 //
-// That second case is a real member (see docs/disputes/): cancel acknowledged
+// That case is a real member (see docs/disputes/): cancel acknowledged
 // 10:33, $59 charged 11:04, conversion receipt 11:04. The charge itself stands
 // — the trial ran its full term. The contradiction is what has to go.
 
 const PERIOD_END = new Date(Date.UTC(2026, 9, 14, 10, 3, 14)).toISOString();
+// A yearly member who paid on Oct 20, 2026 and canceled in week one.
+const YEAR_END = new Date(Date.UTC(2027, 9, 20, 16, 0, 0)).toISOString();
+const SAVE = 'https://zerogex.io/save?t=abc';
 
-test('the ordinary cancel keeps its reassuring copy', () => {
-  const { subject, text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END });
+// A paying member is told the period is already paid for. "You still have full
+// access until …, so nothing changes yet on your end" never said so, and a
+// yearly member who canceled in week one wrote back offering to pay for the
+// year they were using (docs/outreach/2026-11-09-michasbausrl-yellow-button-annual.md).
+const PAID_TEXT =
+  "You've already paid through October 14, 2026, so you keep full access until then and won't be charged again.";
+const PAID_HTML =
+  "You've already paid through <strong>October 14, 2026</strong>, so you keep full access until then and <strong>won't be charged again</strong>.";
+
+test('a paid monthly cancel says the period is paid for; the save offer keeps its wording', () => {
+  const { subject, text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: SAVE, cadence: 'monthly' });
 
   assert.equal(subject, 'Sorry to see you go - mind sharing why?');
-  assert.match(text, /nothing changes yet on your end/);
-  assert.match(html, /nothing changes yet on your end/);
-  assert.match(text, /full access until October 14, 2026/);
-  // No charge is in flight, so the email must not invent one.
-  assert.doesNotMatch(text, /final charge/);
-  assert.doesNotMatch(html, /final charge/);
+  assert.ok(text.includes(PAID_TEXT), text);
+  assert.ok(html.includes(PAID_HTML), html);
+  for (const body of [text, html]) {
+    assert.doesNotMatch(body, /nothing changes yet on your end/);
+    // No charge is in flight, so the email must not invent one.
+    assert.doesNotMatch(body, /final charge/);
+    // A monthly member pays every month, so "keep your access at 25% off for a
+    // full year" means what it says and stays.
+    assert.doesNotMatch(body, /your next year|charged today|Renew at/);
+  }
+  assert.match(text, /claim 25% off for a full year and keep your access/);
+  assert.match(html, /keep your access at <strong>25% off for a full year<\/strong>/);
+  assert.match(html, />Keep my access &amp; claim 25% off<\/a>/);
+});
+
+test('a paid yearly cancel: the year is paid for, and the save is the renewal with nothing charged today', () => {
+  const { text, html } = buildCancellationEmail({ periodEndIso: YEAR_END, saveUrl: SAVE, cadence: 'annual' });
+
+  assert.ok(
+    text.includes(
+      "You've already paid through October 20, 2027, so you keep full access until then and won't be charged again.",
+    ),
+    text,
+  );
+  assert.ok(
+    html.includes(
+      "You've already paid through <strong>October 20, 2027</strong>, so you keep full access until then and <strong>won't be charged again</strong>.",
+    ),
+    html,
+  );
+
+  // On a yearly plan the save coupon comes off the renewal invoice (duration
+  // 'once', core/retentionOffer.ts) and claiming it charges nothing. "Keep your
+  // access at 25% off" read as buying the year they already had.
+  assert.ok(
+    text.includes(
+      "If it comes down to price, here's the one-click version: keep ZeroGEX going after October 20, 2027, at 25% off your next year. Nothing is charged today. No re-subscribe, no re-entering a card:\n" +
+        SAVE,
+    ),
+    text,
+  );
+  assert.ok(
+    html.includes(
+      'If it comes down to price - keep ZeroGEX going after October 20, 2027, at <strong>25% off your next year</strong>, in one click. Nothing is charged today. No re-subscribe, no re-entering a card.',
+    ),
+    html,
+  );
+  assert.match(html, />Renew at 25% off<\/a>/);
+  for (const body of [text, html]) {
+    assert.doesNotMatch(body, /keep (your|my) access/i);
+    assert.doesNotMatch(body, /for a full year/);
+  }
+});
+
+test('a yearly "too expensive" cancel gets the same renewal wording at 50%', () => {
+  const { text, html } = buildCancellationEmail({
+    periodEndIso: YEAR_END,
+    saveUrl: SAVE,
+    savePercent: 50,
+    cancellationFeedback: 'too_expensive',
+    cadence: 'annual',
+  });
+  assert.ok(
+    text.includes(
+      "You said price was the reason, so here's the one-click version: keep ZeroGEX going after October 20, 2027, at 50% off your next year. Nothing is charged today. No re-subscribe, no re-entering a card:",
+    ),
+    text,
+  );
+  assert.ok(
+    html.includes(
+      'You said price was the reason, so keep ZeroGEX going after October 20, 2027, at <strong>50% off your next year</strong>, in one click. Nothing is charged today. No re-subscribe, no re-entering a card.',
+    ),
+    html,
+  );
+  assert.match(html, />Renew at 50% off<\/a>/);
+  for (const body of [text, html]) {
+    assert.doesNotMatch(body, /If it comes down to price/);
+    assert.doesNotMatch(body, /25% off/);
+  }
+});
+
+test('a quarterly plan, or one whose period is unknown, keeps the general save wording', () => {
+  for (const cadence of [undefined, null, 'quarterly'] as const) {
+    const label = String(cadence);
+    const { text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: SAVE, cadence });
+    // Still a paid cancel: the billing sentence does not depend on the period.
+    assert.ok(text.includes(PAID_TEXT), label);
+    assert.ok(html.includes(PAID_HTML), label);
+    assert.match(text, /claim 25% off for a full year and keep your access/, label);
+    assert.match(html, />Keep my access &amp; claim 25% off<\/a>/, label);
+    for (const body of [text, html]) {
+      assert.doesNotMatch(body, /your next year|charged today|Renew at/, label);
+    }
+  }
+});
+
+// The trial, charge-pending and failed-payment sentences are each a deliberate,
+// tested statement about money. The paid wording must not reach them.
+
+test('a trial cancel keeps "nothing changes yet", word for word, on any plan', () => {
+  for (const cadence of [undefined, 'monthly', 'annual'] as const) {
+    const label = String(cadence);
+    const { text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: SAVE, trialing: true, cadence });
+    assert.ok(
+      text.includes(
+        'You still have full access until October 14, 2026, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.',
+      ),
+      label,
+    );
+    assert.ok(
+      html.includes(
+        'You still have full access until <strong>October 14, 2026</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.',
+      ),
+      label,
+    );
+    for (const body of [text, html]) {
+      assert.doesNotMatch(body, /already paid/, label);
+      assert.doesNotMatch(body, /won(&#39;|')t be charged again/, label);
+    }
+  }
+});
+
+test('a charge-pending cancel keeps its disclosure word for word, and no save box says "nothing charged today"', () => {
+  for (const cadence of [undefined, 'monthly', 'annual'] as const) {
+    const label = String(cadence);
+    const { text, html } = buildCancellationEmail({
+      periodEndIso: PERIOD_END,
+      saveUrl: SAVE,
+      conversionChargePending: true,
+      cadence,
+    });
+    assert.ok(
+      text.includes(
+        "First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. That is your final charge - nothing renews after it - and you keep full access until October 14, 2026.",
+      ),
+      label,
+    );
+    assert.ok(
+      html.includes(
+        "First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. <strong>That is your final charge</strong> - nothing renews after it - and you keep full access until <strong>October 14, 2026</strong>.",
+      ),
+      label,
+    );
+    for (const body of [text, html]) {
+      assert.doesNotMatch(body, /already paid/, label);
+      assert.doesNotMatch(body, /won(&#39;|')t be charged again/, label);
+      // A charge IS landing today, from the conversion, so the yearly save box
+      // must not say otherwise.
+      assert.doesNotMatch(body, /charged today/, label);
+    }
+  }
+  // The yearly box still offers the renewal.
+  const yearly = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    saveUrl: SAVE,
+    conversionChargePending: true,
+    cadence: 'annual',
+  });
+  assert.match(yearly.text, /keep ZeroGEX going after October 14, 2026, at 25% off your next year\. No re-subscribe/);
+  assert.match(yearly.html, />Renew at 25% off<\/a>/);
 });
 
 test('a conversion charge in flight is disclosed instead of "nothing changes yet"', () => {
@@ -100,7 +266,7 @@ test('with no save link there is no discount offer, manual or otherwise', () => 
     assert.doesNotMatch(body, /25% off/);
   }
   // What must survive the missing secret: the acknowledgment and the survey.
-  assert.match(text, /full access until October 14, 2026/);
+  assert.match(text, /already paid through October 14, 2026/);
   assert.match(text, /what made you cancel/);
   assert.match(html, /what made you cancel/);
 });
@@ -114,6 +280,12 @@ test('a missing period end degrades to neutral wording, never a guessed date', (
   assert.match(text, /the end of your current billing period/);
   assert.match(text, /That is your final charge/);
   assert.doesNotMatch(text, /\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/);
+
+  // The paid sentence and the yearly save offer degrade the same way.
+  const paid = buildCancellationEmail({ periodEndIso: null, saveUrl: SAVE, cadence: 'annual' });
+  assert.match(paid.text, /already paid through the end of your current billing period/);
+  assert.match(paid.text, /keep ZeroGEX going after the end of your current billing period, at 25% off your next year/);
+  assert.doesNotMatch(paid.text, /\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/);
 });
 
 test('dynamic values are HTML-escaped, never interpolated raw', () => {
@@ -287,6 +459,8 @@ function assertNoAccessOrSaveClaims(body: string) {
   assert.doesNotMatch(body, /25% off|50% off|claim \d+% off/);
   assert.doesNotMatch(body, /zerogex\.io\/save/);
   assert.doesNotMatch(body, /final charge/);
+  // The paid-period sentence and the yearly renewal offer are for a live plan.
+  assert.doesNotMatch(body, /already paid|full access until then|charged today|Renew at/);
 }
 
 test('past_due trial conversion, bill voided: trial opening, no charge, no access claim', () => {
@@ -356,6 +530,16 @@ test('past_due renewal, bill NOT voided: says the plan ended, promises nothing a
     assert.doesNotMatch(body, /Nothing more will be charged/);
     assert.doesNotMatch(body, /canceled that unpaid bill/);
     assertNoAccessOrSaveClaims(body);
+  }
+});
+
+test('a failed-payment cancel is the same email whatever the billing period', () => {
+  for (const paymentFailed of [VOIDED_TRIAL, VOIDED_RENEWAL, { neverPaid: false, billVoided: false }]) {
+    const base = { periodEndIso: PERIOD_END, saveUrl: 'https://zerogex.io/save?t=abc', paymentFailed };
+    const yearly = buildCancellationEmail({ ...base, cadence: 'annual' });
+    assert.deepEqual(yearly, buildCancellationEmail(base));
+    assertNoAccessOrSaveClaims(yearly.text);
+    assertNoAccessOrSaveClaims(yearly.html);
   }
 });
 

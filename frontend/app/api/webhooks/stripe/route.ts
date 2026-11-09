@@ -1363,6 +1363,10 @@ async function syncSubscriptionToUser(
     periodEndIso,
     subscriptionId: subscription.id,
     trialing: subscription.status === 'trialing',
+    // The plan's billing period, so a yearly member's save offer is worded
+    // about their renewal, not about access they already paid for. Null when
+    // the price maps to no plan: the email keeps its general wording.
+    cadence: priceId ? (priceIdToSku(priceId)?.cadence ?? null) : null,
     // Did they cancel after their trial expired but before Stripe finalized the
     // draft cycle invoice? Then a charge lands on them within the hour and the
     // acknowledgment has to say so — `user` is still the PRE-UPDATE row here,
