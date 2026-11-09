@@ -17,6 +17,9 @@ import GammaTerminalChart, {
 import LadderColumn, { type LadderRow } from '@/components/fuseline/LadderColumn';
 import StrikeDrawer from '@/components/fuseline/StrikeDrawer';
 import PlanInputs from '@/components/fuseline/PlanInputs';
+import HedgingFlowPanels, { ZeroDteToggle } from '@/app/hedging-flow/HedgingFlowPanels';
+import { useLiveHedgingFlow } from '@/app/hedging-flow/useLiveHedgingFlow';
+import { optionChainSymbolFor } from '@/core/symbols';
 import { TimeframeSymbolScope, useTimeframe } from '@/core/TimeframeContext';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -182,6 +185,12 @@ export default function FuselineRadarPage() {
   );
   // The selected strike's session history, five-minute buckets.
   const history = useStrikeProfileTimeseries('SPX', '5min', 'all', paused, selected != null && visible);
+
+  // ---- Hedging Flow under the chart: the /hedging-flow page itself, through
+  // the same hook and panels, so it cannot drift from that page. It reads
+  // option trades, so ES reads SPX. Held while hidden, like the ladder.
+  const hedgingSymbol = optionChainSymbolFor(display);
+  const hedging = useLiveHedgingFlow(hedgingSymbol, { enabled: settings.showHedgingFlow && visible });
 
   // ---- The session clock and spot. ----
   const quoteT = quote?.timestamp ? Date.parse(quote.timestamp) : null;
@@ -484,6 +493,14 @@ export default function FuselineRadarPage() {
               <FilterChip active={!settings.tall} onClick={() => update({ tall: false })}>Standard</FilterChip>
               <FilterChip active={settings.tall} onClick={() => update({ tall: true })}>Tall</FilterChip>
             </FilterGroup>
+            <FilterDivider />
+            <FilterToggle
+              active={settings.showHedgingFlow}
+              onChange={(v) => update({ showHedgingFlow: v })}
+              title="The live Hedging Flow session, under the chart"
+            >
+              Hedging Flow
+            </FilterToggle>
           </FilterBar>
           <p className="text-xs" style={{ color: esUnavailable || (ratio != null && basisSource.flag) ? 'var(--color-warning)' : 'var(--color-text-secondary)' }}>
             {coordLine}
@@ -591,6 +608,30 @@ export default function FuselineRadarPage() {
         </p>
         <p>Concept and product specification: Plus3 Forecasting.</p>
       </div>
+
+      {settings.showHedgingFlow && (
+        <section className="mt-8" aria-labelledby="fr-hedging-title">
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+            <div className="min-w-0">
+              <h2 id="fr-hedging-title" className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                Hedging Flow · {hedgingSymbol}
+              </h2>
+              <p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                Estimated dealer hedging pressure from today&rsquo;s {hedgingSymbol} option trades. Positive means the
+                hedge <strong>buys</strong>.
+                {hedgingSymbol !== display && <> Prices here are {hedgingSymbol}&rsquo;s, not {display}&rsquo;s.</>}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <ZeroDteToggle active={hedging.zeroDteOnly} onChange={hedging.setZeroDteOnly} />
+              <Link href="/hedging-flow" className="text-xs font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                Full page →
+              </Link>
+            </div>
+          </div>
+          <HedgingFlowPanels {...hedging.panelProps} />
+        </section>
+      )}
     </PageShell>
   );
 }

@@ -117,12 +117,13 @@ test('both stacked charts sync their crosshairs by time, not by position', () =>
 });
 
 test('the live page keeps Gamma Weather on 5-minute bars', () => {
-  const page = read('app/hedging-flow/page.tsx');
+  const page = read('app/hedging-flow/useLiveHedgingFlow.ts');
   const panels = read('app/hedging-flow/HedgingFlowPanels.tsx');
 
-  // The 5-minute series is always fetched; the 1-minute one only while shown.
-  assert.match(page, /useHedgingFlow\(symbol, \{ expirations \}\)/);
-  assert.match(page, /timeframe: '1min',\s*enabled: timeframe === '1min'/);
+  // The 5-minute series is always fetched (while the section is shown at
+  // all); the 1-minute one only while it is on screen.
+  assert.match(page, /useHedgingFlow\(symbol, \{ expirations, enabled \}\)/);
+  assert.match(page, /timeframe: '1min',\s*enabled: enabled && timeframe === '1min'/);
   // Weather reads `data`, the 5-minute series, never the chart's.
   assert.match(panels, /<GammaWeatherStrip[\s\S]*?flow=\{data\}/);
   assert.match(panels, /payload=\{chartData \?\? data\}/);

@@ -30,6 +30,9 @@ const read = (p: string) => readFileSync(path.join(ROOT, p), 'utf8');
 const DATED_PAGE = 'app/hedging-flow/[symbol]/[date]/page.tsx';
 const DATED_CLIENT = 'app/hedging-flow/[symbol]/[date]/DatedHedgingFlow.tsx';
 const LIVE_PAGE = 'app/hedging-flow/page.tsx';
+// The live session's polling, shared by /hedging-flow and the Fuseline Radar.
+const LIVE_HOOK = 'app/hedging-flow/useLiveHedgingFlow.ts';
+const RADAR_PAGE = 'app/fuseline-radar/page.tsx';
 const PANELS = 'app/hedging-flow/HedgingFlowPanels.tsx';
 
 // --------------------------------------------------------------------------
@@ -145,7 +148,7 @@ test('the 0DTE filter uses the session date, never today', () => {
   // On the live page they are the same value and the bug is invisible. On a
   // permalink they are months apart: today's date filters a past session by an
   // expiration that did not exist, and the panel truthfully reports no 0DTE.
-  const live = read(LIVE_PAGE);
+  const live = read(LIVE_HOOK);
   assert.match(live, /const sessionDateKey = etTodayDateKey\(\)/);
   assert.match(live, /zeroDteOnly \? \[sessionDateKey\] : undefined/);
 
@@ -175,8 +178,14 @@ test('the dated page fetches on the server, never in the browser', () => {
 test('both routes render the same panels', () => {
   // A historical session that drifted from the live one would be a receipt for
   // a chart nobody can reproduce.
-  for (const file of [LIVE_PAGE, DATED_CLIENT]) {
+  for (const file of [LIVE_PAGE, DATED_CLIENT, RADAR_PAGE]) {
     assert.match(read(file), /HedgingFlowPanels/, `${file} must render the shared panels`);
+  }
+  // The two live surfaces poll through one hook, so the section under the
+  // radar cannot drift from the page it stands in for.
+  for (const file of [LIVE_PAGE, RADAR_PAGE]) {
+    assert.match(read(file), /useLiveHedgingFlow\(/, `${file} must poll through the shared hook`);
+    assert.doesNotMatch(read(file), /\b(useHedgingFlow|useGammaRegimeSeries|useGammaWeather)\(/);
   }
   // And the panels must own no data of their own.
   assert.doesNotMatch(read(PANELS), /useHedgingFlow\(|useGammaRegimeSeries\(|useGammaWeather\(/);

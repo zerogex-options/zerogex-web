@@ -44,6 +44,8 @@ export interface RadarSettings {
   showLadder: boolean;
   /** Net, Split (call and put) or Combined bars on the ladder. */
   ladderView: LadderView;
+  /** The live Hedging Flow session drawn under the chart. */
+  showHedgingFlow: boolean;
   mode: UpdateMode;
 }
 
@@ -58,6 +60,7 @@ export const DEFAULT_SETTINGS: RadarSettings = {
   tall: false,
   showLadder: true,
   ladderView: 'net',
+  showHedgingFlow: true,
   mode: '1m',
 };
 
@@ -118,6 +121,7 @@ export function parseSettings(raw: string | null): RadarSettings {
     tall: typeof obj.tall === 'boolean' ? obj.tall : d.tall,
     showLadder: typeof obj.showLadder === 'boolean' ? obj.showLadder : d.showLadder,
     ladderView: pick(obj.ladderView, LADDER_VIEWS, d.ladderView),
+    showHedgingFlow: typeof obj.showHedgingFlow === 'boolean' ? obj.showHedgingFlow : d.showHedgingFlow,
     mode: pick(obj.mode, ['manual', '1m', '5m'] as const, d.mode),
   };
 }

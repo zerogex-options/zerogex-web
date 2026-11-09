@@ -1,63 +1,29 @@
 'use client';
 
-import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { History } from 'lucide-react';
 
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
 import { useTimeframe } from '@/core/TimeframeContext';
-import type { FlowTimeframe } from '@/core/flowSeriesCharts';
 import { optionChainSymbolFor } from '@/core/symbols';
-import { useHedgingFlow } from '@/hooks/useHedgingFlow';
-import { useGammaRegimeSeries } from '@/hooks/useGammaRegimeSeries';
-import { useGammaWeather } from '@/hooks/useGammaWeather';
-import { etTodayDateKey } from '@/core/utils';
 import HedgingFlowPanels, { ZeroDteToggle } from './HedgingFlowPanels';
+import { useLiveHedgingFlow } from './useLiveHedgingFlow';
 
 /**
- * The LIVE Hedging Flow session — this route owns the polling, and nothing
- * else. Everything it draws is HedgingFlowPanels, which the dated permalink
- * draws too.
- *
- * The 0DTE toggle is the expirations filter carrying today's date, which is
- * also why it can honestly report "no 0DTE today": when today is not an expiry
- * the filter resolves to nothing rather than silently substituting Friday.
+ * The LIVE Hedging Flow session. The polling is useLiveHedgingFlow, which the
+ * Fuseline Radar shares; everything drawn is HedgingFlowPanels, which the
+ * dated permalink draws too.
  *
  * ES and NQ read their backing index. The page has no picker of its own, so
  * the header's ES / NQ reach it, and the API refuses /api/flow/hedging for a
  * future (a projected strike is not a contract anyone traded). Asking for the
  * index and saying so beats an "Error loading data" box that reads as broken.
- *
- * The 5 min / 1 min buttons switch the flow chart and its cards only. The
- * 5-minute series is fetched either way, because Gamma Weather is built on
- * 5-minute bars; the 1-minute one is a second request, made only while it is
- * on screen.
  */
 export default function HedgingFlowPage() {
   const { symbol: pickedSymbol } = useTimeframe();
   const symbol = optionChainSymbolFor(pickedSymbol);
-  const [zeroDteOnly, setZeroDteOnly] = useState(false);
-  const [timeframe, setTimeframe] = useState<FlowTimeframe>('5min');
-
-  const sessionDateKey = etTodayDateKey();
-  const expirations = useMemo(
-    () => (zeroDteOnly ? [sessionDateKey] : undefined),
-    [zeroDteOnly, sessionDateKey],
-  );
-
-  const { data, loading, error, refetch } = useHedgingFlow(symbol, { expirations });
-  const minute = useHedgingFlow(symbol, {
-    expirations,
-    timeframe: '1min',
-    enabled: timeframe === '1min',
-  });
-  // Deliberately unfiltered by expiration: dealer gamma structure is a
-  // property of the whole book, and scoping it to 0DTE would answer a
-  // different question than the flow panel above it appears to be asking.
-  const { data: regime, loading: regimeLoading } = useGammaRegimeSeries(symbol);
-  // Unfiltered by the 0DTE toggle, same as the structure series.
-  const { data: weather, notReady: weatherNotReady } = useGammaWeather(symbol);
+  const { zeroDteOnly, setZeroDteOnly, panelProps } = useLiveHedgingFlow(symbol);
 
   return (
     <PageShell>
@@ -81,23 +47,7 @@ export default function HedgingFlowPage() {
         </p>
       )}
 
-      <HedgingFlowPanels
-        symbol={symbol}
-        sessionDateKey={sessionDateKey}
-        data={data}
-        regime={regime}
-        weather={weather}
-        weatherNotReady={weatherNotReady}
-        zeroDteOnly={zeroDteOnly}
-        loading={loading}
-        regimeLoading={regimeLoading}
-        error={error}
-        onRetry={refetch}
-        chartData={timeframe === '1min' ? minute.data : null}
-        chartError={timeframe === '1min' && !minute.data ? minute.error : null}
-        timeframe={timeframe}
-        onTimeframeChange={setTimeframe}
-      />
+      <HedgingFlowPanels {...panelProps} />
 
       <div className="mt-6 flex justify-end">
         <Link
