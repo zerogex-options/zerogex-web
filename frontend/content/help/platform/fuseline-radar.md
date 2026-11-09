@@ -71,6 +71,7 @@ This is separate from how often the page refreshes (see **Freshness** below).
 - **Height: Standard / Tall.** Tall makes the chart about twice as tall, with the extra room going to the price pane, so levels sit further apart at any zoom.
 - **Ladder** shows or hides the ladder column. With it hidden the candles get the width.
 - **Bars: Net / Split / Combined** sets how the ladder draws each strike. See **Reading the ladder**, below.
+- **Hedging Flow** shows or hides the live Hedging Flow session under the chart. See **Hedging Flow under the radar**, below.
 
 These choices are remembered in this browser.
 
@@ -116,6 +117,15 @@ Clicking a strike opens one panel below the chart (one at a time; click again or
 - **Expiry mix**: how much of it is 0DTE versus later expirations.
 - **On your route**: where it sits relative to your plan, and how far it is from the current price.
 - **A session chart** of its modeled net gamma, with the start of the change window marked.
+
+## Hedging Flow under the radar
+
+Below the radar sits the live [Hedging Flow](/help/platform/hedging-flow) session: the same panels as the Hedging Flow page, so you can scroll between the two instead of switching pages.
+
+- It reads **SPX** option trades. With the chart in ES, its prices are SPX's, and the line under its heading says so.
+- **0DTE only** and **Full page** sit beside its heading. Its own controls (pressure rate or session cumulative, 5 min or 1 min) work as they do on the full page.
+- It refreshes on its own schedule, not the ladder's, so **Pause** and the ladder's update setting do not affect it.
+- Turn it off with the **Hedging Flow** switch in the controls. While it is off, or the tab is hidden, it reads nothing.
 
 ## Freshness, updates and pause
 

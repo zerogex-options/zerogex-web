@@ -73,6 +73,8 @@ export interface UseGammaRegimeSeriesOptions {
   /** An explicit ET trading day, `YYYY-MM-DD`, for a historical session. */
   date?: string;
   refreshMs?: number;
+  /** False holds the read entirely: no fetch, no polling. Default true. */
+  enabled?: boolean;
 }
 
 /**
@@ -98,13 +100,13 @@ export function useGammaRegimeSeries(
   symbol: string,
   options: UseGammaRegimeSeriesOptions = {},
 ) {
-  const { date, refreshMs = DEFAULT_REFRESH_MS } = options;
+  const { date, refreshMs = DEFAULT_REFRESH_MS, enabled = true } = options;
   const params = new URLSearchParams({ symbol });
   if (date) params.set('date', date);
 
   const { data, loading, error, errorStatus, refetch } = useApiData<GammaRegimeSeriesPayload>(
     `/api/gex/regime-series?${params.toString()}`,
-    { refreshInterval: date ? 0 : refreshMs },
+    { refreshInterval: date ? 0 : refreshMs, enabled },
   );
 
   // Shared with the dated permalink's server fetch (core/hedgingFlowSeries),

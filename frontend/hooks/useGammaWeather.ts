@@ -104,6 +104,8 @@ export interface UseGammaWeatherOptions {
   /** An explicit ET trading day, `YYYY-MM-DD`, for a historical session. */
   date?: string;
   refreshMs?: number;
+  /** False holds the read entirely: no fetch, no polling. Default true. */
+  enabled?: boolean;
 }
 
 /**
@@ -125,13 +127,13 @@ export interface UseGammaWeatherOptions {
  * "never did" rather than "not yet".
  */
 export function useGammaWeather(symbol: string, options: UseGammaWeatherOptions = {}) {
-  const { date, refreshMs = DEFAULT_REFRESH_MS } = options;
+  const { date, refreshMs = DEFAULT_REFRESH_MS, enabled = true } = options;
   const params = new URLSearchParams({ symbol });
   if (date) params.set('date', date);
 
   const { data, loading, error, errorStatus, refetch } = useApiData<GammaWeatherPayload>(
     `/api/gex/weather?${params.toString()}`,
-    { refreshInterval: date ? 0 : refreshMs },
+    { refreshInterval: date ? 0 : refreshMs, enabled },
   );
 
   return {
