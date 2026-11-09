@@ -10,7 +10,9 @@ see you go"), in English:
 > I think you should be paid for it. Thank you for letting me use it. Can I use
 > the yellow button for that??? THANKS
 
-> **Status:** draft, unsent. Run the check below first.
+> **Status:** check passed Mon Nov 9 (`pro|active|1|2027-10-20T16:58:20.000Z|`):
+> no refund taken, still set to cancel, offer unclaimed. Safe to send as
+> written.
 
 Background is in `2026-10-26-michasbausrl-annual-cancel-refund-window.md`. As
 of Oct 26: $299 for Pro annual paid Tue Oct 20 (Visa ending 1800), canceled Mon
