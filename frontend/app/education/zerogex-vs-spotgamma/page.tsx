@@ -8,7 +8,7 @@ import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
 import { fillComparisonPrices } from '@/core/comparisonPrices';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
-import { loadLocalizedMarkdown } from '@/core/localizedContent';
+import { loadLocalizedMarkdownWithLocale } from '@/core/localizedContent';
 
 // A head-to-head with SpotGamma, the research-led vendor most searchers name
 // first ("spotgamma alternative", "spotgamma free alternative"). Every claim
@@ -23,7 +23,8 @@ export const metadata = articleMetadata('zerogex-vs-spotgamma');
 const articlePath = path.join(process.cwd(), 'content/articles/zerogex-vs-spotgamma.md');
 
 export default async function ZeroGexVsSpotGammaPage() {
-  const markdown = fillComparisonPrices(await loadLocalizedMarkdown(articlePath));
+  const { markdown: source, locale } = await loadLocalizedMarkdownWithLocale(articlePath);
+  const markdown = fillComparisonPrices(source, locale);
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">
