@@ -25,7 +25,7 @@ El elemento central es una única curva: el **perfil de gamma de los dealers con
 2. Imagina la acción en cada precio de una cuadrícula que abarca aproximadamente ±20% del spot (en pasos del 0,25% del spot - unos 160 puntos de cuadrícula).
 3. En cada precio de la cuadrícula, **vuelve a calcular el gamma de cada opción** con Black-Scholes (el gamma en sí mismo es función del spot, así que no se puede usar el valor estático de la instantánea).
 4. Multiplica el gamma de cada contrato por `OI × 100 × S² × 0.01` (la convención de la industria "dollar GEX por movimiento del 1%" que usan SpotGamma / SqueezeMetrics / Cheddar Flow) y aplica la convención de signo de los dealers (calls +, puts −).
-5. Pondera cada contrato con `min(1, DTE / 5 days)` - una rampa de ocupación de horizonte para que un muro 0DTE del mismo día (que conlleva un pico de gamma colosal en `1/√T`) no pueda fijar un nivel de régimen de varios días.
+5. Pondera cada contrato con `min(1, DTE / 2 days)` - una rampa de ocupación de horizonte para que un muro 0DTE del mismo día (que conlleva un pico de gamma colosal en `1/√T`) no pueda fijar un nivel de régimen de varios días.
 6. Suma a lo largo de toda la cadena → una curva, *dealer dollar gamma frente al spot hipotético.*
 
 De esa **misma** curva salen dos lecturas:

@@ -10,7 +10,11 @@ see you go"), in English:
 > I think you should be paid for it. Thank you for letting me use it. Can I use
 > the yellow button for that??? THANKS
 
-> **Status:** draft, unsent. Run the check below first.
+> **Status:** sent Mon Nov 9, after the check below passed
+> (`pro|active|1|2027-10-20T16:58:20.000Z|`: no refund taken, still set to
+> cancel, offer unclaimed). Their answer: "OK; THEN WE'RE OK; I THOUGHT I STILL
+> OWED YOU MONEY, GREAT". Resolved. Whether they click the yellow button is up
+> to them, and nothing needs doing either way.
 
 Background is in `2026-10-26-michasbausrl-annual-cancel-refund-window.md`. As
 of Oct 26: $299 for Pro annual paid Tue Oct 20 (Visa ending 1800), canceled Mon
@@ -103,4 +107,5 @@ make honor-winback-discount EMAIL=michasbausrl@hotmail.de PERCENT=25 CREATE_COUP
 
 The cancellation email doesn't tell a paying member that the period they're in
 is already paid, or that the 25% applies at the next renewal. For an annual
-member who cancels in week one, that's likely how this confusion started.
+member who cancels in week one, that's how this confusion started: their
+answer was "I THOUGHT I STILL OWED YOU MONEY".
