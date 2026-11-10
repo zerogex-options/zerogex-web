@@ -31,7 +31,7 @@ Trade-Bias: **gerichtete Lesart**. Das Signal zeigt an, in welche Richtung der D
 Drei strukturelle Mechanismen verstärken sich gegenseitig im letzten Fenster der Sitzung:
 
 1. **Der Charm-Zerfall beschleunigt sich.** Wenn sich 0DTE-Optionen dem Verfall nähern, tendiert ihr Delta bei sonst gleichen Inputs dazu, in Richtung 0 (aus dem Geld) oder ±1 (im Geld) zu driften. Dealer, die ein annähernd delta-neutrales Buch führen, tendieren dazu, häufiger nachzuhedgen, und die modellierte Geschwindigkeit dieses Nachhedgens *steigt*, je näher der Schluss rückt.
-2. **Die Pin Gravity verstärkt sich.** Strikes mit hohem Gamma können den Preis stärker anziehen, je kürzer die Restlaufzeit wird. In einem modellierten Long-Gamma-Regime verstärkt sich der modellierte Magnetismus zum nächstgelegenen schweren Strike im Laufe des Nachmittags tendenziell.
+2. **Die Pin Gravity verstärkt sich.** Strikes mit hohem Gamma können den Preis stärker anziehen, je kürzer die Restlaufzeit wird. In einem modellierten Long-Gamma-Regime verstärkt sich der modellierte Magnetismus zum nächstgelegenen schweren Strike tendenziell im Laufe des Nachmittags.
 3. **Die Liquidität dünnt aus.** Blockflüsse, End-of-Day-Rebalancing und strukturelle Indexorders verschieben das Flow-Profil von kontinuierlich zu schubweise. Dealer haben weniger Spielraum, um Fehler abzufedern.
 
 EOD Pressure kombiniert die ersten beiden Faktoren zu einer gerichteten Lesart. Der dritte ist implizit in der Kalibrierung des Scores enthalten.

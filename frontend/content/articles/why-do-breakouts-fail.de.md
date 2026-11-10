@@ -40,7 +40,7 @@ Hier ist die Kette, nach der traditionellen Konvention zur Dealer-Positionierung
 4. Dieser Verkauf kann als strukturelles Angebot wirken. Er muss nicht von einer einzigen Quelle kommen - er ist die Summe der Dealer, die auf dieselbe modellierte Weise hedgen.
 5. Wenn der Preis versucht, 5.850 zu durchbrechen, verkaufen die Dealer tendenziell in dieselbe Bewegung hinein, in die die Nachzügler hineinkaufen - und dieses Angebot kann die Oberhand gewinnen.
 
-Das meinen Leute, wenn sie sagen "die Call Wall hat den Breakout absorbiert". Die Wall ist reale Positionierung; der absorbierende Hedge zeigt sich als reale Trades im Tape - allerdings ist die Motivation hinter einem einzelnen Print nicht direkt beobachtbar, und das *modellierte* Dealer-Vorzeichen ist eine Annahme, keine Messung.
+Das meinen Leute, wenn sie sagen "die Call Wall hat den Breakout absorbiert". Die Wall ist reale Positionierung; der absorbierende Hedge zeigt sich als reale Trades im Tape - allerdings ist die Motivation hinter einem einzelnen Print nicht direkt beobachtbar, und das *modellierte* Dealer-Vorzeichen ist eine Annahme, keine Messung.
 
 Die tiefere Erklärung, was eine Wall ist und warum sie sich so verhält, findet sich in [Gamma Walls erklärt](/education/gamma-walls-explained).
 
@@ -99,7 +99,7 @@ Beide bezahlten Pläne zeigen diese Levels in Echtzeit, und ZeroGEX Pro ergänzt
 Ein Beispiel aus der Praxis. SPY steht bei 583,20 und ZeroGEX zeigt:
 
 - **Gamma Flip:** 582,50 (Spot befindet sich im Long-Gamma-Territorium)
-- **Net GEX:** +1,4 Mrd. USD, den ganzen Morgen stabil
+- **Net GEX:** +1,4 Mrd. $, den ganzen Morgen stabil
 - **Call Wall:** 584,00 (das Level, das der Preis zu durchbrechen versucht)
 - **Wall-Migration:** in der letzten Stunde flach
 
@@ -125,7 +125,7 @@ Drei Fallen:
 
 Die Disziplin besteht darin, das Regime zu prüfen, bevor du dem Ausbruch hinterherjagst, und zu wissen, was es dir sagt: ob sich das Hedging gegen den Ausbruch stemmt oder ihn verstärkt. Es sagt dir nicht, ob dieser Ausbruch Bestand haben wird; die einzige gemessene Antwort darauf ist die Grundrate des Index.
 
-Nur Bildungsinhalte - nichts davon ist eine Handelsempfehlung.
+Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 

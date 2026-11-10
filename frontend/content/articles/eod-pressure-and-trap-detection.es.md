@@ -233,7 +233,7 @@ Si cualquiera de estos factores llega a cero, anula todo ese lado. ¿Régimen ne
 
 #### Paso 4: Término de magnitud
 
-Un peso base más bonificaciones por distancia y por aceleración del gamma:
+Un peso base más bonificaciones por distancia y por aceleración de la gamma:
 
 ```
 dist_strength = min(1, |distance_pct| / max(buffer_pct × 3, 0.3%))
