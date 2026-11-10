@@ -45,8 +45,9 @@
 //    1. Copy this file into Sierra Chart's ACS_Source folder
 //       (Analysis → Studies → Add Custom Study → "Open Source Code Folder",
 //        typically C:\SierraChart\ACS_Source).
-//    2. Analysis → Build Custom Studies DLL → Build. Sierra Chart ships its
-//       own compiler, so there is no toolchain to install.
+//    2. Analysis → Build Custom Studies DLL, then Build → Remote Build.
+//       Sierra Chart compiles it on its own server, so there is no toolchain
+//       to install.
 //    3. On a chart: Analysis → Studies → Add Custom Study →
 //       "ZeroGEX Gamma Levels".
 //    4. In the study settings, paste your API key and set Symbol to match
@@ -88,14 +89,17 @@ enum ZeroGexInputs
 };
 
 // Persistent slots. Sierra Chart keeps these per study instance across calls.
-// All three are ints on purpose: the int accessors are the oldest and most
+// All of them are ints on purpose: the int accessors are the oldest and most
 // portable of the persistent-variable family, and nothing here needs more.
 enum ZeroGexPersistent
 {
     P_REQUEST_IN_FLIGHT = 1,  // a MakeHTTPRequest is outstanding
     P_LAST_POLL_SECONDS = 2,  // when the last request went out (see below)
     P_LEVELS_LOADED     = 3,  // at least one good snapshot has landed
-    P_KEY_WARNING_SHOWN = 4   // the "set your API key" note has been logged
+    P_KEY_WARNING_SHOWN = 4,  // the "set your API key" note has been logged
+    // Keys 5 through 5 + SG_COUNT - 1: the style a level had before the study
+    // hid it. Used only if sc.StorageBlock is missing; see ZG_StyleBeforeHide.
+    P_STYLE_BEFORE_HIDE_FIRST = 5
 };
 
 // How long an outstanding request may stay outstanding before it is written
@@ -322,25 +326,104 @@ static bool ExtractJsonNumber(const SCString& Json, const char* Key, double& Out
 }
 
 // ---------------------------------------------------------------------------
-//  Write one level across the whole subgraph array, or hide it entirely.
+//  The style a level had before the study hid it.
+//
+//  When the API returns null for a level, the study hides it, and when the
+//  value comes back it must put back the style the line had, not one of its
+//  own choosing: Max Pain and Pin Strike default to dashed, and anything set
+//  on the Subgraphs tab is the user's call. So the style is remembered at the
+//  moment of hiding, stored as style + 1 so that 0 means "not hidden by the
+//  study". A level the user hid has 0 here and is left alone.
+//
+//  Kept in sc.StorageBlock rather than a persistent variable. Sierra Chart
+//  resets persistent variables to 0 whenever a chartbook is opened, but the
+//  DrawStyle the study set is a study setting, saved with the chartbook. With
+//  this memory in a persistent variable, a level that happened to be null when
+//  the chartbook was saved would reopen hidden, with nothing to say the study
+//  hid it, and stay hidden for good. The storage block is saved with the
+//  chartbook too, so the note travels with the style it explains.
+//
+//  The marker is there because the docs do not promise the block starts out
+//  zeroed. Until this study has written its marker, the block is treated as
+//  holding nothing. The persistent-variable fallback only covers a null
+//  pointer, which a current Sierra Chart does not hand out.
+// ---------------------------------------------------------------------------
+static const int ZG_SAVED_STATE_MARKER = 0x5A475331;  // "ZGS1"
+
+struct ZG_SavedState
+{
+    int Marker;
+    int StyleBeforeHide[SG_COUNT];
+};
+
+static int& ZG_StyleBeforeHide(SCStudyInterfaceRef sc, int SubgraphIndex)
+{
+    ZG_SavedState* const Saved = static_cast<ZG_SavedState*>(sc.StorageBlock);
+    if (Saved == NULL)
+        return sc.GetPersistentInt(P_STYLE_BEFORE_HIDE_FIRST + SubgraphIndex);
+
+    if (Saved->Marker != ZG_SAVED_STATE_MARKER)
+    {
+        memset(Saved, 0, sizeof(ZG_SavedState));
+        Saved->Marker = ZG_SAVED_STATE_MARKER;
+    }
+
+    return Saved->StyleBeforeHide[SubgraphIndex];
+}
+
+// ---------------------------------------------------------------------------
+//  Write one level across the whole subgraph array, or hide it.
 //
 //  A level is a horizontal line, so every element of the array carries the
-//  same value — that is what makes it span the chart. When the API returns
-//  null for a level we flip the subgraph to DRAWSTYLE_IGNORE instead of
-//  writing zeros, so the line disappears without dragging the price scale
-//  down to zero with it.
+//  same value — that is what makes it span the chart.
+//
+//  DrawStyle is the user's. It is touched only to hide a level the API
+//  returned as null (DRAWSTYLE_IGNORE, so nothing is drawn and nothing pulls
+//  the price scale toward zero) and to put back the remembered style when the
+//  value returns. Setting a style on every poll, as this function once did,
+//  turned the dashed Max Pain and Pin Strike solid after the first load and
+//  undid any restyle or hide from the Subgraphs tab within a minute.
 // ---------------------------------------------------------------------------
 static void ApplyLevel(SCStudyInterfaceRef sc, int SubgraphIndex, bool HasValue, double Value)
 {
+    SCSubgraphRef Level = sc.Subgraph[SubgraphIndex];
+    int& StyleBeforeHide = ZG_StyleBeforeHide(sc, SubgraphIndex);
+
     if (!HasValue)
     {
-        sc.Subgraph[SubgraphIndex].DrawStyle = DRAWSTYLE_IGNORE;
+        // Already hidden means one of two things, and both say leave the style
+        // alone: the study hid it on an earlier poll and holds its style, or
+        // the user hid it and there is nothing to put back.
+        if (Level.DrawStyle != DRAWSTYLE_IGNORE)
+        {
+            StyleBeforeHide = Level.DrawStyle + 1;
+            Level.DrawStyle = DRAWSTYLE_IGNORE;
+        }
+
+        // Zeros, ACSIL's "no value", rather than the last number the API sent,
+        // so a spreadsheet study or alert reading this subgraph never sees a
+        // level the API no longer reports. The redraw pass in the study skips
+        // a hidden subgraph that holds zeros, so this cannot set off a
+        // re-fetch.
+        for (int Index = 0; Index < sc.ArraySize; ++Index)
+            Level[Index] = 0;
         return;
     }
 
-    sc.Subgraph[SubgraphIndex].DrawStyle = DRAWSTYLE_LINE;
+    if (StyleBeforeHide != 0)
+    {
+        // Put back the style the line had before the study hid it, unless the
+        // user picked one for it in the meantime. Theirs wins.
+        if (Level.DrawStyle == DRAWSTYLE_IGNORE)
+            Level.DrawStyle = StyleBeforeHide - 1;
+        StyleBeforeHide = 0;
+    }
+
+    // Written even while the user has the level hidden, so a spreadsheet study
+    // or alert that references it stays current, and un-hiding it shows the
+    // right line at once.
     for (int Index = 0; Index < sc.ArraySize; ++Index)
-        sc.Subgraph[SubgraphIndex][Index] = static_cast<float>(Value);
+        Level[Index] = static_cast<float>(Value);
 }
 
 // ---------------------------------------------------------------------------
@@ -358,7 +441,8 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
 
         sc.GraphRegion = 0;      // main price graph
         sc.AutoLoop    = 0;      // we fill the whole array ourselves on refresh
-        sc.FreeDLL     = 0;
+        // No sc.FreeDLL: Sierra Chart removed it from ACSIL in version 2969
+        // (October 2026), and setting it is now a compile error.
         // Without this the study is only called when a tick arrives, which
         // would stall polling on a quiet chart — exactly when a stale Gamma
         // Flip is most misleading.
@@ -423,10 +507,17 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
 
     // -----------------------------------------------------------------------
     //  A response landing is what re-enters this function after a request, so
-    //  it is handled before anything else. sc.HTTPResponse is only non-empty
-    //  on that call.
+    //  it is handled before anything else.
+    //
+    //  Only while our request is outstanding. sc.HTTPResponse is NOT cleared
+    //  after the call that delivers it: Sierra Chart empties it only when the
+    //  next sc.MakeHTTPRequest goes out (ACSIL docs, sc.MakeHTTPRequest). So
+    //  testing the response alone re-reads the same body on every update and
+    //  returns before the poll below ever runs: the levels load once and then
+    //  freeze. Sierra Chart's own example gates on its request state the same
+    //  way.
     // -----------------------------------------------------------------------
-    if (sc.HTTPResponse.GetLength() > 0)
+    if (sc.GetPersistentInt(P_REQUEST_IN_FLIGHT) != 0 && sc.HTTPResponse.GetLength() > 0)
     {
         sc.SetPersistentInt(P_REQUEST_IN_FLIGHT, 0);
 
@@ -437,6 +528,16 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
         if (Response == ACSIL_HTTP_REQUEST_ERROR_TEXT || Response == ACSIL_HTTP_EMPTY_RESPONSE_TEXT)
         {
             sc.AddMessageToLog("ZeroGEX: the request to the levels API failed. Check the machine's internet connection and the API Base URL setting.", 1);
+            return;
+        }
+
+        // An HTTP error status (a rejected key is a 401, an unknown symbol a
+        // 404) does not arrive as the JSON body: Sierra Chart replaces it with
+        // the literal "ERROR". Those two causes are the usual setup mistakes,
+        // so name both.
+        if (Response == "ERROR")
+        {
+            sc.AddMessageToLog("ZeroGEX: the levels API returned an error. Check that the API key is your current one (zerogex.io/account#api-access; generating a new key revokes the old one) and that Symbol is ES, NQ, SPX, SPY, QQQ or NDX.", 1);
             return;
         }
 
@@ -494,31 +595,45 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
     //  horizontal line that stops short of the right-hand edge is worse than
     //  no line at all — it reads as a level that ended. So the most recent
     //  snapshot is re-stamped across the new elements without re-fetching.
+    //
+    //  Levels the user hid are extended too. ApplyLevel keeps writing them, so
+    //  a spreadsheet study or alert reading one sees its value on new bars,
+    //  not a 0 that would look like price crossing it.
     // -----------------------------------------------------------------------
     if (sc.GetPersistentInt(P_LEVELS_LOADED) != 0 && sc.ArraySize > 0)
     {
         for (int SubgraphIndex = 0; SubgraphIndex < SG_COUNT; ++SubgraphIndex)
         {
-            if (sc.Subgraph[SubgraphIndex].DrawStyle == DRAWSTYLE_IGNORE)
-                continue;
-
             // Element 0 is as good as any — ApplyLevel stamped the same value
             // across every element, which is what makes the line horizontal.
             const float Value = sc.Subgraph[SubgraphIndex][0];
 
-            // …unless the array was reallocated under us. Sierra Chart zeroes
-            // the subgraph arrays on a full recalculation — a timeframe or
-            // symbol change, more history loading in, a chart reload — and the
-            // study is then called with a DrawStyle that still says LINE over
-            // data that is all zeros. Stamping that zero across the chart
-            // would draw every level at 0 and collapse the price scale, which
-            // is a far louder failure than a missing line.
-            //
-            // So treat a zeroed array as "the snapshot is gone" and re-fetch
-            // immediately (clearing the poll timer skips the interval wait).
-            // The gap is one request, typically well under a second.
             if (Value == 0.0f)
             {
+                // A hidden level holding zeros has no value to extend: the API
+                // returned it as null (ApplyLevel zeroes those), or the user
+                // hid it and a recalculation zeroed it with everything else.
+                // Neither is a reason to re-fetch. A null level is still zero
+                // after any number of fetches, so re-fetching on it would loop
+                // on every update. The next poll refills a user-hidden level.
+                if (sc.Subgraph[SubgraphIndex].DrawStyle == DRAWSTYLE_IGNORE)
+                    continue;
+
+                // A visible level reads 0 only if the array was reallocated
+                // under us. Sierra Chart zeroes the subgraph arrays on a full
+                // recalculation — a timeframe or symbol change, more history
+                // loading in, a chart reload — and the study is then called
+                // with a visible DrawStyle over data that is all zeros.
+                // Stamping that zero across the chart would draw the level at
+                // 0 and collapse the price scale, which is a far louder
+                // failure than a missing line.
+                //
+                // So treat it as "the snapshot is gone" and re-fetch
+                // immediately (clearing the poll timer skips the interval
+                // wait). The gap is one request, typically well under a
+                // second. It does not repeat: a failed fetch leaves
+                // P_LEVELS_LOADED at 0, which turns this pass off, and a
+                // successful one writes the level or, if it is null, hides it.
                 sc.SetPersistentInt(P_LEVELS_LOADED, 0);
                 sc.SetPersistentInt(P_LAST_POLL_SECONDS, 0);
                 break;
@@ -592,6 +707,11 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
     if (sc.MakeHTTPRequest(Url) == 0)
     {
         sc.AddMessageToLog("ZeroGEX: could not start the request to the levels API. Check the API Base URL setting.", 1);
+        // Count the failed attempt as a poll, so the retry waits a full
+        // refresh interval. Otherwise sc.UpdateAlways retries on every update
+        // and opens the Message Log each time. Sierra Chart allows one request
+        // at a time, so this can happen right after a timed-out request.
+        sc.SetPersistentInt(P_LAST_POLL_SECONDS, NowSeconds);
         return;
     }
 

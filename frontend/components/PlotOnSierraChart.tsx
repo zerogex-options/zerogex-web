@@ -200,9 +200,11 @@ export default function PlotOnSierraChart({ standalone = false }: PlotOnSierraCh
           <strong style={{ color: 'var(--color-text-primary)' }}>Build it.</strong> Drop the{' '}
           <code>.cpp</code> into Sierra Chart&apos;s <code>ACS_Source</code> folder, then{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>
-            Analysis → Build Custom Studies DLL → Build
+            Analysis → Build Custom Studies DLL
           </strong>
-          . Sierra Chart ships its own compiler, so there is no toolchain to install.
+          , then{' '}
+          <strong style={{ color: 'var(--color-text-primary)' }}>Build → Remote Build</strong>. Sierra Chart
+          compiles it on its own server, so there is no toolchain to install.
         </li>
         <li>
           <strong style={{ color: 'var(--color-text-primary)' }}>Add it to a chart.</strong>{' '}
