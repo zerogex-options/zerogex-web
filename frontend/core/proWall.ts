@@ -116,7 +116,7 @@ export const PRO_PAGE_PITCHES: Record<string, ProPagePitch> = {
 
 const GENERIC_PITCH: ProPagePitch = {
   pitch:
-    'Pro adds Trade Bias and the Composite Score, all eight Advanced Signals, TradeWorkz bots, backtesting and pattern insights, API access, and auto-updating NinjaTrader and Sierra Chart indicators.',
+    'Pro adds Trade Bias and the Composite Score, all eight Advanced Signals, TradeWorkz bots, backtesting and pattern insights, API access, and auto-updating NinjaTrader, Sierra Chart, and Bookmap indicators.',
 };
 
 // The pitch for the page they reached for, in their language: the same
@@ -145,7 +145,7 @@ export const PRO_FEATURES: readonly string[] = [
   'All eight Advanced Signals, including Squeeze Setup, Trap Detection and EOD Pressure',
   'TradeWorkz: Bot Trading, Backtesting and Pattern Insights',
   'API access: levels, GEX, flow, signals and their history, for your own code',
-  'Auto-updating NinjaTrader and Sierra Chart indicators',
+  'Auto-updating NinjaTrader, Sierra Chart, and Bookmap indicators',
 ];
 
 // PRO_FEATURES in the member's language, in the same order.

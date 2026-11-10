@@ -47,7 +47,7 @@ See the live breakdown on the [Pricing](/pricing) page. Basic monthly comes with
 - **Composite Score** - the full page for the MSI, the 0-100 read of the market regime (Basic sees the MSI itself on the Main Dashboard)
 - **All Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (beta) - Bot Trading, Backtesting, and Pattern Insights
-- **API access** - personal API keys for the same data through `api.zerogex.io`, which also run the auto-updating NinjaTrader and Sierra Chart indicators
+- **API access** - personal API keys for the same data through `api.zerogex.io`, which also run the auto-updating NinjaTrader, Sierra Chart, and Bookmap indicators
 
 ## What changes between tiers on the same page
 

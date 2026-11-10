@@ -47,7 +47,7 @@ Consultez la répartition en direct sur la page [Pricing](/pricing). Basic mensu
 - **Score composite** - la page complète du MSI, la lecture de 0 à 100 du régime de marché (Basic voit le MSI lui-même sur le Tableau de bord principal)
 - **Tous les Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (bêta) - Trading par bots, Backtesting et Analyse des motifs
-- **Accès API** - des clés API personnelles pour les mêmes données via `api.zerogex.io`, qui alimentent aussi les indicateurs NinjaTrader et Sierra Chart à mise à jour automatique
+- **Accès API** - des clés API personnelles pour les mêmes données via `api.zerogex.io`, qui alimentent aussi les indicateurs NinjaTrader, Sierra Chart et Bookmap à mise à jour automatique
 
 ## Ce qui change entre niveaux sur une même page
 

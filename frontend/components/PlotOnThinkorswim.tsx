@@ -198,7 +198,7 @@ export default function PlotOnThinkorswim({ levels, standalone = false }: PlotOn
         study on that platform&nbsp;- ours or anyone&apos;s&nbsp;- can fetch live levels. For levels that update
         themselves, see our{' '}
         <Link href="/integrations" style={{ color: 'var(--color-brand-primary)' }}>
-          NinjaTrader and Sierra Chart integrations
+          NinjaTrader, Sierra Chart, and Bookmap integrations
         </Link>
         .
       </p>
