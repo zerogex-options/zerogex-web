@@ -12,10 +12,10 @@ export const THINKORSWIM_STUDY_HASH = 'a490a64e';
 export const THINKORSWIM_STUDY_PATH = '/thinkorswim/zerogex-daily-gamma-levels.a490a64e.thinkscript';
 
 /** Content hash of the Sierra Chart ACSIL study source (auto-updating) (first 8 hex of its sha256). */
-export const SIERRACHART_STUDY_HASH = '946a5dc2';
+export const SIERRACHART_STUDY_HASH = '9af609d9';
 
 /** Cache-busting path for the Sierra Chart ACSIL study source (auto-updating), relative to the site root. */
-export const SIERRACHART_STUDY_PATH = '/sierrachart/ZeroGexGammaLevels.946a5dc2.cpp';
+export const SIERRACHART_STUDY_PATH = '/sierrachart/ZeroGexGammaLevels.9af609d9.cpp';
 
 /** Content hash of the Bookmap add-on jar (auto-updating) (first 8 hex of its sha256). */
 export const BOOKMAP_ADDON_HASH = 'c5283ed4';

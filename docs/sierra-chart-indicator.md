@@ -32,7 +32,9 @@ three header sets:
   stand in for the current release.
 
 It builds with zero errors and zero warnings from the study under
-`-Wall -Wextra` on all three. Every ACSIL identifier it uses was checked
+`-Wall -Wextra` on all three, and did again after the `DrawStyle` fix below
+(the one new ACSIL member, `sc.StorageBlock`, is in all three header sets).
+Every ACSIL identifier it uses was checked
 against the sierrachart.com reference and the headers. The four names this
 section used to flag as doubtful (`sc.CurrentSystemDateTime.GetAsDouble()`,
 the two `ACSIL_HTTP_*_TEXT` sentinels, `Get`/`SetPersistentInt`, and the
@@ -62,14 +64,46 @@ complete changelog.
   may run at a time) used to retry on every update and open the Message Log
   each time. It now waits a full refresh interval.
 
-### Known issue, not yet fixed
+### Fixed 2026-11-10: line styles and hides now stick
 
-`ApplyLevel` sets `DrawStyle = DRAWSTYLE_LINE` on every successful poll. That
-turns the dashed Max Pain and Pin Strike solid after the first load, and
-overwrites any style the user picks on the Subgraphs tab, including hiding a
-level, which contradicts the "restyle or hide from the Subgraphs tab" copy.
-Fixing it means remembering the style before hiding a null level and
-restoring it afterward, instead of forcing `LINE`.
+`ApplyLevel` used to set `DrawStyle = DRAWSTYLE_LINE` on every successful poll.
+That turned the dashed Max Pain and Pin Strike solid after the first load and
+undid any style picked on the Subgraphs tab within a minute, including hiding a
+level, which contradicted the "restyle or hide from the Subgraphs tab" copy.
+
+The study now touches `DrawStyle` only for a level the API returns as null:
+
+- **On null**, it remembers the level's current style and hides it with
+  `DRAWSTYLE_IGNORE`. It also writes zeros, ACSIL's "no value", so a
+  spreadsheet study or alert never reads a level the API no longer reports. A
+  level that is already hidden keeps its style untouched.
+- **When the value returns**, it puts the remembered style back, unless the
+  user picked a different one in the meantime.
+- **Otherwise** it only writes the values, including into a level the user
+  hid, so alerts and spreadsheet studies that reference it stay current.
+
+The remembered style lives in `sc.StorageBlock`, not a persistent variable.
+Sierra Chart resets persistent variables to 0 whenever a chartbook is opened,
+but the `DRAWSTYLE_IGNORE` the study set is a study setting and is saved with
+the chartbook. With a persistent variable, a level that was null when the
+chartbook was saved would reopen hidden and stay hidden for good. The storage
+block is saved with the chartbook too. The study writes a marker before
+trusting it, since the docs don't promise it starts zeroed, and falls back to
+persistent ints 5 to 9 if the pointer is ever null.
+
+The redraw pass that extends levels across new bars now extends user-hidden
+levels too, and skips any hidden level that holds zeros instead of treating it
+as "re-fetch". A null level stays zero through any number of fetches, so
+re-fetching on it would loop on every update.
+
+Two edge cases are left as they are:
+
+- A level the study has hidden for null looks the same as one the user hid.
+  Choosing "Ignore" for it at that moment changes nothing, so it comes back with
+  its value. To hide a level for good, hide it while it is showing.
+- A chartbook saved by the earlier build while a level was hidden for null
+  keeps that level hidden, since that build left no note. Set its Draw Style
+  back on the Subgraphs tab once.
 
 ### What HAS been compiled and tested
 
@@ -94,6 +128,24 @@ realistic `/api/v1/levels` payloads. That covers the parts most likely to be
 The harness is not committed — it stubs a vendor type it cannot ship — but it
 is a dozen lines to rebuild from this description if the parsing is ever
 touched again.
+
+The `DrawStyle` fix was tested one level up. The whole `.cpp`, unmodified, was
+compiled against a stand-in for the slice of ACSIL it uses (subgraphs with
+`double` arrays, inputs, persistent ints, `sc.StorageBlock`,
+`sc.MakeHTTPRequest`) under AddressSanitizer and UBSan, and driven through 12
+scenarios, 86 checks. The file before the fix fails 24 of them. They cover:
+
+- dashed Max Pain and Pin Strike, and a user's restyle or hide, kept across
+  polls;
+- a null level hidden and zeroed, then restored to its dashed style when the
+  value returns, including after a chartbook reopen;
+- no re-fetch loop while a level is null, user-hidden, or both, across new
+  bars and full recalculations, and exactly one re-fetch after a recalculation
+  that zeroes visible levels;
+- a user's newer style winning over the remembered one;
+- leftover bytes in a fresh storage block never read as a saved style.
+
+Like the parsing harness, it is not committed.
 
 ## Monetization model
 
@@ -202,9 +254,11 @@ show in the Values Window, users can restyle or hide each line from the
 Subgraphs tab, and other studies, spreadsheet studies and alert conditions can
 reference them.
 
-**Null levels flip to `DRAWSTYLE_IGNORE`** rather than being written as zeros.
-The v1 contract is explicit that a null level means "could not resolve, hide
-it" — and a Put Wall drawn at 0 would flatten the chart's price scale.
+**Null levels are hidden with `DRAWSTYLE_IGNORE`, and their style comes back
+with the value.** The v1 contract is explicit that a null level means "could
+not resolve, hide it" — and a Put Wall drawn at 0 would flatten the chart's
+price scale. Apart from that, `DrawStyle` belongs to the user; see "Fixed
+2026-11-10: line styles and hides now stick" above.
 
 **The poll clock counts seconds from a fixed offset.** `SCDateTime` counts days
 from 1899-12-30, so "now" is around 46,000, and 46,000 × 86,400 overflows a
@@ -251,7 +305,9 @@ And a subgraph array that comes back zeroed — which Sierra Chart does on a ful
 recalculation, i.e. a timeframe change, symbol change, or history load — is
 treated as "the snapshot is gone" and triggers an immediate re-fetch, rather
 than being stamped across the chart as a line at zero that would collapse the
-price scale.
+price scale. That applies to visible levels only. A hidden level holding zeros
+is a null level, or a user-hidden one waiting for the next poll, and
+re-fetching on it would loop.
 
 ## Install (what the page tells users)
 
