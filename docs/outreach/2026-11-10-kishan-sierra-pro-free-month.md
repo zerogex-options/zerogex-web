@@ -13,9 +13,10 @@ so he built his own Sierra study on the free 15-minute-delayed data. He says
 > **Status:** first reply sent Nov 10; he redeemed `PROFREEMONTH` at 10:41 AM ET
 > and is on Pro monthly. Coupon `G4Mgsdy9` "Pro first month free": $59.00 off
 > once, ZeroGEX Pro only, 1 redemption, expires Nov 24. Second reply (the
-> Sierra study, below) is drafted. **Don't send it until
-> `claude/sierra-study-build-fix` is deployed:** the study as first served
-> doesn't build on current Sierra Chart.
+> Sierra study, below) sent Nov 10 before the deploy, telling him to download
+> tomorrow morning. **`claude/sierra-study-build-fix` must be deployed tonight**
+> (reminder set for 4:30 PM ET): the study as first served doesn't build on
+> current Sierra Chart.
 
 ## The read
 
@@ -180,9 +181,11 @@ Hi Kishan,
 
 Great, welcome aboard.
 
-Yes, we have one. It comes as source code (a .cpp file) rather than a ready-made DLL, and Sierra Chart builds the DLL for you:
+Yes, we have one. It comes as source code (a .cpp file) rather than a ready-made DLL, and Sierra Chart builds the DLL for you.
 
-1. Get your API key: on zerogex.io, go to Account → API Access and click Generate API Key. It's only shown once, so copy it somewhere safe.
+One timing note: I'm publishing an update to it tonight so it builds on the latest Sierra Chart release, so please download it tomorrow morning rather than today. Here's the setup for when you do:
+
+1. Get your API key: on zerogex.io, go to Account → API Access and click Generate API Key. It's only shown once, so copy it somewhere safe. You can do this one now.
 2. Download the study from zerogex.io/sierra-chart-indicator. The Download button shows when you're logged in on Pro.
 3. Put the .cpp in your ACS_Source folder, then go to Analysis → Build Custom Studies DLL and choose Build → Remote Build.
 4. Analysis → Studies → Add Custom Study → "ZeroGEX Gamma Levels". Paste your key into ZeroGEX API Key and set Symbol to match your chart (ES, NQ, SPX, SPY, QQQ or NDX).
