@@ -16,6 +16,18 @@ Cancellation"):
 Each paragraph in the draft is a single line, so it pastes straight into a mail
 client.
 
+From `make diagnose-user EMAIL=savage.corey@gmail.com` (run 2026-11-10):
+
+| | **savage.corey@gmail.com** |
+|---|---|
+| User id | `user_e03e0f6addb7aa4f385baf73` |
+| Came from | organic/direct |
+| Plan | Pro monthly, $59 (trial Jun 13, first charge Jun 20) |
+| Paid so far | 5 invoices, $235 total ($39 × 3, then $59 × 2) |
+| Canceled | Thu Nov 5, 6:54 PM ET, in-app, reason `switched_service` |
+| Access | until **Fri Nov 20, 1:18 PM ET** (18:18 UTC) |
+| Last seen | Nov 5, the day he canceled |
+
 ## The read
 
 - **He asked a direct question, so the reply is the answer.** No discount, no
@@ -62,13 +74,19 @@ client.
   ask. Keep the paragraph only if you'd actually consider building one; asking
   and then not building is worse than not asking.
 
+- **He has ten days of Pro left**, so the draft invites him to try this now,
+  with nothing new to pay. That's the whole retention move. No discount: he
+  picked "switched service", and his email says the switch is Bookmap, not a
+  cheaper GEX tool.
+- **The free email is for after the 20th.** The signup isn't tied to an
+  account (`docs/daily-levels-email.md`, "Why not a user row"), so his own
+  address works.
+
 ## Before sending
 
-1. **Check his access end date.** Run `make diagnose-user EMAIL=<his email>`. If
-   his access hasn't ended yet, add this line after the "short version"
-   paragraph: "You still have access until [date], so if you want to try it
-   this way before then, it's all there."
-2. **The Bookmap paragraph** (marked optional). Cut it unless you'd build it.
+1. **The Bookmap paragraph** (marked optional). Cut it unless you'd build it.
+2. **If you send after Nov 20**, cut the access line and the "After the 20th"
+   lead-in.
 
 ## Draft
 
@@ -86,12 +104,14 @@ For futures scalping, here's what I'd do: skip the signal pages entirely. They r
 
 The short version: ZeroGEX tells you where to pay attention, and Bookmap tells you what's happening once price gets there.
 
+You still have full access until Friday, Nov 20, so if you want to try it this way before then, it's all there.
+
 A few things worth knowing:
 
 - It works better on ES than NQ. In our study of 737 wall tests this summer, S&P walls held about two times in three over the next hour, and Nasdaq walls about half. So treat a wall as a place to expect a reaction, not a guarantee.
 - The levels come from SPX options, which only trade 9:30 to 4:00 ET. Overnight and pre-market, you're trading against the levels as of the prior 4:00 PM close.
 
-If you want to keep an eye on them for free, there's a morning email at 8:47 AM ET each trading day with the ES walls and flip, in time to plot them before the open. You can sign up at the bottom of this page: https://zerogex.io/es-gamma-levels. During the session the levels shift as price moves, and that's what the live dashboard keeps current.
+After the 20th, if you want to keep an eye on them for free, there's a morning email at 8:47 AM ET each trading day with the ES walls and flip, in time to plot them before the open. You can sign up at the bottom of this page: https://zerogex.io/es-gamma-levels. During the session the levels shift as price moves, and that's what the live dashboard keeps current.
 
 [Optional, keep only if you'd build it:] One question back: would it change things for you if the levels drew themselves on your Bookmap chart and stayed current, the way they already do in NinjaTrader and Sierra Chart?
 
