@@ -678,7 +678,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
                     }}
                   >
                     <strong>h-ago dots:</strong> the persisted rows were written with the production
-                    DTE_REF_DAYS (5d), so they are &ldquo;production flip h days ago,&rdquo; not
+                    DTE_REF_DAYS (2d), so they are &ldquo;production flip h days ago,&rdquo; not
                     &ldquo;h-day-horizon flip h days ago.&rdquo; A diamond above today&apos;s spot means the
                     regime sat above price h days ago; below means it sat below.
                   </div>
