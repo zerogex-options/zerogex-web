@@ -8,7 +8,7 @@ import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
 import { fillComparisonPrices } from '@/core/comparisonPrices';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
-import { loadLocalizedMarkdown } from '@/core/localizedContent';
+import { loadLocalizedMarkdownWithLocale } from '@/core/localizedContent';
 
 // A head-to-head with TradeGEX, which puts the same kind of levels on futures
 // charts, built from index and ETF options. Every claim about TradeGEX comes
@@ -21,7 +21,8 @@ export const metadata = articleMetadata('zerogex-vs-tradegex');
 const articlePath = path.join(process.cwd(), 'content/articles/zerogex-vs-tradegex.md');
 
 export default async function ZeroGexVsTradeGexPage() {
-  const markdown = fillComparisonPrices(await loadLocalizedMarkdown(articlePath));
+  const { markdown: source, locale } = await loadLocalizedMarkdownWithLocale(articlePath);
+  const markdown = fillComparisonPrices(source, locale);
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">
