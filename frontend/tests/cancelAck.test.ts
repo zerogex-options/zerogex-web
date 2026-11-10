@@ -33,6 +33,7 @@ type Sent = {
   cancellationComment: string | null;
   savePercent: number;
   paymentFailed?: { neverPaid: boolean; billVoided: boolean } | null;
+  cadence?: string | null;
 };
 
 // Fakes for what the webhook passes in: the mailer, the save-link builder and
@@ -250,6 +251,22 @@ test('a trial cancel is flagged to the email; a paid one is not', async () => {
   const p = sync(paid.id, { id: 'sub_Pd', cancelAtPeriodEnd: 1 });
   await handleCancelAckTransition(paid, p, h.deps);
   assert.equal(h.sent[1].trialing, false);
+});
+
+test("the plan's billing period rides along to the email; unknown is sent as null", async () => {
+  const h = harness();
+  const yearly = seedMember('u_yearly');
+  sync(yearly.id, { id: 'sub_Y', cancelAtPeriodEnd: 0 });
+  const y = sync(yearly.id, { id: 'sub_Y', cancelAtPeriodEnd: 1 });
+  await handleCancelAckTransition(yearly, { ...y, cadence: 'annual' }, h.deps);
+  assert.equal(h.sent[0].cadence, 'annual');
+
+  // A price that maps to no plan, or a caller that does not say: null, which
+  // keeps the email's general save wording.
+  const unknown = seedMember('u_unknown_plan');
+  sync(unknown.id, { id: 'sub_U', cancelAtPeriodEnd: 0 });
+  await handleCancelAckTransition(unknown, sync(unknown.id, { id: 'sub_U', cancelAtPeriodEnd: 1 }), h.deps);
+  assert.equal(h.sent[1].cadence, null);
 });
 
 test('the survey comment rides along to the email, so they are not asked why again', async () => {

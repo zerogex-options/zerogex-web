@@ -165,6 +165,7 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
 
   // --- retention / churn ----------------------------------------------------
   { id: 'cancellation-ack', variant: 'with save link', run: () => capture(() => M.sendCancellationEmail(TO, { periodEndIso: PERIOD_END, saveUrl: SAVE_URL })) },
+  { id: 'cancellation-ack', variant: 'yearly plan (save offer is the renewal)', run: () => capture(() => M.sendCancellationEmail(TO, { periodEndIso: PERIOD_END, saveUrl: SAVE_URL, cadence: 'annual' })) },
   { id: 'cancellation-ack', variant: 'conversion charge pending', run: () => capture(() => M.sendCancellationEmail(TO, { periodEndIso: PERIOD_END, saveUrl: SAVE_URL, conversionChargePending: true })) },
   { id: 'money-back-refund', variant: 'default', run: () => capture(() => M.sendMoneyBackRefundEmail(TO, { amountFormatted: '$115.00', planLabel: 'Pro (quarterly)', cardBrand: 'visa', cardLast4: '4242' })) },
   { id: 'winback', variant: 'auto (win-back coupon configured)', run: () => capture(() => M.sendWinbackEmail(TO, { winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS, unsubUrl: UNSUB })) },

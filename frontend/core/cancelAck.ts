@@ -27,6 +27,7 @@
 // save-link builder and its audit writer.
 
 import { getDb } from './db.ts';
+import type { BillingCadence } from './billingPlans.ts';
 import {
   formatCancellationRequestedMessage,
   type CancellationDetails,
@@ -53,6 +54,10 @@ export type CancelAckTransition = {
   // (status 'trialing'), so the email doesn't thank a trial member for being
   // "a real part" of the business.
   trialing?: boolean;
+  // The plan's billing period (priceIdToSku on the subscription's price), or
+  // null when the price maps to no plan. A yearly plan's save offer is worded
+  // about the renewal (see buildCancellationEmail).
+  cadence?: BillingCadence | null;
   // Typed with our own structurally-compatible shape (Stripe's enum fields
   // widen to string) so this doesn't depend on the Stripe nested type path.
   cancellationDetails?: CancellationDetails;
@@ -81,6 +86,9 @@ export type CancelAckDeps = {
       cancellationComment: string | null;
       // The percent off the save link applies (25, or 50 for "Too expensive").
       savePercent: number;
+      // The plan's billing period, so a yearly plan's save offer is about the
+      // renewal. Null or absent keeps the general wording.
+      cadence?: BillingCadence | null;
       // Set only for a cancel that ended a subscription whose payment had
       // failed (acknowledgeEndedCancel). See buildCancellationEmail.
       paymentFailed?: { neverPaid: boolean; billVoided: boolean } | null;
@@ -214,6 +222,7 @@ export async function handleCancelAckTransition(
         cancellationFeedback: transition.cancellationDetails?.feedback ?? null,
         cancellationComment: transition.cancellationDetails?.comment ?? null,
         savePercent: offer === 'price' ? PRICE_SAVE_PERCENT : SAVE_PERCENT,
+        cadence: transition.cadence ?? null,
       },
       deps,
     );

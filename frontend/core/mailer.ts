@@ -8,6 +8,7 @@ import type { ReturnAngle } from './returnIntent.ts';
 import { regimeSentence, sessionDateLabel, type ComebackLevels, type LatestGrade } from './trialComeback.ts';
 import { resendSendError } from './resendRetry.ts';
 import { buildWallAlertEmail, type WallAlertEmailOptions } from './wallAlertEmail.ts';
+import type { BillingCadence } from './billingPlans.ts';
 
 // Inlined rather than imported from core/stripe so this module stays
 // importable from standalone `node --experimental-strip-types` scripts —
@@ -2604,6 +2605,15 @@ export type CancellationEmailOptions = {
   //   billVoided — its open bill was voided, so nothing more can be charged.
   //                The email says so only when this is true.
   paymentFailed?: { neverPaid: boolean; billVoided: boolean } | null;
+  // The plan's billing period (priceIdToSku on the subscription's price, passed
+  // through core/cancelAck.ts), or null when the price maps to no plan. Only
+  // 'annual' changes the copy: the save offer is worded about the renewal. On a
+  // yearly plan the save coupon is a one-time discount on the next invoice
+  // (core/retentionOffer.ts) and nothing is charged when it is claimed, but
+  // "keep your access at 25% off" read to a yearly member who canceled in week
+  // one as an offer to buy the year they had already paid for
+  // (docs/outreach/2026-11-09-michasbausrl-yellow-button-annual.md).
+  cadence?: BillingCadence | null;
 };
 
 // Pure builder for the cancellation acknowledgment: subject + text + HTML from
@@ -2672,6 +2682,19 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   const tooComplex = feedback === 'too_complex';
   const tooExpensive = feedback === 'too_expensive';
   const savePct = opts.savePercent ?? 25;
+  // A yearly member's save offer is about the renewal (see cadence above).
+  // "Nothing is charged today" is left out when a charge IS landing today, from
+  // the trial conversion already in flight, so the box can't contradict the
+  // paragraph that discloses it.
+  const yearlySave = opts.cadence === 'annual';
+  const nothingToday = chargePending ? '' : ' Nothing is charged today.';
+  const saveOfferText = yearlySave
+    ? `keep ZeroGEX going after ${periodEndDate}, at ${savePct}% off your next year.${nothingToday} No re-subscribe, no re-entering a card:`
+    : `claim ${savePct}% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:`;
+  const saveOfferHtml = yearlySave
+    ? `keep ZeroGEX going after ${escapeHtml(periodEndDate)}, at <strong>${savePct}% off your next year</strong>, in one click.${nothingToday} No re-subscribe, no re-entering a card.`
+    : `keep your access at <strong>${savePct}% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.`;
+  const saveButtonHtml = yearlySave ? `Renew at ${savePct}% off` : `Keep my access &amp; claim ${savePct}% off`;
   const dashboardUrl = `${getAppUrl()}/my-dashboard`;
   const educationUrl = `${getAppUrl()}/education`;
   const linkStyle = 'color: #f5b400; font-weight: 600;';
@@ -2683,6 +2706,12 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
   // After a failed payment the cancel has already ended the plan, so it says
   // that instead, and it says nothing more will be charged only when the bill
   // was actually voided.
+  //
+  // An ordinary paid cancel says the period is already paid for and nothing
+  // more will be charged. "Nothing changes yet on your end" never said so, and a
+  // yearly member who canceled in week one took it to mean they still owed for
+  // the year they were using. A trial cancel keeps "nothing changes yet": it has
+  // no payment to point to.
   const failedEnded = failed
     ? failed.neverPaid
       ? "The payment due when your trial ended didn't go through, so your plan ended when you canceled"
@@ -2695,7 +2724,9 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
       : `${failedEnded}.`
     : chargePending
       ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. That is your final charge\u00a0- nothing renews after it\u00a0- and you keep full access until ${periodEndDate}.`
-      : `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
+      : trialCancel
+        ? `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`
+        : `You've already paid through ${periodEndDate}, so you keep full access until then and won't be charged again. I just wanted to reach out personally before that day comes.`;
 
   const billingSentenceHtml = failed
     ? failed.billVoided
@@ -2703,7 +2734,9 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
       : `${failedEnded}.`
     : chargePending
       ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. <strong>That is your final charge</strong>\u00a0- nothing renews after it\u00a0- and you keep full access until <strong>${escapeHtml(periodEndDate)}</strong>.`
-      : `You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
+      : trialCancel
+        ? `You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`
+        : `You've already paid through <strong>${escapeHtml(periodEndDate)}</strong>, so you keep full access until then and <strong>won't be charged again</strong>. I just wanted to reach out personally before that day comes.`;
 
   const text = [
     'Hello,',
@@ -2725,8 +2758,8 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
     ...(saveUrl
       ? [
           tooExpensive
-            ? `You said price was the reason, so here's the one-click version: claim ${savePct}% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:`
-            : `If it comes down to price, here's the one-click version: claim ${savePct}% off for a full year and keep your access\u00a0- no re-subscribe, no re-entering a card:`,
+            ? `You said price was the reason, so here's the one-click version: ${saveOfferText}`
+            : `If it comes down to price, here's the one-click version: ${saveOfferText}`,
           saveUrl,
           '',
         ]
@@ -2763,8 +2796,8 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
         : ''}
       ${saveUrl
         ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
-        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">${tooExpensive ? 'You said price was the reason, so' : 'If it comes down to price\u00a0-'} keep your access at <strong>${savePct}% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
-        <a href="${escapeHtml(saveUrl)}" style="display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Keep my access &amp; claim ${savePct}% off</a>
+        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">${tooExpensive ? 'You said price was the reason, so' : 'If it comes down to price\u00a0-'} ${saveOfferHtml}</p>
+        <a href="${escapeHtml(saveUrl)}" style="display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">${saveButtonHtml}</a>
       </div>`
         : ''}
       ${reasonQuestion
