@@ -8,7 +8,7 @@
 
 El Net GEX y el gamma flip describen la forma de la cobertura de los dealers. Te dicen si la cobertura debería oponerse a un movimiento o acompañarlo, y aproximadamente con cuánta fuerza por punto. Lo que no te dicen es cuántas acciones están en juego, en qué dirección y para cuándo, incluso si el mercado no hace absolutamente nada.
 
-Esa última parte importa más de lo que parece. Un libro de opciones cambia su delta cuando se mueve el precio, pero también cuando corre el reloj y cuando cambia la volatilidad implícita. Quien cubre un libro y quiere mantenerse delta-neutral tiene que operar acciones en los tres casos. En un índice con un vencimiento del mismo día grande, ya por la tarde el reloj por sí solo puede rivalizar con los otros dos.
+Esa última parte importa más de lo que parece. Un libro de opciones cambia su delta cuando se mueve el precio, pero también cuando corre el reloj y cuando cambia la volatilidad implícita. Quien cubre un libro y quiere mantenerse delta-neutral tiene que operar acciones en los tres casos. En un índice con un gran vencimiento del mismo día, ya por la tarde el reloj por sí solo puede rivalizar con los otros dos.
 
 Forced Flow plantea esa pregunta directamente, y el nivel de flujo cero responde a la siguiente: ¿a qué precio el libro no debería nada en absoluto al cierre?
 
@@ -58,7 +58,7 @@ Forced Flow mueve una palanca cada vez, y la página dibuja cada una:
 
 La curva de revaluación muestra el flujo forzado en cada precio, suponiendo que ese precio es donde está el subyacente al cierre. En algún punto de su recorrido, la curva cruza el cero. Ese precio es el **nivel de flujo cero**: el spot en el que el libro, llevado hasta el cierre, no debe nada. Ahí los dealers no tendrían que comprar ni vender nada para seguir cubiertos.
 
-Si el reloj no existiera, ese precio sería el propio spot: sin movimiento, no hay recobertura. La razón por la que está en otro lugar es el tiempo. Con el precio quieto, el decaimiento temporal ya debe una cierta cantidad de acciones para el cierre. El nivel de flujo cero es el movimiento de precio cuya propia cobertura la compensa exactamente.
+Si el reloj no existiera, ese precio sería el propio spot: sin movimiento, no hay recobertura. La razón por la que está en otro lugar es el tiempo. Con el precio quieto, el decaimiento temporal ya debe una cierta cantidad de acciones para el cierre. El nivel de flujo cero es el movimiento de precio cuya propia cobertura la anula exactamente.
 
 ### Un ejemplo práctico
 
