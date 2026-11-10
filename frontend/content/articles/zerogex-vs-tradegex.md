@@ -62,7 +62,7 @@ The trials and refunds differ too. ZeroGEX Basic monthly starts with a 7-day fre
 - **More markets.** ES, NQ, YM (Dow), RTY (Russell 2000), gold, and crude oil futures, plus NVDA, TSLA, AAPL, MSFT, AMZN, META, and GOOGL. ZeroGEX covers six symbols.
 - **Faster refresh.** TradeGEX says its GEX levels refresh every few seconds. ZeroGEX recomputes its levels about once a minute.
 - **Desktop apps and a trade simulator.** Native Mac and Windows apps (Windows in beta), and a built-in simulator for practicing futures trades on live prices, with bracket orders and performance stats. ZeroGEX runs in the browser and has no simulator for practicing your own trades.
-- **Tradovate and ATAS.** TradeGEX draws its levels on Tradovate's web chart and in ATAS, as well as on TradingView and NinjaTrader. ZeroGEX works with TradingView, thinkorswim, NinjaTrader, and Sierra Chart.
+- **Tradovate and ATAS.** TradeGEX draws its levels on Tradovate's web chart and in ATAS, as well as on TradingView and NinjaTrader. ZeroGEX works with TradingView, thinkorswim, NinjaTrader, Sierra Chart, and Bookmap.
 - **Delta exposure and a multi-market oscillator.** Delta exposure bars, the Hedge Flow indicator, an oscillator that combines ES, NQ, the VIX, and options flow, a VIX line on the price chart, a dual-chart view, and a weekly Commitments of Traders report for ES and NQ. ZeroGEX leaves raw delta exposure out on purpose: [why ZeroGEX does not publish DEX](/education/why-we-dont-publish-dex).
 
 ## Where ZeroGEX is the stronger choice

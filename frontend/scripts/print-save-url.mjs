@@ -7,7 +7,8 @@
 // Read-only. Also reports the member's current eligibility so you know what the
 // /save page will show:
 //   • eligible       — live sub scheduled to cancel, offer unclaimed → shows the
-//                      "claim 25% off & keep access" confirmation button.
+//                      confirmation button ("Keep my access & apply 25% off", or
+//                      "Renew at 25% off" on a yearly plan; app/save/copy.ts).
 //   • already claimed — retention_offer_claimed_at set → shows "you're all set".
 //   • not canceling  — no live sub, or not scheduled to cancel → shows
 //                      "nothing to restore". Put a test account into the
@@ -118,7 +119,7 @@ if (user.retention_offer_claimed_at) {
     `NOT canceling (status=${user.subscription_status ?? 'none'}, cancel_at_period_end=${Number(user.cancel_at_period_end) || 0}) — page shows "nothing to restore".\n` +
     `           To test the real offer, schedule a cancel first:  make set-cancellation EMAIL=${user.email} ON=1 YES=1`;
 } else {
-  state = 'ELIGIBLE — page shows the "claim 25% off & keep access" button';
+  state = 'ELIGIBLE — page shows the claim button ("Keep my access & apply 25% off", or "Renew at 25% off" on a yearly plan)';
 }
 
 console.log(`User:        ${user.email} (id=${user.id})`);

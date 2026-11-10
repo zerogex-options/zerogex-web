@@ -50,7 +50,7 @@ ZeroGEX Basic monthly starts with a 7-day free trial, and every other ZeroGEX pl
 ## Where MenthorQ is the stronger choice
 
 - **Breadth.** Stocks, ETFs, indices, futures, forex, and crypto. ZeroGEX covers six symbols.
-- **More platforms.** Integrations with TradingView, NinjaTrader, Sierra Chart, Bookmap, ATAS, Quantower, MotiveWave, Tickblaze, and TrendSpider. ZeroGEX works with five: TradingView, thinkorswim, NinjaTrader, Sierra Chart, and SabrTrader, which draws MenthorQ's levels too.
+- **More platforms.** Integrations with TradingView, NinjaTrader, Sierra Chart, Bookmap, ATAS, Quantower, MotiveWave, Tickblaze, and TrendSpider. ZeroGEX works with six: TradingView, thinkorswim, NinjaTrader, Sierra Chart, Bookmap, and SabrTrader, which draws MenthorQ's levels too.
 - **Learning and coaching.** An academy with 350+ lessons, 350+ guides, and webinars and podcasts, and on Pro, live trading sessions, weekly mentorship meetings, and a monthly strategy session. ZeroGEX has education articles and a help center, and no coaching.
 - **More models.** 20+ trading models, including Blind Spot levels and the Q-Score, and QUIN, an AI assistant that screens setups and compares assets across its metrics. ZeroGEX's AI access is its free MCP server, which puts the levels in assistants like Claude and ChatGPT.
 
@@ -60,7 +60,7 @@ ZeroGEX Basic monthly starts with a 7-day free trial, and every other ZeroGEX pl
 - **Levels recomputed about once a minute.** Through the regular session, on both plans. MenthorQ's intraday guide lists its own schedule.
 - **Depth on the index complex.** A gamma heatmap through the session, gamma by expiration, vanna and charm flow, hedging flow, and fourteen signals built on the levels, with their methods set out in the [signals guide](/guides/signals-explained).
 - **A published method and a graded record.** ZeroGEX documents how it calculates the gamma flip on its [Methodology](/methodology) page and grades every forecast it publishes, misses included, on its [Track Record](/track-record).
-- **Levels where you already chart.** Free TradingView and thinkorswim scripts, and NinjaTrader and Sierra Chart indicators that update themselves on Pro. See [Integrations](/integrations).
+- **Levels where you already chart.** Free TradingView and thinkorswim scripts, and NinjaTrader, Sierra Chart, and Bookmap indicators that update themselves on Pro. See [Integrations](/integrations).
 - **A free way to check first.** The [SPX gamma levels](/spx-gamma-levels) page and its siblings need no signup, and neither does the [MCP server](/education/gamma-levels-in-claude).
 
 ## How to decide

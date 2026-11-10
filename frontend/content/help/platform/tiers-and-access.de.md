@@ -47,7 +47,7 @@ Die aktuelle Aufschlüsselung findest du auf der Seite [Pricing](/pricing). Basi
 - **Gesamtscore** - die vollständige Seite zum MSI, der 0-100-Einschätzung des Marktregimes (Basic sieht den MSI selbst auf dem Haupt-Dashboard)
 - **Alle Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (Beta) - Bot-Trading, Backtesting und Muster-Einblicke
-- **API-Zugang** - persönliche API-Schlüssel für dieselben Daten über `api.zerogex.io`, mit denen auch die sich selbst aktualisierenden Indikatoren für NinjaTrader und Sierra Chart laufen
+- **API-Zugang** - persönliche API-Schlüssel für dieselben Daten über `api.zerogex.io`, mit denen auch die sich selbst aktualisierenden Indikatoren für NinjaTrader, Sierra Chart und Bookmap laufen
 
 ## Was sich zwischen Tiers auf derselben Seite ändert
 

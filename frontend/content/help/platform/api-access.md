@@ -33,7 +33,7 @@ Authentication uses **bearer tokens**. Generate your key yourself from your acco
 
 Personal API keys are a Pro feature; Basic and Public accounts are routed to Pricing. Generating a new key immediately revokes your previous one (you hold at most one active key at a time), so rotating is just a matter of regenerating. Need help or a key revoked? Email [support@zerogex.io](mailto:support@zerogex.io).
 
-One key works on all your platforms at the same time: paste the same key into NinjaTrader, Sierra Chart, SabrTrader and your own code. Don't generate a new key to add a platform, because that switches off the old one everywhere it's already pasted.
+One key works on all your platforms at the same time: paste the same key into NinjaTrader, Sierra Chart, Bookmap, SabrTrader and your own code. Don't generate a new key to add a platform, because that switches off the old one everywhere it's already pasted.
 
 ## Rate limits
 
@@ -86,6 +86,7 @@ If all you want is our levels on your own chart, you may not need to write anyth
 
 - **NinjaTrader 8** - a NinjaScript indicator included with Pro that polls `GET /api/v1/levels/{symbol}` with your Pro key and draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike. Signed in to Pro, download it from any free gamma levels page (e.g. [/spx-gamma-levels](/spx-gamma-levels)), import it in NinjaTrader (**File → Utilities → Import NinjaScript…**), and paste in your key. On an ES or NQ chart set the symbol to `ES` / `NQ` and the levels arrive already on the futures price axis - there is no basis offset to apply. To draw a single expiration instead of the whole chain, set **Expiration** to `0DTE` (the expiration that settles next) or to a date as `YYYY-MM-DD`; the API side is the `expiration` query parameter.
 - **Sierra Chart** - an ACSIL study included with Pro that polls the same endpoint with your key and draws the same five levels. Signed in to Pro, download it from [/sierra-chart-indicator](/sierra-chart-indicator) and build it with Sierra Chart's own compiler (**Analysis → Build Custom Studies DLL**).
+- **Bookmap** - a Java add-on included with Pro that fetches the same five levels from the ZeroGEX API with your key and draws them on the heatmap, with the session's history, labels at the right edge, a per-strike gamma profile, and optional alerts. It reads ES, NQ, MES, and MNQ charts on its own, with the levels already on the futures price axis. Signed in to Pro, download it from [/bookmap-indicator](/bookmap-indicator); it runs on Bookmap 7 and 8.
 - **SabrTrader** - has a ZeroGEX connection built in, so there's nothing to download from us. In SabrTrader, go to **Connections → Levels**, add ZeroGEX, and paste your Pro key. SabrTrader built and maintains that connection, so for help with how it draws the levels, contact SabrTrader; for the numbers themselves, contact us.
 - **TradingView** - a free Pine script. Manual entry only: Pine Script can't make HTTP calls, so you type today's numbers in yourself.
 - **thinkorswim** - a free thinkScript study. Manual entry only: thinkScript is sandboxed the same way Pine Script is, so you re-copy the study each day - it comes with that day's numbers already filled in.

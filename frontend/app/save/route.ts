@@ -10,6 +10,7 @@ import {
   SAVE_PERCENT,
 } from '@/core/retentionOffer';
 import { readAttachedDiscounts, stackedDiscountsParam } from '@/core/subscriptionDiscounts';
+import { SAVE_PAGE_TITLE, saveDonePageCopy, saveOfferPageCopy } from './copy';
 
 // Self-serve retention SAVE. The cancellation email carries a one-click
 // "keep my access + claim your discount" link (buildSaveUrl, signed by
@@ -88,11 +89,20 @@ function evaluate(userId: string | null, token: string | null, offer: SaveOffer)
   return { kind: 'eligible', user };
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return 'the end of your current period';
+// The period end for display, or null when there is none to show; the page copy
+// (./copy.ts) words around a missing date itself.
+function formatDate(iso: string | null): string | null {
+  if (!iso) return null;
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 'the end of your current period';
+  if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// The plan's billing period, which decides whether the page reads as a renewal
+// (yearly) or as keeping access (everything else). Null for a price that maps
+// to no plan.
+function cadenceOf(user: UserRow) {
+  return (user.stripe_price_id ? priceIdToSku(user.stripe_price_id) : null)?.cadence ?? null;
 }
 
 function escapeHtml(s: string): string {
@@ -103,12 +113,12 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function shell(heading: string, bodyHtml: string): string {
+function shell(heading: string, bodyHtml: string, title: string = SAVE_PAGE_TITLE): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>ZeroGEX\u00a0- Keep your access</title></head>
+<title>${title}</title></head>
 <body style="margin:0; padding:0 16px; background:#0f2234; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
   <div style="max-width:520px; margin:12vh auto; background:#ffffff; border-radius:14px; padding:36px 34px; text-align:center;">
     <div style="font-size:22px; font-weight:800; letter-spacing:-0.4px; color:#12283c;">zerogex<span style="color:#f45854;">.io</span></div>
@@ -162,25 +172,27 @@ export async function GET(request: NextRequest) {
   if (evalResult.kind === 'not_cancelling') return htmlResponse(NOT_CANCELLING_PAGE, 200);
 
   // Eligible: render the confirmation with a button that POSTs to claim. GET
-  // itself changes nothing.
-  const endsOn = formatDate(evalResult.user.current_period_end);
+  // itself changes nothing. A yearly plan reads as the renewal (./copy.ts).
+  const copy = saveOfferPageCopy({
+    pct,
+    offer,
+    cadence: cadenceOf(evalResult.user),
+    endsOn: formatDate(evalResult.user.current_period_end),
+  });
   const action = `/save?u=${encodeURIComponent(u!)}&t=${encodeURIComponent(t!)}${offer === 'price' ? '&o=price' : ''}`;
-  const term = offer === 'price' ? 'for the next 12 months' : 'for a full year';
   const body = `
     <p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0 0 18px;">
-      Before you go\u00a0- I&rsquo;d rather keep you than lose you. Claim <strong>${pct}% off ${term}</strong>
-      and your access stays on, no re-subscribe and no re-entering a card. You&rsquo;ll simply be charged the
-      discounted rate at ${escapeHtml(endsOn)} instead of canceling.
+      ${copy.intro}
     </p>
     <form method="POST" action="${escapeHtml(action)}" style="margin:0;">
       <button type="submit" style="display:inline-block; padding:13px 22px; background:#f5b400; color:#000; font-weight:700; font-size:15px; border:none; border-radius:8px; cursor:pointer;">
-        Keep my access &amp; apply ${pct}% off
+        ${copy.button}
       </button>
     </form>
     <p style="font-size:13px; line-height:1.5; color:#8a97a3; margin:16px 0 0;">
-      Prefer to still cancel? Just ignore this\u00a0- nothing changes and your cancellation stands.
+      ${copy.footer}
     </p>`;
-  return htmlResponse(shell(`Wait\u00a0- here&rsquo;s ${pct}% off to stay`, body), 200);
+  return htmlResponse(shell(copy.heading, body, copy.title), 200);
 }
 
 export async function POST(request: NextRequest) {
@@ -315,11 +327,17 @@ export async function POST(request: NextRequest) {
     // failure still leaves the member saved. The webhook will reconcile the row.
   }
 
-  const endsOn = formatDate(user.current_period_end);
+  const done = saveDonePageCopy({
+    pct,
+    offer,
+    cadence: sku.cadence,
+    endsOn: formatDate(user.current_period_end),
+  });
   return htmlResponse(
     shell(
-      'You&rsquo;re staying\u00a0- welcome back',
-      `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">Done. Your access continues and <strong>${pct}% off for a year</strong> is on your account. You&rsquo;ll be charged the discounted rate at ${escapeHtml(endsOn)}\u00a0- nothing else to do. Thanks for giving ZeroGEX another shot.</p>`,
+      done.heading,
+      `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">${done.body}</p>`,
+      done.title,
     ),
     200,
   );

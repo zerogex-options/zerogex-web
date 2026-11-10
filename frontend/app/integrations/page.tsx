@@ -12,7 +12,7 @@ import { INTEGRATIONS, INTEGRATIONS_HUB, type Integration } from '@/core/integra
 // It exists to solve two problems at once. The menus and footer used to list
 // each platform separately, which does not survive going from two to four —
 // the sidebar's "More" group would have been half brand names. And a visitor
-// who does not already know which of the four they want had nowhere to compare
+// who does not already know which one they want had nowhere to compare
 // them, because each landing only ever cross-linked the one other page.
 //
 // Every card here is rendered from core/integrations.ts, the same registry the
@@ -22,7 +22,7 @@ import { INTEGRATIONS, INTEGRATIONS_HUB, type Integration } from '@/core/integra
 const PATH = INTEGRATIONS_HUB.href;
 const TITLE = 'ZeroGEX Chart Integrations: TradingView, thinkorswim & More';
 const DESCRIPTION =
-  'Plot ZeroGEX gamma levels on the chart you trade from: free TradingView and thinkorswim scripts, auto-updating Pro studies for NinjaTrader 8 and Sierra Chart, and a built-in connection in SabrTrader.';
+  'Plot ZeroGEX gamma levels on the chart you trade from: free TradingView and thinkorswim scripts, auto-updating Pro studies for NinjaTrader 8, Sierra Chart, and Bookmap, and a built-in connection in SabrTrader.';
 
 // SabrTrader's own setup guide. It built and maintains the ZeroGEX connector,
 // so its page, not ours, is the source of record for the steps.
@@ -49,10 +49,10 @@ export const metadata: Metadata = {
   },
 };
 
-// ItemList rather than SoftwareApplication: this page is the index of the four,
-// and each individual landing already declares its own SoftwareApplication.
-// Declaring a fifth application here would compete with them for the same
-// entity.
+// ItemList rather than SoftwareApplication: this page is the index of the
+// platform landings, and each individual landing already declares its own
+// SoftwareApplication. Declaring another application here would compete with
+// them for the same entity.
 const JSON_LD = {
   '@context': 'https://schema.org',
   '@type': 'ItemList',
@@ -255,14 +255,15 @@ export default function IntegrationsPage() {
         >
           The split below is not a pricing decision&nbsp;- it is a platform one. TradingView&apos;s Pine Script and
           thinkorswim&apos;s thinkScript are sandboxed and cannot make network calls, so nothing on those
-          platforms can fetch live levels. NinjaScript and ACSIL are C# and C++, so those two can, and do.
+          platforms can fetch live levels. NinjaScript and ACSIL are C# and C++, and Bookmap add-ons are Java,
+          so those three can, and do.
         </p>
       </header>
 
       <Group
         title="Auto-updating"
         icon={<RefreshCw size={19} style={{ color: 'var(--color-brand-accent)' }} />}
-        intro="These poll the ZeroGEX API on a timer and redraw themselves&nbsp;- set the symbol once and the levels stay current all session, including across a futures roll. Both need a ZeroGEX API key, which comes with Pro."
+        intro="These fetch the levels from the ZeroGEX API on their own and redraw themselves&nbsp;- set yours up once and the levels stay current all session. Each needs a ZeroGEX API key, which comes with Pro."
         entries={AUTO_UPDATING}
       />
 
@@ -323,7 +324,8 @@ export default function IntegrationsPage() {
             maxWidth: 760,
           }}
         >
-          The API key comes with ZeroGEX Pro. It is the same key the NinjaTrader and Sierra Chart studies use,
+          The API key comes with ZeroGEX Pro. It is the same key the NinjaTrader and Sierra Chart studies and
+          the Bookmap add-on use,
           and one key runs all of them at once. SabrTrader includes its Gamma Levels feature on its paid plans,
           and its chart still runs on your own broker or data feed. SabrTrader built and maintains the
           connection: for help with how it draws the levels, contact SabrTrader; for the numbers themselves,

@@ -61,7 +61,7 @@ export const PRO_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, ProWallText> =
       'Tutti e otto i Segnali Avanzati, tra cui Squeeze Setup, Trap Detection ed EOD Pressure',
       'TradeWorkz: Trading con bot, Backtesting e Analisi dei pattern',
       'Accesso API: livelli, GEX, flussi, segnali e il loro storico, per il tuo codice',
-      'Indicatori NinjaTrader e Sierra Chart che si aggiornano da soli',
+      'Indicatori NinjaTrader, Sierra Chart e Bookmap che si aggiornano da soli',
     ],
     pitches: {
       '/trade-bias': {
@@ -125,7 +125,7 @@ export const PRO_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, ProWallText> =
       },
     },
     genericPitch:
-      "Pro aggiunge Trade Bias e il Punteggio composito, tutti e otto i Segnali Avanzati, i bot di TradeWorkz, backtesting e analisi dei pattern, l'accesso API e indicatori NinjaTrader e Sierra Chart che si aggiornano da soli.",
+      "Pro aggiunge Trade Bias e il Punteggio composito, tutti e otto i Segnali Avanzati, i bot di TradeWorkz, backtesting e analisi dei pattern, l'accesso API e indicatori NinjaTrader, Sierra Chart e Bookmap che si aggiornano da soli.",
   },
 
   de: {
@@ -161,7 +161,7 @@ export const PRO_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, ProWallText> =
       'Alle acht erweiterten Signale, darunter Squeeze Setup, Trap Detection und EOD Pressure',
       'TradeWorkz: Bot-Trading, Backtesting und Muster-Einblicke',
       'API-Zugang: Level, GEX, Flow, Signale und deren Historie, für deinen eigenen Code',
-      'Automatisch aktualisierte Indikatoren für NinjaTrader und Sierra Chart',
+      'Automatisch aktualisierte Indikatoren für NinjaTrader, Sierra Chart und Bookmap',
     ],
     pitches: {
       '/trade-bias': {
@@ -225,7 +225,7 @@ export const PRO_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, ProWallText> =
       },
     },
     genericPitch:
-      'Mit Pro kommen Trade Bias und der Gesamtscore, alle acht erweiterten Signale, TradeWorkz-Bots, Backtesting und Muster-Einblicke, API-Zugang sowie automatisch aktualisierte Indikatoren für NinjaTrader und Sierra Chart dazu.',
+      'Mit Pro kommen Trade Bias und der Gesamtscore, alle acht erweiterten Signale, TradeWorkz-Bots, Backtesting und Muster-Einblicke, API-Zugang sowie automatisch aktualisierte Indikatoren für NinjaTrader, Sierra Chart und Bookmap dazu.',
   },
 
   es: {
@@ -261,7 +261,7 @@ export const PRO_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, ProWallText> =
       'Las ocho Señales Avanzadas, entre ellas Squeeze Setup, Trap Detection y EOD Pressure',
       'TradeWorkz: Trading con bots, Backtesting y Análisis de patrones',
       'Acceso a la API: niveles, GEX, flujo, señales y su historial, para tu propio código',
-      'Indicadores de NinjaTrader y Sierra Chart que se actualizan solos',
+      'Indicadores de NinjaTrader, Sierra Chart y Bookmap que se actualizan solos',
     ],
     pitches: {
       '/trade-bias': {
@@ -325,7 +325,7 @@ export const PRO_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, ProWallText> =
       },
     },
     genericPitch:
-      'Pro añade Trade Bias y la Puntuación compuesta, las ocho Señales Avanzadas, los bots de TradeWorkz, backtesting y análisis de patrones, acceso a la API e indicadores de NinjaTrader y Sierra Chart que se actualizan solos.',
+      'Pro añade Trade Bias y la Puntuación compuesta, las ocho Señales Avanzadas, los bots de TradeWorkz, backtesting y análisis de patrones, acceso a la API e indicadores de NinjaTrader, Sierra Chart y Bookmap que se actualizan solos.',
   },
 
   fr: {
@@ -362,7 +362,7 @@ export const PRO_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, ProWallText> =
       'Les huit Signaux Avancés, dont Squeeze Setup, Trap Detection et EOD Pressure',
       'TradeWorkz : Trading par bots, Backtesting et Analyse des motifs',
       'Accès API : niveaux, GEX, flux, signaux et leur historique, pour votre propre code',
-      'Indicateurs NinjaTrader et Sierra Chart mis à jour automatiquement',
+      'Indicateurs NinjaTrader, Sierra Chart et Bookmap mis à jour automatiquement',
     ],
     pitches: {
       '/trade-bias': {
@@ -426,6 +426,6 @@ export const PRO_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, ProWallText> =
       },
     },
     genericPitch:
-      "Pro ajoute Trade Bias et le Score composite, les huit Signaux Avancés, les bots TradeWorkz, le backtesting et l'analyse des motifs, l'accès API et des indicateurs NinjaTrader et Sierra Chart mis à jour automatiquement.",
+      "Pro ajoute Trade Bias et le Score composite, les huit Signaux Avancés, les bots TradeWorkz, le backtesting et l'analyse des motifs, l'accès API et des indicateurs NinjaTrader, Sierra Chart et Bookmap mis à jour automatiquement.",
   },
 };

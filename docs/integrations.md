@@ -1,6 +1,6 @@
 # Chart-platform integrations
 
-Four ways to get the ZeroGEX dealer-positioning levels onto a chart the trader
+Five ways to get the ZeroGEX dealer-positioning levels onto a chart the trader
 already has open, plus the `/integrations` hub that houses them.
 
 | Platform | Route | Language | Updates | Tier | Source of record |
@@ -9,10 +9,11 @@ already has open, plus the `/integrations` hub that houses them.
 | thinkorswim | `/thinkorswim-indicator` | thinkScript | manual | free | `frontend/public/thinkorswim/zerogex-daily-gamma-levels.thinkscript` |
 | NinjaTrader 8 | `/ninjatrader-indicator` | NinjaScript (C#) | auto | Pro | `frontend/public/ninjatrader/ZeroGexGammaLevels.cs` |
 | Sierra Chart | `/sierra-chart-indicator` | ACSIL (C++) | auto | Pro | `frontend/public/sierrachart/ZeroGexGammaLevels.cpp` |
+| Bookmap | `/bookmap-indicator` | Java add-on | auto | Pro | `integrations/bookmap/` (built to `frontend/public/bookmap/zerogex-bookmap.jar`) |
 
 Per-platform detail lives in `docs/tradingview-indicator.md`,
-`docs/thinkorswim-indicator.md`, `docs/ninjatrader-indicator.md` and
-`docs/sierra-chart-indicator.md`.
+`docs/thinkorswim-indicator.md`, `docs/ninjatrader-indicator.md`,
+`docs/sierra-chart-indicator.md` and `docs/bookmap-indicator.md`.
 
 Platforms that were asked for and are **not** in the table above are
 assessed in `docs/integrations-ibkr-collective2-feasibility.md` — IBKR
@@ -30,9 +31,10 @@ any of these pages, because it is the question every visitor asks:
   fetch live levels. So those two are manual-entry, which also means there is
   nothing to gate: the script is inert without numbers, and the numbers are
   published free on the gamma-levels pages. Hence free.
-- **NinjaScript is C# and ACSIL is C++.** Both can make HTTP calls, so those
-  two poll `/api/v1/levels/{symbol}` and keep themselves current. Polling needs
-  an API key, the key is a Pro entitlement, so those two are Pro.
+- **NinjaScript is C#, ACSIL is C++, and Bookmap add-ons are Java.** All three
+  can make HTTP calls, so they poll `/api/v1/levels/{symbol}` and keep
+  themselves current. Polling needs an API key, the key is a Pro entitlement,
+  so those three are Pro.
 
 `tests/integrations.test.ts` asserts `updates === 'auto'` if and only if
 `tier === 'pro'`, so the two cannot drift apart quietly.
@@ -52,6 +54,11 @@ any of these pages, because it is the question every visitor asks:
 Adding a platform is: append a registry entry, add `app/<route>/page.tsx`, add
 its `PlotOn<Platform>.tsx` section, drop the source under `frontend/public/`,
 and add it to `scripts/integration-assets-manifest.js` if it needs a hashed URL.
+
+The Bookmap add-on is the one integration shipped compiled (Bookmap loads jars
+and has no compiler), so its source lives outside `public/`, in
+`integrations/bookmap/`, and the committed jar is the published artifact.
+`tests/bookmapAddon.test.ts` ties the two together.
 
 Two consumers **cannot** import the registry and repeat the routes as literals:
 
@@ -157,7 +164,7 @@ filename so a new build is a new URL:
 - `scripts/ninjatrader-manifest.js` → `core/ninjaTraderManifest.ts` (also
   verifies and conditionally publishes the NT8 export archive)
 - `scripts/integration-assets-manifest.js` → `core/integrationAssets.ts`
-  (the thinkorswim and Sierra Chart sources)
+  (the thinkorswim and Sierra Chart sources, and the Bookmap jar)
 
 Both manifests are **committed** so a plain `npm run build` needs no pre-step,
 and both have a test asserting the committed hash still matches the tracked
@@ -169,10 +176,12 @@ TradingView script is the artifact users actually install, and the file in
 
 ## Where the levels come from
 
-All four draw the same numbers, from the same place:
+All five draw the same numbers, from the same place:
 
 - free/manual: the trader copies them off `/spx-gamma-levels` (or the SPY, QQQ,
   NDX, ES, NQ pages), which are public and delayed roughly 15 minutes.
 - Pro/auto: the study calls `GET /api/v1/levels/{symbol}` on the ZeroGEX API,
   which is `gex`-scoped and returns derived analytics only — never raw
-  per-contract quotes.
+  per-contract quotes. The Bookmap add-on also reads `/api/gex/historical` and
+  the delayed `/api/gex/summary` for the levels before the chart was opened,
+  both `gex`-scoped as well.

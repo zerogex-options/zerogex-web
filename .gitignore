@@ -291,3 +291,9 @@ mcp-registry-auth
 # Wrangler's local state and bundle cache, written next to wrangler.toml when
 # the maintenance-page Worker is deployed or run locally (deploy/cloudflare/).
 .wrangler/
+
+# Bookmap add-on: Bookmap API jars fetched by build.sh, and build output.
+# The published jar lives in frontend/public/bookmap/ and IS tracked.
+integrations/bookmap/.cache/
+integrations/bookmap/build/
+frontend/public/bookmap/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].jar

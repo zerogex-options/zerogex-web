@@ -495,6 +495,14 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   "Too expensive"). "Nothing is charged today" is left out when a conversion charge is
   in flight. Monthly, quarterly and unknown plans keep "keep your access at 25% off for
   a full year" and "Keep my access & claim 25% off".
+- **The page the button opens matches** (`app/save/route.ts`, its words in
+  `app/save/copy.ts`). On a yearly plan it reads "Keep ZeroGEX going at 25% off": access
+  lasts until {date} either way, renewing makes the next year 25% off, it charges
+  nothing today, and the button is "Renew at 25% off". After the click: "Your plan now
+  renews on {date} at 25% off your next year". It doesn't repeat the email's "already
+  paid through", because the page reads only the database and can't tell when a trial
+  conversion charge is still in flight. Other plans keep "Wait - here's 25% off to
+  stay" and "Keep my access & apply 25% off".
 - **Trial cancels** (`trialing`, status `trialing` at the cancel) open with "canceled
   your ZeroGEX trial, so you won't be charged anything" instead of thanking them for
   being "a real part of what I've been building". Not when `conversionChargePending`

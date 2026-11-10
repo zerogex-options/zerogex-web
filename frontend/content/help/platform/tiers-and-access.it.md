@@ -47,7 +47,7 @@ Consulta il confronto in tempo reale nella pagina [Pricing](/pricing). Basic men
 - **Punteggio composito** - la pagina completa dell'MSI, la lettura da 0 a 100 del regime di mercato (con Basic vedi l'MSI stesso sulla Dashboard principale)
 - **Tutti gli Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (beta) - Trading con bot, Backtesting e Analisi dei pattern
-- **Accesso API** - chiavi API personali per gli stessi dati tramite `api.zerogex.io`, che alimentano anche gli indicatori per NinjaTrader e Sierra Chart con aggiornamento automatico
+- **Accesso API** - chiavi API personali per gli stessi dati tramite `api.zerogex.io`, che alimentano anche gli indicatori per NinjaTrader, Sierra Chart e Bookmap con aggiornamento automatico
 
 ## Cosa cambia tra i livelli sulla stessa pagina
 

@@ -46,7 +46,7 @@ Bullflow also publishes iOS and Android apps.
 ZeroGEX covers six symbols and nothing else: SPX, SPY, QQQ, NDX, and the ES and NQ futures, whose levels are the SPX and NDX option levels carried onto the futures price. It does not cover single stocks or dark pool prints, by design.
 
 - **Basic:** real-time gamma levels (the gamma flip, call and put walls, and max pain), the Main Dashboard and the live Gamma Terminal, a dashboard you build from widgets, every Metrics page (dealer positioning, the GEX heatmap and strike profile, options flow, Smart Money, Hedging Flow, volatility, and technicals), the six Basic Signals, the Strategy Builder, and live options quotes.
-- **Pro:** everything in Basic, plus Trade Bias, the Composite Score, the eight Advanced Signals, API access, auto-updating NinjaTrader and Sierra Chart indicators, and TradeWorkz™ (beta): bot trading, backtesting, and pattern insights.
+- **Pro:** everything in Basic, plus Trade Bias, the Composite Score, the eight Advanced Signals, API access, auto-updating NinjaTrader, Sierra Chart, and Bookmap indicators, and TradeWorkz™ (beta): bot trading, backtesting, and pattern insights.
 - **Free, with no account:** 15-minute-delayed levels for all six symbols, TradingView and thinkorswim scripts, a hosted MCP server that puts the same levels in AI assistants like Claude and ChatGPT, session replay, and a public track record of every forecast.
 
 The full breakdown is on the [Pricing](/pricing) page.
@@ -64,7 +64,7 @@ The full breakdown is on the [Pricing](/pricing) page.
 - **Depth on the index complex.** Everything ZeroGEX builds is aimed at SPX, SPY, QQQ, NDX, ES, and NQ: per-expiration gamma, vanna and charm flow, hedging flow, and fourteen signals built on the levels, with their methods set out in the [signals guide](/guides/signals-explained).
 - **The same real-time levels on both plans.** ZeroGEX Basic gets the levels Pro gets, recomputed about once a minute. Bullflow lists faster GEX updates as a Premium feature.
 - **A published method and a graded record.** ZeroGEX documents how it calculates the gamma flip on its [Methodology](/methodology) page and grades every forecast it publishes, misses included, on its [Track Record](/track-record).
-- **Levels where you already chart.** Free TradingView and thinkorswim scripts, and NinjaTrader and Sierra Chart indicators that update themselves on Pro. See [Integrations](/integrations).
+- **Levels where you already chart.** Free TradingView and thinkorswim scripts, and NinjaTrader, Sierra Chart, and Bookmap indicators that update themselves on Pro. See [Integrations](/integrations).
 - **API access without a separate plan,** and a lower yearly price at both levels.
 - **A free way to check the levels first.** The [SPX gamma levels](/spx-gamma-levels) page and its siblings need no signup, and neither does the [MCP server](/education/gamma-levels-in-claude).
 

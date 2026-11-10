@@ -322,7 +322,7 @@ const PAID_FEATURES: { label: string; href: string }[] = [
   { label: 'Basic: the Gamma Terminal live, on every symbol', href: '/pricing' },
   { label: 'Basic: the dashboards, GEX heatmap, strike profile, flow and hedging-flow pages, and the Basic Signals', href: '/pricing' },
   { label: 'Pro: Advanced Signals, Trade Bias and the Composite Score', href: '/guides/signals-explained' },
-  { label: 'Pro: API access and the auto-updating NinjaTrader and Sierra Chart studies', href: '/integrations' },
+  { label: 'Pro: API access and the auto-updating NinjaTrader, Sierra Chart, and Bookmap studies', href: '/integrations' },
 ];
 
 const RESOURCES: { group: string; links: { href: string; label: string }[] }[] = [

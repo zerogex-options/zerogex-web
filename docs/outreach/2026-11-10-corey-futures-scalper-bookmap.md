@@ -145,3 +145,39 @@ zerogex.io
 - **"A wall broke on me."** About one in three ES wall tests break within the
   hour, and nothing in the study (flip side, wall size, flow) predicted which
   ones. That's why the draft pairs the wall with what Bookmap shows at it.
+
+---
+
+## Follow-up: the Bookmap add-on exists now (2026-11-10)
+
+Michael asked for the add-on the same day; it is built (`docs/bookmap-indicator.md`,
+page `/bookmap-indicator`). Two ways to use that with Corey:
+
+- **If the first email has not gone out yet,** replace the optional Bookmap
+  paragraph with the one below and keep everything else.
+- **If it has, and he answers the question,** send the second draft.
+
+Either way, only after the on-screen check in `docs/bookmap-indicator.md`
+passes on a real Bookmap. His Pro access runs to Fri Nov 20, 1:18 PM ET, so he
+can try it without paying anything.
+
+### Paragraph for the first email
+
+I also built something for exactly how you trade: a Bookmap add-on that puts the ZeroGEX levels right on your heatmap and keeps them current, with the day's history, labels at the edge, and alerts when price reaches a wall. It reads your ES or MES chart on its own. It's included with Pro, so you can try it before your access ends on the 20th: https://zerogex.io/bookmap-indicator
+
+### Reply if he answers the Bookmap question
+
+Hi Corey,
+
+Good news: it's built. The ZeroGEX add-on for Bookmap draws the call wall, put wall, gamma flip, max pain, and pin strike on your heatmap and keeps them current. It also loads the whole session's history, so you can scroll back and see where the walls were when price got there, labels the levels at the right edge (or at the top and bottom edge, with their distance, when you're zoomed in), and can alert you when price comes within a few ticks of a wall.
+
+It's included with Pro, and your access runs through the 20th, so you can try it for nothing. Setup is three steps, here: https://zerogex.io/bookmap-indicator
+
+If anything looks off on your chart, hit Copy diagnostics in its settings and send it to me, and I'll take a look.
+
+Best,
+
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io

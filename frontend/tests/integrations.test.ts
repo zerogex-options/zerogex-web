@@ -64,7 +64,7 @@ test('otherIntegrations excludes what it is given, and nothing else', () => {
   assert.equal(pair.length, INTEGRATIONS.length - 2);
   assert.deepEqual(
     pair.map((entry) => entry.id),
-    ['thinkorswim', 'sierrachart'],
+    ['thinkorswim', 'sierrachart', 'bookmap'],
   );
 });
 
@@ -137,7 +137,7 @@ test('the sitemap config lists every integration route', () => {
 // Claims the registry makes about the world
 // ---------------------------------------------------------------------------
 
-test('the two auto-updating integrations are the two Pro ones', () => {
+test('the auto-updating integrations are exactly the Pro ones', () => {
   // Not a coincidence worth losing: a study can only keep itself current if it
   // can call the API, and calling the API needs a key, and the key is the Pro
   // entitlement. If these ever diverge, either a free integration is being
@@ -170,6 +170,7 @@ test('the study sources the pages hand out are tracked in public/', () => {
     'thinkorswim/zerogex-daily-gamma-levels.thinkscript',
     'ninjatrader/ZeroGexGammaLevels.cs',
     'sierrachart/ZeroGexGammaLevels.cpp',
+    'bookmap/zerogex-bookmap.jar',
   ]) {
     assert.ok(existsSync(path.join(PUBLIC_DIR, relative)), `public/${relative} is missing`);
   }

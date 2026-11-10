@@ -146,7 +146,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'tiers',
         q: 'What are the tier differences?',
-        a: 'Public, with no plan, gets the free tools: the Gamma Terminal and the Gamma Levels pages (both delayed about 15 minutes), the Receipts pages, Education, and this Help Center. Basic unlocks the real-time data: the live Gamma Terminal, the Main Dashboard, My Dashboard, the Live Bulletin, the Basic Signal Dashboard, every Metrics page, and the Strategy Tools. Pro adds Trade Bias, the Composite Score page, the Advanced Signal Dashboard, TradeWorkz™ (Bot Trading, Backtesting, and Pattern Insights, all in beta), and API access, including the NinjaTrader and Sierra Chart indicators. The Pricing page has the live breakdown.',
+        a: 'Public, with no plan, gets the free tools: the Gamma Terminal and the Gamma Levels pages (both delayed about 15 minutes), the Receipts pages, Education, and this Help Center. Basic unlocks the real-time data: the live Gamma Terminal, the Main Dashboard, My Dashboard, the Live Bulletin, the Basic Signal Dashboard, every Metrics page, and the Strategy Tools. Pro adds Trade Bias, the Composite Score page, the Advanced Signal Dashboard, TradeWorkz™ (Bot Trading, Backtesting, and Pattern Insights, all in beta), and API access, including the NinjaTrader, Sierra Chart, and Bookmap indicators. The Pricing page has the live breakdown.',
       },
       {
         id: 'monthly-vs-annual',

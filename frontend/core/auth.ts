@@ -54,7 +54,7 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/real-time-gex-0dte',
   // The /integrations hub and every chart-platform landing under it.
   // Marketing/how-to copy with no member data, so they stay open and
-  // crawlable. Two of them (NinjaTrader, Sierra Chart) have a Pro-gated
+  // crawlable. Three of them (NinjaTrader, Sierra Chart, Bookmap) have a Pro-gated
   // DOWNLOAD, but that gate lives in their section components — which render
   // no link at all below Pro — not here: routing the whole page to /login
   // would cost the SEO landing its entire purpose, and there is nothing on it
@@ -72,6 +72,7 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/thinkorswim-indicator',
   '/ninjatrader-indicator',
   '/sierra-chart-indicator',
+  '/bookmap-indicator',
   // A landing for Collective2 strategy managers — marketing copy for the
   // Pro API, carrying no member data and nothing gated. It is NOT a chart
   // integration and is deliberately absent from core/integrations.ts, so it

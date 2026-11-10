@@ -47,7 +47,7 @@ Consulta el desglose en vivo en la página [Pricing](/pricing). Basic mensual in
 - **Puntuación compuesta** - la página completa del MSI, la lectura de 0 a 100 del régimen de mercado (Basic ve el propio MSI en el Panel principal)
 - **Todos los Advanced Signals** - Volatility Expansion, EOD Pressure, Squeeze Setup, Trap Detection, 0DTE Position Imbalance, Gamma/VWAP Confluence, Range Break Imminence, Market Pressure Index
 - **TradeWorkz™** (beta) - Trading con bots, Backtesting y Análisis de patrones
-- **Acceso a la API** - claves de API personales para los mismos datos a través de `api.zerogex.io`, que también alimentan los indicadores de NinjaTrader y Sierra Chart que se actualizan solos
+- **Acceso a la API** - claves de API personales para los mismos datos a través de `api.zerogex.io`, que también alimentan los indicadores de NinjaTrader, Sierra Chart y Bookmap que se actualizan solos
 
 ## Qué cambia entre niveles en la misma página
 

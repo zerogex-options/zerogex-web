@@ -113,7 +113,7 @@ const SECTIONS: Section[] = [
     heading: 'Integrations & API',
     rows: [
       { feature: 'API access (levels, GEX, flow, signals, and history)', basic: false, pro: true },
-      { feature: 'NinjaTrader and Sierra Chart indicators (auto-updating)', basic: false, pro: true },
+      { feature: 'NinjaTrader, Sierra Chart, and Bookmap indicators (auto-updating)', basic: false, pro: true },
       { feature: 'TradingView and thinkorswim scripts (free for everyone)', basic: true, pro: true },
       { feature: 'Levels in AI assistants over MCP (free, delayed)', basic: true, pro: true },
     ],

@@ -59,7 +59,7 @@ ZeroGEX Basic monthly starts with a 7-day free trial, and every other ZeroGEX pl
 - **Depth on the index complex.** Everything ZeroGEX builds is aimed at SPX, SPY, QQQ, NDX, ES, and NQ: the gamma flip, the walls, gamma by expiration, vanna and charm flow, hedging flow, and fourteen signals built on the levels, with their methods set out in the [signals guide](/guides/signals-explained).
 - **The regime line on every chart.** The gamma flip is drawn on the GEX Heatmap and the price charts: the level where modeled dealer hedging tends to switch from damping moves to extending them.
 - **A published method and a graded record.** ZeroGEX documents how it calculates the gamma flip on its [Methodology](/methodology) page and grades every forecast it publishes, misses included, on its [Track Record](/track-record).
-- **Levels where you already chart.** Free TradingView and thinkorswim scripts, and NinjaTrader and Sierra Chart indicators that update themselves on Pro. See [Integrations](/integrations).
+- **Levels where you already chart.** Free TradingView and thinkorswim scripts, and NinjaTrader, Sierra Chart, and Bookmap indicators that update themselves on Pro. See [Integrations](/integrations).
 - **A lower price, with the API included.** Both ZeroGEX plans cost less than Quant Data's platform plan, and API access comes with Pro instead of a separate plan.
 - **A free way to check first.** The [SPX gamma levels](/spx-gamma-levels) page and its siblings need no signup, and neither does the [MCP server](/education/gamma-levels-in-claude) that puts the same levels in AI assistants.
 
