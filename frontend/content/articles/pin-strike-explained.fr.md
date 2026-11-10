@@ -15,7 +15,7 @@ Le Pin Strike est une réponse conçue sur mesure à cette question précise. Il
 
 Les deux moitiés comptent, et c'est la seconde qui rend le Pin Strike différent de tous les autres niveaux du tableau. Un strike peut porter une empreinte de gamma énorme et rester un piètre candidat au pin si le prix n'a aucune chance réaliste de l'atteindre à l'approche de la cloche. Le Pin Strike est construit pour rétrograder ces géants inatteignables et faire ressortir le nœud atteignable autour duquel le prix peut réellement s'organiser.
 
-Si vous découvrez les mécanismes sous-jacents, le [pilier Gamma Exposure](/education/gamma-exposure-explained) couvre la façon dont le gamma dealer entraîne la couverture, [Comment lire un gamma flip](/education/how-to-read-a-gamma-flip) couvre la ligne de régime, et [Le Max Pain expliqué](/education/max-pain-explained) couvre l'idée d'aimant de règlement avec laquelle le Pin Strike est souvent confondu. Cet article suppose ce contexte acquis et s'appuie dessus.
+Si vous découvrez les mécanismes sous-jacents, le [pilier Gamma Exposure](/education/gamma-exposure-explained) couvre la façon dont le gamma dealer entraîne la couverture, [Qu'est-ce qu'un gamma flip ?](/education/how-to-read-a-gamma-flip) couvre la ligne de régime, et [Le Max Pain expliqué](/education/max-pain-explained) couvre l'idée d'aimant de règlement avec laquelle le Pin Strike est souvent confondu. Cet article suppose ce contexte acquis et s'appuie dessus.
 
 ---
 
@@ -109,7 +109,7 @@ pin_score(K) = restoring_gex(K) × reachability(K)
 
 Un strike ne l'emporte qu'en étant **à la fois** un nœud à fort gamma positif **et** réalistement atteignable. Un nœud énorme mais inatteignable obtient un score proche de zéro (l'atteignabilité le tue). Un strike parfaitement atteignable mais sans gamma local positif obtient un score exactement nul (le gamma de rappel le tue). Le Pin Strike est le strike coté au `pin_score` maximal.
 
-Les candidats sont d'emblée restreints aux strikes situés à environ deux mouvements attendus du spot - les seuls strikes dotés d'une atteignabilité significative - de sorte que la simulation reste peu coûteuse et ne considère même jamais la queue lointaine. Et seuls des **strikes réellement cotés** sont renvoyés, de sorte que le Pin Strike est toujours un contrat réel et cotable.
+Les candidats sont d'emblée restreints aux strikes situés dans un rayon d'environ deux mouvements attendus autour du spot - les seuls strikes dotés d'une atteignabilité significative - de sorte que la simulation reste peu coûteuse et ne considère même jamais la queue lointaine. Et seuls des **strikes réellement cotés** sont renvoyés, de sorte que le Pin Strike est toujours un contrat réel et cotable.
 
 Aux côtés du strike, le Pin Strike rapporte une **confiance** - le degré de domination du vainqueur sur les autres pins viables :
 
@@ -117,7 +117,7 @@ Aux côtés du strike, le Pin Strike rapporte une **confiance** - le degré de 
 pin_confidence = max_pin_score / Σ (all positive pin_scores)
 ```
 
-Une confiance proche de 1.0 signifie qu'un seul nœud domine outrageusement le paysage atteignable à gamma positif - un pin net et singulier. Une confiance faible signifie que plusieurs candidats comparables sont en concurrence, et que le prix est plus susceptible de ballotter entre eux que de se verrouiller sur un seul. Le score maximal brut est également conservé, car la concentration seule peut induire en erreur lorsque *chaque* score est minuscule - un pin « dominant » parmi des candidats négligeables reste négligeable.
+Une confiance proche de 1,0 signifie qu'un seul nœud domine outrageusement le paysage atteignable à gamma positif - un pin net et singulier. Une confiance faible signifie que plusieurs candidats comparables sont en concurrence, et que le prix est plus susceptible de ballotter entre eux que de se verrouiller sur un seul. Le score maximal brut est également conservé, car la concentration seule peut induire en erreur lorsque *chaque* score est minuscule - un pin « dominant » parmi des candidats négligeables reste négligeable.
 
 ---
 
@@ -127,11 +127,11 @@ Le Pin Strike s'inscrit dans une famille de niveaux de positionnement des dealer
 
 - **Call Wall / Put Wall** - les strikes au-dessus et en dessous du spot présentant le plus grand gamma call/put unilatéral *actuel*. Ils marquent les concentrations dominantes de résistance et de support au prix *d'aujourd'hui*. Le Pin Strike ne concerne pas la plus grande concentration unilatérale et n'est pas mesuré au prix d'aujourd'hui - il concerne la stabilisation locale *nette* évaluée à chaque strike candidat comme si le prix s'y trouvait. Voir [Les gamma walls expliqués](/education/gamma-walls-explained).
 
-- **Gamma Flip** - le spot hypothétique auquel le gamma dealer *agrégé* change de signe ; la frontière entre les régimes stabilisant et déstabilisant pour l'ensemble du book. Le flip est une ligne de régime ; le Pin Strike est un aimant spécifique *à l'intérieur* d'un régime stabilisant. (De fait, si le spot se situe sous le flip, en territoire de gamma net short, le Pin Strike ne trouvera souvent rien à quoi se pinner - ce qui est la bonne réponse.) Voir [Comment lire un gamma flip](/education/how-to-read-a-gamma-flip).
+- **Gamma Flip** - le spot hypothétique auquel le gamma dealer *agrégé* change de signe ; la frontière entre les régimes stabilisant et déstabilisant pour l'ensemble du book. Le flip est une ligne de régime ; le Pin Strike est un aimant spécifique *à l'intérieur* d'un régime stabilisant. (De fait, si le spot se situe sous le flip, en territoire de gamma net short, le Pin Strike ne trouvera souvent rien à quoi se pinner - ce qui est la bonne réponse.) Voir [Qu'est-ce qu'un gamma flip ?](/education/how-to-read-a-gamma-flip)
 
 - **Max Pain** - le strike de règlement qui minimise le paiement intrinsèque agrégé aux détenteurs d'options. Il n'utilise que l'open interest et les strikes - pas de grecques, pas de volatilité, pas de signe de dealer, et aucune notion d'atteignabilité ni de la *façon* dont les dealers se couvrent. C'est un niveau de comptabilité des paiements. Le Pin Strike est un niveau de mécanique de couverture. Ils divergent fréquemment, et lorsqu'ils concordent, c'est généralement parce qu'un gamma lourd et un open interest lourd coïncident par hasard. Voir [Le Max Pain expliqué](/education/max-pain-explained).
 
-- **King Node / strike au plus grand GEX** - simplement le strike au plus grand gamma en dollars *actuel*. C'est celui pour lequel on confond le plus souvent le Pin Strike, et le poids d'atteignabilité est précisément ce qui les sépare. **Le Pin Strike ne sélectionne délibérément pas le strike au GEX le plus élevé.** Le King Node ignore si le prix peut l'atteindre et ignore si le nœud est net stabilisant ; le Pin Strike est conçu pour rétrograder un géant inatteignable ou à gamma court au profit d'un nœud atteignable à gamma positif. Lorsque les deux coïncident, c'est parce que le gamma dominant se trouve aussi être près du spot et stabilisant - une confirmation significative, pas une redondance.
+- **King Node / strike au plus grand GEX** - simplement le strike au plus grand gamma en dollars *actuel*. C'est celui avec lequel on confond le plus souvent le Pin Strike, et le poids d'atteignabilité est précisément ce qui les sépare. **Le Pin Strike ne sélectionne délibérément pas le strike au GEX le plus élevé.** Le King Node ignore si le prix peut l'atteindre et ignore si le nœud est net stabilisant ; le Pin Strike est conçu pour rétrograder un géant inatteignable ou à gamma court au profit d'un nœud atteignable à gamma positif. Lorsque les deux coïncident, c'est parce que le gamma dominant se trouve aussi être près du spot et stabilisant - une confirmation significative, pas une redondance.
 
 La version en une ligne : **les walls sont une concentration, le flip est une frontière de régime, le max pain est un minimum de paiement, le King Node est une taille brute - et le Pin Strike est une stabilisation locale, atteignable et net positive, à l'approche de l'expiration.**
 

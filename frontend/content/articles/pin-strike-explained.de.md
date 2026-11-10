@@ -1,6 +1,6 @@
 # Pin Strike erklärt: Der erreichbare 0DTE-Gamma-Pin
 
-*Pin Strike ist der erreichbare 0DTE-Strike mit der stärksten modellierten positiven Dealer-Gamma-Stabilisierung in den Verfall hinein. Was er ist, wie er aufgebaut ist, warum er bewusst nicht "der größte Gamma-Strike" ist, und warum er keinen aktiven Pin ausweisen darf.*
+*Pin Strike ist der erreichbare 0DTE-Strike mit der stärksten modellierten positiven Dealer-Gamma-Stabilisierung in den Verfall hinein. Was er ist, wie er aufgebaut ist, warum er bewusst nicht "der größte Gamma-Strike" ist, und warum es ihm erlaubt ist, keinen aktiven Pin auszuweisen.*
 
 ---
 
@@ -15,7 +15,7 @@ Pin Strike ist eine eigens für diese spezifische Frage gebaute Antwort. Er sch�
 
 Beide Hälften zählen, und die zweite ist es, die Pin Strike von jedem anderen Level auf der Tafel unterscheidet. Ein Strike kann einen enormen Gamma-Fußabdruck tragen und trotzdem ein miserabler Pin-Kandidat sein, wenn der Preis keine realistische Chance hat, ihn bis zum Schlussgong zu erreichen. Pin Strike ist darauf ausgelegt, diese unerreichbaren Riesen herabzustufen und den erreichbaren Node hervorzuheben, um den herum sich der Preis tatsächlich organisieren kann.
 
-Wer mit den zugrundeliegenden Mechanismen noch nicht vertraut ist: Der [Gamma-Exposure-Grundlagenartikel](/education/gamma-exposure-explained) behandelt, wie Dealer-Gamma das Hedging antreibt, [Wie man einen Gamma Flip liest](/education/how-to-read-a-gamma-flip) behandelt die Regime-Linie, und [Max Pain erklärt](/education/max-pain-explained) behandelt die Idee des Settlement-Magneten, mit der Pin Strike oft verwechselt wird. Dieser Beitrag setzt diesen Hintergrund voraus und baut darauf auf.
+Wer mit den zugrundeliegenden Mechanismen noch nicht vertraut ist: Der [Gamma-Exposure-Grundlagenartikel](/education/gamma-exposure-explained) behandelt, wie Dealer-Gamma das Hedging antreibt, [Was ist ein Gamma Flip?](/education/how-to-read-a-gamma-flip) behandelt die Regime-Linie, und [Max Pain erklärt](/education/max-pain-explained) behandelt die Idee des Settlement-Magneten, mit der Pin Strike oft verwechselt wird. Dieser Beitrag setzt diesen Hintergrund voraus und baut darauf auf.
 
 ---
 
@@ -117,7 +117,7 @@ Neben dem Strike weist Pin Strike eine **Konfidenz** aus - wie dominant der Gew
 pin_confidence = max_pin_score / Σ (all positive pin_scores)
 ```
 
-Eine Konfidenz nahe `1.0` bedeutet, dass ein einzelner Node die erreichbare Positive-Gamma-Landschaft überwältigend beherrscht - ein sauberer, singulärer Pin. Eine niedrige Konfidenz bedeutet, dass mehrere vergleichbare Kandidaten konkurrieren und der Preis eher zwischen ihnen hin- und herschwappt, als sich auf einen festzulegen. Der rohe Maximal-Score wird ebenfalls beibehalten, denn Konzentration allein kann in die Irre führen, wenn *jeder* Score winzig ist - ein "dominanter" Pin unter vernachlässigbaren Kandidaten ist immer noch vernachlässigbar.
+Eine Konfidenz nahe 1,0 bedeutet, dass ein einzelner Node die erreichbare Positive-Gamma-Landschaft überwältigend beherrscht - ein sauberer, singulärer Pin. Eine niedrige Konfidenz bedeutet, dass mehrere vergleichbare Kandidaten konkurrieren und der Preis eher zwischen ihnen hin- und herschwappt, als sich auf einen festzulegen. Der rohe Maximal-Score wird ebenfalls beibehalten, denn Konzentration allein kann in die Irre führen, wenn *jeder* Score winzig ist - ein "dominanter" Pin unter vernachlässigbaren Kandidaten ist immer noch vernachlässigbar.
 
 ---
 
@@ -127,7 +127,7 @@ Pin Strike gehört zu einer Familie von Dealer-Positionierungs-Levels, und sein 
 
 - **Call Wall / Put Wall** - die Strikes über und unter dem Spot mit dem größten *aktuellen* einseitigen Call-/Put-Gamma. Sie markieren die dominanten Konzentrationen von Widerstand und Unterstützung zum *heutigen* Preis. Bei Pin Strike geht es nicht um die größte einseitige Konzentration und er wird nicht zum heutigen Preis gemessen - es geht um *netto* lokale Stabilisierung, ausgewertet an jedem Kandidaten-Strike, als wäre der Preis dort. Siehe [Gamma Walls erklärt](/education/gamma-walls-explained).
 
-- **Gamma Flip** - der hypothetische Spot, an dem das *aggregierte* Dealer-Gamma das Vorzeichen wechselt; die Grenze zwischen dem stabilisierenden und dem destabilisierenden Regime für das gesamte Buch. Der Flip ist eine Regime-Linie; Pin Strike ist ein spezifischer Magnet *innerhalb* eines stabilisierenden Regimes. (Tatsächlich wird Pin Strike, wenn der Spot unter dem Flip im Netto-Short-Gamma-Territorium liegt, oft nichts finden, woran er pinnen könnte - was die richtige Antwort ist.) Siehe [Wie man einen Gamma Flip liest](/education/how-to-read-a-gamma-flip).
+- **Gamma Flip** - der hypothetische Spot, an dem das *aggregierte* Dealer-Gamma das Vorzeichen wechselt; die Grenze zwischen dem stabilisierenden und dem destabilisierenden Regime für das gesamte Buch. Der Flip ist eine Regime-Linie; Pin Strike ist ein spezifischer Magnet *innerhalb* eines stabilisierenden Regimes. (Tatsächlich wird Pin Strike, wenn der Spot unter dem Flip im Netto-Short-Gamma-Territorium liegt, oft nichts finden, woran er pinnen könnte - was die richtige Antwort ist.) Siehe [Was ist ein Gamma Flip?](/education/how-to-read-a-gamma-flip)
 
 - **Max Pain** - der Settlement-Strike, der die aggregierte intrinsische Auszahlung an die Optionsinhaber minimiert. Er verwendet nur Open Interest und Strikes - keine Griechen, keine Volatilität, kein Dealer-Vorzeichen und keinen Begriff von Erreichbarkeit oder davon, *wie* Dealer hedgen. Es ist ein Level der Auszahlungsbuchhaltung. Pin Strike ist ein Level der Hedging-Mechanik. Sie widersprechen sich häufig, und wenn sie übereinstimmen, dann meist, weil schweres Gamma und schweres OI zufällig zusammenfallen. Siehe [Max Pain erklärt](/education/max-pain-explained).
 
@@ -163,7 +163,7 @@ Und ganz entscheidend erkennt er, wann *nichts* davon zutrifft - was das Thema 
 
 ## Wann Pin Strike null ist - und warum wir uns dafür entschieden haben
 
-Das ist der Teil, der Pin Strike am stärksten von einem naiven "nächster schwerer Strike"-Tool unterscheidet: **Er darf - und soll - keinen aktiven Pin ausweisen.** Ein Tool, das immer ein Level druckt, ist leicht zu bauen und leicht falsch zu lesen - es erzeugt falsche Zuversicht an genau den Tagen, an denen es nichts gibt, woran man pinnen könnte. Pin Strike tut das Schwierigere und Ehrlichere: Wenn es keinen aussagekräftigen Positive-Gamma-Pin gibt, gibt er nichts zurück und sagt dir, *warum*.
+Das ist der Teil, der Pin Strike am stärksten von einem naiven "nächster schwerer Strike"-Tool unterscheidet: **Es ist ihm erlaubt - und von ihm erwartet -, keinen aktiven Pin auszuweisen.** Ein Tool, das immer ein Level druckt, ist leicht zu bauen und leicht falsch zu lesen - es erzeugt falsche Zuversicht an genau den Tagen, an denen es nichts gibt, woran man pinnen könnte. Pin Strike tut das Schwierigere und Ehrlichere: Wenn es keinen aussagekräftigen Positive-Gamma-Pin gibt, gibt er nichts zurück und sagt dir, *warum*.
 
 Wenn es keinen aktiven Pin gibt, meldet die Metrik einen der folgenden Gründe:
 
