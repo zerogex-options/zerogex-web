@@ -10,10 +10,12 @@ sim, and wants to backtest as well as sim live. Pro feels expensive for that,
 so he built his own Sierra study on the free 15-minute-delayed data. He says
 "you can only pick a two hour window as it's already delayed".
 
-> **Status:** account checked and code created in Stripe (live), Nov 10. Coupon
-> `G4Mgsdy9` "Pro first month free": $59.00 off once, ZeroGEX Pro only, 1
-> redemption, expires Nov 24. Promotion code `PROFREEMONTH`
-> (`promo_1Ua3cP4AOiqteM…`), expires Nov 24 at 11:59 PM. Reply not sent yet.
+> **Status:** first reply sent Nov 10; he redeemed `PROFREEMONTH` at 10:41 AM ET
+> and is on Pro monthly. Coupon `G4Mgsdy9` "Pro first month free": $59.00 off
+> once, ZeroGEX Pro only, 1 redemption, expires Nov 24. Second reply (the
+> Sierra study, below) is drafted. **Don't send it until
+> `claude/sierra-study-build-fix` is deployed:** the study as first served
+> doesn't build on current Sierra Chart.
 
 ## The read
 
@@ -135,3 +137,63 @@ Founder, ZeroGEX
 - **If the code is rejected at checkout,** the usual cause is the referral
   case from step 1 or a code made in test mode. Check the coupon is in Live
   mode and on the Pro product.
+
+## Nov 10, 10:43 AM: he subscribed and asks for the Sierra DLL
+
+**Inbound.** "I have just subscribed for the one month trial. Is there a
+sierra study that you guys have which will superceded my coded version? If so
+let me know where I can download the DLL and add it in, if not ill work more
+on my code to make it even better."
+
+### His subscription (`make diagnose-user`, Nov 10)
+
+| | |
+|---|---|
+| Stripe | `cus_VbU81QqteOlWB9`, `sub_1UaHAn4AOiqteMYYtEBqnNMF`, Pro monthly ($59), `active`, `money_back=1` |
+| First invoice | `in_1UaHAn4AOiqteMYYOTlU5Uyk`, $0.00 paid (the coupon, now used up) |
+| Next charge | $59.00 on Thu Dec 10, through Stripe Link (no card object, so the reminder names no card) |
+| Admin bucket | "Converting" until Dec 10: a $0 first invoice doesn't stamp a first payment. Expected. |
+| Guarantee | covers the Dec 10 charge for 7 days |
+
+### The read
+
+- **We have a study, but it's a `.cpp`, not a DLL.** He builds it inside
+  Sierra Chart with Remote Build.
+- **The study as first served did not build on current Sierra Chart.** Sierra
+  removed `sc.FreeDLL` in 2969 (Oct 9). Where it did build, the levels froze
+  after the first load. Both are fixed on `claude/sierra-study-build-fix` (see
+  `docs/sierra-chart-indicator.md`, "Fixed 2026-11-10"). It's compiled against
+  ACSIL header copies, not yet inside a real install, so he is in effect the
+  first real build, and the draft asks him to send any error.
+- **It doesn't replace his code for backtesting.** It draws today's live
+  levels only. Past sessions are in `/api/replay/range` (per-minute bars with
+  `gamma_flip`, `call_wall`, `put_wall`, `max_pain`), which needs the key in a
+  header. Only `/api/v1|v2/levels` takes `?api_key=`, and ACSIL can send
+  headers only on POST (`sc.MakeHTTPPOSTRequest`), so he'd pull history from
+  outside Sierra.
+- **He hasn't said what the two-hour window is.** The draft asks once more,
+  lightly.
+
+### Draft reply
+
+Hi Kishan,
+
+Great, welcome aboard.
+
+Yes, we have one. It comes as source code (a .cpp file) rather than a ready-made DLL, and Sierra Chart builds the DLL for you:
+
+1. Get your API key: on zerogex.io, go to Account → API Access and click Generate API Key. It's only shown once, so copy it somewhere safe.
+2. Download the study from zerogex.io/sierra-chart-indicator. The Download button shows when you're logged in on Pro.
+3. Put the .cpp in your ACS_Source folder, then go to Analysis → Build Custom Studies DLL and choose Build → Remote Build.
+4. Analysis → Studies → Add Custom Study → "ZeroGEX Gamma Levels". Paste your key into ZeroGEX API Key and set Symbol to match your chart (ES, NQ, SPX, SPY, QQQ or NDX).
+
+It draws the gamma flip, call wall, put wall, max pain and pin strike, and refreshes them every 60 seconds by default. On ES or NQ the levels land directly on the futures price, and each level is a normal subgraph, so you can use it in spreadsheet studies and alerts.
+
+Whether it replaces yours depends on what yours does. It only shows today's live levels, so it won't help with backtesting. For that, your own code is the way to go: the API has minute-by-minute history for past sessions, including the walls, the flip and max pain. One catch for Sierra: only the levels endpoint accepts the key in the URL (?api_key=), which is all sc.MakeHTTPRequest can send. The history endpoints need the key in an X-API-Key header, so you'd pull those from outside Sierra. The docs are at https://api.zerogex.io/docs
+
+You're one of the first people to build it on the latest Sierra Chart, so if the build or the study shows any error, send me the message and I'll fix it quickly.
+
+And when you get a minute, I'm still curious which page gave you the two-hour window.
+
+Best,
+Michael
