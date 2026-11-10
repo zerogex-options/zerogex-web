@@ -110,6 +110,10 @@ export const TelemetryEvent = {
    *  `action` property records which: download | get_key | upgrade |
    *  see_pricing. Same Pro funnel as the NinjaTrader indicator. */
   SierraChartIndicatorClicked: 'sierrachart_indicator_clicked',
+  /** Bookmap add-on downloaded, or its "get your API key" CTA clicked
+   *  (client, /bookmap-indicator). `action`: download | get_key | upgrade |
+   *  see_pricing. Same Pro funnel as the NinjaTrader and Sierra Chart studies. */
+  BookmapIndicatorClicked: 'bookmap_indicator_clicked',
   /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
   OgPreviewed: 'og_previewed',
   /** A CTA in the "Read these levels inside Claude" block was clicked (client,

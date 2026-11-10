@@ -16,3 +16,9 @@ export const SIERRACHART_STUDY_HASH = '8499772f';
 
 /** Cache-busting path for the Sierra Chart ACSIL study source (auto-updating), relative to the site root. */
 export const SIERRACHART_STUDY_PATH = '/sierrachart/ZeroGexGammaLevels.8499772f.cpp';
+
+/** Content hash of the Bookmap add-on jar (auto-updating) (first 8 hex of its sha256). */
+export const BOOKMAP_ADDON_HASH = 'c5283ed4';
+
+/** Cache-busting path for the Bookmap add-on jar (auto-updating), relative to the site root. */
+export const BOOKMAP_ADDON_PATH = '/bookmap/zerogex-bookmap.c5283ed4.jar';

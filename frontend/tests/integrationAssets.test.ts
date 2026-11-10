@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
+  BOOKMAP_ADDON_HASH,
+  BOOKMAP_ADDON_PATH,
   SIERRACHART_STUDY_HASH,
   SIERRACHART_STUDY_PATH,
   THINKORSWIM_STUDY_HASH,
@@ -57,6 +59,10 @@ test('the committed Sierra Chart hash matches the tracked study', () => {
   );
 });
 
+test('the committed Bookmap hash matches the tracked jar', () => {
+  assert.equal(BOOKMAP_ADDON_HASH, hashOf('bookmap/zerogex-bookmap.jar'), `integrationAssets.ts ${STALE}`);
+});
+
 test('each path is the one derived from its own hash', () => {
   // Path and hash are written from the same variable by the generator, so they
   // can only disagree if someone hand-edited the file it says not to hand-edit.
@@ -68,6 +74,7 @@ test('each path is the one derived from its own hash', () => {
     SIERRACHART_STUDY_PATH,
     `/sierrachart/ZeroGexGammaLevels.${SIERRACHART_STUDY_HASH}.cpp`,
   );
+  assert.equal(BOOKMAP_ADDON_PATH, `/bookmap/zerogex-bookmap.${BOOKMAP_ADDON_HASH}.jar`);
 });
 
 test('the thinkorswim study is not stored with a .ts extension', () => {

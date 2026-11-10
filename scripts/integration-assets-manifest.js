@@ -76,6 +76,16 @@ const ASSETS = [
     file: 'ZeroGexGammaLevels.cpp',
     description: 'Sierra Chart ACSIL study source (auto-updating)',
   },
+  {
+    // A compiled jar, not a source: Bookmap loads add-ons as jars and has no
+    // compiler of its own. Built reproducibly from integrations/bookmap/ by
+    // its build.sh --release; tests/bookmapAddon.test.ts fails if the jar no
+    // longer matches those sources.
+    constant: 'BOOKMAP_ADDON',
+    dir: 'bookmap',
+    file: 'zerogex-bookmap.jar',
+    description: 'Bookmap add-on jar (auto-updating)',
+  },
 ];
 
 /** First 8 hex of the file's sha256 — same digest the sibling scripts use. */

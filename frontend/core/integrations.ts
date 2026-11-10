@@ -24,7 +24,7 @@
 // tests/integrations.test.ts fails if the registry and the routes disagree.
 
 /** Stable key for one integration. Used for React keys and telemetry. */
-export type IntegrationId = 'tradingview' | 'thinkorswim' | 'ninjatrader' | 'sierrachart';
+export type IntegrationId = 'tradingview' | 'thinkorswim' | 'ninjatrader' | 'sierrachart' | 'bookmap';
 
 /**
  * What it costs to actually use the thing.
@@ -43,8 +43,8 @@ export type IntegrationTier = 'free' | 'pro';
  * choosing one, and it is NOT a product decision — it falls straight out of
  * what the host platform's scripting language is allowed to do. Pine Script
  * and thinkScript are sandboxed with no network access, so those two can only
- * ever be manual-entry. NinjaScript (C#) and ACSIL (C++) can make HTTP calls,
- * so those two poll the API. `updatesNote` carries that reason, because "why
+ * ever be manual-entry. NinjaScript (C#), ACSIL (C++) and Bookmap's add-on API
+ * (Java) can make HTTP calls, so those three poll the API. `updatesNote` carries that reason, because "why
  * is the free one manual?" is otherwise a support question.
  */
 export type IntegrationUpdates = 'auto' | 'manual';
@@ -141,6 +141,21 @@ export const INTEGRATIONS: readonly Integration[] = [
     levels: 'Gamma Flip · Call Wall · Put Wall · Max Pain · Pin Strike',
     accent: '--color-brand-accent',
   },
+  {
+    id: 'bookmap',
+    platform: 'Bookmap',
+    href: '/bookmap-indicator',
+    navLabel: 'Bookmap Add-on',
+    cardTitle: 'Auto-updating levels on Bookmap',
+    blurb:
+      'A Bookmap add-on that keeps the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your heatmap, with the session’s history, labels at the edge, a per-strike gamma profile, and alerts. It reads ES, NQ, MES, and MNQ charts on its own.',
+    tier: 'pro',
+    updates: 'auto',
+    updatesNote: 'Bookmap add-ons are Java, so it fetches the levels itself, seconds after each update.',
+    language: 'Bookmap add-on (Java)',
+    levels: 'Gamma Flip · Call Wall · Put Wall · Max Pain · Pin Strike · gamma profile',
+    accent: '--color-brand-accent',
+  },
 ] as const;
 
 /** The parent page that houses all of the above. */
@@ -167,7 +182,7 @@ export function otherIntegrations(exclude: IntegrationId | readonly IntegrationI
 }
 
 /**
- * Every route the registry owns — the four landings plus the hub.
+ * Every route the registry owns — every platform landing plus the hub.
  *
  * core/auth.ts spreads this into PUBLIC_ROUTE_PATTERNS so the two can't drift.
  * All of these are marketing/how-to pages carrying no member data; the Pro

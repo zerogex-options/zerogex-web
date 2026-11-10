@@ -1344,18 +1344,18 @@ export default async function GammaLevelsView({ primary }: { primary: PageSymbol
           }}
         />
 
-        {/* Sierra Chart as a compact card rather than a fourth full section.
-            These pages already carry a lot below the fold, and another
-            28px-padded block of setup instructions would push the evergreen
-            content that makes them rank further down. The three sections above
-            earn the space: two are what these pages have always converted on,
-            and thinkorswim's is here for the pre-fill above. Sierra Chart's
-            does not benefit the same way — it fetches its own levels, so its
-            landing page serves it just as well. */}
+        {/* Sierra Chart and Bookmap as compact cards rather than full
+            sections. These pages already carry a lot below the fold, and
+            another 28px-padded block of setup instructions would push the
+            evergreen content that makes them rank further down. The three
+            sections above earn the space: two are what these pages have always
+            converted on, and thinkorswim's is here for the pre-fill above.
+            Sierra Chart's and Bookmap's do not benefit the same way: both fetch
+            their own levels, so their landing pages serve them just as well. */}
         {!isStock && (
           <IntegrationsStrip
             exclude={['tradingview', 'ninjatrader', 'thinkorswim']}
-            heading="On Sierra Chart instead?"
+            heading="On Sierra Chart or Bookmap instead?"
           />
         )}
 

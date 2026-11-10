@@ -45,7 +45,11 @@ test('the application node carries the offers and the shared publisher reference
 
 test('the pricing page and the Pro integration landings read the same constant', () => {
   assert.match(read('../app/pricing/page.tsx'), /pricingJsonLd\(/);
-  for (const page of ['../app/ninjatrader-indicator/page.tsx', '../app/sierra-chart-indicator/page.tsx']) {
+  for (const page of [
+    '../app/ninjatrader-indicator/page.tsx',
+    '../app/sierra-chart-indicator/page.tsx',
+    '../app/bookmap-indicator/page.tsx',
+  ]) {
     const source = read(page);
     assert.match(source, /price: String\(LIST_PRICE_USD\.pro\.monthly\)/, `${page} should quote Pro monthly from billingPlans`);
     assert.ok(source.includes('/pricing#pro-monthly'), `${page} should point at the /pricing Offer node`);
