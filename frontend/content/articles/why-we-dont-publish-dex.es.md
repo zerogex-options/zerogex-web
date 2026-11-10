@@ -6,15 +6,15 @@
 
 ## La objeción, en sentido estricto
 
-El DEX bruto es una estimación modelada de la **exposición de delta calculada solo con opciones**, resumida habitualmente como `Σ(delta × interés abierto × multiplicador del contrato)`. Puede describir el inventario direccional supuesto de la pata de opciones. Como excluye la cobertura compensatoria en el subyacente y mide un nivel en lugar de un cambio, ZeroGEX no lo considera una estimación fiable por sí sola del futuro flujo de cobertura de los dealers.
+El DEX bruto es una estimación modelada de la **exposición de delta calculada solo con opciones**, resumida habitualmente como `Σ(delta × open interest × contract multiplier)`. Puede describir el inventario direccional supuesto de la pata de opciones. Como excluye la cobertura compensatoria en el subyacente y mide un nivel en lugar de un cambio, ZeroGEX no lo considera una estimación fiable por sí sola del futuro flujo de cobertura de los dealers.
 
-Esa es una afirmación más estrecha que decir que el DEX no significa nada. La propiedad real de los dealers no es observable en el interés abierto público, así que el DEX hereda además cualquier convención de posicionamiento que aplique el cálculo.
+Esa es una afirmación más estrecha que decir que el DEX no significa nada. La propiedad real de los dealers no es observable en el open interest público, así que el DEX hereda además cualquier convención de posicionamiento que aplique el cálculo.
 
 ## Un nivel no es una operación futura
 
 Un dealer puede compensar el delta de opciones con acciones, futuros u otras opciones, y puede gestionar la cartera agregada dentro de bandas de cobertura. El DEX bruto calculado solo con opciones omite esas coberturas. Más importante aún: un nivel de delta actual no dice cómo cambiará el delta a continuación. La demanda potencial de cobertura surge cuando el spot, el tiempo, la volatilidad implícita, nuevas operaciones o cambios de posición alteran el delta de la cartera.
 
-Los contratos muy dentro del dinero pueden aportar mucho a un total de delta calculado solo con opciones, porque su delta absoluto se acerca a uno. Eso no es un error: forma parte de la estimación de inventario. Sí implica que un total bruto elevado no tiene por qué identificar los strikes con mayor sensibilidad del delta a corto plazo. La gamma, el charm y la vanna tienen perfiles distintos por strike y por vencimiento; no todos alcanzan su máximo en el dinero de forma universal.
+Los contratos muy ITM pueden aportar mucho a un total de delta calculado solo con opciones, porque su delta absoluto se acerca a uno. Eso no es un error: forma parte de la estimación de inventario. Sí implica que un total bruto elevado no tiene por qué identificar los strikes con mayor sensibilidad del delta a corto plazo. La gamma, el charm y la vanna tienen perfiles distintos por strike y por vencimiento; no todos alcanzan su máximo en el dinero de forma universal.
 
 ## Usos válidos del DEX
 
@@ -33,6 +33,6 @@ El modelo Forced Flow de ZeroGEX compara el delta modelado de la cartera ahora c
 
 > El DEX bruto puede describir un nivel de delta supuesto, calculado solo con opciones. ZeroGEX no usa ese nivel por sí solo como estimación del futuro flujo de cobertura de los dealers.
 
-Para los conceptos de fondo, consulta [Por qué los market makers se ven obligados a operar en acciones](/education/why-market-makers-trade-stock) y [Delta y sus tres hijos](/education/delta-and-its-three-children).
+Para los conceptos de fondo, consulta [Por qué los market makers operan en acciones](/education/why-market-makers-trade-stock) y [Delta y sus tres hijos](/education/delta-and-its-three-children).
 
 Solo contenido educativo - nada de lo anterior es una recomendación de trading.
