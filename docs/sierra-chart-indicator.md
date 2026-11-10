@@ -20,26 +20,56 @@ See `docs/integrations.md` for how this fits with the other three.
 
 ## ⚠️ Compile status
 
-**The `.cpp` has not been compiled against a real Sierra Chart install.** It is
-written against the portable, long-standing subset of ACSIL
-(`sc.MakeHTTPRequest`, `sc.HTTPResponse`, subgraphs, `sc.GetPersistentInt`)
-specifically to keep that subset small, and the design decisions below were
-made to avoid the parts of the API that vary between versions. But
-sierrachart.com is not reachable from the environment this was written in, so
-the exact signatures could not be checked against the current ACSIL reference.
+**Compiled, but not yet inside a real Sierra Chart install.** On 2026-11-10 the
+study was built with MinGW GCC 13 using the exact command Sierra Chart
+publishes for its recommended **Remote Build**
+(sierrachart.com, "Advanced Custom Study Interface and Language"), against
+three header sets:
 
-**Before publishing the download**, drop it in `ACS_Source` and run
-**Analysis → Build Custom Studies DLL → Build** once. Expect any breakage to be
-a one-line signature fix, not a redesign. The most likely candidates, in order:
+- third-party GitHub copies of the ACSIL headers at versions 2784 and 2927;
+- the 2927 copy with the two ACSIL changes Sierra Chart's What's New lists for
+  2962 (subgraph arrays become `double`) and 2969 (`sc.FreeDLL` removed), to
+  stand in for the current release.
 
-1. `sc.CurrentSystemDateTime.GetAsDouble()` — if `GetAsDouble()` is not the
-   accessor, `double Now = sc.CurrentSystemDateTime;` is the legacy form.
-2. `ACSIL_HTTP_REQUEST_ERROR_TEXT` / `ACSIL_HTTP_EMPTY_RESPONSE_TEXT` — the
-   sentinel names for a failed transport.
-3. `sc.GetPersistentInt` / `sc.SetPersistentInt` — some versions expose the
-   getter as a reference (`int& sc.GetPersistentInt(int)`), which this code is
-   already compatible with.
-4. `SCString::Trim()` / `MakeUpper()` / `Left()`, and `VALUEFORMAT_INHERITED`.
+It builds with zero errors and zero warnings from the study under
+`-Wall -Wextra` on all three. Every ACSIL identifier it uses was checked
+against the sierrachart.com reference and the headers. The four names this
+section used to flag as doubtful (`sc.CurrentSystemDateTime.GetAsDouble()`,
+the two `ACSIL_HTTP_*_TEXT` sentinels, `Get`/`SetPersistentInt`, and the
+SCString calls) are all correct.
+
+**The first build in a real install is still the final confirmation.** The
+current headers aren't published outside the install, and What's New is not a
+complete changelog.
+
+### Fixed 2026-11-10 (the version first served did not build or refresh)
+
+- **`sc.FreeDLL = 0;` removed.** Sierra Chart removed the member in 2969
+  (2026-10-09), so the study as first published failed to build on any current
+  install (`'struct s_sc' has no member named 'FreeDLL'`).
+- **The levels froze after the first load.** `sc.HTTPResponse` is emptied only
+  when the next `sc.MakeHTTPRequest` goes out, not after the call that
+  delivers it. The study tested the response alone, so it re-read the same
+  body on every update and never polled again. The response branch now also
+  requires `P_REQUEST_IN_FLIGHT`, as Sierra Chart's own example does with its
+  request state.
+- **An HTTP error status arrives as the literal `"ERROR"`,** not the JSON body,
+  so a rejected key (401) or unknown symbol (404) used to log the misleading
+  "symbol may not be covered" message. It now names both likely causes. The
+  JSON 401 check is kept in case a version passes the body through.
+- **A request that fails to start** (`sc.MakeHTTPRequest` returns 0, for
+  example while a timed-out one is still outstanding, since only one request
+  may run at a time) used to retry on every update and open the Message Log
+  each time. It now waits a full refresh interval.
+
+### Known issue, not yet fixed
+
+`ApplyLevel` sets `DrawStyle = DRAWSTYLE_LINE` on every successful poll. That
+turns the dashed Max Pain and Pin Strike solid after the first load, and
+overwrites any style the user picks on the Subgraphs tab, including hiding a
+level, which contradicts the "restyle or hide from the Subgraphs tab" copy.
+Fixing it means remembering the style before hiding a null level and
+restoring it afterward, instead of forcing `LINE`.
 
 ### What HAS been compiled and tested
 
@@ -227,8 +257,9 @@ price scale.
 
 1. Generate the key at **Account → API Access** (revealed once).
 2. Copy the `.cpp` into Sierra Chart's `ACS_Source` folder, then
-   **Analysis → Build Custom Studies DLL → Build**. Sierra Chart ships its own
-   compiler, so there is no toolchain to install.
+   **Analysis → Build Custom Studies DLL**, then **Build → Remote Build**.
+   Sierra Chart compiles it on its own server, so there is no toolchain to
+   install.
 3. **Analysis → Studies → Add Custom Study → "ZeroGEX Gamma Levels"**, paste
    the key into *ZeroGEX API Key*, set *Symbol* to match the chart.
 

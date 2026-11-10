@@ -45,8 +45,9 @@
 //    1. Copy this file into Sierra Chart's ACS_Source folder
 //       (Analysis → Studies → Add Custom Study → "Open Source Code Folder",
 //        typically C:\SierraChart\ACS_Source).
-//    2. Analysis → Build Custom Studies DLL → Build. Sierra Chart ships its
-//       own compiler, so there is no toolchain to install.
+//    2. Analysis → Build Custom Studies DLL, then Build → Remote Build.
+//       Sierra Chart compiles it on its own server, so there is no toolchain
+//       to install.
 //    3. On a chart: Analysis → Studies → Add Custom Study →
 //       "ZeroGEX Gamma Levels".
 //    4. In the study settings, paste your API key and set Symbol to match
@@ -358,7 +359,8 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
 
         sc.GraphRegion = 0;      // main price graph
         sc.AutoLoop    = 0;      // we fill the whole array ourselves on refresh
-        sc.FreeDLL     = 0;
+        // No sc.FreeDLL: Sierra Chart removed it from ACSIL in version 2969
+        // (October 2026), and setting it is now a compile error.
         // Without this the study is only called when a tick arrives, which
         // would stall polling on a quiet chart — exactly when a stale Gamma
         // Flip is most misleading.
@@ -423,10 +425,17 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
 
     // -----------------------------------------------------------------------
     //  A response landing is what re-enters this function after a request, so
-    //  it is handled before anything else. sc.HTTPResponse is only non-empty
-    //  on that call.
+    //  it is handled before anything else.
+    //
+    //  Only while our request is outstanding. sc.HTTPResponse is NOT cleared
+    //  after the call that delivers it: Sierra Chart empties it only when the
+    //  next sc.MakeHTTPRequest goes out (ACSIL docs, sc.MakeHTTPRequest). So
+    //  testing the response alone re-reads the same body on every update and
+    //  returns before the poll below ever runs: the levels load once and then
+    //  freeze. Sierra Chart's own example gates on its request state the same
+    //  way.
     // -----------------------------------------------------------------------
-    if (sc.HTTPResponse.GetLength() > 0)
+    if (sc.GetPersistentInt(P_REQUEST_IN_FLIGHT) != 0 && sc.HTTPResponse.GetLength() > 0)
     {
         sc.SetPersistentInt(P_REQUEST_IN_FLIGHT, 0);
 
@@ -437,6 +446,16 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
         if (Response == ACSIL_HTTP_REQUEST_ERROR_TEXT || Response == ACSIL_HTTP_EMPTY_RESPONSE_TEXT)
         {
             sc.AddMessageToLog("ZeroGEX: the request to the levels API failed. Check the machine's internet connection and the API Base URL setting.", 1);
+            return;
+        }
+
+        // An HTTP error status (a rejected key is a 401, an unknown symbol a
+        // 404) does not arrive as the JSON body: Sierra Chart replaces it with
+        // the literal "ERROR". Those two causes are the usual setup mistakes,
+        // so name both.
+        if (Response == "ERROR")
+        {
+            sc.AddMessageToLog("ZeroGEX: the levels API returned an error. Check that the API key is your current one (zerogex.io/account#api-access; generating a new key revokes the old one) and that Symbol is ES, NQ, SPX, SPY, QQQ or NDX.", 1);
             return;
         }
 
@@ -592,6 +611,11 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
     if (sc.MakeHTTPRequest(Url) == 0)
     {
         sc.AddMessageToLog("ZeroGEX: could not start the request to the levels API. Check the API Base URL setting.", 1);
+        // Count the failed attempt as a poll, so the retry waits a full
+        // refresh interval. Otherwise sc.UpdateAlways retries on every update
+        // and opens the Message Log each time. Sierra Chart allows one request
+        // at a time, so this can happen right after a timed-out request.
+        sc.SetPersistentInt(P_LAST_POLL_SECONDS, NowSeconds);
         return;
     }
 
