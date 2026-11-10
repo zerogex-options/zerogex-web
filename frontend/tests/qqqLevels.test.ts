@@ -33,9 +33,10 @@ test('only QQQ and the stock pages have symbol-specific copy, so the other five 
 });
 
 test('the shared title and description templates are untouched', () => {
-  // The SPX title is under test until the November reading; any change here
-  // would land in the middle of it.
-  assert.match(template, /title: `\$\{primary\} Gamma Levels Today \(Free\): GEX, Gamma Flip, Call & Put Walls`,/);
+  // The SPX title changed on November 10, 2026 and is under test again until
+  // the December reading (docs/seo/2026-10-11-organic-acquisition-workstream.md);
+  // any change here would land in the middle of it.
+  assert.match(template, /title: `\$\{primary\} Gamma Levels Today \(Free\): Net GEX, Gamma Flip & Walls`,/);
   assert.match(
     template,
     /description: `Free daily \$\{primary\} gamma levels: the \$\{primary\} gamma flip, call wall, put wall, max pain and net dealer GEX, on a 15-minute delay\. No signup required\.`,/,

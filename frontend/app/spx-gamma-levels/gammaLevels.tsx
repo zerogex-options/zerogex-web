@@ -257,12 +257,15 @@ function buildSymbolContent(primary: PageSymbol): SymbolContent {
   return {
     path,
     shareUrl: `${SITE}${path}`,
-    // 64 characters. The previous title (66) said "Net GEX" last and was being
-    // cut there; this one keeps the ranking phrase first, says "Free" — the
+    // 58 characters for SPX. Keeps the ranking phrase first and "Free" (the
     // one word the "free gamma levels" / "gex free" / "spotgamma free
-    // alternative" queries have in common and every competitor's title lacks
-    // — and names GEX up front so "<ticker> gamma exposure" queries see it.
-    title: `${primary} Gamma Levels Today (Free): GEX, Gamma Flip, Call & Put Walls`,
+    // alternative" queries have in common), and now says "Net GEX" where it
+    // survives truncation: an older 66-character title said it last and was
+    // cut there. Changed November 10, 2026 under the SPX title rule in
+    // docs/seo/2026-10-11-organic-acquisition-workstream.md: 28 days after the
+    // page started leading with net GEX, the "net gex" queries had moved from
+    // position 34.8 to 18.5 but were still off page one with no clicks.
+    title: `${primary} Gamma Levels Today (Free): Net GEX, Gamma Flip & Walls`,
     // Under 160 characters for every ticker: this is the snippet whenever the
     // live description below falls back (API down, or no publishable flip).
     description: `Free daily ${primary} gamma levels: the ${primary} gamma flip, call wall, put wall, max pain and net dealer GEX, on a 15-minute delay. No signup required.`,
