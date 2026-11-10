@@ -6,19 +6,19 @@
 
 ## Cos'è il GEX nel trading?
 
-**GEX sta per gamma exposure (esposizione gamma).** Nel trading, il GEX è una misura di quanto i dealer di opzioni che fanno mercato devono comprare o vendere il sottostante - meccanicamente, per restare hedgiati - man mano che il prezzo si muove. È un proxy del flusso di hedging *forzato* che sta sotto il mercato in ogni momento.
+**GEX sta per gamma exposure (esposizione gamma).** Nel trading, il GEX è una misura di quanto i dealer di opzioni che fanno mercato tendono a comprare o vendere il sottostante - meccanicamente, per restare hedgiati - man mano che il prezzo si muove. È un proxy del flusso di hedging che sta sotto il mercato in ogni momento.
 
-Questa è l'idea centrale in una frase: il GEX stima in quale direzione, e con quanta forza, i dealer devono operare per mantenere neutri i loro book quando il prezzo si muove. Quando questo flusso di hedging si oppone ai movimenti, il mercato è più "appiccicoso" e calmo. Quando invece va *nella stessa direzione* dei movimenti, il mercato diventa più veloce e i trend si rafforzano.
+Questa è l'idea centrale in una frase: il GEX stima in quale direzione, e con quanta forza, è probabile che i dealer operino per mantenere neutri i loro book quando il prezzo si muove. Quando questo flusso di hedging si oppone ai movimenti, il mercato è più "appiccicoso" e calmo. Quando invece va *nella stessa direzione* dei movimenti, il mercato diventa più veloce e i trend si rafforzano.
 
-Tutto il resto - il gamma flip, i call wall, i put wall, il pinning - è solo una lettura più dettagliata della stessa forza. Questa è la versione semplice. Per il trattamento completo e approfondito, leggi la guida [Gamma Exposure (GEX) Explained: The Complete Guide](/education/gamma-exposure-explained).
+Tutto il resto - il gamma flip, i call wall, i put wall, il pinning - è solo una lettura più dettagliata della stessa forza. Questa è la versione semplice. Per il trattamento completo e approfondito, leggi il pilastro [Gamma Exposure (GEX) spiegata: la guida completa](/education/gamma-exposure-explained).
 
 ---
 
 ## Cosa misura davvero il GEX?
 
-I market maker che ti vendono opzioni non vogliono una scommessa direzionale - vogliono la commissione, non il rischio. Perciò si coprono (hedge). Il **gamma** è la Greca che indica quanto velocemente l'esposizione direzionale di un'opzione (delta) cambia man mano che il sottostante si muove. Poiché il gamma costringe i dealer a ri-hedgiare in continuazione, il gamma *aggregato* su tutta la catena di opzioni ti dice quanto ri-hedging il mercato deve fare.
+I market maker che ti vendono opzioni non vogliono una scommessa direzionale - vogliono la commissione, non il rischio. Perciò si coprono (hedge). Il **gamma** è la Greca che indica quanto velocemente l'esposizione direzionale di un'opzione (delta) cambia man mano che il sottostante si muove. Poiché il gamma spinge i dealer a ri-hedgiare man mano che lo spot si muove, il gamma *aggregato* su tutta la catena di opzioni ti dice all'incirca quanto ri-hedging è probabile che il mercato faccia.
 
-Il GEX riassume tutto questo in un unico numero con segno - solitamente espresso in dollari di gamma, o "dollar gamma" - per un intero indice come lo S&P 500. Un valore assoluto più grande significa più hedging forzato sotto il mercato. Il **segno** ti dice in quale direzione spinge quell'hedging.
+Il GEX riassume tutto questo in un unico numero con segno - solitamente espresso in dollari di gamma, o "dollar gamma" - per un intero indice come lo S&P 500. Un valore assoluto più grande significa più hedging potenziale sotto il mercato. Il **segno** ti dice in quale direzione spinge quell'hedging.
 
 Un'avvertenza da tenere a mente: il GEX è una stima *modellata*, non una misurazione dei book dei dealer. I dealer non pubblicano le proprie posizioni, quindi il segno deriva da un'assunzione standard - i dealer sono trattati come netti lunghi delle call vendute dai clienti e netti corti delle put comprate dai clienti. È una convenzione consolidata dedotta dall'open interest, non inventario osservato.
 
@@ -39,11 +39,11 @@ Stesso indice, stesso grafico - carattere del mercato opposto a seconda del seg
 
 Il GEX non è solo un numero; corrisponde a livelli di prezzo specifici da tenere d'occhio:
 
-- **Gamma flip** - il prezzo in cui il gamma totale dei dealer passa da positivo a negativo. Sopra questo livello, il mercato è di solito nel regime calmante long-gamma; sotto, nel regime amplificante short-gamma. È la linea di confine tra i regimi. Vedi [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+- **Gamma flip** - il prezzo in cui il gamma totale dei dealer passa da positivo a negativo. Sopra questo livello, il mercato è di solito nel regime calmante long-gamma; sotto, nel regime amplificante short-gamma. È la linea di confine tra i regimi. Vedi [Cos'è un gamma flip?](/education/how-to-read-a-gamma-flip)
 - **Call wall** - lo strike con il maggiore gamma call sopra lo spot, dove in regime di gamma positivo l'hedging si oppone ai rally.
 - **Put wall** - lo strike con il maggiore gamma put sotto lo spot, dove in regime di gamma positivo l'hedging aggregato si oppone ai dip.
 
-Il call wall e il put wall delineano il range che i dealer difendono; il gamma flip ti dice se il loro hedging si oppone a un movimento verso i bordi o rafforza un movimento che li oltrepassa. [Gamma Walls Explained](/education/gamma-walls-explained) approfondisce entrambi i wall. Per vedere come appaiono questi livelli nel mercato attuale, consulta i [livelli gamma SPX di oggi](/spx-gamma-levels).
+Il call wall e il put wall delineano il range che i dealer difendono; il gamma flip ti dice se il loro hedging si oppone a un movimento verso i bordi o rafforza un movimento che li oltrepassa. [Gamma Wall spiegati](/education/gamma-walls-explained) approfondisce entrambi i wall. Per vedere come appaiono questi livelli nel mercato attuale, consulta i [livelli gamma SPX di oggi](/spx-gamma-levels).
 
 ---
 
@@ -61,7 +61,7 @@ Il GEX non ti dirà *cosa* succederà dopo. Ti dice in che *tipo* di giornata ti
 
 ## Dove vedere il GEX di persona
 
-Non devi calcolare a mano il gamma dei dealer. ZeroGEX pubblica il Net GEX odierno, il gamma flip, il call wall e il put wall - gratis e con un ritardo di circa 15 minuti - per [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels). Per la lettura in tempo reale, con il profilo gamma completo, la heatmap strike-per-DTE e il Market State Index, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).
+Non devi calcolare a mano il gamma dei dealer. ZeroGEX pubblica il Net GEX odierno, il gamma flip, il call wall e il put wall - gratis e con un ritardo di circa 15 minuti - per [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels), oltre ai future ES e NQ, con tutti e sei fianco a fianco nella [pagina dei livelli GEX di oggi](/gex-levels). Per la lettura in tempo reale, con il profilo gamma completo, la heatmap strike-per-DTE e il Market State Index, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).
 
 ---
 

@@ -1,6 +1,6 @@
 # Trader la clôture : comment EOD Pressure et Trap Detection lisent en temps réel le hedging des dealers
 
-*Deux ZeroGEX™ Advanced Signals conçus pour les points d'inflexion structurels de la journée de trading - les flux de hedging forcé qui entraînent le prix vers la clôture, et les breakouts ratés qui repartent en sens inverse lorsque les dealers les absorbent.*
+*Deux ZeroGEX™ Advanced Signals conçus pour les points d'inflexion structurels de la journée de trading - les flux de hedging modélisés qui peuvent entraîner le prix vers la clôture, et les breakouts ratés qui peuvent repartir brusquement en sens inverse lorsque les dealers sont modélisés comme les absorbant.*
 
 ---
 
@@ -8,11 +8,11 @@
 
 La plupart des outils intraday vous disent *où* se situe le prix. Ils vous disent rarement *pourquoi* il est sur le point de bouger - ou, plus utile encore, *pourquoi il ne devrait pas bouger davantage*.
 
-Les 90 dernières minutes de la séance cash et les instants qui suivent immédiatement la rupture d'un niveau clé sont les deux fenêtres où la mécanique de hedging des dealers est la plus observable dans le tape. EOD Pressure et Trap Detection sont conçus pour se déclencher précisément à ces points d'inflexion structurels - et rester silencieux le reste de la journée.
+Les 90 dernières minutes de la séance cash et les instants qui suivent immédiatement la rupture d'un niveau clé sont les deux fenêtres où la mécanique modélisée de hedging des dealers laisse l'empreinte la plus nette dans le tape. EOD Pressure et Trap Detection sont conçus pour se déclencher précisément à ces points d'inflexion structurels - et rester silencieux le reste de la journée.
 
-Ce silence est une caractéristique voulue, pas un défaut. Les deux signaux afficheront **zéro** pendant la majeure partie de la journée de trading. Lorsqu'ils se déclenchent, ils vous indiquent quelque chose de précis sur un flux forcé que le reste du tape ne vous montrera pas directement.
+Ce silence est une caractéristique voulue, pas un défaut. Les deux signaux afficheront **zéro** pendant la majeure partie de la journée de trading. Lorsqu'ils se déclenchent, ils vous indiquent quelque chose de précis sur le flux de hedging modélisé que le reste du tape ne vous montrera pas directement.
 
-Cet article s'adresse aux traders qui comprennent déjà le gamma exposure, le hedging des dealers, et la différence entre un régime positive-gamma et un régime negative-gamma. Si ces termes vous sont nouveaux, commencez par notre article complémentaire [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained), puis revenez ici.
+Cet article s'adresse aux traders qui comprennent déjà le gamma exposure, le hedging des dealers, et la différence entre un régime positive-gamma et un régime negative-gamma. Si ces termes vous sont nouveaux, commencez par [Gamma Exposure (GEX) expliqué](/education/gamma-exposure-explained), puis revenez ici.
 
 ---
 
@@ -22,13 +22,13 @@ Cet article s'adresse aux traders qui comprennent déjà le gamma exposure, le h
 
 EOD Pressure est un **estimateur de biais directionnel pour les ~90 dernières minutes de la séance cash**. Il tente de répondre à une question :
 
-> Étant donné le book actuel des dealers et la proximité d'un strike aimant, dans quelle direction le hedging forcé *pousse*-t-il le prix vers la clôture ?
+> Étant donné le book modélisé des dealers et la proximité d'un strike aimant, de quel côté le hedging modélisé *penche*-t-il à l'approche de la clôture ?
 
 Deux mécanismes physiques guident la réponse :
 
-**La décroissance du charm.** À mesure que les options 0DTE et à courte échéance approchent de l'expiration, leur delta ne reste pas immobile - il décroît à un rythme qui s'accélère au fil du temps. Les dealers qui gèrent un book delta-neutral doivent se rééquilibrer en permanence pour maintenir cette neutralité. Le signe agrégé de l'exposition au charm des dealers près du spot vous indique dans quelle direction pointent ces flux de hedging aujourd'hui.
+**La décroissance du charm.** À mesure que les options 0DTE et à courte échéance approchent de l'expiration, leur delta ne reste pas immobile - toutes choses égales par ailleurs, il dérive à un rythme qui s'accélère au fil du temps. Les dealers qui gèrent un book à peu près delta-neutral tendent à se rééquilibrer pour maintenir cette neutralité. Le signe agrégé de l'exposition au charm modélisée des dealers près du spot est modélisé comme indiquant dans quelle direction pointent ces flux de hedging aujourd'hui.
 
-**La gravité du pin.** Dans un régime positive-gamma, les dealers achètent la faiblesse et vendent la force - ce réflexe mécanique attire le prix vers le strike de douleur maximale / gamma maximal comme un aimant. Dans un régime negative-gamma, les dealers poursuivent au contraire les mouvements : le modèle cesse alors de traiter le strike comme un aimant et suit le mouvement déjà engagé.
+**La gravité du pin.** Dans un régime positive-gamma modélisé, les dealers tendent à acheter la faiblesse et à vendre la force - ce réflexe modélisé peut attirer le prix vers le strike de douleur maximale / gamma maximal comme un aimant. Dans un régime negative-gamma modélisé, les dealers sont au contraire modélisés comme poursuivant les mouvements : le modèle cesse alors de traiter le strike comme un aimant et penche dans le sens du mouvement déjà engagé.
 
 EOD Pressure combine ces deux effets, les met à l'échelle selon la proximité de la clôture, et les amplifie aux dates du calendrier où le positionnement compte le plus.
 
@@ -40,11 +40,11 @@ Le résultat est un score continu de **−100 à +100**. (Les formules ci-dessou
 
 | Score | Interprétation pour le trader |
 |-------|----------------------|
-| +60 à +100 | Forte dérive haussière attendue vers la clôture. L'aimant se situe au-dessus du spot et les dealers sont contraints d'acheter. |
+| +60 à +100 | Forte dérive haussière modélisée vers la clôture. L'aimant se situe au-dessus du spot et les dealers sont modélisés comme acheteurs. |
 | +20 à +60 | Légère dérive haussière. Le biais intraday reste acheteur mais sans se positionner agressivement. |
 | −20 à +20 | Pas d'avantage. Soit trop tôt dans la fenêtre, soit les termes charm et pin s'annulent. |
 | −20 à −60 | Légère dérive baissière. Biais vendeur ou clôture des positions longues. |
-| −60 à −100 | Forte dérive baissière attendue vers la clôture. |
+| −60 à −100 | Forte dérive baissière modélisée vers la clôture. |
 
 Le signal se marque lui-même comme **déclenché** lorsque le score franchit **±20**. Tout ce qui reste en dessous est enregistré à titre de contexte mais ne déclenchera pas les schémas de playbook en aval.
 
@@ -56,7 +56,7 @@ EOD Pressure agrège quatre composantes. Trois contribuent à l'amplitude ; une 
 
 #### Composante 1 : Charm au spot
 
-C'est la mesure la plus directe du flux de hedging forcé. Le signal additionne l'exposition au charm des dealers sur une bande at-the-money, pondérée par bucket d'échéance :
+C'est la mesure modélisée la plus directe du flux de hedging. Le signal additionne l'exposition au charm modélisée des dealers sur une bande at-the-money, pondérée par bucket d'échéance :
 
 ```
 band_pct = max(0.5%, 1.5 × σ × √30)
@@ -64,9 +64,9 @@ charm_raw = Σ_buckets W_bucket × Σ_strikes_in_band dealer_charm_exposure
 charm_score = clip(charm_raw / 2.0e7, [-1, +1])
 ```
 
-La bande ATM est **mise à l'échelle par la volatilité** - plus large les jours volatils, plafonnée à ±0,5 % les jours de tape mort. La projection sur 30 barres retrace approximativement la fourchette de prix attendue pour le reste de la séance.
+La bande ATM est **mise à l'échelle par la volatilité** - plus large les jours volatils, avec un plancher de ±0,5 % les jours de tape mort. La projection sur 30 barres retrace approximativement la fourchette de prix attendue pour le reste de la séance.
 
-Les pondérations des buckets d'échéance sont calibrées selon la physique du charm :
+Les pondérations des buckets d'échéance sont choisies à la main pour refléter le profil de décroissance temporelle du charm :
 
 | Bucket | Poids | Pourquoi |
 |--------|--------|-----|
@@ -79,7 +79,7 @@ Les pondérations des buckets d'échéance sont calibrées selon la physique du 
 
 #### Composante 2 : Gravité du pin
 
-Le terme pin dépend du régime de gamma :
+Le terme pin dépend du régime de gamma modélisé :
 
 ```
 if net_gex >= 0:   # zero or positive gamma: pull toward the magnet
@@ -91,9 +91,9 @@ else:              # negative gamma: follow the move already underway
     pin_score    = clip(trailing_ret / 0.003, [-1, +1])
 ```
 
-Un pin target situé 0,3 % au-dessus du spot dans un régime positive-gamma donne un pin score de +1,0 - l'aimant est au-dessus et la gravité opère.
+Un pin target situé 0,3 % au-dessus du spot dans un régime positive-gamma modélisé donne un pin score de +1,0 - l'aimant est au-dessus et la gravité opère.
 
-Dans un régime negative-gamma, la distance au target ne porte aucune information directionnelle : le terme l'ignore donc et lit plutôt le rendement récent - une hausse de 0,3 % sur les dernières clôtures donne aussi +1,0, et une baisse de 0,3 % donne −1,0. Si le Net GEX manque, ou s'il y a moins de deux clôtures exploitables, le terme pin vaut 0.
+Dans un régime negative-gamma modélisé, la distance au target ne porte aucune information directionnelle : le terme l'ignore donc et lit plutôt le rendement récent - une hausse de 0,3 % sur les dernières clôtures donne aussi +1,0, et une baisse de 0,3 % donne −1,0. Si le Net GEX manque, ou s'il y a moins de deux clôtures exploitables, le terme pin vaut 0.
 
 **Limite méthodologique :** les deux branches sont des heuristiques ZeroGEX aux seuils de saturation choisis à la main, pas des probabilités calibrées. La branche negative-gamma traduit l'idée que le gamma négatif amplifie la direction déjà engagée ; elle ne prédit pas cette direction.
 
@@ -135,7 +135,7 @@ combined = (0.6 × charm_score + 0.4 × pin_score) × amp × ramp
 score    = clip(combined, [-1, +1])
 ```
 
-La pondération 60/40 reflète une position assumée : **le charm est une mesure directe du flux de hedging forcé**, tandis que **la gravité du pin est une traction indirecte, dépendante du régime**. Les deux comptent. Le charm mène la danse.
+La pondération 60/40 est un choix de conception fait à la main, et non ajusté sur des données : elle reflète l'idée que **le charm est la mesure modélisée la plus directe du flux de hedging**, tandis que **la gravité du pin est une traction indirecte, dépendante du régime**. Les deux comptent dans le modèle. Le charm mène la danse.
 
 ---
 
@@ -157,13 +157,13 @@ Si vous observez le panneau à 13h55 ET et qu'il affiche zéro, c'est correct et
 
 ### Ce qu'il mesure
 
-Trap Detection identifie les configurations où **le prix vient de franchir un niveau clé de positionnement des dealers mais où ce franchissement risque d'échouer et de s'inverser**.
+Trap Detection est conçu pour identifier les configurations où **le prix vient de franchir un niveau clé de positionnement modélisé des dealers mais pourrait échouer et s'inverser**.
 
-Le schéma classique : dans un régime long-gamma où le positionnement des dealers se renforce, les dealers absorbent les breakouts. Ils vendent la hausse et achètent le repli - mécaniquement, non par conviction directionnelle. Le prix pointe au-dessus de la résistance, se heurte à l'offre, et repart brusquement dans la fourchette précédente. Le breakout était un piège.
+Le schéma classique : dans un régime long-gamma modélisé où le positionnement des dealers se renforce, les dealers tendent à absorber les breakouts. Ils vendent la hausse et achètent le repli - mécaniquement, non par conviction directionnelle. Le prix pointe au-dessus de la résistance, se heurte à l'offre, et repart souvent brusquement dans la fourchette précédente. Le breakout était un piège.
 
 Le signal recherche deux configurations symétriques :
 
-> **Bull trap sur un faux mouvement haussier.** Le prix pointe au-dessus d'un niveau de résistance - `call_wall`, `max_gamma_strike`, `vwap`, ou `gamma_flip` - mais les conditions structurelles indiquent que le breakout va échouer. Produit un score *négatif* (`bearish_fade`).
+> **Bull trap sur un faux mouvement haussier.** Le prix pointe au-dessus d'un niveau de résistance - `call_wall`, `max_gamma_strike`, `vwap`, ou `gamma_flip` - mais les conditions structurelles modélisées suggèrent que le breakout pourrait échouer. Produit un score *négatif* (`bearish_fade`).
 
 > **Bear trap sur un faux mouvement baissier.** Le prix pointe sous le support - `put_wall`, `max_gamma_strike`, `vwap`, ou `gamma_flip` - mais la cassure semble factice. Produit un score *positif* (`bullish_fade`).
 
@@ -175,13 +175,13 @@ Le signe du résultat encode la direction dans laquelle *fader* le mouvement, et
 
 | Score | Étiquette | Interprétation pour le trader |
 |-------|-------|----------------------|
-| +50 à +100 | `bullish_fade` | Bear-trap-fade à forte conviction. La cassure baissière est factice - un retour brutal à la hausse est attendu. |
+| +50 à +100 | `bullish_fade` | Bear-trap-fade de forte amplitude. La cassure baissière semble factice - retour brutal à la hausse modélisé. |
 | +25 à +50 | `bullish_fade` (déclenché) | Modéré. Envisager des entrées longues en mean-reversion. |
 | 0 à +25 | sous le seuil | Conviction faible ; non exploitable seul. |
 | 0 | aucun | Aucun piège en formation. L'état par défaut. |
 | 0 à −25 | sous le seuil | Conviction faible. |
 | −25 à −50 | `bearish_fade` (déclenché) | Bull-trap-fade modéré. Fader les longs, une inversion baissière est attendue. |
-| −50 à −100 | `bearish_fade` | Bull-trap-fade à forte conviction. Fader les rallyes à l'intérieur du breakout. |
+| −50 à −100 | `bearish_fade` | Bull-trap-fade de forte amplitude. Fader les rallyes à l'intérieur du breakout. |
 
 Le seuil de déclenchement ici est **±25** - délibérément plus strict que le ±20 d'EOD Pressure. Les configurations de trap exigent une conviction plus élevée pour se déclencher activement, car trader contre un breakout actif comporte un risque de queue plus élevé que suivre le flux de fin de journée.
 
@@ -209,7 +209,7 @@ Un léger dépassement d'un niveau relève du bruit, pas d'un breakout. Le signa
 buffer_pct  = max(0.1%, 0.15 × σ × √5)
 ```
 
-Pour le SPX avec une σ intraday typique proche de 8 points de base par minute, le buffer se situe autour de 0,1 %. Les jours volatils, il se met automatiquement à l'échelle. Le prix doit franchir le niveau de plus que le buffer avant même que le signal commence à enregistrer de la force.
+Pour le SPX avec une σ intraday typique proche de 8 points de base par minute, le buffer reste à son plancher, autour de 0,1 %. Les jours volatils, il s'élargit automatiquement. Le prix doit franchir le niveau de plus que le buffer avant même que le signal commence à enregistrer de la force.
 
 #### Étape 3 : Facteurs de force continus
 
@@ -217,7 +217,7 @@ Une itération antérieure de ce signal utilisait des ET booléens et produisait
 
 | Facteur | Point de saturation | Ce qu'il capture |
 |--------|------------------|------------------|
-| `long_gamma_factor` | Plein à net_gex ≥ 1 Md$ | Les dealers absorbent-ils structurellement les mouvements ? |
+| `long_gamma_factor` | Plein à net_gex ≥ 1 Md$ | Les dealers sont-ils modélisés comme absorbant les mouvements ? |
 | `strengthening_factor` | Plein à +2 % de delta GEX | Le positionnement des dealers se *construit*-il, plutôt que de se dénouer ? |
 | `breakout_strength` | Plein à 3× le buffer au-delà du niveau | Le prix a-t-il réellement franchi le niveau de façon significative ? |
 | `wall_migration` | 0,3× si le wall s'est déplacé de >0,05 % avec le prix | Décote si le niveau lui-même se déplace - cela suggère un breakout réel. |
@@ -276,7 +276,7 @@ Les deux scores de côté sont non négatifs. Leur différence encode de façon 
 Pendant la majeure partie de la journée de trading, ce signal affiche zéro. Les conditions qui le ramènent à zéro sont précisément celles dont vous devez avoir conscience :
 
 - **Aucun niveau n'est franchi.** Le prix se situe entre `call_wall` et `put_wall` sans toucher l'un ou l'autre, ou il pointe au-delà mais reste dans le buffer mis à l'échelle par la volatilité. L'état par défaut d'un marché calme.
-- **Régime negative-gamma.** `long_gamma_factor = 0`. Dans un book short-gamma, les breakouts se poursuivent - ils ne se fadent pas. Le signal refuse à juste titre de se déclencher.
+- **Régime negative-gamma.** `long_gamma_factor = 0`. Dans un book short-gamma, les breakouts tendent à se prolonger plutôt qu'à se retourner. Le signal refuse à juste titre de se déclencher.
 - **Gamma qui ne se renforce pas.** `strengthening_factor = 0`. Les configurations de trap exigent que le positionnement des dealers soit en train de se construire, pas de se dénouer.
 - **Niveaux de référence manquants.** Aucune donnée pour `call_wall`, `put_wall`, `max_gamma_strike`, `vwap`, ou `gamma_flip` - rien à casser.
 - **Migration du wall du côté actif.** Si le call wall se déplace à la hausse en même temps que le prix, le facteur de décote de 0,3× fait souvent passer le score sous le seuil de déclenchement de ±25.
@@ -291,7 +291,7 @@ Les deux signaux sont conçus pour être lus conjointement. Ils couvrent des hor
 
 | EOD Pressure | Trap Detection | Ce que cela signifie |
 |--------------|----------------|---------------|
-| +50 (haussier) | +40 (`bullish_fade`) | Forte conviction pour rester acheteur jusqu'à la clôture. La dérive est haussière et le repli actuel paraît factice. Fader la faiblesse intraday, s'attendre à une journée qui clôture forte. |
+| +50 (haussier) | +40 (`bullish_fade`) | Forte conviction pour rester acheteur jusqu'à la clôture. La dérive modélisée est haussière et le repli actuel paraît factice. Fader la faiblesse intraday, pencher vers une journée qui clôture forte. |
 | +50 (haussier) | −40 (`bearish_fade`) | Mixte mais tactiquement utile. EOD indique une dérive haussière ; trap indique que le breakout haussier actuel est excessif. Attendre que le fade se termine, puis se repositionner à l'achat pour la clôture. |
 | −50 (baissier) | 0 | Configuration baissière la plus nette. La dérive EOD est baissière sans signal de fade contraire. |
 | 0 (éteint) | +30 (`bullish_fade`) | Trade de trap autonome, avant la fenêtre. Tactique, pas stratégique. Taille plus petite, stop plus serré. |
@@ -301,7 +301,7 @@ Les deux signaux sont conçus pour être lus conjointement. Ils couvrent des hor
 
 ### Constantes codées en dur à connaître
 
-Pour les traders qui exécutent leurs propres backtests ou qui dimensionnent des trades par rapport à ces signaux, il vaut la peine de garder à l'esprit quelques chiffres clés. Ils ne sont pas arbitraires - chacun reflète un choix de calibration empirique.
+Pour les traders qui exécutent leurs propres backtests ou qui dimensionnent des trades par rapport à ces signaux, il vaut la peine de garder à l'esprit quelques chiffres clés. Ils ne sont pas arbitraires - mais chacun est un choix de calibration heuristique propre à ZeroGEX, et non un standard du secteur.
 
 | Constante | Valeur par défaut | Où elle est utilisée |
 |----------|---------|------------|
@@ -315,7 +315,7 @@ Pour les traders qui exécutent leurs propres backtests ou qui dimensionnent des
 | Début de la rampe temporelle | 14h30 ET | EOD Pressure - activation la plus précoce |
 | Rampe temporelle pleine | 15h45 ET | EOD Pressure - pleine puissance jusqu'à la clôture |
 
-Toutes ces valeurs sont configurables via des variables d'environnement côté backend, mais les valeurs par défaut reflètent ce qui a fonctionné sur des produits indiciels de la classe SPX/SPY avec des chaînes 0DTE profondes et actives. Les sous-jacents moins liquides peuvent nécessiter des seuils plus bas.
+Toutes ces valeurs sont configurables via des variables d'environnement côté backend. Les valeurs par défaut sont des heuristiques ZeroGEX choisies pour des produits indiciels de la classe SPX/SPY avec des chaînes 0DTE profondes et actives ; ce ne sont pas des constantes empiriquement optimales. Les sous-jacents moins liquides peuvent nécessiter des seuils plus bas.
 
 ---
 
@@ -327,9 +327,9 @@ Quelques schémas reviennent assez souvent pour mériter d'être mentionnés dir
 
 **Le quad witching n'est pas un contexte optionnel.** L'amplificateur 2,0× les jours de quad witching est assez important pour faire passer un signal non amplifié de +40 à +80. Considérez ces jours comme ayant une conviction structurellement plus élevée - et un risque de whipsaw structurellement plus élevé en début de journée, avant l'ouverture de la fenêtre.
 
-**Trap Detection sans confirmation long-gamma doit être ignoré.** Le fait que `long_gamma_factor` annule tout le côté concerné est le garde-fou le plus important du signal. Si le régime plus large est short-gamma - même si le score affiche par hasard une valeur non nulle sur un cas limite de données manquantes - la thèse du piège ne tient pas. Vérifiez le régime.
+**Trap Detection sans confirmation long-gamma doit être ignoré.** Le fait que `long_gamma_factor` annule tout le côté concerné est le garde-fou le plus important du signal. Si le régime modélisé plus large est short-gamma - même si le score affiche par hasard une valeur non nulle sur un cas limite de données manquantes - la thèse du piège ne tient pas. Vérifiez le régime.
 
-**Le ralentissement du flux est l'indice de trap-fade le plus net.** Lorsque le flux directionnel *s'assèche* à l'intérieur du breakout, le multiplicateur de flux augmente la conviction de 10 %. C'est le moment où la plupart des trades de trap-fade fonctionnent. Un flux qui accélère à l'intérieur du breakout signifie des participants réels - la thèse du piège est erronée même si le reste des conditions concorde.
+**Le ralentissement du flux est l'indice de trap-fade le plus net.** Lorsque le flux directionnel *s'assèche* à l'intérieur du breakout, le multiplicateur de flux augmente la conviction de 10 %. C'est le moment où la plupart des trades de trap-fade fonctionnent. Un flux qui accélère à l'intérieur du breakout signifie des participants réels - la thèse du piège ne tient probablement pas, même si le reste des conditions concorde.
 
 ---
 
@@ -337,7 +337,7 @@ Quelques schémas reviennent assez souvent pour mériter d'être mentionnés dir
 
 > **EOD Pressure et Trap Detection sont silencieux la majeure partie de la journée. C'est précisément le but.**
 
-Ils ne sont pas conçus pour vous fournir une lecture continue. Ils sont conçus pour reconnaître les deux moments structurels où la mécanique de hedging des dealers domine le tape - la fenêtre de clôture et le moment du breakout raté - et pour quantifier le biais directionnel que chacun produit.
+Ils ne sont pas conçus pour vous fournir une lecture continue. Ils sont conçus pour reconnaître les deux moments structurels où la mécanique modélisée de hedging des dealers tend à dominer le tape - la fenêtre de clôture et le moment du breakout raté - et pour estimer le biais directionnel modélisé que chacun produit.
 
 Pour un trader technique sérieux, le bon usage n'est pas de « surveiller le score ». C'est de :
 
@@ -345,7 +345,7 @@ Pour un trader technique sérieux, le bon usage n'est pas de « surveiller le sc
 - **Faire confiance au silence.** Une lecture à zéro en dehors de la fenêtre ou en dehors du régime est une information, pas une absence d'information.
 - **Confirmer au point d'inflexion.** Lorsque les deux signaux se déclenchent dans la même direction à l'intérieur de la fenêtre EOD, la lecture structurelle est véritablement forte. Lorsqu'ils divergent, cette divergence elle-même constitue une donnée.
 
-Le hedging des dealers ne fait pas tout le marché. Mais pendant les 90 dernières minutes de la séance cash - et pendant les brèves fenêtres où le prix teste les niveaux de positionnement des dealers - c'est la force dominante du tape. Ces deux signaux en sont la lentille.
+Le hedging des dealers ne fait pas tout le marché. Mais pendant les 90 dernières minutes de la séance cash - et pendant les brèves fenêtres où le prix teste les niveaux de positionnement des dealers - il peut être l'une des forces dominantes du tape. Ces deux signaux en sont la lentille.
 
 ---
 

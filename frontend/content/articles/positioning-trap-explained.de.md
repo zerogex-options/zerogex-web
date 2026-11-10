@@ -1,6 +1,4 @@
 # Das Positioning-Trap-Signal erklärt: Gegen die Masse setzen
-> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Dass der EOD-Pressure-Pin-Term bei negativem Gamma der jüngsten Bewegung folgt, ist eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
-
 
 *Der praxisnahe Deep-Dive zum ZeroGEX-Positioning-Trap-Signal - was es misst, warum überfüllte Optionstrades scheitern, wie der Score aufgebaut ist und wie man ihn nutzt, um gegen die Masse zu setzen, statt mit ihr in die Falle zu tappen.*
 
@@ -155,8 +153,6 @@ Das Signal speist mehrere Panels:
 - **Die Positioning-Trap-Karte** zeigt den Live-Score und die Seite, die fehlpositioniert ist.
 - **Signal Breadth** im Bereich Proprietäre Signale des Dashboards zählt es als eine der Richtungsstimmen. (Es ist kein Input des Composite MSI.)
 - **Das `positioning_trap_squeeze`-Playbook** schaltet den Einstieg frei, wenn der Score ±50 überschreitet.
-
-*[Bildplatzhalter: ZeroGEX-Positioning-Trap-Karte mit Live-Score und Fehlpositionierungs-Lesung - Datei ablegen unter /public/blog/zerogex-positioning-trap-card.png]*
 
 Ein durchgerechnetes Beispiel. SPX bewegt sich langsam abwärts, und ZeroGEX zeigt:
 

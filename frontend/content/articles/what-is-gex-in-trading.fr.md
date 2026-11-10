@@ -6,11 +6,11 @@
 
 ## Qu'est-ce que le GEX en trading ?
 
-**GEX signifie gamma exposure (exposition gamma).** En trading, le GEX mesure combien les dealers d'options qui font le marché ont tendance à acheter ou vendre du sous-jacent - mécaniquement, pour rester couverts (hedgés) - à mesure que le prix évolue. C'est un indicateur du flux de couverture qui se trouve sous le marché à chaque instant.
+**GEX signifie gamma exposure (exposition gamma).** En trading, le GEX mesure combien les dealers d'options qui font le marché ont tendance à acheter ou vendre du sous-jacent - mécaniquement, pour rester couverts (hedgés) - à mesure que le prix évolue. C'est une approximation du flux de couverture qui se trouve sous le marché à chaque instant.
 
 C'est toute l'idée en une phrase : le GEX estime dans quelle direction, et avec quelle intensité, les dealers sont susceptibles de trader pour garder leurs positions neutres lorsque le prix bouge. Quand ce flux de couverture s'oppose aux mouvements, le marché est plus collant et plus calme. Quand il va *dans le sens* des mouvements, le marché devient plus rapide et les tendances se renforcent.
 
-Tout le reste - le gamma flip, les call walls, les put walls, le pinning - n'est qu'une lecture plus détaillée de cette même force. Voici la version simple. Pour un traitement complet et approfondi, lisez le guide [Gamma Exposure (GEX) Explained: The Complete Guide](/education/gamma-exposure-explained).
+Tout le reste - le gamma flip, les call walls, les put walls, le pinning - n'est qu'une lecture plus détaillée de cette même force. Voici la version simple. Pour un traitement complet et approfondi, lisez le pilier [Gamma Exposure (GEX) expliqué : le guide complet](/education/gamma-exposure-explained).
 
 ---
 
@@ -39,11 +39,11 @@ Même indice, même graphique - un caractère de marché opposé selon le signe
 
 Le GEX n'est pas qu'un simple chiffre ; il se traduit par des niveaux de prix précis à surveiller :
 
-- **Gamma flip** - le prix auquel le gamma total des dealers passe de positif à négatif. Au-dessus, le marché est généralement dans le régime apaisant du long-gamma ; en dessous, dans le régime amplificateur du short-gamma. C'est la ligne de démarcation entre les régimes. Voir [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+- **Gamma flip** - le prix auquel le gamma total des dealers passe de positif à négatif. Au-dessus, le marché est généralement dans le régime apaisant du long-gamma ; en dessous, dans le régime amplificateur du short-gamma. C'est la ligne de démarcation entre les régimes. Voir [Qu'est-ce qu'un gamma flip ?](/education/how-to-read-a-gamma-flip)
 - **Call wall** - le strike affichant le plus fort gamma d'achat (call) au-dessus du spot, où la couverture s'oppose aux rallyes en gamma positif.
 - **Put wall** - le strike affichant le plus fort gamma de vente (put) en dessous du spot, où la couverture agrégée s'oppose aux baisses en gamma positif.
 
-Le call wall et le put wall dessinent le range que les dealers défendent ; le gamma flip vous indique si leur couverture s'oppose à un mouvement vers les bornes du range ou renforce celui qui les franchit. [Gamma Walls Explained](/education/gamma-walls-explained) traite en détail ces deux walls. Pour voir à quoi ressemblent ces niveaux sur le marché actuel, consultez les [niveaux gamma SPX d'aujourd'hui](/spx-gamma-levels).
+Le call wall et le put wall dessinent le range que les dealers défendent ; le gamma flip vous indique si leur couverture s'oppose à un mouvement vers les bornes du range ou renforce celui qui les franchit. L'article [Les Gamma Walls expliqués](/education/gamma-walls-explained) traite en détail ces deux walls. Pour voir à quoi ressemblent ces niveaux sur le marché actuel, consultez les [niveaux gamma SPX d'aujourd'hui](/spx-gamma-levels).
 
 ---
 
@@ -61,7 +61,7 @@ Le GEX ne vous dira pas *ce qui* va se passer ensuite. Il vous indique dans quel
 
 ## Où consulter le GEX par vous-même
 
-Vous n'avez pas besoin de calculer le gamma des dealers à la main. ZeroGEX publie le Net GEX du jour, le gamma flip, le call wall et le put wall - gratuitement et avec environ 15 minutes de décalage - pour [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels). Pour une lecture en direct, avec le profil gamma complet, une heatmap strike par DTE et le Market State Index, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
+Vous n'avez pas besoin de calculer le gamma des dealers à la main. ZeroGEX publie le Net GEX du jour, le gamma flip, le call wall et le put wall - gratuitement et avec environ 15 minutes de décalage - pour [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels), ainsi que pour les futures ES et NQ, avec les six côte à côte sur la [page des niveaux GEX du jour](/gex-levels). Pour une lecture en direct, avec le profil gamma complet, une heatmap strike par DTE et le Market State Index, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
 
 ---
 

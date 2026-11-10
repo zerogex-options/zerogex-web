@@ -6,25 +6,25 @@
 
 ## La risposta breve
 
-**Gamma negativo**, nel contesto dell'options-flow, significa che i dealer che si trovano dall'altra parte degli scambi di opzioni dei clienti hanno un book netto short-gamma. La conseguenza pratica: quando SPY sale, i dealer devono *comprare* SPY per rimanere hedgiati, e quando SPY scende, devono *vendere* SPY. Le loro operazioni di hedging vanno **nella stessa direzione** del prezzo - non contro di essa.
+**Gamma negativo**, nel contesto dell'options-flow, descrive un regime: i dealer che si trovano dall'altra parte degli scambi di opzioni dei clienti hanno, secondo il modello, un book netto short-gamma. La conseguenza pratica: quando SPY sale, tendono a *comprare* SPY per rimanere coperti, e quando SPY scende, tendono a *vendere* SPY. Le loro operazioni di hedging vanno **nella stessa direzione** del prezzo - non contro di essa.
 
-Questo riflesso meccanico trasforma il book dei dealer in un amplificatore. I selloff accelerano. I rally si estendono. La volatilità intraday realizzata tende a essere più alta di quella implicita. Il comportamento di pin si rompe. Lo stesso setup grafico che funzionava ieri (quando i dealer erano long gamma e assorbivano i movimenti) viene schiacciato oggi (quando sono short gamma e rincorrono il mercato).
+Questo riflesso meccanico trasforma il book dei dealer in un amplificatore. I selloff tendono ad accelerare. I rally tendono a estendersi. La volatilità intraday realizzata tende a essere più alta di quella implicita. Il comportamento di pin tende a rompersi. Lo stesso setup grafico che funzionava ieri (quando i dealer erano long gamma e assorbivano i movimenti) viene schiacciato oggi (quando sono short gamma e rincorrono il mercato).
 
-L'opposto - il **gamma positivo** - è la configurazione più comune per SPY nella maggior parte delle sessioni tranquille. I dealer sono long gamma, coprono il movimento e smorzano la volatilità. Il quadro completo è trattato nel [pillar sulla Gamma Exposure](/education/gamma-exposure-explained); questo articolo si concentra specificamente su cosa significhi "gamma negativo" e su come riconoscerlo.
+L'opposto - il **gamma positivo** - è la configurazione più comune per SPY nella maggior parte delle sessioni tranquille. I dealer sono long gamma, si coprono contro il movimento e smorzano la volatilità. Il quadro completo è trattato nel [pillar sulla Gamma Exposure](/education/gamma-exposure-explained); questo articolo si concentra specificamente su cosa significhi "gamma negativo" e su come riconoscerlo.
 
 ---
 
 ## A cosa si riferisce davvero il "gamma negativo"
 
-Il gamma è un Greek del secondo ordine che misura come il delta di un'opzione cambia al muoversi del sottostante. Un numero di "gamma exposure" con segno è il gamma aggregato sull'intero book dei dealer, dove le call (tipicamente detenute long dai dealer) contribuiscono positivamente e le put (tipicamente detenute short dai dealer) contribuiscono negativamente.
+Il gamma è un Greek del secondo ordine che misura come il delta di un'opzione cambia al muoversi del sottostante. Un numero di "gamma exposure" con segno è il gamma aggregato sull'intero book *modellato* dei dealer. Il gamma grezzo è positivo per qualsiasi opzione *long* - call o put - quindi il segno deve venire da un'ipotesi su cosa detengono i dealer: le call modellate come detenute long (contribuiscono con gamma positivo) e le put modellate come detenute short (contribuiscono con gamma negativo). Il segno meno sul lato put è la posizione *short* modellata, non il fatto che le put abbiano per natura un "gamma negativo".
 
-Quando il *netto* di questi contributi con segno è negativo, il book dei dealer è complessivamente short gamma. Il modo convenzionale in cui questo appare negli strumenti di flow: Net GEX < 0.
+Quando il *netto* di questi contributi con segno è negativo, il book è modellato come short gamma nel complesso. Il modo convenzionale in cui questo appare negli strumenti di flow: Net GEX < 0.
 
 > Questa è una convenzione modellata, non inventario osservato. Usa l'assunzione tradizionale call-positive/put-negative sull'open interest; il posizionamento reale dei dealer non è direttamente osservabile dai dati pubblici della catena delle opzioni.
 
-La convenzione standard - i clienti vendono call in overwriting e comprano put per protezione - implica che i dealer siano tipicamente long di call e short di put, ma le *magnitudini* variano con il positioning. Quando la domanda dei clienti si sbilancia pesantemente verso le put (ad esempio durante regimi di paura), l'inventario short-put crescente del book dei dealer può spingere il gamma netto in negativo; quando dominano le call (ad esempio in trend rialzisti calmi dove l'overwriting costruisce gamma long-call per i dealer), il book è long gamma.
+La convenzione standard - i clienti vendono call in overwriting e comprano put per protezione - implica che i dealer siano tipicamente long di call e short di put, ma le *magnitudini* variano con il positioning. Quando la domanda dei clienti si sbilancia pesantemente verso le put (ad esempio durante regimi di paura), l'inventario short-put crescente del book dei dealer può spingere il gamma netto in negativo; quando dominano le call (ad esempio in trend rialzisti calmi dove l'overwriting costruisce gamma long-call per i dealer), il book è modellato come long gamma.
 
-La statistica riassuntiva più utile in assoluto: il **gamma flip** - il prezzo al quale il profilo gamma dei dealer attraversa lo zero. Sopra il flip, i dealer sono tipicamente long gamma (positivo). Sotto il flip, short gamma (negativo). Leggere il flip equivale essenzialmente a leggere la linea del regime. Vedi [Come Leggere un Gamma Flip](/education/how-to-read-a-gamma-flip).
+La statistica riassuntiva più utile in assoluto: il **gamma flip** - il prezzo al quale il profilo gamma dei dealer attraversa lo zero. Sopra il flip, i dealer sono tipicamente long gamma (positivo). Sotto il flip, short gamma (negativo). Leggere il flip equivale essenzialmente a leggere la linea del regime. Vedi [Cos'è un gamma flip?](/education/how-to-read-a-gamma-flip)
 
 ---
 
@@ -33,7 +33,7 @@ La statistica riassuntiva più utile in assoluto: il **gamma flip** - il prezzo
 La catena meccanica:
 
 1. L'esposizione delta netta dei dealer è short-gamma. Quando lo spot sale, il delta del loro portafoglio opzioni scende (diventano più short rispetto alla neutralità).
-2. Per rimanere delta-neutral, devono **comprare** il sottostante per compensare il calo.
+2. Per rimanere delta-neutral, in genere **comprano** il sottostante per compensare il calo.
 3. Questi acquisti avvengono nello stesso momento in cui i clienti stanno facendo salire il mercato. Si sommano allo slancio.
 4. Quando lo spot scende, avviene l'opposto: il delta delle opzioni dei dealer sale (diventano più long rispetto alla neutralità); per neutralizzare, **vendono** il sottostante. Queste vendite si aggiungono al ribasso.
 
@@ -56,11 +56,11 @@ Confronta questo con il **gamma positivo**, dove la stessa catena di flow si inv
 | Playbook peggiore | Rincorrere breakout, momentum | Fadare i rally, comprare i dip nella struttura |
 | Tipico quando | SPY sopra il gamma flip, Net GEX > 0 | SPY sotto il gamma flip, Net GEX < 0 |
 
-Queste sono tendenze generali di regime, non garanzie. Catalizzatori e shock le possono ribaltare. Ciò che cambiano è il meccanismo dietro un trade, non quanto spesso i wall si rompono: nella nostra misurazione, i wall hanno tenuto più o meno con la stessa frequenza sia sopra sia sotto il flip.
+Queste sono tendenze generali di regime, non garanzie. Catalizzatori e shock prevalgono su di esse. Ciò che cambiano è il meccanismo dietro un trade, non quanto spesso i wall si rompono: nella nostra misurazione, i wall hanno tenuto più o meno con la stessa frequenza sia sopra sia sotto il flip.
 
 ---
 
-## Come individuare in tempo reale un regime a gamma negativo
+## Come si presenta intraday un contesto a gamma negativo
 
 Un breve workflow:
 
@@ -128,4 +128,4 @@ Solo contenuto educativo - nulla di quanto sopra è una raccomandazione di trad
 
 ---
 
-Se vuoi vedere il Net GEX di oggi, il gamma flip e la lettura del regime per SPY, SPX, QQQ e NDX - i tre numeri che ti dicono se i dealer sono long gamma o short gamma in questo momento - [la vista gratuita sui gamma-levels di ZeroGEX](/spx-gamma-levels) li mostra tutti, con un ritardo di circa 15 minuti; i piani a pagamento li mostrano [in tempo reale](/real-time-gex-0dte).
+Se vuoi vedere il Net GEX di oggi, il gamma flip e la lettura del regime per SPY, SPX, QQQ e NDX - i tre numeri che ti dicono se i dealer sono long gamma o short gamma in questo momento - [la vista gratuita dei livelli gamma di ZeroGEX](/spx-gamma-levels) li mostra tutti, con un ritardo di circa 15 minuti; i piani a pagamento li mostrano [sulla dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).

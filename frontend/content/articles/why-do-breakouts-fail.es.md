@@ -1,6 +1,4 @@
 # ¿Por qué fallan los breakouts? La razón estructural detrás de los breakouts fallidos
-> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Que el término pin de EOD Pressure siga el movimiento reciente cuando la gamma es negativa es una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
-
 
 *¿Por qué fallan los breakouts con tanta frecuencia? Los breakouts fallidos tienen una causa estructural que se origina en el hedging de los dealers, el régimen de gamma y en cómo se concentra el posicionamiento en el nivel que el precio intenta romper - y hemos medido con qué frecuencia gana ese hedging. Esto es lo que hay que buscar antes de perseguir el movimiento.*
 
@@ -8,7 +6,7 @@
 
 ## Los breakouts fallidos tienen una causa estructural
 
-Si operas SPY, SPX o QQQ con regularidad, lo has visto ocurrir docenas de veces: el precio perfora un nivel clave de resistencia con un volumen convincente, tú (y otros mil traders) compráis la ruptura, y en veinte minutos el movimiento ya se ha revertido y estás en pérdidas. Mismo setup, mismo resultado.
+Si operas SPY, SPX o QQQ con regularidad, lo has visto ocurrir docenas de veces: el precio perfora un nivel clave de resistencia con un volumen convincente, tú (y otros mil traders) compras la ruptura, y en veinte minutos el movimiento ya se ha revertido y estás en pérdidas. Mismo setup, mismo resultado.
 
 El instinto es llamarlo "ruido", "falsa ruptura" o "caza de stops". Pero el patrón suele ser demasiado consistente como para que esas explicaciones sean toda la respuesta. Muchos breakouts fallidos en productos indexados tipo SPX pueden atribuirse a un mecanismo estructural - los reflejos de hedging de los dealers, que tienden a activarse en torno a los strikes que los traders intentan romper. ¿Con qué frecuencia gana ese hedging? Lo hemos medido: los walls del S&P aguantaron aproximadamente dos de cada tres veces en el plazo de una hora tras ser puestos a prueba; los del Nasdaq, aproximadamente la mitad; y el régimen no cambió esas probabilidades ([¿Con qué frecuencia se rompen realmente los gamma walls?](/education/how-often-do-gamma-walls-break)).
 
@@ -32,9 +30,9 @@ Eso es un breakout fallido. El mecanismo detrás - en productos indexados líqu
 
 ## Por qué el hedging de los dealers absorbe los breakouts
 
-La causa estructural dominante es **el hedging long-gamma de los dealers en strikes concentrados**.
+Una causa estructural habitual es **el hedging long-gamma de los dealers en strikes concentrados**.
 
-Así es la cadena:
+Así es la cadena, bajo la convención tradicional de posicionamiento de los dealers:
 
 1. Los clientes venden muchas calls en un strike determinado (digamos, el strike SPX 5.850) - overwriting y venta de calls. Se modela que los dealers compran esas calls, lo que los deja largos en esa gamma.
 2. Para mantenerse delta-neutrales, los dealers mantienen una cantidad correspondiente de delta corto en el subyacente - es decir, están cortos en relación con la exposición a las calls. A medida que el spot sube hacia 5.850, su exposición en opciones acumula delta positivo que tienden a compensar *vendiendo* el subyacente.
@@ -42,9 +40,9 @@ Así es la cadena:
 4. Esa venta puede actuar como oferta estructural. No tiene que provenir de un solo lugar - es el agregado de los dealers que, según el modelo, se cubren de la misma manera.
 5. Cuando el precio intenta romper 5.850, los dealers tienden a vender en el mismo movimiento en el que compran los perseguidores - y esa oferta puede acabar imponiéndose.
 
-Esto es lo que la gente quiere decir cuando afirma que "el call wall absorbió el breakout". El wall es posicionamiento real; la absorción es una operación de hedging real. Ambos son observables en tiempo real.
+Esto es lo que la gente quiere decir cuando afirma que "el call wall absorbió el breakout". El wall es posicionamiento real; el hedging que absorbe aparece como operaciones reales en el tape - aunque la motivación detrás de cada print individual no es directamente observable, y el signo *modelado* de los dealers es un supuesto, no una medición.
 
-El análisis más profundo sobre qué es un wall y por qué se comporta así está en [Gamma Walls Explained](/education/gamma-walls-explained).
+El análisis más profundo sobre qué es un wall y por qué se comporta así está en [Gamma Walls explicados](/education/gamma-walls-explained).
 
 ---
 
@@ -54,15 +52,15 @@ Cada una describe una parte del mecanismo. Ninguna de ellas, en nuestra medició
 
 ### 1. El régimen es long-gamma
 
-Todo el mecanismo de "los dealers absorben los breakouts" solo funciona en un régimen de **gamma positiva** - típicamente cuando el spot está por encima del gamma flip. En ese régimen, el hedging de los dealers amortigua los movimientos direccionales; el reflejo es vender la fortaleza y comprar la debilidad.
+El mecanismo de "los dealers absorben los breakouts" se aplica principalmente en un régimen de **gamma positiva** - típicamente cuando el spot está por encima del gamma flip. En ese régimen, el hedging de los dealers tiende a amortiguar los movimientos direccionales; el reflejo es vender la fortaleza y comprar la debilidad.
 
 En un régimen de **gamma negativa** - spot por debajo del flip - el reflejo se invierte. Los dealers tienden a comprar en los rallies y a vender en las caídas, lo que amplifica los movimientos. Si llega un breakout en un régimen de gamma negativa, el hedging se suma a él en lugar de oponerse a él.
 
-Leer el gamma flip en tiempo real es gran parte de este filtro. Consulta [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) para conocer el flujo de trabajo.
+Leer el gamma flip en tiempo real es la mayor parte de este filtro. Consulta [¿Qué es un gamma flip?](/education/how-to-read-a-gamma-flip) para conocer el flujo de trabajo.
 
 ### 2. El posicionamiento de los dealers se está fortaleciendo, no deshaciendo
 
-El hedging long-gamma solo absorbe si el posicionamiento realmente se mantiene. Si el Net GEX está decayendo (las posiciones se están cerrando o transfiriendo hacia el vencimiento), el reflejo de absorción se debilita junto con él. La tesis de trap detection penaliza específicamente las lecturas de breakout fallido cuando el Net GEX se está contrayendo.
+El hedging long-gamma solo absorbe si el posicionamiento realmente se mantiene. Si el Net GEX está decayendo (las posiciones se están cerrando o van expirando hacia el vencimiento), el reflejo de absorción se debilita junto con él. La tesis de trap detection penaliza específicamente las lecturas de breakout fallido cuando el Net GEX se está contrayendo.
 
 Un breakout contra un wall con Net GEX **fortaleciéndose** es el setup clásico de fade. Un breakout contra un wall con Net GEX **decayendo** cuenta con menos absorción modelada respaldando el wall - el absorbedor estructural está abandonando la mesa. En nuestra medición, ninguno de los dos casos hizo que una ruptura fuera más o menos probable.
 

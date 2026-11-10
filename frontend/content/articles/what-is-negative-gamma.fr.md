@@ -10,7 +10,7 @@
 
 Ce réflexe mécanique transforme le book des dealers en amplificateur. Les selloffs ont tendance à s'accélérer. Les rallyes ont tendance à s'étendre. La volatilité intraday réalisée tend à être plus élevée que l'implicite. Le comportement de pin tend à se rompre. Le même setup graphique qui fonctionnait hier (quand les dealers étaient long gamma et absorbaient les mouvements) se fait écraser aujourd'hui (quand ils sont short gamma et courent après le mouvement).
 
-L'inverse - le **gamma positif** - est la configuration par défaut la plus courante pour SPY pendant la plupart des séances calmes. Les dealers sont long gamma, couvrent le mouvement et amortissent la volatilité. Le tableau complet est traité dans le [pilier Gamma Exposure](/education/gamma-exposure-explained) ; cet article se concentre spécifiquement sur ce que signifie "gamma négatif" et comment le reconnaître.
+L'inverse - le **gamma positif** - est la configuration par défaut la plus courante pour SPY pendant la plupart des séances calmes. Les dealers sont long gamma, se couvrent à contre-courant du mouvement et amortissent la volatilité. Le tableau complet est traité dans le [pilier Gamma Exposure](/education/gamma-exposure-explained) ; cet article se concentre spécifiquement sur ce que signifie "gamma négatif" et comment le reconnaître.
 
 ---
 
@@ -24,7 +24,7 @@ Lorsque le *net* de ces contributions signées est négatif, le book est modéli
 
 La convention standard - les clients vendent des calls en overwriting et achètent des puts pour se protéger - implique que les dealers sont typiquement longs de calls et short de puts, mais les *magnitudes* varient selon le positioning. Lorsque la demande des clients penche fortement vers les puts (par exemple pendant les régimes de peur), l'inventaire de puts short croissant du book des dealers peut pousser le gamma net en négatif ; lorsque les calls dominent (par exemple lors de tendances haussières calmes où l'overwriting construit du gamma long-call chez les dealers), le book est modélisé long gamma.
 
-La statistique récapitulative la plus utile de toutes : le **gamma flip** - le prix auquel le profil gamma des dealers croise zéro. Au-dessus du flip, les dealers sont typiquement long gamma (positif). En dessous du flip, short gamma (négatif). Lire le flip revient essentiellement à lire la ligne du régime. Voir [Comment Lire un Gamma Flip](/education/how-to-read-a-gamma-flip).
+La statistique récapitulative la plus utile de toutes : le **gamma flip** - le prix auquel le profil gamma des dealers croise zéro. Au-dessus du flip, les dealers sont typiquement long gamma (positif). En dessous du flip, short gamma (négatif). Lire le flip revient essentiellement à lire la ligne du régime. Voir [Qu'est-ce qu'un gamma flip ?](/education/how-to-read-a-gamma-flip)
 
 ---
 
@@ -60,14 +60,14 @@ Ce sont des tendances générales de régime, pas des garanties. Les catalyseurs
 
 ---
 
-## Comment repérer un régime de gamma négatif en temps réel
+## À quoi ressemble un environnement de gamma négatif en intraday
 
 Un court workflow :
 
 1. **Vérifiez d'abord le gamma flip.** Si SPY est en dessous du flip, le modèle vous place dans un régime short-gamma.
 2. **Confirmez avec le Net GEX.** Une valeur de Net GEX négative donne la lecture de magnitude - plus elle est négative, plus le régime est marqué. Un Net GEX proche de zéro est un régime disputé ; les deux réflexes sont partiellement actifs.
 3. **Recoupez avec le tableau de la vol réalisée.** Les régimes short-gamma se traduisent par des fourchettes intraday plus larges que ce que la vol implicite d'ouverture de la journée suggérait. Si la réalisée s'élargit pendant que l'implicite reste plate, c'est la signature du régime.
-4. **Observez ce qui se passe quand un wall cède.** Dans les régimes short-gamma, le hedging renforce le mouvement au lieu de s'y opposer, si bien qu'une cassure peut se poursuivre là où elle aurait calé en long gamma. Selon nos mesures, la fréquence à laquelle les walls ont cédé n'a pas changé avec le régime ; la différence qu'attend le modèle tient à ce qui suit une cassure.
+4. **Observez ce qui se passe après la cassure d'un wall.** Dans les régimes short-gamma, le hedging renforce le mouvement au lieu de s'y opposer, si bien qu'une cassure peut se poursuivre là où elle aurait calé en long gamma. Selon nos mesures, la fréquence à laquelle les walls ont cédé n'a pas changé avec le régime ; la différence qu'attend le modèle tient à ce qui suit une cassure.
 5. **Observez la direction du flow à la clôture.** Le short-gamma en fin de séance produit souvent des mouvements directionnels qui s'accélèrent (le signal de pression EOD devient une lecture de continuation, pas une lecture de fade).
 
 ---
@@ -94,7 +94,7 @@ Des choses à *commencer* à faire :
 
 SPX ouvre la journée à 5 780. ZeroGEX affiche :
 
-- **Net GEX :** −1,1 Md $ (négatif - régime short-gamma)
+- **Net GEX :** −1,1 Md$ (négatif - régime short-gamma)
 - **Gamma Flip :** 5 810 (spot 30 points en dessous)
 - **Call Wall :** 5 820
 - **Put Wall :** 5 750
@@ -105,7 +105,7 @@ La lecture structurelle dit ici le contraire. SPX est en territoire short-gamma 
 
 La lecture pratique : un fade n'a ici aucun hedging de son côté, et si le wall cède, le mouvement peut filer. Cela change le risque de fader, pas la probabilité que 5 820 tienne - sur les 737 tests de walls que nous avons mesurés, les walls du SPX ont tenu environ deux fois sur trois dans l'heure, quel que soit le côté du flip où se trouvait le prix.
 
-Imaginez maintenant le même graphique avec un Net GEX à +1,2 Md $ et le gamma flip à 5 760 (spot 40 points au-dessus). La lecture structurelle s'inverse : le réflexe long-gamma s'oppose aux rallyes vers 5 820, si bien qu'un fade a le hedging de son côté. Même tape, mécanisme opposé, selon une seule variable de régime.
+Imaginez maintenant le même graphique avec un Net GEX à +1,2 Md$ et le gamma flip à 5 760 (spot 40 points au-dessus). La lecture structurelle s'inverse : le réflexe long-gamma s'oppose aux rallyes vers 5 820, si bien qu'un fade a le hedging de son côté. Même tape, mécanisme opposé, selon une seule variable de régime.
 
 ---
 
@@ -128,4 +128,4 @@ Contenu éducatif uniquement - rien de ce qui précède ne constitue une recomm
 
 ---
 
-Si vous voulez voir le Net GEX du jour, le gamma flip et la lecture de régime pour SPY, SPX, QQQ et NDX - les trois chiffres qui vous disent si les dealers sont actuellement long gamma ou short gamma - [la vue gratuite gamma-levels de ZeroGEX](/spx-gamma-levels) les affiche tous, avec un décalage d'environ 15 minutes ; les formules payantes les affichent [en temps réel](/real-time-gex-0dte).
+Si vous voulez voir le Net GEX du jour, le gamma flip et la lecture de régime pour SPY, SPX, QQQ et NDX - les trois chiffres qui vous disent si les dealers sont actuellement long gamma ou short gamma - [la vue gratuite des niveaux gamma de ZeroGEX](/spx-gamma-levels) les affiche tous, avec un décalage d'environ 15 minutes ; les formules payantes les affichent [sur le tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).

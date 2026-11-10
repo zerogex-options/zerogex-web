@@ -1,16 +1,16 @@
 # Comment éviter de courir après les mouvements 0DTE
 
-*Courir après les mouvements 0DTE est de loin la pire habitude pour les comptes retail qui tradent des options same-day. Voici pourquoi cette poursuite est structurellement plus dangereuse sur les 0DTE que sur n'importe quelle autre échéance - et les signaux concrets qui vous indiquent quand vous arrêter avant de cliquer.*
+*Courir après les mouvements 0DTE est ce qui détruit le plus de comptes d'options same-day. Voici pourquoi cette poursuite est structurellement plus dangereuse sur les 0DTE que sur n'importe quelle autre échéance - et les signaux concrets qui vous indiquent quand vous arrêter avant de cliquer.*
 
 ---
 
-## Courir après les 0DTE est l'habitude la plus coûteuse du trading retail
+## Courir après les 0DTE est la mauvaise habitude la plus coûteuse du trading d'options same-day
 
 Si vous tradez régulièrement des options zero-day sur SPY ou SPX, vous l'avez déjà vécu : le prix s'emballe fortement dans une direction, le call (ou le put) que vous vouliez vaut soudain 3 fois ce qu'il valait vingt minutes plus tôt, et vous ressentez un besoin urgent de courir après. Vous achetez. En dix minutes, le mouvement s'est inversé, votre contrat est revenu à 1x, et vous vous retrouvez avec une position perdante et encore des heures de décroissance theta à digérer.
 
-Cette expérience est si répandue qu'elle est essentiellement l'histoire fondatrice du trader retail sur 0DTE. Tout trader 0DTE actif l'a vécue des dizaines de fois. Et à chaque fois, la lecture structurelle vous disait en réalité de ne pas poursuivre - *si* vous saviez où regarder.
+Cette expérience est si répandue qu'elle est essentiellement l'histoire emblématique du 0DTE. Tout trader 0DTE actif l'a vécue des dizaines de fois. Et à chaque fois, la lecture structurelle vous disait en réalité de ne pas poursuivre - *si* vous saviez où regarder.
 
-Cet article présente la méthode pour ne pas courir après le marché. Les mécanismes qui rendent la poursuite des 0DTE particulièrement dangereuse, trois signaux concrets indiquant que vous êtes sur le point de commettre l'erreur, et la lecture structurelle qui devrait prendre le pas sur votre instinct. Pour approfondir pourquoi le flux 0DTE façonne le book des dealers de cette manière, commencez par [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
+Cet article présente la méthode pour ne pas courir après le marché. Les mécanismes qui rendent la poursuite des 0DTE particulièrement dangereuse, trois signaux concrets indiquant que vous êtes sur le point de commettre l'erreur, et la lecture structurelle qui devrait prendre le pas sur votre instinct. Pour approfondir pourquoi le flux 0DTE façonne le book des dealers de cette manière, commencez par [Le positionnement des dealers en 0DTE expliqué](/education/0dte-dealer-positioning-explained).
 
 ---
 
@@ -28,7 +28,7 @@ Les options same-day portent un gamma énorme à la monnaie. Cela leur donne l'a
 
 ### 3. Le hedging des dealers est réactif, pas directionnel
 
-Les dealers se moquent de la direction que prend SPY ; ce qui les préoccupe, c'est de rester delta-neutre. Quand vous courez après un mouvement, vous payez la prime qui existe *précisément parce que* les dealers ont dû couvrir ce mouvement. Le temps que vous vous mettiez à poursuivre, le flux structurel qui a provoqué la flambée s'est déjà produit. Vous achetez au sommet du mouvement forcé par les dealers, pas à son début.
+Les dealers se préoccupent généralement moins de la direction que de la gestion du delta net de leur book - et ils couvrent ce book de manière agrégée, pas nécessairement en continu. Quand vous courez après un mouvement, une partie de la prime que vous payez reflète le hedging que ce mouvement a probablement déclenché. Le temps que vous vous mettiez à poursuivre, une grande partie du flux structurel qui a provoqué la flambée s'est déjà produite. Vous achetez souvent près du sommet d'un mouvement porté par les dealers, pas à son début.
 
 ---
 
@@ -44,11 +44,11 @@ La version la plus pure de ce piège : un breakout d'une enveloppe de volatilit�
 
 ### Déclencheur 2 : le flux est déjà visiblement déséquilibré dans le sens que vous voulez poursuivre
 
-Ouvrez le panneau de flux. Si la prime put/call affiche déjà un ratio de 3:1 côté call et que le déséquilibre du smart money est déjà nettement positif, le trade de consensus a déjà été mis en place. Vous êtes en retard. La fade est bien plus probable que la continuation à ce stade - ce qui signifie que les trente prochaines minutes seront probablement le trade de *retournement*, pas de continuation.
+Ouvrez le panneau de flux. Si la prime put/call affiche déjà un ratio de 3:1 côté call et que le déséquilibre du smart money est déjà nettement positif, une grande partie du trade de consensus a déjà été mise en place. Vous êtes en retard. À ce stade, la fade devient plus probable par rapport à la continuation - ce qui augmente les chances que les trente prochaines minutes apportent le *retournement*, et non la suite du mouvement.
 
 ### Déclencheur 3 : il est tard dans la journée et le mouvement se dirige vers un niveau clé
 
-Après 14h00 ET, les effets de charm modélisés tendent à s'accumuler et le réflexe des dealers autour du strike 0DTE le plus lourd peut s'intensifier. Courir après un mouvement de fin de journée qui se dirige vers le call wall (ou qui s'éloigne du put wall) peut revenir à acheter précisément là où le hedging des dealers joue contre vous plutôt qu'avec vous. Le signal EOD Pressure est conçu pour signaler ce régime - voir [EOD Pressure Signal Explained](/education/eod-pressure-explained).
+Après 14h00 ET, les effets de charm modélisés tendent à s'accumuler et le réflexe des dealers autour du strike 0DTE le plus lourd peut s'intensifier. Courir après un mouvement de fin de journée qui se dirige vers le call wall (ou qui s'éloigne du put wall) peut revenir à acheter précisément là où le hedging des dealers joue contre vous plutôt qu'avec vous. Le signal EOD Pressure est conçu pour signaler ce régime - voir [Le signal EOD Pressure expliqué](/education/eod-pressure-explained).
 
 ---
 
@@ -88,7 +88,7 @@ La vue gratuite `/spx-gamma-levels` vous donne les trois filtres dont vous avez 
 - **Call Wall / Put Wall** - là où une poursuite se heurte au hedging des dealers le plus lourd.
 - **Net GEX** - magnitude du book des dealers.
 
-Pour le filtre horaire, les tableaux de bord en direct affichent le signal EOD Pressure pendant la fenêtre active (après 14h30 ET) - une lecture directionnelle indiquant vers où penche le hedging forcé à l'approche de la clôture.
+Pour le filtre horaire, les tableaux de bord en direct affichent le signal EOD Pressure pendant la fenêtre active (après 14h30 ET) - une lecture directionnelle modélisée indiquant vers où la pression de couverture pourrait pencher à l'approche de la clôture.
 
 Exemple concret. Il est 14h45 ET. Le SPX vient de percer le plus haut de la journée à 5 810. Le contrat que vous voulez poursuivre a gagné 70 % depuis l'ouverture. ZeroGEX affiche :
 
@@ -118,8 +118,10 @@ Quelques-unes qui fonctionnent :
 
 La discipline vient naturellement une fois que la lecture est cohérente - quand vous avez vérifié le régime, le wall, le Net GEX et l'heure de la journée et constaté que le hedging joue contre vous, la poursuite perd son attrait. Le piège consiste à courir après le marché *avant* d'avoir fait cette vérification.
 
-Contenu à visée éducative uniquement - rien de ce qui précède ne constitue une recommandation de trading.
+Contenu éducatif uniquement - rien de ce qui précède ne constitue une recommandation de trading.
 
 ---
+
+Pour le schéma plus général qui se cache derrière la poursuite, voir [cinq erreurs de trading que les niveaux gamma vous aident à éviter](/trading-mistakes).
 
 Si vous voulez consulter le gamma flip, les walls et le Net GEX du jour avant votre prochaine entrée 0DTE - la carte structurelle qui signale la plupart des setups de poursuite - la vue gratuite gamma-levels de ZeroGEX affiche les trois.
