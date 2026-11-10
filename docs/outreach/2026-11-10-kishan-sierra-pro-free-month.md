@@ -10,7 +10,10 @@ sim, and wants to backtest as well as sim live. Pro feels expensive for that,
 so he built his own Sierra study on the free 15-minute-delayed data. He says
 "you can only pick a two hour window as it's already delayed".
 
-> **Status:** code not created yet, reply not sent.
+> **Status:** account checked and code created in Stripe (live), Nov 10. Coupon
+> `G4Mgsdy9` "Pro first month free": $59.00 off once, ZeroGEX Pro only, 1
+> redemption, expires Nov 24. Promotion code `PROFREEMONTH`
+> (`promo_1Ua3cP4AOiqteM…`), expires Nov 24 at 11:59 PM. Reply not sent yet.
 
 ## The read
 
@@ -44,6 +47,16 @@ so he built his own Sierra study on the free 15-minute-delayed data. He says
   is useful either way: a real limit we didn't know about, or a misread of
   what the free side offers.
 
+## His account (`make diagnose-user`, Nov 10)
+
+| | |
+|---|---|
+| User id | `user_bc478db1a5c11722af179669` |
+| Signed up | Mon Nov 9, verified the same minute, organic |
+| Referred by code | none, so checkout applies no discount and shows the code box |
+| Stripe | no customer yet, nothing ever paid, never held a subscription |
+| Trial on Pro | none. Pro monthly isn't a trial plan, and the reactivation email (the one other way to get a trial on any plan) only goes out 21 days after signup, Nov 30, after the code expires |
+
 ## Steps
 
 ### 1. Check his account (on the server, in `~/zerogex-web`)
@@ -67,7 +80,7 @@ Product catalog, Coupons, **+ Create coupon**:
 | Type | Fixed amount discount, **$59.00 USD** |
 | Apply to specific products | On, **Pro** only |
 | Duration | **Once** |
-| Use customer-facing coupon codes | On, code **`KISHANPRO`** |
+| Use customer-facing coupon codes | On, code **`PROFREEMONTH`** |
 | Eligible for first-time order only | On |
 | Limit to a specific customer | Off (he has no Stripe customer yet) |
 | Limit the number of times this code can be redeemed | **1** |
@@ -98,7 +111,7 @@ You're right that the free data won't work for live testing. It's kept 15 minute
 
 On the two-hour window: I'm not sure which part of the free site you mean, and I'd like to understand it. Which page or link is your study reading from? If something on our side is limiting it, I want to know.
 
-Since you're building on Sierra yourself, I'd like to give you a month of Pro free so you can test it properly on the sim before deciding. Go to zerogex.io/pricing, choose Pro monthly, and enter KISHANPRO under "Add promotion code". The total due today will show $0. Stripe will still ask for a card, but nothing is charged today. The code works until November 24.
+Since you're building on Sierra yourself, I'd like to give you a month of Pro free so you can test it properly on the sim before deciding. Go to zerogex.io/pricing, choose Pro monthly, and enter PROFREEMONTH under "Add promotion code". The total due today will show $0. Stripe will still ask for a card, but nothing is charged today. The code works until November 24.
 
 Pro covers both things you described:
 
