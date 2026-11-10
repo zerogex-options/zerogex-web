@@ -1,6 +1,6 @@
 # Pin Strike spiegato: il pin gamma 0DTE raggiungibile
 
-*Pin Strike è lo strike 0DTE raggiungibile con la più forte stabilizzazione modellata da gamma dei dealer positivo verso la scadenza. Cos'è, come è costruito, perché deliberatamente non è "lo strike a gamma più grande" e perché gli è consentito non restituire nessun pin attivo.*
+*Pin Strike è lo strike 0DTE raggiungibile con la più forte stabilizzazione modellata dovuta al gamma positivo dei dealer verso la scadenza. Cos'è, come è costruito, perché deliberatamente non è "lo strike a gamma più grande" e perché gli è consentito non restituire nessun pin attivo.*
 
 ---
 

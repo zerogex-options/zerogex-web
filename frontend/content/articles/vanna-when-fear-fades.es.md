@@ -1,8 +1,6 @@
 # Vanna: cómo la caída de la IV puede cambiar la cobertura de los dealers
-> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Que el término pin de EOD Pressure siga el movimiento reciente cuando la gamma es negativa es una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
 
-
-*Vanna mide la sensibilidad de delta a la volatilidad implícita. La presión de cobertura depende de la cadena y no es una compra automática.*
+*Vanna es la velocidad a la que cambia el delta de una opción cuando cambia la volatilidad implícita. Cuando el miedo descontado en el precio sale del mercado tras un evento que nunca llegó a materializarse, vanna puede empujar a un libro de dealer típico a comprar acciones en un goteo lento y constante - el grind de "subida sin noticias", cuyos prints de cobertura se esconden a plena vista en el tape mientras el motivo que hay detrás sigue siendo invisible.*
 
 ---
 
@@ -22,7 +20,7 @@ La volatilidad implícita fija la amplitud de la distribución de resultados que
 
 Piensa ahora en qué le hace esto a una call fuera del dinero. Cuando la IV es alta y la distribución es amplia, ese strike lejano tiene una probabilidad real de ser alcanzado, así que su delta está claramente por encima de cero - digamos 0,25. Deja que el miedo se drene, que la distribución se estreche, y ese mismo strike de repente parece mucho menos alcanzable. Su delta cae hacia cero - digamos 0,15. El spot nunca se movió. Lo único que cambió fue la estimación del mercado sobre cuánto *podría* moverse el spot, y eso por sí solo repreció el delta de la opción.
 
-Ese cambio es vanna. Cada opción fuera del dinero de la cadena repreza su delta cuando se mueve la vol, y el delta de todo el libro se desplaza como resultado. El dealer estaba cubierto según los deltas de ayer; el dato de vol de hoy acaba de cambiarlos; el hedge tiene que moverse para ponerse al día.
+Ese cambio es vanna. Cada opción fuera del dinero de la cadena reprecia su delta cuando se mueve la vol, y el delta de todo el libro se desplaza como resultado. El dealer estaba cubierto según los deltas de ayer; el dato de vol de hoy acaba de cambiarlos; el hedge tiene que moverse para ponerse al día.
 
 ---
 

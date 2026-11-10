@@ -1,44 +1,44 @@
 # Il posizionamento dei dealer 0DTE spiegato
 
-*Le scadenze giornaliere ormai dominano il flusso su SPX. Questo cambia il modo in cui si legge la gamma dei dealer - e il modo in cui bisogna leggere il tape per stare al passo. Il posizionamento dei dealer 0DTE, spiegato per il trader intraday pratico.*
+*Le opzioni 0DTE rappresentano una quota consistente dell'attività su SPX e in alcune sessioni possono dominare la sensibilità gamma vicino allo spot. Il loro impatto netto sui dealer resta modellato, non osservabile dal volume lordo o dall'OI.*
 
 ---
 
 ## Perché 0DTE cambia la lettura
 
-Il posizionamento dei dealer è sempre stato importante per i trader di opzioni. Ciò che è cambiato negli ultimi anni è la **dominanza del flusso 0DTE** su SPX e SPY. Le scadenze giornaliere ora rappresentano una quota sproporzionata dell'esposizione gamma totale, e poiché la loro gamma è concentrata vicino allo spot e decade verso la chiusura, il comportamento di hedging dei dealer che ne deriva è più brusco, più reattivo e più dipendente dal regime rispetto a qualsiasi struttura di catena precedente.
+Le opzioni 0DTE rappresentano una quota consistente dell'attività di trading su SPX e in alcune sessioni possono dominare la sensibilità gamma vicino allo spot. Con l'avvicinarsi della scadenza, il gamma ATM può aumentare bruscamente, mentre gli strike che diventano decisamente ITM o OTM tendono a zero. L'impatto netto effettivo sui dealer dipende da acquisti e vendite dei clienti che il volume lordo e l'OI non rivelano.
 
-Se fai trading su SPX durante la sessione cash e non stai leggendo il posizionamento dei dealer attraverso la lente 0DTE, stai leggendo un book obsoleto.
+Isolare lo 0DTE può aggiungere un contesto intraday utile, perché le opzioni con scadenza in giornata possono portare un gamma molto elevato vicino allo spot. Il loro impatto netto effettivo sull'hedging dei dealer dipende da acquisti e vendite dei clienti che il volume pubblico lordo e l'OI non rivelano.
 
-Questo articolo è la lettura pratica di cosa significano realmente in tempo reale "posizionamento dei dealer 0DTE" e "dealer gamma 0DTE". Vedremo perché il bucket 0DTE conta più del bucketing a scadenza più lunga, cosa cambia tra i regimi a gamma negativa e positiva specificamente per 0DTE, e come leggere il tape in modo diverso in ciascuno di essi. Abbina questo articolo a [Come leggere un gamma flip](/education/how-to-read-a-gamma-flip) per la linea di regime in sé, [I gamma wall spiegati](/education/gamma-walls-explained) per i livelli di confine, e il [pillar sulla Gamma Exposure](/education/gamma-exposure-explained) per il contesto strutturale completo.
+Questo articolo è la lettura pratica di cosa significano realmente in tempo reale "posizionamento dei dealer 0DTE" e "dealer gamma 0DTE". Vedremo perché il bucket 0DTE conta più del bucketing a scadenza più lunga, cosa cambia tra i regimi a gamma negativo e positivo specificamente per 0DTE, e come leggere il tape in modo diverso in ciascuno di essi. Abbina questo articolo a [Cos'è un gamma flip?](/education/how-to-read-a-gamma-flip) per la linea di regime in sé, [I gamma wall spiegati](/education/gamma-walls-explained) per i livelli di confine, e il [pillar sulla Gamma Exposure](/education/gamma-exposure-explained) per il contesto strutturale completo.
 
 ---
 
 ## Cos'è il posizionamento dei dealer 0DTE?
 
-Il posizionamento dei dealer 0DTE è l'esposizione gamma aggregata che i dealer detengono su opzioni con scadenza lo stesso giorno. Meccanicamente, non è diverso dalla gamma dei dealer a scadenza più lunga - secondo la convenzione standard i dealer sono lunghi di call (i clienti le vendono in overwriting) e corti di put (i clienti le comprano per protezione), quindi l'inventario di call lunghe contribuisce positivamente alla gamma dei dealer mentre l'inventario di put corte contribuisce negativamente, e il riflesso di hedging è lo stesso: mantenere il delta piatto, tradare il sottostante man mano che la gamma cambia.
+Il posizionamento dei dealer 0DTE è l'esposizione gamma aggregata che i dealer detengono su opzioni con scadenza lo stesso giorno. Meccanicamente, non è diverso dal gamma dei dealer a scadenza più lunga - secondo la convenzione standard i dealer sono *modellati* come lunghi delle call che i clienti vendono in overwriting e corti delle put che i clienti comprano per protezione, quindi il loro inventario di call lunghe apporta gamma positivo mentre il loro inventario di put corte apporta gamma negativo (il segno meno è la posizione short modellata, non il fatto che le put abbiano di per sé gamma negativo). Il riflesso di hedging è lo stesso: mantenere il delta piatto, tradare il sottostante man mano che il gamma cambia.
 
 > Questo segno dei dealer è una convenzione modellata, non inventario osservato - il posizionamento reale non è direttamente osservabile dall'open interest pubblico.
 
-Ciò che rende diverso 0DTE è la **densità di gamma**. Le opzioni con scadenza giornaliera portano la loro gamma massima proprio a livello del prezzo di mercato, e la gamma per contratto scala approssimativamente con `1/√T`. Con `T` misurato in frazioni di giorno, quel denominatore è piccolo - e la gamma per contratto diventa molto grande. Uno strike 0DTE vicino allo spot può superare uno strike mensile allo stesso livello di un ordine di grandezza.
+Ciò che rende diverso 0DTE è la **densità di gamma**. Le opzioni con scadenza giornaliera portano il loro gamma massimo proprio a livello del prezzo di mercato, e il gamma per contratto scala approssimativamente con `1/√T`. Con `T` misurato in frazioni di giorno, quel denominatore è piccolo - e il gamma per contratto diventa molto grande. A parità di altre condizioni, un contratto 0DTE at-the-money può portare un gamma sostanzialmente maggiore di un contratto a scadenza più lunga, ma il rapporto dipende da volatilità, moneyness, tassi e tempo residuo preciso.
 
-L'implicazione pratica: il bucket 0DTE detta in modo sproporzionato l'hedging intraday dei dealer. Anche quando l'open interest totale è dominato da strike a scadenza più lunga, l'esposizione *ponderata per gamma* vicino allo spot è spesso una storia 0DTE.
+L'implicazione pratica: il bucket 0DTE può contribuire in modo sproporzionato alla sensibilità modellata dell'hedging intraday dei dealer. Anche quando l'open interest totale è dominato da strike a scadenza più lunga, l'esposizione *ponderata per gamma* vicino allo spot è spesso una storia 0DTE.
 
 ---
 
-## Perché il posizionamento dei dealer conta di più per 0DTE
+## Perché il posizionamento 0DTE può contare intraday
 
 Tre fattori si sommano per 0DTE in un modo che non avviene allo stesso modo per le scadenze più lunghe:
 
-1. **Concentrazione di gamma.** Le opzioni con scadenza giornaliera portano una gamma molto alta a livello del prezzo di mercato. Le operazioni di hedging contro quella gamma sono grandi per unità di movimento, il che rende meccanicamente più rumorosa l'azione di prezzo vicino allo spot.
-2. **Decadimento del charm.** Man mano che le opzioni 0DTE si avvicinano alla scadenza, il loro delta si sposta in modo prevedibile verso 0 (out-of-the-money) o ±1 (in-the-money - +1 per le call, −1 per le put). I dealer che gestiscono un book delta-neutrale devono ri-hedgiarsi continuamente fino alla chiusura. Quel flusso forzato ha un segno - ed è direttamente leggibile.
-3. **Fisica del pin.** La stessa concentrazione di gamma che fa muovere molto i dealer 0DTE per ogni tick rende anche lo strike 0DTE più pesante una calamita in un regime a gamma lunga. Il comportamento di pinning tende a essere più marcato su 0DTE rispetto a setup multi-day.
+1. **Concentrazione di gamma.** Le opzioni con scadenza giornaliera portano un gamma molto alto a livello del prezzo di mercato. Le operazioni di hedging contro quel gamma sono grandi per unità di movimento, il che rende meccanicamente più rumorosa l'azione di prezzo vicino allo spot.
+2. **Decadimento del charm.** Man mano che le opzioni 0DTE si avvicinano alla scadenza, il loro delta si sposta verso 0 (out-of-the-money) o ±1 (in-the-money - +1 per le call, −1 per le put), a parità di spot e volatilità. I dealer che gestiscono un book delta-neutrale tendono a coprire di nuovo quella deriva verso la chiusura. Quel flusso ha un segno modellato - ed è stimabile in anticipo.
+3. **Fisica del pin.** La stessa concentrazione di gamma per cui lo 0DTE fa muovere molto i dealer a ogni tick permette anche allo strike 0DTE più pesante di agire come una calamita in un regime long-gamma. Il comportamento di pinning tende a essere più marcato su 0DTE rispetto a setup multi-day.
 
 Nessuno di questi meccanismi è esclusivo di 0DTE - si applicano a qualsiasi opzione a breve scadenza. Sono semplicemente insolitamente rumorosi nel bucket 0DTE per quanto è diventato compresso `T`.
 
 ---
 
-## Regimi 0DTE a gamma negativa
+## Regimi 0DTE a gamma negativo
 
 Quando i dealer sono netti corti di gamma - tipicamente quando lo spot è sotto il gamma flip - il flusso 0DTE diventa rumoroso rapidamente.
 
@@ -55,13 +55,13 @@ Che aspetto tende ad avere il tape:
 - Range più ampi, breakout più rapidi.
 - Il rischio di continuazione può essere maggiore di quanto implicherebbe un modello long-gamma.
 - Gli ingressi in mean-reversion possono scontrarsi con un flusso di hedging modellato che rafforza il movimento.
-- Movimenti direzionali e variazioni della volatilità implicita possono compensare il rapido decadimento theta; il comportamento dei premi non è determinato dal solo segno della gamma.
+- Movimenti direzionali e variazioni della volatilità implicita possono compensare il rapido decadimento theta; il comportamento dei premi non è determinato dal solo segno del gamma.
 
-L'inclinazione pratica in un regime 0DTE a gamma corta è **con il movimento, non contro di esso**. I setup di trend-continuation possono essere più coerenti con il riflesso di hedging modellato; è un'inclinazione condizionale legata alla struttura di mercato, non un'affermazione dimostrata sul tasso di successo.
+L'inclinazione pratica in un regime 0DTE short-gamma è **con il movimento, non contro di esso**. I setup di trend-continuation possono essere più coerenti con il riflesso di hedging modellato; è un'inclinazione condizionale legata alla struttura di mercato, non un'affermazione dimostrata sul tasso di successo.
 
 ---
 
-## Regimi 0DTE a gamma positiva
+## Regimi 0DTE a gamma positivo
 
 Quando i dealer sono netti lunghi di gamma - tipicamente quando lo spot è sopra il gamma flip - il flusso 0DTE tende a comprimersi.
 
@@ -80,7 +80,7 @@ Che aspetto tende ad avere il tape:
 - Il rapido decadimento theta può pesare sui premi delle opzioni giornaliere, ma i movimenti dello spot e della volatilità implicita possono prevalere.
 - I setup di mean-reversion possono essere più coerenti con il riflesso di hedging modellato rispetto ai setup di trend-continuation.
 
-L'inclinazione pratica in un regime 0DTE a gamma lunga è **contro il breakout, con il pin**. I rally sfumati verso il call wall, gli acquisti sul dip verso il put wall e le strutture short-premium si appoggiano tutti al riflesso smorzante.
+L'inclinazione pratica in un regime 0DTE long-gamma è **contro il breakout, con il pin**. I fade dei rally verso il call wall, gli acquisti sul dip verso il put wall e le strutture short-premium si appoggiano tutti al riflesso smorzante.
 
 ---
 
@@ -88,14 +88,14 @@ L'inclinazione pratica in un regime 0DTE a gamma lunga è **contro il breakout, 
 
 Alcune abitudini che cambiano tra i due regimi:
 
-**In un regime 0DTE a gamma negativa:**
+**In un regime 0DTE a gamma negativo:**
 
 - Lascia più spazio ai breakout del range recente, soprattutto quando il Net GEX è ampio e negativo: se un livello cede, l'hedging rafforza il movimento.
 - Non trattare i wall 0DTE come soffitti: se uno cede, l'hedging rafforza il movimento invece di opporvisi.
 - Sii scettico sui setup "questo pinnerà" - il riflesso dei dealer non sta tirando.
-- Se misure di volatilità indipendenti confermano una sessione a range più ampio, dimensiona il rischio di conseguenza; il segno della gamma modellata da solo non prescrive uno stop.
+- Se misure di volatilità indipendenti confermano una sessione a range più ampio, dimensiona il rischio di conseguenza; il segno del gamma modellato da solo non prescrive uno stop.
 
-**In un regime 0DTE a gamma positiva:**
+**In un regime 0DTE a gamma positivo:**
 
 - Aspettati che i movimenti verso gli strike concentrati 0DTE incontrino un hedging che si oppone a essi.
 - Tratta lo strike a gamma più pesante come una calamita, soprattutto verso la chiusura.
@@ -106,7 +106,7 @@ Alcune abitudini che cambiano tra i due regimi:
 
 - Controlla se lo spot è vicino al gamma flip. Un regime conteso è il peggior regime a cui impegnarsi con uno dei due playbook.
 - Controlla se lo strike 0DTE più pesante sta migrando. Uno strike pesante statico è un candidato al pin più forte di uno che sta migrando.
-- Traccia il Net GEX come magnitudine, non solo come segno. Un flip da −2 miliardi di dollari a +200 milioni di dollari è una lettura molto diversa da un flip da +2 miliardi di dollari a +200 milioni di dollari.
+- Traccia il Net GEX come magnitudine, non solo come segno. Un flip da −2 miliardi di $ a +200 milioni di $ è una lettura molto diversa da un flip da +2 miliardi di $ a +200 milioni di $.
 
 ---
 
@@ -114,26 +114,26 @@ Alcune abitudini che cambiano tra i due regimi:
 
 La dashboard mostra letture specifiche per 0DTE in diversi punti:
 
-- **La card Net GEX** mostra la gamma dei dealer valutata allo spot (coerente in segno con il flip), dandoti la magnitudine del regime attuale.
-- **La heatmap GEX per strike e DTE** scompone la gamma per bucket di scadenza così puoi vedere quanto del posizionamento odierno è guidato da 0DTE e dove si trovano gli strike giornalieri più pesanti.
+- **La card Net GEX** mostra il gamma dei dealer valutato allo spot (coerente in segno con il flip), dandoti la magnitudine del regime attuale.
+- **La heatmap GEX per strike e DTE** scompone il gamma per bucket di scadenza così puoi vedere quanto del posizionamento odierno è guidato da 0DTE e dove si trovano gli strike giornalieri più pesanti.
 - **Le card di wall e flip** mostrano i livelli strutturali odierni con la distanza live dallo spot.
 
 ![Heatmap GEX per strike e DTE di ZeroGEX con il bucket 0DTE concentrato vicino allo spot](/blog/zerogex-strike-dte-heatmap.png)
 
-Un esempio pratico. Supponi che SPX sia a 5.825, il Net GEX segni −800 milioni di dollari, il gamma flip si trovi a 5.840, e la heatmap mostri uno strike put 0DTE pesante a 5.820 che sta migrando verso il basso insieme al prezzo per tutta la mattina. La lettura strutturale: i dealer sono corti di gamma, lo spot è sotto il flip, e lo strike 0DTE più pesante sta seguendo il movimento anziché contenerlo.
+Un esempio pratico. Supponi che SPX sia a 5.825, il Net GEX segni −800 milioni di $, il gamma flip si trovi a 5.840, e la heatmap mostri uno strike put 0DTE pesante a 5.820 che sta migrando verso il basso insieme al prezzo per tutta la mattina. La lettura strutturale: i dealer sono corti di gamma, lo spot è sotto il flip, e lo strike 0DTE più pesante sta seguendo il movimento anziché contenerlo.
 
-Inclinazione pratica: questo è un regime a gamma corta, favorevole alla continuazione, e lo strike put più pesante sta migrando insieme al prezzo, quindi il livello su cui si appoggerebbe un fade continua a spostarsi. Un trader entrato in sessione con un bias di mean-reversion dovrebbe essere molto più cauto qui, perché l'hedging sta assecondando il movimento invece di opporvisi. Nulla di tutto ciò è un segnale di trade - è contesto di regime che dovrebbe rimodellare quali ingressi prendi sul serio.
+Inclinazione pratica: questo è un regime short-gamma, favorevole alla continuazione, e lo strike put più pesante sta migrando insieme al prezzo, quindi il livello su cui si appoggerebbe un fade continua a spostarsi. Un trader entrato in sessione con un bias di mean-reversion dovrebbe essere molto più cauto qui, perché l'hedging sta assecondando il movimento invece di opporvisi. Nulla di tutto ciò è un segnale di trade - è contesto di regime che dovrebbe rimodellare quali ingressi prendi sul serio.
 
-![Card Net GEX e Gamma Flip di ZeroGEX che mostrano una lettura intraday a gamma negativa](/blog/zerogex-net-gex-flip-card.png)
+![Card Net GEX e Gamma Flip di ZeroGEX che mostrano una lettura intraday a gamma negativo](/blog/zerogex-net-gex-flip-card.png)
 
 ---
 
-## Errori comuni nel leggere la gamma dei dealer 0DTE
+## Errori comuni nel leggere il gamma dei dealer 0DTE
 
 Un breve elenco di come il posizionamento dei dealer 0DTE viene letto male:
 
-- **Usare la gamma su tutto l'OI in una catena dominata da 0DTE.** Se la maggior parte della gamma odierna è 0DTE e stai leggendo la gamma aggregata sull'OI, la tua lettura sta mediando un book vicino alla scadenza con un book a scadenza lontana che non conta per il tape di oggi.
-- **Dimensionare un fade su un wall allo stesso modo in entrambi i regimi.** Nella nostra misurazione i wall si sono rotti più o meno con la stessa frequenza in entrambi i regimi, ma in gamma negativa, quando un wall cede, l'hedging rafforza la rottura, e con un fade fallito il prezzo può spingersi molto più lontano.
+- **Usare il gamma su tutto l'OI in una catena dominata da 0DTE.** Se la maggior parte del gamma odierno è 0DTE e stai leggendo il gamma aggregato sull'OI, la tua lettura sta mediando un book vicino alla scadenza con un book a scadenza lontana che non conta per il tape di oggi.
+- **Dimensionare un fade su un wall allo stesso modo in entrambi i regimi.** Nella nostra misurazione i wall si sono rotti più o meno con la stessa frequenza in entrambi i regimi, ma in gamma negativo, quando un wall cede, l'hedging rafforza la rottura, quindi, con un fade fallito, il prezzo può spingersi molto più lontano.
 - **Ignorare il regime e tradare il livello.** Lo spot al put wall è un trade sopra il flip e un trade molto diverso sotto di esso.
 - **Ignorare la migrazione.** Uno strike 0DTE pesante che si è spostato due volte nell'ultima ora è una lettura diversa rispetto a uno rimasto statico per tutta la mattina.
 - **Trattare il comportamento di pin 0DTE come garantito.** È un'inclinazione, non una promessa. Catalizzatori e shock di flusso rompono regolarmente il pin.
@@ -142,12 +142,12 @@ Un breve elenco di come il posizionamento dei dealer 0DTE viene letto male:
 
 ## Conclusione
 
-> 0DTE ha cambiato quale parte del book dei dealer muove effettivamente il tape. Il posizionamento totale conta; è il *bucket 0DTE* a dominare la lettura intraday.
+> 0DTE ha cambiato quale parte del book modellato dei dealer può contare intraday. Il posizionamento totale conta, e il *bucket 0DTE* in alcune sessioni può dominare la sensibilità vicino allo spot.
 
-La disciplina è la stessa di qualsiasi lettura del posizionamento dei dealer - parti dal regime, poi leggi la struttura al suo interno - ma il bucket 0DTE è dove vive ormai la maggior parte della gamma durante la sessione cash, e ignorarlo ti mette una sessione indietro.
+La disciplina è la stessa di qualsiasi lettura del posizionamento dei dealer - parti dal regime, poi leggi la struttura al suo interno - ma durante la sessione cash il bucket 0DTE può portare una quota consistente della sensibilità vicino allo spot, quindi va valutato anziché dato per scontato come dominante.
 
 Solo contenuto educativo - nulla di quanto sopra è una raccomandazione di trading.
 
 ---
 
-Se vuoi vedere il posizionamento dei dealer di oggi (il regime, i call e put wall e il profilo di gamma dei dealer), [le pagine gratuite gamma-levels di ZeroGEX](/spx-gamma-levels) lo mostrano per SPX, SPY, QQQ e NDX, con un ritardo di circa 15 minuti. I piani a pagamento mostrano la stessa lettura [in tempo reale](/real-time-gex-0dte), e il filtro Expirations della pagina Dealer Positioning isola gli strike giornalieri più pesanti.
+Se vuoi vedere il posizionamento dei dealer di oggi - il regime, i call e put wall e il profilo gamma dei dealer - [le pagine gratuite gamma-levels di ZeroGEX](/spx-gamma-levels) lo mostrano per SPX, SPY, QQQ e NDX, con un ritardo di circa 15 minuti. I piani a pagamento mostrano la stessa lettura [sulla dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte), e il filtro Expirations della pagina Dealer Positioning isola gli strike giornalieri più pesanti.

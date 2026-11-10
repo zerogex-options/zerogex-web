@@ -163,7 +163,7 @@ Il pattern classico: in un regime long-gamma modellato con posizionamento dei de
 
 Il segnale cerca due setup simmetrici:
 
-> **Bull trap su un fake al rialzo.** Il prezzo sbuca sopra un livello di resistenza - `call_wall`, `max_gamma_strike`, `vwap`, o `gamma_flip` - ma le condizioni strutturali modellate suggeriscono che il breakout potrebbe fallire. Produce un punteggio *negativo* (`bearish_fade`).
+> **Bull trap su un fake al rialzo.** Il prezzo sbuca sopra un livello di resistenza - `call_wall`, `max_gamma_strike`, `vwap`, o `gamma_flip` - ma le condizioni strutturali modellate suggeriscono che il breakout potrebbe fallire. Produce un punteggio *negativo* (`bearish_fade`).
 
 > **Bear trap su un fake al ribasso.** Il prezzo sbuca sotto il supporto - `put_wall`, `max_gamma_strike`, `vwap`, o `gamma_flip` - ma il breakdown sembra falso. Produce un punteggio *positivo* (`bullish_fade`).
 
@@ -307,7 +307,7 @@ Per i trader che eseguono i propri backtest o dimensionano trade rispetto a ques
 |----------|---------|------------|
 | Normalizzatore del charm | 20 milioni di $ | EOD Pressure - satura charm_score a ±1,0 |
 | Saturazione del pin | 0,3% | EOD Pressure - satura pin_score a ±1,0 |
-| Saturazione long-gamma | 1 miliardo di $ di net GEX | Trap Detection - `long_gamma_factor` pieno a questo livello |
+| Saturazione long-gamma | 1 miliardo di $ di net GEX | Trap Detection - `long_gamma_factor` pieno a questo livello |
 | Saturazione strengthening | +2% delta GEX | Trap Detection - `strengthening_factor` pieno a questo livello |
 | Saturazione GEX boost | ±5% delta GEX | Trap Detection - bonus di magnitudine pieno |
 | Sensibilità migrazione wall | 0,05% | Trap Detection - trigger dello sconto wall-tracking-with-price |
