@@ -1,8 +1,6 @@
 # Vanna y charm explicados para traders de opciones
-> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Que el término pin de EOD Pressure siga el movimiento reciente cuando la gamma es negativa es una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
 
-
-*Vanna y charm explicados - qué es cada una de estas griegas, por qué importan para los flujos de cobertura de los dealers, cómo vanna crea un bid persistente en regímenes de compresión de volatilidad, cómo charm impulsa los flujos predecibles hacia el cierre, y cómo interactúan con el régimen gamma.*
+*Vanna y charm explicados - qué es cada una de estas griegas, por qué importan para los flujos de cobertura de los dealers, cómo vanna puede crear un bid persistente en regímenes de compresión de volatilidad, cómo charm moldea los flujos recurrentes hacia el cierre, y cómo interactúan con el régimen gamma.*
 
 ---
 
@@ -10,9 +8,9 @@
 
 Si has leído análisis sobre el posicionamiento de los dealers, sabrás que gamma acapara la mayor parte de la atención - y con razón. Es la griega de primer orden que captura la mayor parte del flujo de cobertura estructural. Pero no es la única fuerza en el libro del dealer. Dos griegas de segundo orden - **vanna** y **charm** - impulsan silenciosamente una parte significativa de los flujos que se ven en el tape, especialmente en torno a los resets de volatilidad, el OPEX y el cierre de la sesión de efectivo.
 
-La mayoría de los traders que operan con marcos basados solo en gamma leen el régimen correctamente, pero pasan por alto las presiones de segundo orden dentro de él. Un régimen de compresión de volatilidad con compras persistentes impulsadas por vanna se comporta de forma distinta a uno sin ese efecto. Una cadena muy cargada de 0DTE hacia el cierre se comporta de forma distinta porque la decadencia de charm fuerza una recobertura continua. Añadir vanna y charm a la lectura no sustituye el marco de gamma - lo afina.
+La mayoría de los traders que operan con marcos basados solo en gamma leen el régimen correctamente, pero pasan por alto las presiones de segundo orden dentro de él. Un régimen de compresión de volatilidad con compras persistentes impulsadas por vanna se comporta de forma distinta a uno sin ese efecto. Una cadena muy cargada de 0DTE hacia el cierre se comporta de forma distinta porque la decadencia de charm impulsa una recobertura constante. Añadir vanna y charm a la lectura no sustituye el marco de gamma - lo afina.
 
-Este artículo explica qué es cada griega, por qué le importan a los dealers, cómo se manifiestan los flujos en el tape, y cómo interactúan con el régimen gamma. Para el marco estructural subyacente, empieza por el [pilar de Gamma Exposure](/education/gamma-exposure-explained); para la lectura de régimen, consulta [Cómo leer un Gamma Flip](/education/how-to-read-a-gamma-flip); y para las lecturas específicas de 0DTE, donde la decadencia de charm es más ruidosa, consulta [Posicionamiento de dealers en 0DTE explicado](/education/0dte-dealer-positioning-explained).
+Este artículo explica qué es cada griega, por qué le importan a los dealers, cómo se manifiestan los flujos en el tape, y cómo interactúan con el régimen gamma. Para el marco estructural subyacente, empieza por el [pilar de Gamma Exposure](/education/gamma-exposure-explained); para la línea de régimen, consulta [¿Qué es un gamma flip?](/education/how-to-read-a-gamma-flip); y para las lecturas específicas de 0DTE, donde la decadencia de charm es más ruidosa, consulta [Posicionamiento de dealers en 0DTE explicado](/education/0dte-dealer-positioning-explained).
 
 ---
 
@@ -26,15 +24,15 @@ Lo que esto significa en términos prácticos: cuando la volatilidad implícita 
 
 ### Cómo experimentan vanna los dealers
 
-Los dealers gestionan libros delta-neutrales. Cuando la IV cae, el delta de su inventario se desplaza, y tienen que negociar el subyacente para devolver el libro a la neutralidad. La dirección de ese trade depende de la composición de su libro.
+Los dealers cubren el delta de su libro agregado y lo mantienen cerca de plano dentro de sus tolerancias de riesgo - a menudo trabajando con bandas de cobertura en lugar de reaplanarlo en cada tick. Cuando la IV cae, el delta modelado de su inventario se desplaza, y para mantenerse dentro de esas bandas negocian el subyacente. La dirección de ese trade depende de la composición de su libro.
 
 El caso canónico que se discute en los análisis de flujo:
 
-- Los dealers suelen estar largos de calls y cortos de puts - los clientes hacen overwriting de calls y compran puts como protección.
+- Bajo la convención tradicional de posicionamiento, los dealers se modelan como netos largos de calls y cortos de puts - los clientes hacen overwriting de calls y compran puts como protección.
 - Cuando la IV cae, esos deltas fuera del dinero se encogen hacia cero.
 - Tomemos las puts cortas: un dealer corto de una put OTM que aporta +0,30 de delta desde esa posición podría ahora aportar solo +0,25.
 - Esa contribución de delta largo se ha reducido, de modo que frente a la cobertura en acciones del dealer el libro queda ahora ligeramente neto corto.
-- Para permanecer delta-neutrales, tienen que *comprar* el subyacente.
+- Para devolver el libro hacia plano, tienden a *comprar* el subyacente.
 
 Las calls largas empujan en el mismo sentido: a medida que su delta decae, el libro vuelve a inclinarse corto frente a su cobertura y los dealers compran. En un mercado donde la IV ha estado bajando durante días o semanas (un régimen de compresión de volatilidad), los dealers recubren esa decadencia de vanna de forma continua sobre un libro que está corto de puts y largo de calls - y el agregado de esos flujos tiende a manifestarse como un bid persistente y estructural: el "vanna grind" del que los desks de flujo escriben desde hace años.
 
@@ -48,11 +46,11 @@ Charm es una griega de segundo orden que mide la **sensibilidad del delta de una
 
 En símbolos: charm = ∂Δ/∂t.
 
-La intuición: el delta de una opción es, en términos aproximados, la probabilidad implícita en el mercado de que venza en el dinero. A medida que pasa el tiempo, esa probabilidad tiene que converger hacia 0 o hacia 1. Para las opciones OTM esa probabilidad decae hacia 0; para las ITM sube hacia 1. Cuanto más cerca del vencimiento, más rápido es el desplazamiento.
+La intuición: el delta de una opción está estrechamente relacionado con - aunque no es exactamente igual a - la probabilidad implícita en el mercado de que venza dentro del dinero. A medida que pasa el tiempo, esa probabilidad implícita tiene que converger hacia 0 o hacia 1. Para las opciones OTM decae hacia 0; para las ITM sube hacia 1. Cuanto más cerca del vencimiento, más rápido es el desplazamiento.
 
 ### Cómo experimentan charm los dealers
 
-Al igual que vanna, charm fuerza la recobertura sin ningún movimiento del spot. Un dealer que gestiona un libro delta-neutral ve cómo su exposición delta efectiva se desplaza únicamente por el paso del tiempo, y tiene que negociar el subyacente para mantenerse plano.
+Al igual que vanna, charm puede obligar a recubrir sin ningún movimiento del spot. Un dealer que mantiene su libro cerca de plano ve cómo el delta modelado de su inventario se desplaza únicamente por el paso del tiempo - con el spot y la vol constantes - y negocia el subyacente para mantenerse dentro de sus bandas. En la realidad, el delta se mueve con el spot y la vol al mismo tiempo; charm aísla la parte que proviene solo del reloj.
 
 El signo direccional del flujo de cobertura impulsado por charm depende de qué lado del libro domina. Para un libro de dealer típico - largo de calls, corto de puts - mantenido hasta el cierre en una cadena 0DTE:
 
@@ -61,7 +59,7 @@ El signo direccional del flujo de cobertura impulsado por charm depende de qué 
 - Tienen que negociar el subyacente para mantenerse neutrales.
 - En una cadena típica, la dirección neta de esa cobertura continua a lo largo de la tarde a menudo produce una deriva medible y estable en su signo.
 
-Esa deriva es lo que la escuela de análisis de flujo de "EOD pressure" trata de leer. La señal existe porque la cobertura impulsada por charm es mecánicamente forzada - no requiere ninguna opinión, ningún volumen, ningún flujo direccional. Pasa el tiempo, los deltas se mueven, los dealers se recubren. La naturaleza continua de ese flujo es lo que lo hace legible.
+Esa deriva es lo que la escuela de análisis de flujo de "EOD pressure" trata de leer. La señal modelada existe porque la cobertura impulsada por charm no necesita ninguna opinión ni ningún flujo direccional previo que la desencadene - con el resto de variables constantes, pasa el tiempo, el delta modelado se mueve y los dealers se recubren. Esas operaciones de cobertura sí se imprimen en el tape como cualquier otra; lo difícil de ver es la *motivación* que hay detrás. El carácter constante y mecánico del flujo es lo que lo hace legible.
 
 ---
 
@@ -71,7 +69,7 @@ El enfoque más claro: gamma es la fuerza de cobertura *reactiva* - lo que hace
 
 Una cronología intradía estándar ilustra la diferencia:
 
-- Un movimiento del spot del 0,2 % fuerza la cobertura de gamma - grande e inmediata.
+- Un movimiento del spot del 0,2% fuerza la cobertura de gamma - grande e inmediata.
 - Una caída de 1 punto de volatilidad en la IV durante la mañana fuerza la cobertura de vanna - pequeña por minuto pero persistente.
 - Una sesión completa de decadencia temporal hacia el cierre fuerza la cobertura de charm - pequeña por minuto pero acumulativamente significativa.
 
@@ -91,7 +89,7 @@ El mecanismo:
 4. La cadena (el libro del dealer) recubre vanna de forma continua durante esa decadencia.
 5. Para una cadena típica - los clientes compran puts y hacen overwriting de calls, de modo que los dealers están cortos de puts y largos de calls -, la cobertura agregada es un bid persistente en el subyacente.
 
-El flujo es pequeño por minuto y a menudo invisible para quien solo mira las barras de volumen. Es más visible en gráficos intradía como una tendencia alcista lenta en un tape tranquilo que no coincide con el cuadro de volumen - las clásicas sesiones de "todo sube sin volumen" que siguen a datos de CPI sin sorpresas.
+El flujo es pequeño por minuto, así que rara vez destaca en las barras de volumen - las operaciones de cobertura se imprimen como cualquier otra, pero llegan como un goteo constante en lugar de una oleada visible, y nada las identifica como cobertura. Es más visible en gráficos intradía como una tendencia alcista lenta en un tape tranquilo que no parece coincidir con el cuadro de volumen - las clásicas sesiones de "todo sube sin un volumen evidente" que siguen a datos de CPI sin sorpresas.
 
 El flujo **no es direccional en su intención**. Los dealers se cubren, no apuestan. Pero el agregado de esa recobertura mecánica se comporta de forma indistinguible de un bid direccional. El carácter del tape resultante es la pista reveladora: deriva persistente con volumen bajo, baja volatilidad realizada, sin catalizador evidente.
 
@@ -111,7 +109,7 @@ El mecanismo:
 4. El signo direccional de la cobertura agregada viene forzado por la composición de la cadena.
 5. El flujo tiende a *acelerarse* a lo largo de la tarde a medida que aumenta la tasa de charm.
 
-Por eso gran parte del análisis del posicionamiento de los dealers se centra específicamente en la franja de última hora de la tarde. El flujo de charm es mecánicamente forzado, estable en su signo para una cadena dada, y más visible en los últimos 60-90 minutos, cuando la tasa de decadencia del delta alcanza su pico.
+Por eso gran parte del análisis del posicionamiento de los dealers se centra específicamente en la franja de última hora de la tarde. El flujo de charm modelado tiende a ser estable en su signo para una cadena dada y más pronunciado en los últimos 60-90 minutos, cuando la tasa de decadencia del delta alcanza su pico - aunque el cierre realizado sigue mezclando cualquier gamma que produzca el movimiento del día.
 
 Un patrón común: el flujo de charm apunta en una dirección, el imán de gamma se sitúa en la misma dirección, y el tape realizado se comprime hacia esa atracción estructural. La lectura combinada - imán de gamma más dirección de charm más rampa temporal - es lo que produce los setups más limpios de "deriva hacia el cierre". Nada de esto es, por sí solo, una señal de trading; es contexto de régimen que debería reformar la manera en que se lee una sesión.
 
@@ -121,7 +119,7 @@ Un patrón común: el flujo de charm apunta en una dirección, el imán de gamma
 
 El OPEX mensual (tercer viernes) y el OPEX trimestral (tercer viernes de marzo, junio, septiembre y diciembre) concentran ambos efectos:
 
-- **La decadencia de charm es máxima** en la última semana antes del vencimiento mensual, porque el gamma que se encuentra en el bloque a punto de vencer es máximo.
+- **La decadencia de charm es máxima** en la última semana antes del vencimiento mensual, porque la gamma que se encuentra en el bloque a punto de vencer es máxima.
 - **La sensibilidad de vanna es alta** porque la cadena está llena de opciones a punto de vencer, con deltas que reaccionan de forma brusca tanto al spot como a la vol.
 
 Un tape típico de semana OPEX - en los regímenes en los que se manifiesta - muestra una deriva lenta hacia los strikes con más peso de lunes a miércoles, con el flujo impulsado por charm acelerando hacia el jueves y el viernes. La vol tiende a comprimirse a lo largo de la semana. La lectura combinada de vanna más charm suele producir algunos de los setups de "deriva estructural" más limpios del calendario.
@@ -145,9 +143,9 @@ La implicación práctica: **lee primero gamma, y luego lee vanna y charm dentro
 
 Un flujo de trabajo breve:
 
-1. **Identifica primero el régimen gamma.** El gamma positivo respalda las lecturas de deriva estructural; el gamma negativo las invierte.
+1. **Identifica primero el régimen gamma.** La gamma positiva respalda las lecturas de deriva estructural; la gamma negativa las invierte.
 2. **Comprueba si la vol se ha estado comprimiendo.** Una decadencia de IV a lo largo de varios días durante la mañana es el setup que suelen alimentar los flujos de vanna. Un repunte de volatilidad invierte la dirección del flujo.
-3. **Observa la ventana de charm.** Los últimos 90 minutos son cuando charm es más ruidoso. Busca la coincidencia de signo entre la dirección de charm y el imán de gamma - que ambos apunten en la misma dirección es el setup más limpio.
+3. **Observa la ventana de charm.** Los últimos 90 minutos son cuando charm es más ruidoso. Busca la coincidencia de signo entre la dirección de charm y el imán de gamma - la coincidencia produce una salida del modelo más fuerte, no una probabilidad calibrada.
 4. **Contrasta con las fechas de OPEX.** El OPEX mensual y el trimestral concentran ambos flujos. Trátalos como amplificadores de régimen.
 5. **Descuenta en los días de repunte de volatilidad.** Cuando la volatilidad realizada se expande, tanto los flujos de vanna como los de charm quedan dominados por las reacciones de gamma. La lectura de segundo orden se convierte en ruido.
 
@@ -174,7 +172,7 @@ Un ejemplo práctico. Supongamos que SPX está en 5.830 un viernes por la tarde,
 - **Tendencia del flujo de vanna durante la mañana:** coherente con compresión de volatilidad
 - **Puntuación EOD Pressure:** −0,4 (activada, deriva bajista leve)
 
-La lectura compuesta: régimen long-gamma, imán estructural justo por debajo del spot, decadencia de charm apuntando en la misma dirección, vanna grind coherente con la caída de vol de la mañana. Sesgo práctico hacia el cierre: una deriva a la baja hacia 5.825 es el camino de mayor probabilidad, con el imán de gamma absorbiendo el movimiento y la decadencia de charm confirmando la dirección. Nada de esto es una señal de trading - es el contexto de régimen compuesto para la sesión de la última hora.
+La lectura compuesta: régimen long-gamma, imán estructural justo por debajo del spot, decadencia de charm apuntando en la misma dirección, vanna grind coherente con la caída de vol de la mañana. Sesgo práctico hacia el cierre: una deriva a la baja hacia 5.825 es el camino de mayor probabilidad, con el imán de gamma tendiendo a absorber el movimiento y la decadencia de charm apuntando en la misma dirección. Nada de esto es una señal de trading - es el contexto de régimen compuesto para la sesión de la última hora. (Estas cifras del dashboard - incluido el Net GEX - son estimaciones modeladas basadas en la convención tradicional call-positivo / put-negativo de posicionamiento de los dealers; el inventario real de los dealers no es directamente observable a partir de los datos públicos de la cadena de opciones.)
 
 ![Paneles de puntuación EOD Pressure y charm-at-spot de ZeroGEX durante la franja de última hora de la tarde](/blog/zerogex-eod-pressure-charm.png)
 
@@ -200,10 +198,11 @@ Las griegas de segundo orden describen flujos reales en el libro del dealer que 
 
 Añádelas a la lectura. No las pongas por delante.
 
-Contenido solo con fines educativos - nada de lo anterior es una recomendación de trading.
+Solo contenido educativo - nada de lo anterior es una recomendación de trading.
 
 ---
 
 Si quieres ver el régimen gamma de hoy, el que determina si los flujos de vanna y charm producirán deriva o serán arrollados, [las páginas gratuitas de gamma-levels de ZeroGEX](/spx-gamma-levels) lo muestran para SPX, SPY, QQQ y NDX, con unos 15 minutos de retraso. La lectura de vanna y charm en sí está en las páginas Vanna/Charm Flow y Dealer Positioning, en los dos planes de pago y [en tiempo real](/real-time-gex-0dte).
+
 
 > Las puntuaciones de señal de ZeroGEX son resultados derivados que usan inputs, pesos y umbrales seleccionados a mano, salvo que se indique lo contrario. No son probabilidades calibradas ni garantías; se requiere validación histórica antes de interpretarlas como una ventaja de rendimiento.

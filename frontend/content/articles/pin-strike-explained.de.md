@@ -163,7 +163,7 @@ Und ganz entscheidend erkennt er, wann *nichts* davon zutrifft - was das Thema 
 
 ## Wann Pin Strike null ist - und warum wir uns dafür entschieden haben
 
-Das ist der Teil, der Pin Strike am stärksten von einem naiven "nächster schwerer Strike"-Tool unterscheidet: **Es ist ihm erlaubt - und von ihm erwartet -, keinen aktiven Pin auszuweisen.** Ein Tool, das immer ein Level druckt, ist leicht zu bauen und leicht falsch zu lesen - es erzeugt falsche Zuversicht an genau den Tagen, an denen es nichts gibt, woran man pinnen könnte. Pin Strike tut das Schwierigere und Ehrlichere: Wenn es keinen aussagekräftigen Positive-Gamma-Pin gibt, gibt er nichts zurück und sagt dir, *warum*.
+Das ist der Teil, der Pin Strike am stärksten von einem naiven "nächster schwerer Strike"-Tool unterscheidet: **Es ist ihm erlaubt - und von ihm erwartet -, keinen aktiven Pin auszuweisen.** Ein Tool, das immer ein Level druckt, ist leicht zu bauen und leicht falsch zu lesen - es erzeugt falsche Zuversicht an genau den Tagen, an denen es nichts gibt, woran man pinnen könnte. Pin Strike tut das Schwierigere und Ehrlichere: Wenn es keinen aussagekräftigen Positive-Gamma-Pin gibt, gibt er nichts zurück und sagt dir, *warum*.
 
 Wenn es keinen aktiven Pin gibt, meldet die Metrik einen der folgenden Gründe:
 

@@ -117,7 +117,7 @@ Junto al strike, Pin Strike informa de una **confianza** - cuán dominante es e
 pin_confidence = max_pin_score / Σ (all positive pin_scores)
 ```
 
-Una confianza cercana a 1.0 significa que un nodo posee de forma abrumadora el paisaje de gamma positiva alcanzable - un pin limpio y singular. Una confianza baja significa que varios candidatos comparables están compitiendo, y es más probable que el precio oscile entre ellos a que se fije en uno. La puntuación máxima bruta también se conserva, porque la concentración por sí sola puede inducir a error cuando *todas* las puntuaciones son diminutas - un pin "dominante" entre candidatos insignificantes sigue siendo insignificante.
+Una confianza cercana a 1,0 significa que un nodo posee de forma abrumadora el paisaje de gamma positiva alcanzable - un pin limpio y singular. Una confianza baja significa que varios candidatos comparables están compitiendo, y es más probable que el precio oscile entre ellos a que se fije en uno. La puntuación máxima bruta también se conserva, porque la concentración por sí sola puede inducir a error cuando *todas* las puntuaciones son diminutas - un pin "dominante" entre candidatos insignificantes sigue siendo insignificante.
 
 ---
 

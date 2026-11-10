@@ -117,7 +117,7 @@ Accanto allo strike, Pin Strike riporta una **confidenza** - quanto è dominant
 pin_confidence = max_pin_score / Σ (all positive pin_scores)
 ```
 
-Una confidenza vicina a 1.0 significa che un nodo possiede in modo schiacciante il panorama a gamma positivo raggiungibile - un pin pulito e singolare. Una confidenza bassa significa che diversi candidati comparabili sono in competizione, e il prezzo ha più probabilità di oscillare tra loro che di agganciarsi a uno solo. Viene conservato anche il punteggio massimo grezzo, perché la sola concentrazione può ingannare quando *ogni* punteggio è minuscolo - un pin "dominante" tra candidati trascurabili è comunque trascurabile.
+Una confidenza vicina a 1,0 significa che un nodo possiede in modo schiacciante il panorama a gamma positivo raggiungibile - un pin pulito e singolare. Una confidenza bassa significa che diversi candidati comparabili sono in competizione, e il prezzo ha più probabilità di oscillare tra loro che di agganciarsi a uno solo. Viene conservato anche il punteggio massimo grezzo, perché la sola concentrazione può ingannare quando *ogni* punteggio è minuscolo - un pin "dominante" tra candidati trascurabili è comunque trascurabile.
 
 ---
 

@@ -40,7 +40,7 @@ ZeroGEX es un **Proud Supporter de Folds of Honor** - el nivel de insignia de s
 Ocurren tres cosas con cada suscripción de pago en ZeroGEX:
 
 1. **En cada factura de Stripe procesada con éxito**, el sistema de facturación registra la asignación del 3% correspondiente a esa factura. El total se acumula en un balance que liquidamos al final de cada trimestre.
-2. **Al final de cada trimestre natural**, el total consolidado se transfiere a Folds of Honor. Guardamos el recibo y publicamos la donación en [/giving](/giving).
+2. **Al final de cada trimestre natural**, el total consolidado se transfiere a Folds of Honor. Guardamos el recibo y publicamos la donación en [la página de donaciones](/giving).
 3. **El total acumulado en /giving se actualiza** con el nuevo importe donado, la fecha y el trimestre que cubre. Las donaciones anteriores permanecen listadas, de modo que el historial es verificable de un vistazo.
 
 Si alguna vez quieres ver exactamente cuánto ha donado ZeroGEX hasta la fecha, esa página es la fuente definitiva - no una afirmación de marketing, sino el registro real.
@@ -69,7 +69,7 @@ Si eres suscriptor de ZeroGEX: gracias. Cada suscripción en la plataforma ayuda
 
 Si estás pensando en suscribirte: las [páginas gratuitas de Gamma Levels](/spx-gamma-levels) (SPX, SPY, QQQ y NDX) - con un retraso de unos 15 minutos - son siempre gratuitas, y una suscripción de pago ayuda en ambos frentes - desbloquea el Dashboard en tiempo real y las funciones Pro, y aporta un 3% a Folds of Honor.
 
-Todos los detalles, el total de donaciones acumulado y nuestras preguntas frecuentes están en [/giving](/giving).
+Todos los detalles, el total de donaciones acumulado y nuestras preguntas frecuentes están en [la página de donaciones](/giving).
 
 ---
 
