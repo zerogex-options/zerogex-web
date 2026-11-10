@@ -158,7 +158,7 @@ La disciplina non è inseguire direttamente il vanna grind o la deriva charm - 
 La dashboard tratta vanna e charm come overlay sulla lettura strutturale, non come segnali autonomi:
 
 - **L'esposizione charm-at-spot** è uno degli input principali del segnale avanzato EOD Pressure, che stima la deriva direzionale verso la chiusura combinando i termini di charm e pin durante la finestra attiva.
-- **I flussi vanna e charm** sono mostrati su pannelli dedicati che rivelano il flusso di hedging aggregato dei dealer per ciascuna greca lungo la chain.
+- **I flussi vanna e charm** sono mostrati su pannelli dedicati che visualizzano il flusso di hedging aggregato dei dealer per ciascuna greca lungo la chain.
 - **Il grafico del profilo per strike** permette di vedere dove si concentrano insieme l'esposizione gamma, vanna e charm, che di solito è dove si trovano le letture combinate più pulite.
 
 ![Pannelli di flusso vanna e charm di ZeroGEX](/blog/zerogex-vanna-charm-flows.png)
