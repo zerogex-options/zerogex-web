@@ -20,7 +20,7 @@ Le definizioni contano più dei numeri, perché una definizione approssimativa p
 
 **Un test** è il prezzo che arriva entro 5 punti base dal wall in vigore in quel minuto. Non il wall di stamattina - i wall migrano, e il livello su cui stai operando è quello pubblicato in quel momento.
 
-**Una rottura** è il prezzo che chiude oltre il wall, con un margine, per **dieci minuti consecutivi**. Quella è la soglia importante. I breakout falliti sforano regolarmente un livello e ci restano oltre per dieci o quindici minuti prima di rientrare. Una definizione che scatta al primo tick oltre il livello conta ognuno di questi come una rottura, e la probabilità che ne risulta non ha alcun significato.
+**Una rottura** è il prezzo che chiude oltre il wall, con un margine, per **dieci minuti consecutivi**. Quella è la soglia importante. I breakout falliti sforano regolarmente un livello e restano oltre per dieci o quindici minuti prima di rientrare. Una definizione che scatta al primo tick oltre il livello conta ognuno di questi come una rottura, e la probabilità che ne risulta non ha alcun significato.
 
 **Una tenuta** è l'ora che trascorre senza quella conferma.
 
@@ -131,6 +131,6 @@ Abbina il livello al tasso di base del prodotto su cui stai operando, e a [come 
 
 ## Conclusione
 
-> Un gamma wall è un tasso di base, non una previsione. I wall dell'S&P hanno tenuto circa due volte su tre entro un'ora dal test; quelli del Nasdaq erano più vicini a un lancio di moneta - e non faceva alcuna differenza osservare l'ETF o l'indice. Delle diciannove cose che abbiamo misurato sui singoli wall, nessuna ci ha detto quali si sarebbero rotti. Opera sul wall come su una stima a priori con un tasso di successo noto, dimensionata per il prodotto su cui ti trovi, e tratta con sospetto qualsiasi affermazione secondo cui *questo* wall è diverso.
+> Un gamma wall è un tasso di base, non una previsione. I wall dell'S&P hanno tenuto circa due volte su tre entro un'ora dal test; quelli del Nasdaq erano più vicini a un lancio di moneta - e non faceva alcuna differenza osservare l'ETF o l'indice. Delle diciannove cose che abbiamo misurato sui singoli wall, nessuna ci ha detto quali si sarebbero rotti. Opera sul wall come su una stima a priori con un tasso di successo noto, con un dimensionamento adatto al prodotto su cui ti trovi, e tratta con sospetto qualsiasi affermazione secondo cui *questo* wall è diverso.
 
 Solo contenuto educativo - nulla di quanto sopra è una raccomandazione di trading, e nessuna cifra qui riportata è calibrata come segnale di trading.

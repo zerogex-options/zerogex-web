@@ -41,7 +41,7 @@ Dal metodo migliore derivano due cose:
 
 ## Cosa tende a cambiare sopra e sotto il gamma zero
 
-È il segno del gamma modellato dei dealer a decidere se l'hedging va *contro* i movimenti o *con* essi.
+È il segno del gamma modellato dei dealer a decidere se l'hedging tende ad andare *contro* i movimenti o *insieme* a essi.
 
 **Sopra il livello di gamma zero (gamma positivo).** I dealer sono modellati net long gamma. Per restare delta-neutrali tendono a vendere nella forza e comprare nella debolezza, il che spinge contro la direzione del movimento. La volatilità realizzata tende a comprimersi, i range tendono a essere più stretti e il prezzo tende a gravitare verso gli strike pesanti in chiusura. L'hedging si oppone ai breakout invece di alimentarli.
 
