@@ -33,7 +33,7 @@ Delta ist vorzeichenbehaftet, positiv für Calls und negativ für Puts, also ist
 Zwei kurze Beispiele, mit SPY bei 660 $:
 
 - Ein Kunde kauft 1.000 Calls mit einem Delta von 0,40: `1,000 × 0.40 × 100 × $660 = +$26.4M`. Der Market Maker, der sie verkauft hat, ist jetzt short Delta, also **kauft** der implizierte Hedge SPY für etwa 26,4 Mio. $.
-- Ein Kunde kauft 1.000 Puts mit einem Delta von −0,30: `1,000 × (−0.30) × 100 × $660 = −$19.8M`. Der implizierte Hedge **verkauft** etwa 19,8 Mio. $. Hätte der Kunde diese Puts stattdessen verkauft, dreht das Vorzeichen auf +19,8 Mio. $.
+- Ein Kunde kauft 1.000 Puts mit einem Delta von −0,30: `1,000 × (−0.30) × 100 × $660 = −$19.8M`. Der implizierte Hedge **verkauft** etwa 19,8 Mio. $. Hätte der Kunde diese Puts stattdessen verkauft, würde das Vorzeichen auf +19,8 Mio. $ drehen.
 
 ---
 

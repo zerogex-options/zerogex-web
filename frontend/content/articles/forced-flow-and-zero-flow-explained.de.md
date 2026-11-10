@@ -50,7 +50,7 @@ Forced Flow bewegt jeweils einen Hebel, und die Seite zeichnet jeden davon:
 
 - **Preis.** Die *Reprice-Kurve* zeigt den erzwungenen Flow bei jedem Preis innerhalb von etwa 2 % um den Spot, falls der Basiswert die Session dort beendet. Die Zeit bis zum Schluss ist eingerechnet, die Kurve zeigt also den Preishebel zusätzlich zu dem, was die Uhr ohnehin schon schuldet.
 - **Zeit, bei festem Preis.** *Charm Into the Close* lässt die Uhr bei festgehaltenem Preis von jetzt bis zur Schlussglocke um 16:00 Uhr laufen und zeigt, wie viele Aktien die Dealer unterwegs allein wegen des Zeitverfalls handeln müssen. Die Kurve wird in der letzten Stunde steiler, wenn sich die Same-Day-Optionen auflösen. [Charm: Die Uhr ist ein Trader](/education/charm-the-clock-is-a-trader) erklärt die Mechanik.
-- **Volatilität, bei festem Preis und fester Zeit.** Die *Vanna Ladder* verschiebt die implizite Volatilität nach oben und unten, in Schritten von einem halben Punkt bis zu drei Punkte in jede Richtung, und zeigt die Aktien, die jede Verschiebung jetzt sofort erzwingen würde. [Vanna: Wie fallende IV das Dealer-Hedging verändern kann](/education/vanna-when-fear-fades) erklärt, warum.
+- **Volatilität, bei festem Preis und fester Zeit.** Die *Vanna Ladder* verschiebt die implizite Volatilität nach oben und unten, in Schritten von einem halben Punkt bis zu drei Punkten in jede Richtung, und zeigt die Aktien, die jede Verschiebung jetzt sofort erzwingen würde. [Vanna: Wie fallende IV das Dealer-Hedging verändern kann](/education/vanna-when-fear-fades) erklärt, warum.
 
 ---
 
@@ -66,7 +66,7 @@ Das sind runde, illustrative Zahlen, keine Live-Werte.
 
 SPY steht bei 660,00 $, zwei Stunden vor der Schlussglocke. Die Reprice-Kurve zeigt **Flow at spot: Kauf 300 Mio. $**. Das ist es, was allein die Uhr schuldet, wenn SPY genau hier schließt.
 
-Nahe am Spot ist das Buch long Gamma: Pro 1 $, den SPY steigt, muss der Hedge SPY für etwa 120 Mio. $ verkaufen, und pro 1 $, den SPY fällt, für etwa 120 Mio. $ kaufen.
+Nahe am Spot ist das Buch long Gamma: Pro 1 $, um den SPY steigt, muss der Hedge SPY für etwa 120 Mio. $ verkaufen, und pro 1 $, um den SPY fällt, für etwa 120 Mio. $ kaufen.
 
 Steigt SPY also bis zum Schluss um 2,50 $, hebt preisgetriebenes Verkaufen von etwa 300 Mio. $ das zeitgetriebene Kaufen von etwa 300 Mio. $ auf. Das Zero-Flow-Level liegt ungefähr bei **662,50 $**.
 
@@ -84,7 +84,7 @@ Ein Zero-Flow-Level ist ein einzelner Preis, aber was auf beiden Seiten davon pa
 
 Nimm das Beispiel oben. Unterhalb von 662,50 $ überwiegt das zeitgetriebene Kaufen das preisgetriebene Verkaufen, das Buch schuldet also Nettokäufe. Oberhalb davon ist es umgekehrt: Nettoverkäufe. Das Hedging neigt sich von beiden Seiten zum Level hin. Das ist ein **Magnet**, ein stabiles Zero-Flow-Level.
 
-Dreh das Buch nun nahe am Spot auf short Gamma: Pro 1 $, den SPY steigt, muss der Hedge 120 Mio. $ *kaufen*, und nimm an, dass die Uhr stattdessen 300 Mio. $ an Verkäufen schuldet. Dieselbe Rechnung legt das Zero-Flow-Level auf dieselben 662,50 $. Jetzt aber schuldet das Buch unterhalb davon Nettoverkäufe und oberhalb Nettokäufe. Das Hedging neigt sich auf beiden Seiten vom Level *weg*. Das ist ein **Pivot**, ein instabiles Zero-Flow-Level: eher ein Stolperdraht als ein Pin.
+Dreh das Buch nun nahe am Spot auf short Gamma: Pro 1 $, um den SPY steigt, muss der Hedge 120 Mio. $ *kaufen*, und nimm an, dass die Uhr stattdessen 300 Mio. $ an Verkäufen schuldet. Dieselbe Rechnung legt das Zero-Flow-Level auf dieselben 662,50 $. Jetzt aber schuldet das Buch unterhalb davon Nettoverkäufe und oberhalb Nettokäufe. Das Hedging neigt sich auf beiden Seiten vom Level *weg*. Das ist ein **Pivot**, ein instabiles Zero-Flow-Level: eher ein Stolperdraht als ein Pin.
 
 | Nahe am Level sind Dealer | Unterhalb des Levels | Oberhalb des Levels | Hedging neigt sich | Auf der Seite |
 |---|---|---|---|---|
