@@ -18,7 +18,7 @@ El [Model Context Protocol](https://modelcontextprotocol.io) es una forma están
 
 ## Cómo conectar ZeroGEX
 
-ZeroGEX publica un servidor MCP gratuito en `https://zerogex.io/mcp`. Sirve los mismos niveles con 15 minutos de retraso que las [páginas públicas de niveles gamma](/spx-gamma-levels) - gamma flip, call wall, put wall, max pain, pin strike del mismo día y gamma neta de los dealers en el spot, para SPX, SPY, QQQ, NDX, ES y NQ. No hay clave, ni cuenta, ni nada que instalar. Leer es gratis.
+ZeroGEX publica un servidor MCP gratuito en `https://zerogex.io/mcp`. Sirve los mismos niveles con 15 minutos de retraso que las [páginas públicas de niveles gamma](/spx-gamma-levels) - gamma flip, call wall, put wall, max pain, pin strike del mismo día y gamma neta de los dealers en el spot, para SPX, SPY, QQQ, NDX, ES y NQ. No hay clave, ni cuenta, ni nada que instalar. Leer es gratis.
 
 **Claude (escritorio o web).** Abre la configuración de conectores, añade un conector personalizado y pega la URL. Si te pide una clave, déjala en blanco.
 
@@ -54,18 +54,18 @@ No se trata de aprender una sintaxis de comandos. Pregunta en lenguaje corriente
 - *"¿A qué distancia está SPY de su call wall y qué significaría una ruptura por encima?"*
 - *"¿Hay un pin strike del mismo día en SPX?"*
 
-Las dos últimas son donde un asistente demuestra lo que vale frente a una página de números. Tiene el nivel *y* la explicación, así que puede decirte que el call wall está un 1,4% por encima del spot y que, en un régimen de gamma positiva, la cobertura tiende a oponerse a un rally hacia él - sin que tengas que saltar entre un dashboard y una página educativa.
+Las dos últimas son donde un asistente demuestra lo que vale frente a una página de números. Tiene el nivel *y* la explicación, así que puede decirte que el call wall está un 1,4% por encima del spot y que, en un régimen de gamma positiva, la cobertura tiende a oponerse a un rally hacia él - sin que tengas que saltar entre un dashboard y una página educativa.
 
 Dos preguntas que responde bien y que una página no puede responder:
 
-- *"Compara el posicionamiento de SPX y SPY - ¿coinciden los dos libros?"* Una sola consulta, los dos libros y la divergencia señalada.
+- *"Compara el posicionamiento de SPX y SPY - ¿coinciden los dos libros?"* Una sola consulta, los dos libros y la divergencia señalada.
 - *"Estoy mirando un breakout por encima de 6450. ¿Qué hay entre aquí y el call wall?"* Tu contexto, sus niveles.
 
 ## Cómo distinguir una respuesta real de una inventada
 
 Esto importa más que la configuración, porque un asistente conectado y uno sin conectar parecen idénticos hasta que lo compruebas.
 
-**Una respuesta real indica su antigüedad.** Cada respuesta del servidor de ZeroGEX empieza con la marca de tiempo de la instantánea y su antigüedad, e indica al asistente que la repita. Si te dan un gamma flip sin ninguna mención de cuándo se calculó, desconfía - probablemente el número salió del modelo, no del servidor.
+**Una respuesta real indica su antigüedad.** Cada respuesta del servidor de ZeroGEX empieza con la marca de tiempo de la instantánea y su antigüedad, e indica al asistente que la repita. Si te dan un gamma flip sin ninguna mención de cuándo se calculó, desconfía - probablemente el número salió del modelo, no del servidor.
 
 **Pregúntaselo directamente.** *"¿De dónde ha salido ese número y qué antigüedad tiene?"* Un asistente conectado te dirá la hora de la instantánea. Uno sin conectar se andará con evasivas.
 
@@ -75,17 +75,17 @@ Esto importa más que la configuración, porque un asistente conectado y uno sin
 
 ## Lo que esto no es
 
-**No es en tiempo real.** La versión gratuita lleva al menos 15 minutos de retraso, a propósito. Eso sirve para orientarse y entender la estructura - dónde están los walls, en qué régimen estás, a qué distancia está el spot del flip. No sirve para cronometrar una entrada al precio actual, porque con un tape rápido el mercado puede haber atravesado un nivel antes de que la instantánea lo muestre. El feed en tiempo real es una función Pro que requiere [una clave de API](/help/platform/api-access).
+**No es en tiempo real.** La versión gratuita lleva al menos 15 minutos de retraso, a propósito. Eso sirve para orientarse y entender la estructura - dónde están los walls, en qué régimen estás, a qué distancia está el spot del flip. No sirve para cronometrar una entrada al precio actual, porque con un tape rápido el mercado puede haber atravesado un nivel antes de que la instantánea lo muestre. El feed en tiempo real es una función Pro que requiere [una clave de API](/help/platform/api-access).
 
 **No es un servicio de señales.** El servidor devuelve posicionamiento, no dirección. Un gamma flip te dice qué playbook de cobertura está siguiendo el libro modelado, no si debes comprar. Lo dice en cada consulta.
 
-**Los niveles son modelados, no observados.** El posicionamiento de los dealers se infiere a partir de datos públicos de opciones bajo una convención de signo declarada - nadie publica su libro. La [página de metodología](/methodology) explica con honestidad lo que eso permite afirmar y lo que no.
+**Los niveles son modelados, no observados.** El posicionamiento de los dealers se infiere a partir de datos públicos de opciones bajo una convención de signo declarada - nadie publica su libro. La [página de metodología](/methodology) explica con honestidad lo que eso permite afirmar y lo que no.
 
 **Los asistentes siguen equivocándose.** Conectar uno a una fuente real elimina el fallo del número inventado. No elimina las malas interpretaciones, el exceso de confianza ni que un asistente arrastre una respuesta antigua a lo largo de una conversación larga. Pregunta por la antigüedad cuando importe.
 
 ## ¿Merece la pena?
 
-Si ya tienes un dashboard abierto, probablemente no - estás a un vistazo de las mismas cifras.
+Si ya tienes un dashboard abierto, probablemente no - estás a un vistazo de las mismas cifras.
 
 Merece la pena si ya trabajas dentro de un asistente: redactando un plan de trading, razonando un setup o haciendo preguntas de seguimiento que necesitan tanto el nivel como lo que significa. El ahorro no está en la consulta, sino en no romper el contexto para hacerla.
 
@@ -93,9 +93,9 @@ También es la forma más rápida de comprobar un nivel desde un teléfono, en u
 
 ## Ver también
 
-- [El servidor MCP de ZeroGEX](/help/platform/mcp-server) - configuración completa y solución de problemas.
-- [Niveles gamma de SPX gratuitos](/spx-gamma-levels) - los mismos datos en forma de página.
-- [¿Qué es un gamma flip?](/education/how-to-read-a-gamma-flip) - lo que significa realmente el nivel.
-- [Cómo crear un servidor MCP sobre la API de ZeroGEX](/help/platform/mcp-integration) - para usuarios Pro que quieren datos en tiempo real y herramientas diseñadas a su medida.
+- [El servidor MCP de ZeroGEX](/help/platform/mcp-server) - configuración completa y solución de problemas.
+- [Niveles gamma de SPX gratuitos](/spx-gamma-levels) - los mismos datos en forma de página.
+- [¿Qué es un gamma flip?](/education/how-to-read-a-gamma-flip) - lo que significa realmente el nivel.
+- [Cómo crear un servidor MCP sobre la API de ZeroGEX](/help/platform/mcp-integration) - para usuarios Pro que quieren datos en tiempo real y herramientas diseñadas a su medida.
 
-Solo contenido educativo - nada de lo anterior es una recomendación de trading.
+Solo contenido educativo - nada de lo anterior es una recomendación de trading.

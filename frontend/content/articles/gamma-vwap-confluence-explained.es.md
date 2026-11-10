@@ -1,4 +1,4 @@
-# Gamma / VWAP Confluence explicado - y por qué dos símbolos pueden discrepar
+# Gamma / VWAP Confluence explicado - y por qué dos símbolos pueden discrepar
 
 *Qué mide el score de confluencia, cómo se construye el clúster, por qué el régimen de gamma convierte la misma imagen de un fade en un breakout, y por qué SPX, SPY y QQQ pueden apuntar en direcciones opuestas la misma tarde.*
 
@@ -8,7 +8,7 @@
 
 Cada nivel de posicionamiento de los dealers responde a una pregunta ligeramente distinta. El [gamma flip](/education/how-to-read-a-gamma-flip) marca la frontera del régimen. Los [walls](/education/gamma-walls-explained) marcan gamma concentrada de un solo lado. El [max pain](/education/max-pain-explained) marca un imán de liquidación. [Pin Strike](/education/pin-strike-explained) marca un atractor del mismo día que es alcanzable. El VWAP marca dónde se negoció realmente el volumen de la sesión.
 
-La mayoría de los días están dispersos y los lees de uno en uno. De vez en cuando, varios caen en la misma banda estrecha de precio - y esa es una situación distinta, porque que niveles calculados de forma independiente coincidan es más informativo que cualquiera de ellos por separado.
+La mayoría de los días están dispersos y los lees de uno en uno. De vez en cuando, varios caen en la misma banda estrecha de precio - y esa es una situación distinta, porque que niveles calculados de forma independiente coincidan es más informativo que cualquiera de ellos por separado.
 
 Gamma / VWAP Confluence mide exactamente eso: **¿se están apilando aquí niveles clave, y qué significa que el precio esté donde está en relación con ellos?**
 
@@ -20,13 +20,13 @@ Es un score de −100 a +100. El signo es direccional, la magnitud es confianza,
 
 El clúster siempre parte de dos miembros: **el gamma flip y el VWAP**. Esos dos son el núcleo, y son aquello en lo que se ancla la "confluencia".
 
-Otros tres niveles pueden unirse si están lo bastante cerca - **el max pain, la gamma máxima (el GEX King) y el call wall**. Cada uno se admite si está a no más del **0,15% del punto medio entre el flip y el VWAP**. Es una prueba exigente: en SPX a 7.700 son unos 11 puntos.
+Otros tres niveles pueden unirse si están lo bastante cerca - **el max pain, la gamma máxima (el GEX King) y el call wall**. Cada uno se admite si está a no más del **0,15% del punto medio entre el flip y el VWAP**. Es una prueba exigente: en SPX a 7.700 son unos 11 puntos.
 
 Así que una tarjeta que muestra `Members: 2` significa que solo el flip y el VWAP están en juego. `Members: 4` significa que también se sumaron dos de los niveles opcionales, y la zona está realmente concurrida.
 
 El **nivel de confluencia** es simplemente la media de los miembros que se hayan clasificado. Ese es el precio con el que se mide toda la señal.
 
-Cada miembro adicional por encima de los dos del núcleo añade un 15% a la magnitud del score. Cuatro miembros suponen un multiplicador de 1,30× sobre la misma geometría - la forma que tiene el modelo de decir que una pila de cuatro niveles merece más atención que una de dos.
+Cada miembro adicional por encima de los dos del núcleo añade un 15% a la magnitud del score. Cuatro miembros suponen un multiplicador de 1,30× sobre la misma geometría - la forma que tiene el modelo de decir que una pila de cuatro niveles merece más atención que una de dos.
 
 ---
 
@@ -56,14 +56,14 @@ El score parte de dónde se sitúa el precio respecto al clúster:
 distance = (price − confluence level) ÷ price
 ```
 
-Esa distancia se escala de modo que aproximadamente **±0,3% satura la lectura** - más allá de eso, estar más lejos no añade nada, porque el modelo no intenta medir cuánto ha recorrido el precio, solo en qué lado está y si se ha comprometido.
+Esa distancia se escala de modo que aproximadamente **±0,3% satura la lectura** - más allá de eso, estar más lejos no añade nada, porque el modelo no intenta medir cuánto ha recorrido el precio, solo en qué lado está y si se ha comprometido.
 
 Después, el [régimen de gamma](/education/what-is-negative-gamma) decide qué significa eso:
 
 - **Gamma negativa → continuación.** La cobertura de los dealers amplifica los movimientos. Se espera que el precio que ha salido del clúster siga avanzando. Por encima del clúster la lectura es alcista; por debajo, bajista.
 - **Gamma positiva → reversión a la media, y el signo se invierte.** La cobertura de los dealers amortigua los movimientos. La misma imagen sostiene ahora que el precio es atraído *de vuelta* al clúster. Por encima del clúster la lectura es **bajista**, porque el movimiento esperado es a la baja, hacia él. La lectura también se amortigua al 70% de su magnitud, porque un fade es una afirmación más débil que un breakout.
 
-Así que la misma disposición de niveles - mismo clúster, mismo lado, misma distancia - produce **scores opuestos** en los dos regímenes. No es una contradicción. Es justamente la idea: en un régimen el mercado huye del nivel, y en el otro vuelve a él.
+Así que la misma disposición de niveles - mismo clúster, mismo lado, misma distancia - produce **scores opuestos** en los dos regímenes. No es una contradicción. Es justamente la idea: en un régimen el mercado huye del nivel, y en el otro vuelve a él.
 
 ---
 
@@ -87,11 +87,11 @@ La pauta práctica: **no uses el score de confluencia de un símbolo para operar
 
 El score se recalcula continuamente. No es una previsión matinal que se mantiene hasta el cierre.
 
-Cuando el precio cruza el nivel de confluencia, el signo se invierte - y como el historial del score se colorea según el signo actual, toda la línea se vuelve a pintar. La trayectoria no ha cambiado; su color sí. Un historial que estuvo verde toda la mañana y ahora está rojo te está mostrando los mismos datos con un signo nuevo.
+Cuando el precio cruza el nivel de confluencia, el signo se invierte - y como el historial del score se colorea según el signo actual, toda la línea se vuelve a pintar. La trayectoria no ha cambiado; su color sí. Un historial que estuvo verde toda la mañana y ahora está rojo te está mostrando los mismos datos con un signo nuevo.
 
 Esto también significa que el score solo se actualiza mientras el mercado está abierto. Una línea plana hasta la noche es el último valor guardado, no una señal que sigue en marcha.
 
-Es razonable querer suavizar la lectura para que persista a lo largo de una sesión y capte giros mayores. Eso la estropearía. El único trabajo de la señal es decir lo que es cierto *ahora*; una versión que mantuviera su opinión a través de un cambio de régimen te estaría hablando de un mercado que ya no existe.
+Es un instinto razonable querer suavizar la lectura para que persista a lo largo de una sesión y capte giros mayores. Eso la estropearía. El único trabajo de la señal es decir lo que es cierto *ahora*; una versión que mantuviera su opinión a través de un cambio de régimen te estaría hablando de un mercado que ya no existe.
 
 ---
 
@@ -102,7 +102,7 @@ Cada tarjeta publica un objetivo esperado, y significa cosas distintas según el
 - **Reversión a la media:** el objetivo es el propio nivel de confluencia. La afirmación es que el precio vuelve al clúster.
 - **Continuación:** el objetivo se proyecta más allá del precio, al doble de la distancia que ya ha recorrido desde el clúster. La afirmación es que el movimiento se prolonga.
 
-Dos advertencias honestas. El objetivo es geométrico - no escala con el score, así que una tarjeta de baja confianza puede seguir mostrando un objetivo lejano. Léelo junto con el score y la calidad, no por sí solo. Y en continuación es una extrapolación, no un nivel medido: nada en el libro de opciones dice que el precio se detenga ahí.
+Dos advertencias honestas. El objetivo es geométrico - no escala con el score, así que una tarjeta de baja confianza puede seguir mostrando un objetivo lejano. Léelo junto con el score y la calidad, no por sí solo. Y en continuación es una extrapolación, no un nivel medido: nada en el libro de opciones dice que el precio se detenga ahí.
 
 ---
 
