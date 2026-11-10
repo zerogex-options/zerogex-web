@@ -1,6 +1,4 @@
-# Net Volume vs Directional Flow: Was im Options-Tape wirklich zählt
-> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Dass der EOD-Pressure-Pin-Term bei negativem Gamma der jüngsten Bewegung folgt, ist eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
-
+# Net Volume vs Directional Flow: Was zählt im Options-Tape wirklich?
 
 *Die meisten Trader diskutieren Put/Call-Volumen gegen Directional Flow. Profis behandeln das meist als ersten Schritt - und wenden sich dann schnell prämiengewichteten Conviction-Metriken zu.*
 
@@ -42,7 +40,7 @@ Diese Kennzahl versucht, die bessere Frage zu beantworten:
 
 > **Wer war der Aggressor?**
 
-Wenn Trader den Ask heben, drücken sie meist Dringlichkeit und gerichtete Absicht aus. Wenn sie den Bid treffen, reduzieren sie meist Risiko, vereinnahmen Prämie oder faden die Bewegung.
+Wenn Trader den Ask heben, drücken sie oft Dringlichkeit oder gerichtete Absicht aus. Wenn sie den Bid treffen, reduzieren sie oft Risiko, vereinnahmen Prämie oder faden die Bewegung. Die Seite allein verrät aber noch nicht die *Motivation* - ein Dealer, der ein bestehendes Buch hedgt, kann den Ask genauso heben wie ein Spekulant, und dieser Hedge-Trade erscheint genauso im Tape.
 
 Theoretisch macht das Directional Volume informativer als das reine Volumen.
 
@@ -53,7 +51,7 @@ Die meisten Systeme leiten die Käufer-/Verkäuferabsicht aus der Nähe zu Bid/A
 - verhandelte Crosses abseits des Bildschirms stattfinden,
 - oder Dark-/Complex-Ausführungen sich nicht sauber auf lit Quotes abbilden lassen.
 
-Ironischerweise sind diese „unordentlichen" Trades oft die bedeutsamsten institutionellen Prints.
+Ironischerweise sind diese „unordentlichen“ Trades oft die bedeutsamsten institutionellen Prints.
 
 ---
 
@@ -65,13 +63,13 @@ Ein 50.000-Lot in billigen wöchentlichen Lottery-Calls kann im Volumen riesig w
 
 Deshalb priorisieren Desks tendenziell **kapitalgewichteten Flow**, nicht Kontraktzahlen.
 
-Ihr Feld:
+Dein Feld:
 
 **Cumulative Net Premium**
 
 `= (calls bought premium − calls sold premium) − (puts bought premium − puts sold premium)`
 
-ist im Allgemeinen die stärkere Einzelablesung dafür, wohin sich informiertes Geld neigt, weil sie tatsächlich eingesetzte Dollar widerspiegelt.
+misst die tatsächlich umgesetzten Dollar und kann Kontext über die Kontraktzahl hinaus liefern. Die Kennzahl belegt nicht, ob ein Trade informiert, gerichtet, eröffnend oder spekulativ ist.
 
 ---
 
@@ -93,9 +91,9 @@ Oder in einem Satz:
 
 Eine praktische Abfolge, die Trader intraday anwenden können:
 
-- Beginnen Sie mit **Net Volume**, um die breite Beteiligung zu lesen.
-- Bestätigen Sie mit **Net Directional Volume**, um die Aggressor-Absicht abzuschätzen.
-- Validieren Sie mit **Net Directional Premium**, bevor Sie Risiko eingehen.
-- Wenn Volumen und Premium widersprechen, vertrauen Sie den Dollar vor den Kontrakten.
+- Beginne mit **Net Volume**, um die breite Beteiligung zu lesen.
+- Bestätige mit **Net Directional Volume**, um die Aggressor-Absicht abzuschätzen.
+- Validiere mit **Net Directional Premium**, bevor du Risiko eingehst.
+- Wenn Volumen und Premium sich widersprechen, vertrau den Dollar vor den Kontrakten.
 
-Kein einzelnes Panel sollte Ihren gesamten Entscheidungsbaum steuern. Aber prämiengewichteter Directional Flow hält Sie in der Regel näher am Signal des „informierten Geldes" und weiter weg von lauten Schlagzeilen-Prints.
+Kein einzelnes Panel sollte deinen gesamten Entscheidungsbaum steuern. Aber ZeroGEX nutzt die prämiengewichtete Aggressor-Klassifizierung als einen Input im Workflow, nicht als universelles Ranking von Flow-Kennzahlen. Die Aggressor-Seite schätzt, wer über den Spread gegangen ist; sie verrät nicht, ob eröffnet oder glattgestellt wurde, und auch nicht die vollständige Strategie, den endgültigen Eigentümer oder einen Informationsvorsprung.
