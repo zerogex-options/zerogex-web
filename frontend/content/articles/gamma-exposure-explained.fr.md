@@ -72,7 +72,7 @@ La magnitude brute du gamma ne porte en soi aucun signe de dealer - une option 
 
 En pratique, cela produit un GEX de dealers signé par strike - positif du côté des calls, négatif du côté des puts selon la convention - qui, une fois sommé, donne l'exposition nette modélisée sur l'ensemble de la chaîne.
 
-Il s'agit d'une estimation modélisée, non d'un inventaire observé. Le positionnement réel des dealers n'est pas directement divulgué ; il est déduit de l'open interest selon la convention traditionnelle « calls longs / puts short ». Les fournisseurs traitent les cas limites différemment, et cette hypothèse peut se révéler fausse dans des conditions de flux inhabituelles. Comme estimateur de régime, cependant, elle a fait ses preuves suffisamment longtemps pour devenir la norme.
+Il s'agit d'une estimation modélisée, non d'un inventaire observé. Le positionnement réel des dealers n'est pas directement divulgué ; il est déduit de l'open interest selon la convention traditionnelle « calls longs / puts short ». Les fournisseurs traitent les cas limites différemment, et cette hypothèse peut se révéler fausse dans des conditions de flux inhabituelles. Comme estimateur de régime, cependant, elle a suffisamment bien tenu pour être la norme depuis des années.
 
 ### Net GEX contre Total GEX
 

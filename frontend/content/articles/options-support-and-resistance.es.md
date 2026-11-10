@@ -1,6 +1,4 @@
 # Cómo identificar soporte y resistencia a partir del posicionamiento en opciones
-> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Que el término pin de EOD Pressure siga el movimiento reciente cuando la gamma es negativa es una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
-
 
 *El soporte y la resistencia clásicos son sobre todo psicología - líneas trazadas, swings previos, números redondos. El soporte y la resistencia basados en opciones son mecánica - posicionamiento real que impulsa flujos de cobertura reales. Así se identifican y se leen en tiempo real.*
 
@@ -12,9 +10,9 @@ El kit de herramientas de S/R del trader minorista se deriva sobre todo del grá
 
 El soporte y la resistencia basados en opciones son diferentes. No se derivan del historial de precios; se derivan del posicionamiento actual en opciones. El mecanismo es estructural: flujos de cobertura modelados de los dealers que tienden a activarse conforme el precio se acerca a strikes concentrados. Gran parte de esta cobertura es sistemática y no discrecional - así que, cuando el signo de la gamma modelada de los dealers es el adecuado, esos flujos pueden actuar como oferta cerca de la resistencia y como demanda cerca del soporte.
 
-Cuando el S/R de gráfico y el S/R de opciones coinciden, el nivel es notablemente más fiable. Cuando difieren, la lectura basada en opciones suele imponerse - porque el nivel de gráfico es opinión y el nivel de opciones es flujo forzado.
+Cuando el S/R de gráfico y el S/R de opciones coinciden, el nivel tiende a ser más fiable. Cuando difieren, la lectura basada en opciones suele tener más peso - porque el nivel de gráfico es opinión y el nivel de opciones se basa en un flujo de cobertura impulsado por el posicionamiento.
 
-Este artículo es el flujo de trabajo práctico para identificar S/R basado en opciones, leerlo en tiempo real y saber qué esperar cuando el precio lo pone a prueba. Para el marco más amplio de gamma, consulta el [pilar de Exposición Gamma](/education/gamma-exposure-explained).
+Este artículo es el flujo de trabajo práctico para identificar S/R basado en opciones, leerlo en tiempo real y saber qué esperar cuando el precio lo pone a prueba. Para el marco más amplio de gamma, consulta el [pilar de Gamma Exposure](/education/gamma-exposure-explained).
 
 ---
 
@@ -34,19 +32,19 @@ El **put wall** es el strike por debajo del spot con la mayor exposición gamma 
 
 Misma dependencia de régimen que el call wall - en gamma negativa, un put wall que cede puede convertirse en un punto de deslizamiento (slippage) en la caída.
 
-La mecánica de los walls en ambos regímenes se explica en [Gamma Walls Explained](/education/gamma-walls-explained).
+La mecánica de los walls en ambos regímenes se explica en [Gamma Walls explicados](/education/gamma-walls-explained).
 
 ### 3. El gamma magnet (atracción hacia el pin)
 
-El **gamma magnet** es el strike con la mayor concentración de gamma absoluta. No es direccional - atrae el precio hacia sí en un régimen de gamma larga y lo libera de sí mismo en gamma corta. Funcionalmente, actúa como soporte y resistencia a la vez: el precio por encima es arrastrado hacia abajo, hacia él; el precio por debajo es arrastrado hacia arriba.
+El **gamma magnet** es el strike con la mayor concentración de gamma absoluta. No es direccional - en un régimen de gamma larga tiende a atraer el precio hacia sí, y en gamma corta tiende a liberarlo de sí mismo. Cuando la atracción está activa, puede actuar como soporte y resistencia a la vez: el precio por encima puede verse arrastrado hacia abajo, hacia él; el precio por debajo puede verse arrastrado hacia arriba.
 
-El magnet es más fuerte cerca del vencimiento, cuando las opciones que vencen el mismo día dominan el perfil de gamma. El comportamiento de pin al cierre de la jornada suele originarse en este strike.
+El magnet tiende a importar más cerca del vencimiento, cuando las opciones que vencen el mismo día dominan el perfil de gamma. El comportamiento de pin al cierre de la jornada puede originarse en este strike, aunque el pinning es probabilístico - la liquidez, el comportamiento de los traders y la mecánica del vencimiento también contribuyen, y una concentración grande no es por sí sola prueba de que los dealers estén largos de gamma ahí.
 
 ### 4. El gamma flip (línea de régimen)
 
-El **gamma flip** no es S/R en el sentido tradicional - es el límite de régimen. Pero funciona como una línea de soporte/resistencia suave porque el precio tiende a pausarse o revertir brevemente al cruzarla (el reflejo del dealer cambia de signo exactamente en ese precio). Por encima del flip, el reflejo es contrarrestar (fade); por debajo, seguir la tendencia (chase).
+El **gamma flip** no es S/R en el sentido tradicional - es el límite de régimen, un cruce por cero del perfil de gamma *modelado* de los dealers. Pero puede funcionar como una línea de soporte/resistencia suave porque el precio a menudo hace una pausa o revierte brevemente en torno a él (el reflejo modelado de los dealers cambia de signo cerca de ese precio). Por encima del flip, el reflejo modelado es contrarrestar (fade); por debajo, perseguir el movimiento (chase) - aunque el cruce es una estimación del modelo, y el comportamiento realizado sigue dependiendo del flujo, la liquidez y la volatilidad.
 
-Consulta [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) para el flujo de trabajo.
+Consulta [¿Qué es un gamma flip?](/education/how-to-read-a-gamma-flip) para el flujo de trabajo.
 
 ---
 
@@ -60,11 +58,11 @@ Los giros que parecen aleatorios en un gráfico del SPY - el precio corre hasta
 
 Tres razones:
 
-1. **Es forzado, no elegido.** Un trader puede decidir si defiende o no una línea de tendencia. Un dealer debe cubrir su exposición gamma para mantenerse neutral - no hay opción de no participar. El flujo de cobertura ocurre independientemente de si el dealer cree en él o no.
+1. **Es sistemático, no elegido.** Un trader puede decidir si defiende o no una línea de tendencia. La cobertura de gamma de los dealers es en gran medida sistemática - las mesas gestionan la exposición agregada en lugar de actuar según una opinión - así que el flujo tiende a producirse tanto si el dealer cree en él como si no. (Las mesas cubren carteras y pueden usar bandas de cobertura, así que es una tendencia, no una orden garantizada de forma continua.)
 
-2. **Escala con el posicionamiento, no con la atención.** Una línea de tendencia se fortalece cuantos más ojos la observan; un wall se fortalece con más open interest. Cuanto más grande sea el wall, mayor será el flujo estructural cuando el precio se acerque. La relación es mecánica.
+2. **Escala con el posicionamiento, no con la atención.** Una línea de tendencia se fortalece cuantos más ojos la observan; un wall refleja más open interest. Cuanto mayor sea la concentración modelada, mayor será el posible flujo de cobertura cuando el precio se acerque. La relación se basa en el posicionamiento, no en el sentimiento.
 
-3. **Se actualiza en tiempo real.** Las líneas de tendencia son artefactos históricos que se vuelven obsoletos a medida que el precio se mueve. Los walls se mueven con el posicionamiento - nuevo OI que se acumula por encima del call wall lo empuja más alto, y la lectura estructural se actualiza en consecuencia. El nivel que ves a las 10:30 ET es el nivel que importa ahora mismo.
+3. **Se recalcula.** El spot, el tiempo y la volatilidad implícita revalúan la gamma de cada strike, así que otro strike con OI fijo puede convertirse en el wall intradía. El OI oficial suele actualizarse tras la compensación; un wall que migra no es prueba de que se hayan abierto posiciones nuevas ahí.
 
 Dicho esto, el S/R basado en opciones no es infalible. Es una inclinación probabilística. Los shocks macro y los eventos catalizadores lo anulan con regularidad, y un cambio de régimen cambia lo que hace la cobertura. La ventaja es que la inclinación está *fundamentada* - cuando funciona, funciona por una razón verificable.
 
@@ -115,7 +113,7 @@ SPY está en 581,50. El análisis de gráfico estándar muestra resistencia alre
 - **Put Wall:** 580,00 (justo en el soporte del gráfico)
 - **Gamma Flip:** 580,80 (entre el spot actual y el put wall)
 - **Gamma magnet:** 581,00 (prácticamente en el spot)
-- **Net GEX:** +$1.100 M, estable
+- **Net GEX:** +1.100 millones de $, estable (una estimación modelada de la gamma de los dealers según la convención tradicional de open interest call-positivo / put-negativo, no el inventario observado de los dealers)
 
 La lectura estructural compuesta:
 
@@ -138,11 +136,11 @@ La lectura: la cobertura modelada se opone a los movimientos hacia cualquiera de
 
 ## Conclusión
 
-> El soporte y la resistencia basados en opciones son mecánica, no psicología. Identifican los niveles donde la cobertura de los dealers realmente se disparará - y el régimen te dice si ese disparo absorbe el movimiento o lo amplifica.
+> El soporte y la resistencia basados en opciones son mecánica, no psicología. Identifican los niveles donde es más probable que se active la cobertura de los dealers - y el régimen modelado te dice si ese flujo tiende a absorber el movimiento o a amplificarlo.
 
-La disciplina consiste en leer primero el mapa estructural, contrastarlo con los niveles basados en gráficos para buscar convergencia, y verificar el régimen antes de decidir qué hacer con el nivel. Gran parte del aparente "ruido" en el S/R de gráfico minorista es la brecha entre dónde dicen los gráficos que está el nivel y dónde lo coloca realmente el posicionamiento.
+La disciplina consiste en leer primero el mapa estructural, contrastarlo con los niveles basados en gráficos para buscar convergencia, y verificar el régimen antes de decidir qué hacer con el nivel. La mayor parte del aparente "ruido" en el S/R de gráfico minorista es la brecha entre dónde dicen los gráficos que está el nivel y dónde lo coloca realmente el posicionamiento.
 
-Contenido solo educativo - nada de lo anterior es una recomendación de trading.
+Solo contenido educativo - nada de lo anterior es una recomendación de trading.
 
 ---
 

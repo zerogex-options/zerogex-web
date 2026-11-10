@@ -1,6 +1,6 @@
 # Gamma Exposure (GEX) spiegata: la guida completa
 
-*Gamma exposure spiegata da zero - cos'è il GEX, come viene calcolato e segnato il gamma dei dealer, perché il regime sopra e sotto il flip si comporta in modo così diverso, e come usarlo concretamente durante una sessione.*
+*Gamma exposure spiegata da zero - cos'è il GEX, come si calcola il gamma dei dealer e come gli si assegna il segno, perché il regime sopra e sotto il flip si comporta in modo così diverso, e come usarlo concretamente durante una sessione.*
 
 ---
 

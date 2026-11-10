@@ -156,7 +156,7 @@ Imaginez maintenant le même scénario mais avec un Net GEX à −600 M$ et un g
 - **« SPY s'ancre toujours sur les nombres ronds. »** Lorsque le pinning se produit, il coïncide souvent avec un positionnement concentré. Les nombres ronds sont fréquents parce que l'OI s'y agglomère, mais l'OI seul ne prouve pas la cause.
 - **« Si le max pain est X, le prix clôturera à X. »** Souvent faux. Le max pain relève de la géométrie des payoffs, pas d'une force de couverture ; l'aimant de gamma modélisé correspond plus directement au flux de couverture. En cas de divergence, ZeroGEX s'appuie sur l'aimant.
 - **« Les pins sont haussiers/baissiers. »** Ni l'un ni l'autre. Ils sont anti-volatilité. Bornés dans une fourchette. La direction vient d'ailleurs ; le pin concerne le *caractère de l'action des prix*, pas la direction.
-- **« Le pinning se produit tous les vendredis. »** Souvent, mais pas toujours. Certains vendredis comportent des catalyseurs, des régimes short-gamma ou des aimants migrants qui empêchent le pin. Lire les conditions est essentiel.
+- **« Le pinning se produit tous les vendredis. »** Souvent, mais pas toujours. Certains vendredis comportent des catalyseurs, des régimes short-gamma ou des aimants migrants qui empêchent le pin. Il importe de lire les conditions.
 
 ---
 

@@ -1,16 +1,16 @@
-# Was Bedeutet Negatives Gamma? Eine Verständliche Erklärung
+# Was bedeutet negatives Gamma? Eine verständliche Erklärung
 
-*Was bedeutet negatives Gamma - und warum sollte das einen Optionshändler interessieren? Kurz gesagt: Es bedeutet, dass das Hedging der Dealer Bewegungen verstärkt statt sie zu dämpfen. Hier erfährst du, worauf sich der Begriff tatsächlich bezieht, wie man ein Negativ-Gamma-Regime in Echtzeit erkennt und was sich in deinem Trading ändert, wenn du dich in einem solchen befindest.*
+*Was bedeutet negatives Gamma - und warum sollte das einen Optionshändler interessieren? Kurz gesagt: Es bedeutet, dass das Hedging der Dealer Bewegungen verstärkt, statt sie zu dämpfen. Hier erfährst du, worauf sich der Begriff tatsächlich bezieht, wie man ein Negativ-Gamma-Regime in Echtzeit erkennt und was sich in deinem Trading ändert, wenn du dich in einem solchen befindest.*
 
 ---
 
 ## Die kurze Antwort
 
-**Negatives Gamma** beschreibt im Kontext des Options-Flows ein Regime: Die Dealer, die auf der anderen Seite der Kundenoptionsgeschäfte stehen, werden so modelliert, dass sie ein netto-short-gamma-Buch haben. Die praktische Konsequenz: Wenn SPY steigt, tendieren sie dazu, SPY zu *kaufen*, um gehedgt zu bleiben, und wenn SPY fällt, tendieren sie dazu, SPY zu *verkaufen*. Ihre Hedging-Trades laufen **mit** der Richtung des Preises - nicht dagegen.
+**Negatives Gamma** beschreibt im Kontext des Options-Flows ein Regime: Die Dealer, die auf der anderen Seite der Kundenoptionsgeschäfte stehen, werden so modelliert, dass sie ein Netto-Short-Gamma-Buch haben. Die praktische Konsequenz: Wenn SPY steigt, tendieren sie dazu, SPY zu *kaufen*, um gehedgt zu bleiben, und wenn SPY fällt, tendieren sie dazu, SPY zu *verkaufen*. Ihre Hedging-Trades laufen **mit** der Richtung des Preises - nicht dagegen.
 
 Dieser mechanische Reflex verwandelt das Dealer-Buch in einen Verstärker. Ausverkäufe tendieren dazu, sich zu beschleunigen. Rallyes tendieren dazu, sich zu verlängern. Die realisierte Intraday-Volatilität tendiert dazu, höher zu laufen als die implizite. Das Pin-Verhalten tendiert dazu, zusammenzubrechen. Dasselbe Chartsetup, das gestern funktionierte (als die Dealer long gamma waren und Bewegungen absorbierten), wird heute zerschlagen (wenn sie short gamma sind und der Bewegung hinterherjagen).
 
-Das Gegenteil - **positives Gamma** - ist der häufigere Standardfall bei SPY in den meisten ruhigen Sessions. Die Dealer sind long gamma, hedgen gegen die Bewegung und dämpfen die Volatilität. Das Gesamtbild wird im [Gamma-Exposure-Pillar](/education/gamma-exposure-explained) behandelt; dieser Artikel konzentriert sich speziell darauf, was "negatives Gamma" bedeutet und wie man es erkennt.
+Das Gegenteil - **positives Gamma** - ist der häufigere Standardfall bei SPY in den meisten ruhigen Sessions. Die Dealer sind long gamma, hedgen gegen die Bewegung und dämpfen die Volatilität. Das Gesamtbild wird im [Gamma-Exposure-Grundlagenartikel](/education/gamma-exposure-explained) behandelt; dieser Artikel konzentriert sich speziell darauf, was "negatives Gamma" bedeutet und wie man es erkennt.
 
 ---
 
@@ -24,7 +24,7 @@ Wenn das *Netto* dieser vorzeichenbehafteten Beiträge negativ ist, wird das Buc
 
 Die Standardkonvention - Kunden schreiben Calls (Overwriting) und kaufen Puts zur Absicherung - bedeutet, dass Dealer typischerweise long Calls und short Puts sind, aber die *Größenordnungen* verschieben sich mit dem Positioning. Wenn die Kundennachfrage stark in Richtung Puts tendiert (z. B. während Angstregimen), kann der wachsende Short-Put-Bestand des Dealer-Buchs das Netto-Gamma ins Negative drücken; wenn Calls dominieren (z. B. bei ruhigen Aufwärtstrends, in denen Overwriting das Long-Call-Gamma der Dealer aufbaut), wird das Buch als long gamma modelliert.
 
-Die nützlichste zusammenfassende Kennzahl überhaupt: der **Gamma-Flip** - der Preis, an dem das Dealer-Gamma-Profil die Nulllinie kreuzt. Oberhalb des Flips sind Dealer typischerweise long gamma (positiv). Unterhalb des Flips short gamma (negativ). Den Flip zu lesen bedeutet im Grunde, die Regime-Linie zu lesen. Siehe [Wie man einen Gamma-Flip liest](/education/how-to-read-a-gamma-flip).
+Die nützlichste zusammenfassende Kennzahl überhaupt: der **Gamma Flip** - der Preis, an dem das Dealer-Gamma-Profil die Nulllinie kreuzt. Oberhalb des Flips sind Dealer typischerweise long gamma (positiv). Unterhalb des Flips short gamma (negativ). Den Flip zu lesen bedeutet im Grunde, die Regime-Linie zu lesen. Siehe [Was ist ein Gamma Flip?](/education/how-to-read-a-gamma-flip)
 
 ---
 
@@ -54,21 +54,21 @@ Zum Vergleich **positives Gamma**, bei dem sich dieselbe Flow-Kette umkehrt: Dea
 | Pin-Verhalten | Der Preis wird tendenziell zu stark gewichteten Strikes gezogen | Pinning tendiert dazu, sich abzuschwächen oder zu lösen |
 | Bestes Playbook | Mean-Reversion, Fading von Extremen, Prämienverkauf | Trendfortsetzung, Momentum, Breakout |
 | Schlechtestes Playbook | Ausbrüchen hinterherjagen, Momentum | Rallyes faden, Dip-Buying in die Struktur hinein |
-| Typisch wenn | SPY über dem Gamma-Flip, Net GEX > 0 | SPY unter dem Gamma-Flip, Net GEX < 0 |
+| Typisch wenn | SPY über dem Gamma Flip, Net GEX > 0 | SPY unter dem Gamma Flip, Net GEX < 0 |
 
 Dies sind allgemeine Regime-Tendenzen, keine Garantien. Katalysatoren und Schocks setzen sie außer Kraft. Was sie verändern, ist der Mechanismus hinter einem Trade, nicht, wie oft Walls brechen: In unserer Messung hielten Walls auf beiden Seiten des Flips etwa gleich oft.
 
 ---
 
-## Wie man ein Negativ-Gamma-Regime in Echtzeit erkennt
+## Wie ein Negativ-Gamma-Umfeld intraday aussieht
 
 Ein kurzer Workflow:
 
-1. **Zuerst den Gamma-Flip prüfen.** Liegt SPY unter dem Flip, verortet dich das Modell in einem Short-Gamma-Regime.
+1. **Zuerst den Gamma Flip prüfen.** Liegt SPY unter dem Flip, verortet dich das Modell in einem Short-Gamma-Regime.
 2. **Mit Net GEX bestätigen.** Ein negativer Net-GEX-Wert liefert die Größenordnung - je negativer, desto ausgeprägter das Regime. Net GEX nahe null ist ein umkämpftes Regime; beide Reflexe sind teilweise aktiv.
 3. **Das Bild der realisierten Vol gegenprüfen.** Short-Gamma-Regime zeigen sich in breiteren Intraday-Spannen, als die implizite Vol beim Tagesauftakt nahelegte. Wenn sich die realisierte Vol ausweitet, während die implizite flach bleibt, ist das die Signatur des Regimes.
 4. **Beobachten, was passiert, nachdem eine Wall nachgegeben hat.** In Short-Gamma-Regimen verstärkt das Hedging die Bewegung, statt sich gegen sie zu stemmen, sodass ein Bruch weiterlaufen kann, wo er in Long-Gamma ins Stocken geraten wäre. Wie oft Walls brachen, änderte sich in unserer Messung nicht mit dem Regime; der Unterschied, den das Modell erwartet, liegt darin, was auf einen Bruch folgt.
-5. **Die Flow-Richtung zum Schluss beobachten.** Short-Gamma zum Handelsschluss erzeugt oft sich beschleunigende gerichtete Bewegungen (das EOD-Drucksignal wird zu einer Fortsetzungslesart, nicht zu einer Fade-Lesart).
+5. **Die Flow-Richtung zum Schluss beobachten.** Short-Gamma zum Handelsschluss erzeugt oft sich beschleunigende gerichtete Bewegungen (das EOD-Pressure-Signal wird zu einer Fortsetzungslesart, nicht zu einer Fade-Lesart).
 
 ---
 
@@ -77,7 +77,7 @@ Ein kurzer Workflow:
 Konkret Dinge, die man in einem Negativ-Gamma-Regime *lassen* sollte:
 
 - **Rallyes nicht faden.** Der Dealer-Reflex verstärkt. Deine "Mean-Reversion-Short"-Position kämpft gegen den strukturellen Kauf-Flow.
-- **Dips in der Struktur nicht kaufen.** Dasselbe Problem umgekehrt. Gibt die Put-Wall bei Short-Gamma nach, verstärkt das Hedging den Abverkauf, statt ihn abzufedern, sodass sie zum Slippage-Punkt werden kann.
+- **Dips in der Struktur nicht kaufen.** Dasselbe Problem umgekehrt. Gibt die Put Wall bei Short-Gamma nach, verstärkt das Hedging den Abverkauf, statt ihn abzufedern, sodass sie zum Slippage-Punkt werden kann.
 - **Kein Pinning erwarten.** Der strukturelle Sog zu stark gewichteten Strikes tendiert dazu, sich abzuschwächen, sodass die Magnet-These hier deutlich weniger verlässlich ist.
 - **Nicht für eine normale Spanne dimensionieren.** Die realisierte Vol ist strukturell höher. Positionsgröße unter der Annahme wählen, dass breitere Stops nötig sind.
 
@@ -86,7 +86,7 @@ Dinge, die man *anfangen* sollte zu tun:
 - **Mit der Bewegung handeln.** Trendfolgende Setups haben das Hedging im Rücken.
 - **Jede Position gegen eine Wall für den Fall eines Bruchs dimensionieren.** Eine Wall hielt in unserer Messung bei Short-Gamma etwa genauso oft wie bei Long-Gamma, aber wenn sie hier nachgibt, verstärkt das Hedging die Bewegung, sodass eine Position, die auf die Wall setzt, weiter gegen dich laufen kann.
 - **Beim Einstiegs-Timing selektiver sein.** Breitere Spannen bedeuten mehr Risiko pro Trade. Das mit strengeren Setup-Kriterien ausgleichen.
-- **Auf Rückkehr zu positivem Gamma achten.** Das passiert - der Flip ist dynamisch. Wenn der Spot wieder über den Gamma-Flip steigt, dreht sich das Playbook mit.
+- **Auf Rückkehr zu positivem Gamma achten.** Das passiert - der Flip ist dynamisch. Wenn der Spot wieder über den Gamma Flip steigt, dreht sich das Playbook mit.
 
 ---
 
@@ -95,17 +95,17 @@ Dinge, die man *anfangen* sollte zu tun:
 SPX eröffnet den Tag bei 5.780. ZeroGEX zeigt:
 
 - **Net GEX:** −1,1 Mrd. $ (negativ - Short-Gamma-Regime)
-- **Gamma-Flip:** 5.810 (Spot 30 Punkte darunter)
-- **Call-Wall:** 5.820
-- **Put-Wall:** 5.750
+- **Gamma Flip:** 5.810 (Spot 30 Punkte darunter)
+- **Call Wall:** 5.820
+- **Put Wall:** 5.750
 
-Im Laufe des Vormittags arbeitet sich SPX auf 5.800 nach oben. Der Instinkt an einem Long-Gamma-Tag wäre, Rallyes Richtung des 5.810-Flips und der 5.820-Call-Wall zu faden.
+Im Laufe des Vormittags arbeitet sich SPX auf 5.800 nach oben. Der Instinkt an einem Long-Gamma-Tag wäre, damit anzufangen, Rallyes in Richtung des Flips bei 5.810 und der Call Wall bei 5.820 zu faden.
 
-Die strukturelle Lesart sagt hier das Gegenteil. SPX befindet sich in Short-Gamma-Territorium; das Dealer-Hedging verstärkt. Der Push in Richtung 5.810 trifft auf Hedging, das mit ihm läuft statt gegen ihn. Gibt die Call-Wall bei 5.820 in diesem Regime nach, verstärkt dieses Hedging den Bruch, statt sich gegen ihn zu stemmen.
+Die strukturelle Lesart sagt hier das Gegenteil. SPX befindet sich in Short-Gamma-Territorium; das Dealer-Hedging verstärkt. Der Push in Richtung 5.810 trifft auf Hedging, das mit ihm läuft statt gegen ihn. Gibt die Call Wall bei 5.820 in diesem Regime nach, verstärkt dieses Hedging den Bruch, statt sich gegen ihn zu stemmen.
 
 Die praktische Lesart: Ein Fade hat hier kein Hedging im Rücken, und wenn die Wall nachgibt, kann die Bewegung weiterlaufen. Das ändert das Risiko eines Fades, nicht die Wahrscheinlichkeit, dass 5.820 hält - in unserer Messung von 737 Wall-Tests hielten SPX-Walls in etwa zwei von drei Fällen innerhalb einer Stunde, unabhängig davon, auf welcher Seite des Flips der Preis stand.
 
-Stell dir nun denselben Chart mit Net GEX bei +1,2 Mrd. $ und dem Gamma-Flip bei 5.760 (Spot 40 Punkte darüber) vor. Die strukturelle Lesart kehrt sich um: Der Long-Gamma-Reflex stemmt sich gegen Rallyes in Richtung 5.820, sodass ein Fade das Hedging im Rücken hat. Derselbe Markt, gegensätzlicher Mechanismus, abhängig von einer einzigen Regime-Variablen.
+Stell dir nun denselben Chart mit Net GEX bei +1,2 Mrd. $ und dem Gamma Flip bei 5.760 (Spot 40 Punkte darüber) vor. Die strukturelle Lesart kehrt sich um: Der Long-Gamma-Reflex stemmt sich gegen Rallyes in Richtung 5.820, sodass ein Fade das Hedging im Rücken hat. Derselbe Markt, gegensätzlicher Mechanismus, abhängig von einer einzigen Regime-Variablen.
 
 ---
 
@@ -122,10 +122,10 @@ Stell dir nun denselben Chart mit Net GEX bei +1,2 Mrd. $ und dem Gamma-Flip bei
 
 > Negatives Gamma bedeutet, dass Dealer die Bewegung verstärken, statt sie zu dämpfen. Dieselbe Kette, derselbe SPY, gegensätzlicher Marktcharakter - und gegensätzliche Playbooks für den Trader, der das Regime lesen kann.
 
-Die Disziplin besteht darin, jede Session mit der Regime-Lesart zu beginnen: Wo liegt der Gamma-Flip, wo liegt der Spot, wie hoch ist der Net GEX? Diese drei Zahlen sagen dir, welches Playbook die strukturelle Kraft im Markt heute unterstützen wird. Das falsche Playbook gegen das Regime zu fahren, ist der teuerste Fehler auf der Karte.
+Die Disziplin besteht darin, jede Session mit der Regime-Lesart zu beginnen: Wo liegt der Gamma Flip, wo liegt der Spot, wie hoch ist der Net GEX? Diese drei Zahlen sagen dir, welches Playbook die strukturelle Kraft im Markt heute unterstützen wird. Das falsche Playbook gegen das Regime zu fahren, ist der teuerste Fehler auf der Karte.
 
-Nur Bildungsinhalte - nichts davon ist eine Handelsempfehlung.
+Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du den heutigen Net GEX, den Gamma-Flip und die Regime-Lesart für SPY, SPX, QQQ und NDX sehen möchtest - die drei Zahlen, die dir sagen, ob Dealer gerade long gamma oder short gamma sind - zeigt [die kostenlose Gamma-Levels-Ansicht von ZeroGEX](/spx-gamma-levels) all das an, rund 15 Minuten verzögert; die bezahlten Pläne zeigen es [in Echtzeit](/real-time-gex-0dte).
+Wenn du den heutigen Net GEX, den Gamma Flip und die Regime-Lesart für SPY, SPX, QQQ und NDX sehen möchtest - die drei Zahlen, die dir sagen, ob Dealer gerade long gamma oder short gamma sind -, zeigt [die kostenlose Gamma-Levels-Ansicht von ZeroGEX](/spx-gamma-levels) all das an, rund 15 Minuten verzögert; die bezahlten Pläne zeigen es [im Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
