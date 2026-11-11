@@ -56,7 +56,7 @@ Pour zoomer sur une partie de la séance, comme sur le Gamma Chart :
 
 - **Ctrl + molette** (**Cmd + molette** sur Mac), ou un pincement sur trackpad, pour zoomer dans le temps. La molette seule fait défiler la page, pas le graphique.
 - **Maj + molette**, ou la molette au-dessus de l'échelle de prix de gauche, pour zoomer sur le prix.
-- Les boutons − et + de **Time** et de **Price**, en bas à gauche, font la même chose par paliers.
+- Les boutons − et + de **Time** et de **Price**, en bas à droite, font la même chose par paliers.
 - **Faites glisser** un graphique zoomé latéralement pour vous déplacer dans le temps, ou vers le haut et le bas une fois le prix zoomé.
 
 Une fois zoomé, l'échelle de chaque panneau s'ajuste à ce qui est à l'écran, de sorte que les couloirs des strikes s'écartent avec les barres. Sur une séance en cours, un graphique zoomé suit la barre la plus récente jusqu'à ce que vous le fassiez glisser en arrière. **Reset** revient à la séance entière. Sur téléphone, pincez ou utilisez les boutons **Time** pour zoomer, et faites glisser latéralement pour vous déplacer.

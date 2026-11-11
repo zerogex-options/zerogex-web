@@ -56,7 +56,7 @@ Per ingrandire una parte della sessione, come sul Gamma Chart:
 
 - **Ctrl + scroll** (**Cmd + scroll** su Mac), o pizzica sul trackpad, per fare zoom sul tempo. La rotellina da sola scorre la pagina, non il grafico.
 - **Maiusc + scroll**, o scorri sopra la scala dei prezzi a sinistra, per fare zoom sul prezzo.
-- I pulsanti − e + di **Time** e **Price** in basso a sinistra fanno lo stesso a scatti.
+- I pulsanti − e + di **Time** e **Price** in basso a destra fanno lo stesso a scatti.
 - **Trascina** un grafico ingrandito lateralmente per muoverti nel tempo, o in alto e in basso una volta ingrandito il prezzo.
 
 Con lo zoom, la scala di ogni pannello si adatta a ciò che è sullo schermo, così le corsie degli strike si allargano insieme alle barre. In una sessione in corso un grafico ingrandito segue la barra più recente finché non lo trascini indietro. **Reset** torna all'intera sessione. Su smartphone, pizzica o usa i pulsanti **Time** per fare zoom, e trascina lateralmente per spostarti.

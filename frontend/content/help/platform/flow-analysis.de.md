@@ -56,7 +56,7 @@ Um einen Teil der Sitzung heranzuzoomen, genau wie beim Gamma Chart:
 
 - **Strg + Scrollen** (**Cmd + Scrollen** auf dem Mac) oder eine Pinch-Geste auf dem Trackpad zoomt die Zeitachse. Ein einfaches Scrollrad scrollt die Seite, nicht den Chart.
 - **Umschalt + Scrollen** oder Scrollen über der Preisskala links zoomt den Preis.
-- Die Buttons − und + bei **Time** und **Price** unten links tun dasselbe in Schritten.
+- Die Buttons − und + bei **Time** und **Price** unten rechts tun dasselbe in Schritten.
 - **Ziehe** einen gezoomten Chart seitwärts, um dich durch die Zeit zu bewegen, oder nach oben und unten, sobald der Preis gezoomt ist.
 
 Gezoomt passt sich jedes Feld dem an, was gerade zu sehen ist, sodass die Strike-Spuren mit den Balken auseinanderrücken. In einer laufenden Sitzung bleibt ein gezoomter Chart beim neuesten Balken, bis du ihn zurückziehst. **Reset** zeigt wieder die ganze Sitzung. Auf dem Smartphone zoomst du per Pinch-Geste oder mit den Buttons **Time** und ziehst zum Verschieben seitwärts.

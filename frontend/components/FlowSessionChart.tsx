@@ -1264,22 +1264,15 @@ export default function FlowSessionChart({
         </div>
       )}
 
-      {/* Zoom: over the bottom left of the plot, the oldest corner of the
-          lowest pane, out of the way of the newest bars and the readout. */}
+      {/* Zoom: over the bottom right of the plot, where the Gamma Chart keeps
+          its own. On a live session that corner is the part of the day still
+          to come, so the steppers sit on empty plot; at the bottom left they
+          sat on the open, which before 11:00 is all of the data. Reset leads
+          the row, so the steppers stay put under the pointer when it shows. */}
       <div
         className="flex items-center gap-1.5"
-        style={{ position: 'absolute', left: AXIS_W + 6, bottom: AXIS_H + 6, zIndex: 2 }}
+        style={{ position: 'absolute', right: TAG_W + 12, bottom: AXIS_H + 6, zIndex: 2 }}
       >
-        <ZoomCluster
-          large={compact}
-          label="Time"
-          onIn={() => zoomTimeBy(1 / ZOOM_STEP, null)}
-          onOut={() => zoomTimeBy(ZOOM_STEP, null)}
-          hint={compact ? undefined : 'Ctrl + scroll'}
-        />
-        {!compact && priceBandNow && (
-          <ZoomCluster label="Price" onIn={() => zoomPriceBy(1 / ZOOM_STEP)} onOut={() => zoomPriceBy(ZOOM_STEP)} hint="Shift + scroll" />
-        )}
         {customView && (
           <button
             type="button"
@@ -1301,6 +1294,16 @@ export default function FlowSessionChart({
           >
             ⟲ Reset
           </button>
+        )}
+        <ZoomCluster
+          large={compact}
+          label="Time"
+          onIn={() => zoomTimeBy(1 / ZOOM_STEP, null)}
+          onOut={() => zoomTimeBy(ZOOM_STEP, null)}
+          hint={compact ? undefined : 'Ctrl + scroll'}
+        />
+        {!compact && priceBandNow && (
+          <ZoomCluster label="Price" onIn={() => zoomPriceBy(1 / ZOOM_STEP)} onOut={() => zoomPriceBy(ZOOM_STEP)} hint="Shift + scroll" />
         )}
       </div>
     </div>

@@ -56,7 +56,7 @@ Para ampliar una parte de la sesión, igual que en el Gamma Chart:
 
 - **Ctrl + rueda** (**Cmd + rueda** en un Mac), o pellizca en un trackpad, para hacer zoom en el tiempo. La rueda sola desplaza la página, no el gráfico.
 - **Mayús + rueda**, o la rueda sobre la escala de precios de la izquierda, para hacer zoom en el precio.
-- Los botones − y + de **Time** y **Price**, abajo a la izquierda, hacen lo mismo por pasos.
+- Los botones − y + de **Time** y **Price**, abajo a la derecha, hacen lo mismo por pasos.
 - **Arrastra** un gráfico ampliado hacia los lados para moverte en el tiempo, o hacia arriba y abajo una vez ampliado el precio.
 
 Con el zoom, la escala de cada panel se ajusta a lo que está en pantalla, así que los carriles de strikes se separan junto con las barras. En una sesión en curso, un gráfico ampliado sigue la barra más reciente hasta que lo arrastras hacia atrás. **Reset** vuelve a la sesión completa. En el móvil, pellizca o usa los botones **Time** para hacer zoom, y arrastra hacia los lados para desplazarte.

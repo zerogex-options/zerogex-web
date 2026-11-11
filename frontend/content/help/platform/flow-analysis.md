@@ -56,7 +56,7 @@ To zoom in on part of the session, the same way as on the Gamma Chart:
 
 - **Ctrl + scroll** (**Cmd + scroll** on a Mac), or pinch on a trackpad, to zoom time. A plain scroll wheel scrolls the page, not the chart.
 - **Shift + scroll**, or scroll over the price scale on the left, to zoom the price.
-- The **Time** and **Price** − and + buttons at the bottom left do the same in steps.
+- The **Time** and **Price** − and + buttons at the bottom right do the same in steps.
 - **Drag** a zoomed chart sideways to move through time, or up and down once the price is zoomed.
 
 Zoomed in, each pane's scale fits what is on screen, so the strike lanes spread out along with the bars. On a live session a zoomed chart keeps up with the newest bar until you drag it back. **Reset** returns to the whole session. On a phone, pinch or use the **Time** buttons to zoom, and drag sideways to pan.
