@@ -29,6 +29,7 @@ import {
   Mountain,
   Newspaper,
   Radar,
+  ScatterChart,
   ScrollText,
   Signal,
   SlidersHorizontal,
@@ -74,6 +75,7 @@ import {
   GammaSurfacePanel,
   OptionsFlowPanel,
   HedgingFlowPanel,
+  FlowSessionWidget,
   PriceActionPanel,
   GammaPulseWidget,
   SignalsSynthesisPanel,
@@ -464,6 +466,21 @@ export const WIDGETS: WidgetDef[] = [
   },
 
   // ── Options Flow ──
+  {
+    // The chart that headlines /flow-analysis today; Options Flow below is
+    // the one it replaced there.
+    id: 'flow-session',
+    title: 'Flow Analysis - Session',
+    blurb:
+      "The Session chart from Flow Analysis: price with the strike dots, the flip and walls, net premium with its call and put legs, contracts bought and sold each bar, and the put/call, on one clock. Same buttons and zoom as the page.",
+    category: 'flow',
+    tier: 'basic',
+    icon: ScatterChart,
+    defaultSize: 'xl',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <FlowSessionWidget />,
+  },
   {
     id: 'options-flow',
     title: 'Options Flow',

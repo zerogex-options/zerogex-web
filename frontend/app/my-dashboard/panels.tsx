@@ -7,7 +7,7 @@
  * they need (symbol / theme / a context-derived model).
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, Gauge, ListOrdered, SlidersHorizontal } from 'lucide-react';
 
@@ -32,6 +32,8 @@ import LadderBasisToggle from '@/components/LadderBasisToggle';
 import ExpirationMultiSelect from '@/components/ExpirationMultiSelect';
 import { GammaLadder } from '@/components/PairGammaHeatmap';
 import OptionsFlowChart from '@/components/OptionsFlowChart';
+import FlowSessionPanel from '@/app/flow-analysis/SessionPanel';
+import { useFlowSessionData } from '@/app/flow-analysis/useFlowSessionData';
 import HedgingFlowChart from '@/components/HedgingFlowChart';
 import ErrorMessage from '@/components/ErrorMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -49,6 +51,8 @@ import { divergenceSide, fmtPriceChange, orbStatusKind, technicalsLabel, type Or
 import { useTechnicals } from '@/hooks/useTechnicals';
 import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import type { FlowTimeframe } from '@/core/flowSeriesCharts';
 import { hasTierAccess, normalizeTier, type TierId } from '@/core/auth';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
@@ -540,6 +544,57 @@ const LADDER_COMPACT_BELOW = 340;
 // its own card chrome, so it renders bare (no WidgetCard).
 export function OptionsFlowPanel() {
   return <OptionsFlowChart className="h-full" />;
+}
+
+// Narrower than this, a tile draws the Session chart's phone layout: one
+// toolbar row that scrolls sideways, and the chart's compact gutters, rather
+// than a toolbar wrapped into five rows over a sliver of chart.
+const FLOW_SESSION_COMPACT_BELOW = 640;
+
+// The Flow Analysis page's Session chart as a tile. It is the page's own
+// block (SessionPanel) on the page's own read of the session
+// (useFlowSessionData), not a copy, so the two can't drift apart: the same
+// panes, strike dots, flip and walls, zoom, and layer buttons, which it
+// shares with the page and every other tile in this browser.
+//
+// What a tile leaves out: the session picker (it shows the current session),
+// the strike picks, the flow log and bar-by-bar table, and Full screen. Its
+// expirations follow its pane's Expiration setting, the way the board's gamma
+// charts do. Its underlying is the tile's own, picked in its header.
+export function FlowSessionWidget() {
+  const { symbol } = useTimeframe();
+  const isMobile = useIsMobile();
+  const [timeframe, setTimeframe] = useState<FlowTimeframe>('5min');
+  const flow = useFlowSessionData({ symbol, flowSession: 'current', timeframe });
+  const [box, setBox] = useState<HTMLDivElement | null>(null);
+  const [boxWidth, setBoxWidth] = useState(0);
+  useLayoutEffect(() => {
+    if (!box) return;
+    const update = () => setBoxWidth(box.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [box]);
+  const compact = isMobile || (boxWidth > 0 && boxWidth < FLOW_SESSION_COMPACT_BELOW);
+  return (
+    <div ref={setBox} className="h-full">
+      <FlowSessionPanel
+        data={flow}
+        onTimeframe={setTimeframe}
+        compact={compact}
+        inWidget
+        title={
+          <span className="inline-flex items-center gap-2">
+            <WidgetSymbolSelect />
+            <h3 className="zg-h3" style={{ margin: 0 }}>
+              Session flow
+            </h3>
+          </span>
+        }
+      />
+    </div>
+  );
 }
 
 // ── Signals ─────────────────────────────────────────────────────────────────

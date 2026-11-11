@@ -9,13 +9,15 @@
  * /api/flow/series (useFlowSeries) through core/flowAnalysis, and a strike or
  * expiration pick narrows the whole page, so every number on it describes the
  * same contracts.
+ *
+ * The session's rows (useFlowSessionData) and the chart block (SessionPanel)
+ * are shared with the My Dashboard "Flow Analysis - Session" widget.
  */
 
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from 'react';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import PageShell from '@/components/layout/PageShell';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/layout/Panel';
@@ -23,62 +25,27 @@ import ReadCell from '@/components/layout/ReadCell';
 import { FilterBar, FilterSelect } from '@/components/controls/Filters';
 import ErrorMessage from '@/components/ErrorMessage';
 import BoughtSoldBoard from '@/components/BoughtSoldBoard';
-import FlowSessionChart, { type FlowChartLayers, type FlowLevels } from '@/components/FlowSessionChart';
-import { useFlowSessions } from '@/hooks/useFlowSessions';
-import { useFlowByStrike } from '@/hooks/useFlowByStrike';
-import { useGammaPlaybook } from '@/hooks/useGammaPlaybook';
-import { sessionDateKeyFromSeries, useFlowContractOptions, useFlowSeries } from '@/hooks/useFlowSeries';
-import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { usePersistedFlag } from '@/hooks/usePersistedFlag';
-import { usePersistedChoice } from '@/hooks/usePersistedChoice';
-import { usePersistedText } from '@/hooks/usePersistedText';
-import { useMarketQuote } from '@/hooks/useApiData';
-import { FULLSCREEN_LAYER_STYLE, useChartFullscreen } from '@/hooks/useChartFullscreen';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { etTodayDateKey } from '@/core/utils';
-import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
-import { flowSessionOptions, isFlowSessionDate, type FlowSession } from '@/core/flowSessions';
-import { FLOW_TIMEFRAME_LABELS, FLOW_TIMEFRAME_MINUTES, getETTimeTimestamp, type FlowTimeframe } from '@/core/flowSeriesCharts';
+import { isRollingZeroDte } from '@/core/expirationPersistence';
+import { flowSessionOptions, type FlowSession } from '@/core/flowSessions';
+import { type FlowTimeframe } from '@/core/flowSeriesCharts';
 import { ET_HM } from '@/core/technicalsCharts';
-import { parseSizing, sizingKey, strikeCellsByBar, type StrikeDotSize } from '@/core/flowStrikes';
 import { fmtLevel } from '@/core/technicalsSession';
 import {
   FLOW_REGIME_LABEL,
-  buildFlowBars,
-  buildFlowEvents,
-  flowRead,
   fmtContracts,
   fmtContractsCompact,
   fmtShare,
   fmtUsdCompact,
   sideTotal,
-  type FlowBar,
-  type FlowEvent,
   type FlowEventTone,
   type FlowRegime,
 } from '@/core/flowAnalysis';
-import { ContractScopeButton, ContractScopePanel, scopeSummary } from './ContractScope';
+import { ContractScopeButton, ContractScopePanel } from './ContractScope';
+import SessionPanel from './SessionPanel';
+import { useFlowSessionData } from './useFlowSessionData';
 
-// One remembered flag per layer, per browser (hooks/usePersistedFlag).
-const LAYER_KEY = (layer: keyof FlowChartLayers) => `zg.flow.layer.${layer}`;
-const LAYER_BUTTONS: Array<{ key: keyof FlowChartLayers; label: string; swatch: CSSProperties | null }> = [
-  { key: 'price', label: 'Price', swatch: { width: 14, borderTop: '2px solid var(--text-primary)' } },
-  { key: 'strikes', label: 'Strikes', swatch: { width: 12, height: 7, borderRadius: 999, background: 'linear-gradient(90deg, var(--color-bull) 50%, var(--color-bear) 50%)' } },
-  { key: 'walls', label: 'Flip and walls', swatch: { width: 14, borderTop: '2px dashed var(--color-flip)' } },
-  { key: 'premium', label: 'Net premium', swatch: { width: 14, height: 9, background: 'color-mix(in srgb, var(--color-bull) 30%, transparent)', borderTop: '2px solid var(--text-primary)' } },
-  { key: 'legs', label: 'Call & put legs', swatch: { width: 14, height: 6, borderTop: '2px solid var(--color-bull)', borderBottom: '2px solid var(--color-bear)' } },
-  { key: 'contracts', label: 'Contracts', swatch: { width: 10, height: 10, background: 'linear-gradient(var(--color-bull) 50%, var(--color-bear) 50%)' } },
-  { key: 'pcr', label: 'Put/call', swatch: { width: 14, borderTop: '2px solid var(--color-info)' } },
-  { key: 'events', label: 'Events', swatch: null },
-];
-// The strike ribbon's size filter, smallest dot first.
-const STRIKE_SIZES: readonly StrikeDotSize[] = ['all', 'medium', 'large'];
-const STRIKE_SIZE_BUTTONS: Array<{ value: StrikeDotSize; label: string; title: string }> = [
-  { value: 'all', label: 'All dots', title: 'Every strike one side led' },
-  { value: 'medium', label: 'Medium+', title: 'The medium and large dots: strikes with a bigger net flow' },
-  { value: 'large', label: 'Large', title: 'Only the largest dots: the strikes pressed hardest' },
-];
 const EVENTS_COLLAPSED = 8;
 const BARS_COLLAPSED = 10;
 
@@ -96,8 +63,6 @@ const TONE_DOT: Record<FlowEventTone, string> = {
 
 const ruleColor = 'var(--border-subtle)';
 
-const noopSubscribe = () => () => {};
-
 function etTime(ms: number): string {
   return ET_HM.format(new Date(ms));
 }
@@ -105,12 +70,6 @@ function etTime(ms: number): string {
 function signColor(value: number | null | undefined): string | undefined {
   if (value == null || value === 0) return undefined;
   return value > 0 ? 'var(--color-bull)' : 'var(--color-bear)';
-}
-
-function dateLabel(dateKey: string): string {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) return dateKey;
-  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 function MarkerBadge({ n, tone }: { n: number; tone: FlowEventTone }) {
@@ -167,85 +126,15 @@ function ShowMore({ open, total, noun, onClick }: { open: boolean; total: number
   );
 }
 
-const toggleStyle = (on: boolean): CSSProperties => ({
-  flex: 'none',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-  minHeight: 40,
-  padding: '0 12px',
-  fontFamily: 'var(--font-mono)',
-  fontSize: 12,
-  color: on ? 'var(--text-primary)' : 'var(--text-muted)',
-  background: on ? 'color-mix(in srgb, var(--color-navy, var(--color-info)) 18%, transparent)' : 'transparent',
-  border: '1px solid var(--border-default)',
-  borderRadius: 'var(--radius-control, 2px)',
-  cursor: 'pointer',
-});
-
-/**
- * The session chart with its newest price on the live quote. A component of
- * its own so the second-by-second quote redraws the chart rather than the
- * whole page. Only a live session asks for the quote; a quote older than the
- * newest bar, or a stale futures feed, is left out.
- */
-function LiveFlowSessionChart(props: ComponentProps<typeof FlowSessionChart>) {
-  const { bars, live, symbol, sessionEndMs } = props;
-  const { data: quote } = useMarketQuote(symbol, live ? 1000 : 0, live);
-  const newestMs = bars.length > 0 ? bars[bars.length - 1].ms : null;
-  const quoteMs = quote ? Date.parse(quote.timestamp) : NaN;
-  const livePrice =
-    live && quote && !quote.stale && Number.isFinite(quote.close) && newestMs != null && quoteMs >= newestMs && quoteMs <= sessionEndMs
-      ? quote.close
-      : null;
-  return <FlowSessionChart {...props} livePrice={livePrice} />;
-}
-
 export default function FlowAnalysisPage() {
   const { symbol } = useTimeframe();
   const isMobile = useIsMobile();
-  const todayKey = etTodayDateKey();
-
-  // The clock, to the half minute: only the close needs it.
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNowMs(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
 
   // ── Session and bar size ─────────────────────────────────────────────────
   const [flowSession, setFlowSession] = useState<FlowSession>('current');
-  const flowSessionDays = useFlowSessions(symbol);
   const [timeframe, setTimeframe] = useState<FlowTimeframe>('5min');
-  const barMinutes = FLOW_TIMEFRAME_MINUTES[timeframe];
-  const barMs = barMinutes * 60_000;
-
-  // Every contract's rows. The hook paints rows this tab cached on its first
-  // render, which the server never has: held back for the hydrating render,
-  // the page matches the server's HTML, and the cached rows paint on the next.
-  const allSeries = useFlowSeries(symbol, flowSession, { timeframe });
-  const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
-  const allRows = hydrated ? allSeries.rows : null;
-  const allLoading = hydrated ? allSeries.loading : true;
-  const allError = hydrated ? allSeries.error : null;
-  // The session's own ET date. It lays a past session out on its own clock,
-  // and it is what a rolling 0DTE pick means here: the contracts that expired
-  // that day, not today's.
-  const dateKey = isFlowSessionDate(flowSession)
-    ? flowSession
-    : allRows && allRows.length > 0
-      ? sessionDateKeyFromSeries(allRows)
-      : (flowSessionDays?.[flowSession === 'current' ? 0 : 1] ?? todayKey);
 
   // ── Which contracts ──────────────────────────────────────────────────────
-  const {
-    options: contractOptions,
-    loading: contractsLoading,
-    error: contractsError,
-    chainSymbol,
-  } = useFlowContractOptions(symbol, flowSession);
-  const strikeOptions = useMemo(() => contractOptions.strikes.map((n) => String(n)), [contractOptions]);
-  const expirationOptions = useMemo(() => contractOptions.expirations.slice().sort(), [contractOptions]);
   const [scopeOpen, setScopeOpen] = useState(false);
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
   // A new symbol or session clears the strike picks: the strike universes only
@@ -257,20 +146,34 @@ export default function FlowAnalysisPage() {
     setStrikesFor(strikeScope);
     setSelectedStrikes(new Set());
   }
-  const { selection: sharedExpirations, setSelection: setSharedExpirations } = useSharedExpirations();
-  const effectiveStrikes = useMemo(() => new Set(strikeOptions.filter((v) => selectedStrikes.has(v))), [strikeOptions, selectedStrikes]);
-  // Through the shared reconcile, the one place the rolling 0DTE pick resolves:
-  // here to the session's same-day expiration, which is today's only when the
-  // session is today's.
-  const effectiveExpirations = useMemo(
-    () => new Set(reconcileExpirations(sharedExpirations, expirationOptions, dateKey)),
-    [sharedExpirations, expirationOptions, dateKey],
-  );
-  const filtered = effectiveStrikes.size > 0 || effectiveExpirations.size > 0;
-  const serverFilters = useMemo(
-    () => ({ strikes: Array.from(effectiveStrikes), expirations: Array.from(effectiveExpirations) }),
-    [effectiveStrikes, effectiveExpirations],
-  );
+
+  // ── The rows ─────────────────────────────────────────────────────────────
+  // Shared with the My Dashboard widget: see useFlowSessionData.
+  const flow = useFlowSessionData({ symbol, flowSession, timeframe, selectedStrikes });
+  const {
+    dateKey,
+    flowSessionDays,
+    strikeOptions,
+    expirationOptions,
+    contractsLoading,
+    contractsError,
+    chainSymbol,
+    sharedExpirations,
+    setSharedExpirations,
+    effectiveStrikes,
+    effectiveExpirations,
+    filtered,
+    summary,
+    loadError,
+    failed,
+    bars,
+    read,
+    events,
+    showInitialLoading,
+    live,
+    barMinutes,
+  } = flow;
+
   const toggleStrike = (value: string) =>
     setSelectedStrikes((prev) => {
       const next = new Set(prev);
@@ -292,7 +195,6 @@ export default function FlowAnalysisPage() {
     setSelectedStrikes(new Set());
     setSharedExpirations([]);
   };
-  const summary = scopeSummary(Array.from(effectiveStrikes), Array.from(effectiveExpirations), dateKey);
   // ES / NQ have no chain of their own: their flow is the index's, so the
   // strikes are index strikes, not prices on the futures axis.
   const chainNote =
@@ -300,30 +202,6 @@ export default function FlowAnalysisPage() {
       ? null
       : `${symbol} has no option chain of its own; its flow is ${chainSymbol} flow, so these are ${chainSymbol} strikes, not ${symbol} prices.`;
 
-  // ── The rows ─────────────────────────────────────────────────────────────
-  const scopedSeries = useFlowSeries(symbol, flowSession, {
-    timeframe,
-    filters: serverFilters,
-    enabled: filtered,
-  });
-  const scopedRows = hydrated ? scopedSeries.rows : null;
-  const scopedLoading = hydrated ? scopedSeries.loading : true;
-  const scopedError = hydrated ? scopedSeries.error : null;
-  const rows = filtered ? scopedRows : allRows;
-  const loading = filtered ? scopedLoading : allLoading;
-  // A first load that failed. A refresh that fails later keeps the rows it had.
-  const loadError = filtered ? scopedError : allError;
-  const failed = loadError != null && rows == null;
-  const bars = useMemo<FlowBar[]>(() => buildFlowBars(rows), [rows]);
-  const read = useMemo(() => flowRead(bars), [bars]);
-  const events = useMemo<FlowEvent[]>(() => buildFlowEvents(bars, barMinutes), [bars, barMinutes]);
-
-  const sessionStartMs = getETTimeTimestamp(dateKey, 9, 30) ?? NaN;
-  const sessionEndMs = (getETTimeTimestamp(dateKey, 16, 15) ?? NaN) + barMs;
-  const haveWindow = Number.isFinite(sessionStartMs) && Number.isFinite(sessionEndMs);
-  // Still trading: today's session, before its last bar has closed. After the
-  // close the day reads as final, as a past session does.
-  const live = flowSession === 'current' && dateKey === todayKey && nowMs < sessionEndMs;
   const barLabel = read ? etTime(read.asOfMs) : null;
   const asOf = read ? `As of ${barLabel} ET` : null;
 
@@ -331,92 +209,6 @@ export default function FlowAnalysisPage() {
     () => flowSessionOptions(flowSessionDays, flowSession, flowSession === 'current' ? dateKey : null),
     [flowSessionDays, flowSession, dateKey],
   );
-
-  // ── Chart layers, remembered per browser ─────────────────────────────────
-  const [priceOn, togglePrice] = usePersistedFlag(LAYER_KEY('price'), true);
-  const [premiumOn, togglePremium] = usePersistedFlag(LAYER_KEY('premium'), true);
-  const [legsOn, toggleLegs] = usePersistedFlag(LAYER_KEY('legs'), true);
-  const [contractsOn, toggleContracts] = usePersistedFlag(LAYER_KEY('contracts'), true);
-  const [pcrOn, togglePcr] = usePersistedFlag(LAYER_KEY('pcr'), true);
-  const [eventsOn, toggleEvents] = usePersistedFlag(LAYER_KEY('events'), true);
-  const [strikesOn, toggleStrikes] = usePersistedFlag(LAYER_KEY('strikes'), true);
-  const [wallsOn, toggleWalls] = usePersistedFlag(LAYER_KEY('walls'), true);
-  // The flip and walls are where they stand now, so they are drawn on the
-  // current session only; the strike ribbon reads either bar size.
-  const strikesAvailable = priceOn;
-  const [strikeSize, setStrikeSize] = usePersistedChoice<StrikeDotSize>('zg.flow.strikes.size', STRIKE_SIZES, 'all');
-  // The dot sizes, Auto or the reader's own contract counts, per symbol: SPY's
-  // and SPX's contract numbers have nothing in common.
-  const [sizingStored, setSizingStored] = usePersistedText(`zg.flow.strikes.sizes.${symbol}`, 'auto');
-  const strikeSizing = useMemo(() => parseSizing(sizingStored), [sizingStored]);
-  const wallsAvailable = priceOn && flowSession === 'current';
-  const layers: FlowChartLayers = {
-    price: priceOn,
-    premium: premiumOn,
-    legs: legsOn && premiumOn,
-    contracts: contractsOn,
-    pcr: pcrOn,
-    events: eventsOn,
-    strikes: strikesOn && strikesAvailable,
-    walls: wallsOn && wallsAvailable,
-  };
-  const toggles: Record<keyof FlowChartLayers, () => void> = {
-    price: togglePrice,
-    premium: togglePremium,
-    legs: toggleLegs,
-    contracts: toggleContracts,
-    pcr: togglePcr,
-    events: toggleEvents,
-    strikes: toggleStrikes,
-    walls: toggleWalls,
-  };
-  const noPanes = !priceOn && !premiumOn && !contractsOn && !pcrOn;
-
-  // ── Strikes and levels ───────────────────────────────────────────────────
-  // The ribbon narrows with the page's contract picks, like every other number
-  // on it. Read only while it is drawn, and not while a remembered pick waits
-  // on the chain's expirations to resolve: that read would be the whole chain's
-  // ribbon, thrown away a moment later.
-  const scopePending = contractsLoading && (sharedExpirations.length > 0 || selectedStrikes.size > 0);
-  const { rows: strikeRows } = useFlowByStrike(symbol, flowSession, {
-    filters: serverFilters,
-    timeframe,
-    enabled: hydrated && layers.strikes && !scopePending,
-  });
-  const strikeCells = useMemo(() => (strikeRows ? strikeCellsByBar(strikeRows) : null), [strikeRows]);
-  // The Key Levels strip's read, so this chart, the gamma charts and Technicals
-  // agree on the flip and the walls (and follow the same expiration picks).
-  const playbook = useGammaPlaybook({ enabled: hydrated && layers.walls });
-  const flowLevels: FlowLevels | null = layers.walls
-    ? { flip: playbook.flip, callWall: playbook.callWall, putWall: playbook.putWall }
-    : null;
-
-  // ── Full screen ──────────────────────────────────────────────────────────
-  // The chart panel lifts over the page (hooks/useChartFullscreen) and the
-  // chart takes the height its drawing area is left, so the panes fill the
-  // window instead of a short chart floating in it.
-  const fullscreen = useChartFullscreen();
-  const chartPanelRef = useRef<HTMLDivElement | null>(null);
-  const [restingH, setRestingH] = useState(0);
-  const [drawingEl, setDrawingEl] = useState<HTMLDivElement | null>(null);
-  const [fillH, setFillH] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    if (!fullscreen.active || !drawingEl) return;
-    const measure = () => {
-      const h = Math.floor(drawingEl.clientHeight - 14);
-      if (h > 0) setFillH((cur) => (cur === h ? cur : h));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(drawingEl);
-    return () => ro.disconnect();
-  }, [fullscreen.active, drawingEl]);
-  const toggleFullscreen = () => {
-    if (!fullscreen.active) setRestingH(chartPanelRef.current?.offsetHeight ?? 0);
-    fullscreen.toggle();
-  };
-  const restingChartH = isMobile ? 440 : 560;
-  const chartHeight = fullscreen.active && fillH ? Math.max(360, fillH) : restingChartH;
 
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [showAllBars, setShowAllBars] = useState(false);
@@ -427,88 +219,6 @@ export default function FlowAnalysisPage() {
   const visibleBars = showAllBars ? recentBars : recentBars.slice(0, BARS_COLLAPSED);
   const visibleEvents = showAllEvents ? events : events.slice(0, EVENTS_COLLAPSED);
 
-  const layerControls = (
-    <div role="group" aria-label="Chart layers" style={{ display: 'flex', gap: 6, flexWrap: isMobile ? 'nowrap' : 'wrap' }}>
-      {LAYER_BUTTONS.map((b) => {
-        const on = layers[b.key];
-        const why =
-          b.key === 'legs' && !premiumOn
-            ? 'Shown inside the net premium pane'
-            : (b.key === 'strikes' || b.key === 'walls') && !priceOn
-              ? 'Shown inside the price pane'
-              : b.key === 'walls' && !wallsAvailable
-                ? 'Where they stand now, so on the current session only'
-                : null;
-        const disabled = why != null;
-        return (
-          <button
-            key={b.key}
-            type="button"
-            aria-pressed={on}
-            onClick={toggles[b.key]}
-            disabled={disabled}
-            title={why ?? undefined}
-            className="zg-btn"
-            style={toggleStyle(on)}
-          >
-            {b.swatch && <span aria-hidden="true" style={{ display: 'inline-block', boxSizing: 'border-box', ...b.swatch, opacity: on ? 1 : 0.4 }} />}
-            {b.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-  const barControls = (
-    <>
-      <div role="group" aria-label="Bar size" style={{ display: 'flex', flex: 'none' }}>
-        {(['5min', '1min'] as const).map((tf, i) => (
-          <button
-            key={tf}
-            type="button"
-            aria-pressed={timeframe === tf}
-            onClick={() => setTimeframe(tf)}
-            className="zg-btn"
-            style={{ ...toggleStyle(timeframe === tf), borderLeftWidth: i === 0 ? 1 : 0 }}
-          >
-            {FLOW_TIMEFRAME_LABELS[tf]}
-          </button>
-        ))}
-      </div>
-      {/* The strike ribbon's size filter: in this row rather than beside the
-          Strikes button, so the layer row keeps its length. */}
-      {layers.strikes && (
-        <div role="group" aria-label="Strike dots shown" style={{ display: 'flex', flex: 'none' }}>
-          {STRIKE_SIZE_BUTTONS.map((c, i) => (
-            <button
-              key={c.value}
-              type="button"
-              aria-pressed={strikeSize === c.value}
-              onClick={() => setStrikeSize(c.value)}
-              title={c.title}
-              className="zg-btn"
-              style={{ ...toggleStyle(strikeSize === c.value), borderLeftWidth: i === 0 ? 1 : 0 }}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        aria-pressed={fullscreen.active}
-        aria-label={fullscreen.active ? 'Exit full screen' : 'Full screen'}
-        title={fullscreen.active ? 'Exit full screen (Esc)' : 'Full screen: the chart takes the whole window. Esc to exit.'}
-        className="zg-btn"
-        style={{ ...toggleStyle(fullscreen.active), color: fullscreen.active ? 'var(--color-accent-hot)' : 'var(--text-secondary)', borderColor: fullscreen.active ? 'var(--color-accent-hot)' : 'var(--border-default)' }}
-      >
-        {fullscreen.active ? <Minimize2 size={14} aria-hidden /> : <Maximize2 size={14} aria-hidden />}
-        {!isMobile && (fullscreen.active ? 'Exit' : 'Full screen')}
-      </button>
-    </>
-  );
-
-  const showInitialLoading = loading && bars.length === 0;
   const scopeNote = filtered ? `Covering ${summary}.` : null;
 
   return (
@@ -526,7 +236,7 @@ export default function FlowAnalysisPage() {
         }
       />
 
-      {failed ? <ErrorMessage message={loadError} /> : null}
+      {failed && loadError != null ? <ErrorMessage message={loadError} /> : null}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {scopeOpen && (
@@ -595,95 +305,7 @@ export default function FlowAnalysisPage() {
         <BoughtSoldBoard read={read} barLabel={live ? barLabel : null} compact={isMobile} loading={showInitialLoading} failed={failed} live={live} scopeNote={scopeNote} />
 
         {/* The chart */}
-        {fullscreen.active && <div aria-hidden="true" style={{ height: restingH }} />}
-        <div
-          ref={chartPanelRef}
-          className="zg-panel"
-          style={fullscreen.active ? { ...FULLSCREEN_LAYER_STYLE, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: 'auto' } : undefined}
-        >
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 12,
-              padding: '12px 16px',
-              borderBottom: `1px solid ${ruleColor}`,
-              flex: 'none',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
-              <h2 className="zg-h3" style={{ margin: 0 }}>
-                {fullscreen.active ? `${symbol} flow` : 'Session'}
-              </h2>
-              <span className="zg-caption">
-                {barMinutes}-minute bars · {dateLabel(dateKey)} · times in ET
-                {filtered ? ` · ${summary}` : ''}
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: isMobile ? 'nowrap' : 'wrap', overflowX: isMobile ? 'auto' : undefined, maxWidth: '100%' }}>
-              {/* A phone scrolls this row sideways, so the bar size and full
-                  screen lead it there, in sight; the layers follow. */}
-              {isMobile ? (
-                <>
-                  {barControls}
-                  {layerControls}
-                </>
-              ) : (
-                <>
-                  {layerControls}
-                  {barControls}
-                </>
-              )}
-            </div>
-          </div>
-          <div
-            ref={setDrawingEl}
-            style={fullscreen.active ? { flex: '1 1 0%', minHeight: 374, padding: '10px 10px 4px', overflow: 'hidden' } : { padding: '10px 10px 4px' }}
-          >
-            {showInitialLoading || !haveWindow ? (
-              <div style={{ height: chartHeight, display: 'flex', flexDirection: 'column', gap: 14, justifyContent: 'center', padding: '0 12px' }} aria-hidden="true">
-                <div className="zg-skeleton-line" style={{ width: '38%', height: 10 }} />
-                <div className="zg-skeleton-line" style={{ width: '100%', height: Math.max(120, chartHeight * 0.45) }} />
-                <div className="zg-skeleton-line" style={{ width: '62%', height: 10 }} />
-              </div>
-            ) : bars.length === 0 ? (
-              <div className="zg-caption" style={{ padding: '48px 12px', textAlign: 'center' }}>
-                {failed ? "The flow didn't load." : filtered ? 'Nothing has traded in the contracts you picked this session.' : 'No flow yet for this session.'}
-              </div>
-            ) : noPanes ? (
-              <div className="zg-caption" style={{ padding: '48px 12px', textAlign: 'center' }}>
-                Every pane is switched off. Turn one back on above.
-              </div>
-            ) : (
-              <LiveFlowSessionChart
-                bars={bars}
-                sessionStartMs={sessionStartMs}
-                sessionEndMs={sessionEndMs}
-                barMs={barMs}
-                live={live}
-                layers={layers}
-                events={events}
-                height={chartHeight}
-                compact={isMobile}
-                symbol={symbol}
-                strikeCells={strikeCells}
-                strikeSize={strikeSize}
-                strikeSizing={strikeSizing}
-                onStrikeSizing={(next) => setSizingStored(sizingKey(next))}
-                levels={flowLevels}
-                ariaLabel={`${symbol} options flow for the session in ${barMinutes}-minute bars: price${layers.strikes ? ' with contracts bought and sold at each strike' : ''}${layers.walls ? ', the flip and the walls' : ''}, net premium with the call and put legs, contracts bought and sold each bar, and the put/call ratio`}
-              />
-            )}
-          </div>
-          <p className="zg-caption" style={{ margin: 0, padding: '8px 16px 12px', borderTop: `1px solid ${ruleColor}`, flex: 'none' }}>
-            {layers.strikes &&
-              'Strike dots: calls bought minus calls sold, plus puts sold minus puts bought, at that strike in that bar; green above zero, red below, and small, medium or large by that net. '}
-            {layers.walls && 'Dashed lines are the flip and walls as they stand now. '}
-            Up bars are the bullish side, calls bought with puts sold stacked lighter on top; down bars the bearish side, puts bought with calls sold. Numbered markers match the flow log.
-          </p>
-        </div>
+        <SessionPanel data={flow} onTimeframe={setTimeframe} compact={isMobile} />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))', gap: 20, alignItems: 'start' }}>
           {/* The flow log */}
