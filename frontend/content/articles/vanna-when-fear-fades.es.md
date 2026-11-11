@@ -1,8 +1,6 @@
 # Vanna: cómo la caída de la IV puede cambiar la cobertura de los dealers
-> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Que el término pin de EOD Pressure siga el movimiento reciente cuando la gamma es negativa es una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
 
-
-*Vanna mide la sensibilidad de delta a la volatilidad implícita. La presión de cobertura depende de la cadena y no es una compra automática.*
+*Vanna es la velocidad a la que cambia el delta de una opción cuando cambia la volatilidad implícita. Cuando el miedo descontado en el precio sale del mercado tras un evento que quedó en nada, vanna puede empujar a un libro de dealer típico a comprar acciones en un goteo lento y constante - el grind de "subida sin noticias", cuyos prints de cobertura se esconden a plena vista en el tape mientras el motivo que hay detrás sigue siendo invisible.*
 
 ---
 
@@ -22,7 +20,7 @@ La volatilidad implícita fija la amplitud de la distribución de resultados que
 
 Piensa ahora en qué le hace esto a una call fuera del dinero. Cuando la IV es alta y la distribución es amplia, ese strike lejano tiene una probabilidad real de ser alcanzado, así que su delta está claramente por encima de cero - digamos 0,25. Deja que el miedo se drene, que la distribución se estreche, y ese mismo strike de repente parece mucho menos alcanzable. Su delta cae hacia cero - digamos 0,15. El spot nunca se movió. Lo único que cambió fue la estimación del mercado sobre cuánto *podría* moverse el spot, y eso por sí solo repreció el delta de la opción.
 
-Ese cambio es vanna. Cada opción fuera del dinero de la cadena repreza su delta cuando se mueve la vol, y el delta de todo el libro se desplaza como resultado. El dealer estaba cubierto según los deltas de ayer; el dato de vol de hoy acaba de cambiarlos; el hedge tiene que moverse para ponerse al día.
+Ese cambio es vanna. Cada opción fuera del dinero de la cadena reprecia su delta cuando se mueve la vol, y el delta de todo el libro se desplaza como resultado. El dealer estaba cubierto según los deltas de ayer; el dato de vol de hoy acaba de cambiarlos; el hedge tiene que moverse para ponerse al día.
 
 ---
 
@@ -30,7 +28,7 @@ Ese cambio es vanna. Cada opción fuera del dinero de la cadena repreza su delta
 
 La dirección del flujo de vanna depende de cómo está compuesto el libro, pero el esquema de manual - el que produce el goteo reconocible - funciona así.
 
-Los clientes, en conjunto, hacen overwriting de calls para obtener rendimiento y compran puts como protección - de modo que los dealers están largos de esas calls y cortos de esas puts. Considera los momentos *después* de un susto: la vol implícita se disparó al alza antes de un dato de CPI, una reunión del FOMC, un evento de earnings. El riesgo pasa. El movimiento temido no se materializa. La vol implícita, que estaba cara, empieza a desangrarse a la baja en las horas y días siguientes.
+Los clientes, en conjunto, tienden a hacer overwriting de calls para obtener rendimiento y a comprar puts como protección - de modo que, bajo la convención tradicional, los dealers se modelan como largos de esas calls y cortos de esas puts. Considera los momentos *después* de un susto: la vol implícita se disparó al alza antes de un dato de CPI, una reunión del FOMC, un evento de earnings. El riesgo pasa. El movimiento temido no se materializa. La vol implícita, que estaba cara, empieza a desangrarse a la baja en las horas y días siguientes.
 
 A medida que la vol cae:
 
@@ -39,7 +37,7 @@ A medida que la vol cae:
 3. Para restablecer el hedge, compran acciones.
 4. La vol sigue desangrándose, así que el desplazamiento continúa, así que las compras siguen llegando - pequeñas, constantes, durante todo el día.
 
-Esa compra constante y mecánica es el vanna grind. No es una apuesta. Ningún dealer decidió que el mercado debía subir. La vol cayó, los deltas se desplazaron, y el hedge exigió acciones. Pero el agregado de miles de pequeñas compras forzadas es indistinguible, en el gráfico, de una demanda genuina - que es exactamente por qué el tape va subiendo mientras el volumen dice que no está pasando nada. La compra es real; simplemente llega como un goteo de órdenes límite en vez de una oleada de órdenes de mercado, así que mueve el precio sin encender las barras de volumen.
+Esa compra constante y mecánica es el vanna grind. No es una apuesta. Ningún dealer decidió que el mercado debía subir. La vol cayó, los deltas se desplazaron, y el hedge exigió acciones. Pero el agregado de miles de pequeñas compras de cobertura es difícil de distinguir, en el gráfico, de una demanda genuina - y por eso el tape puede ir subiendo sin ningún aumento evidente de la actividad. Esas compras son prints reales y sí suman volumen; simplemente llegan como un goteo constante en vez de una oleada de órdenes de mercado, así que elevan el precio sin un pico llamativo en las barras de volumen - y nada en el tape las señala como cobertura en lugar de convicción.
 
 ---
 
@@ -47,15 +45,15 @@ Esa compra constante y mecánica es el vanna grind. No es una apuesta. Ningún d
 
 Como el flujo de vanna está impulsado por una variable que se puede shockear directamente, se puede representar como una escalera: mantén fijos el spot y el tiempo, mueve la vol implícita hacia arriba y hacia abajo un punto a la vez, y lee cuántas acciones se ve forzado a negociar el libro del dealer en cada peldaño.
 
-El gráfico en vivo [Vanna Ladder](/forced-flow) hace exactamente esto. Con cero cambio de vol el flujo forzado es cero - nada se ha movido, así que nada está obligado. Baja la vol un punto y el gráfico muestra la compra forzada que produciría una compresión de un punto; bájala dos puntos y la compra aproximadamente se duplica. Sube la vol y el signo se invierte: un pico de vol obliga a los dealers a vender, lo cual es parte de por qué el miedo se retroalimenta en una caída. La escalera hace legible la asimetría - puedes ver, antes de que ocurra, cuánto bid vale hoy un desangrado de vol de dos puntos.
+El gráfico en vivo [Vanna Ladder](/forced-flow) hace exactamente esto. Con cero cambio de vol el flujo forzado es cero - nada se ha movido, así que nada está obligado. *Baja* la vol un punto y el gráfico muestra la compra forzada que produciría una compresión de un punto; bájala dos puntos y la compra aproximadamente se duplica. *Sube* la vol y el signo se invierte: un pico de vol tiende a empujar al mismo libro a vender, lo cual es parte de por qué el miedo puede retroalimentarse en una caída. La escalera hace legible la asimetría - puedes ver, antes de que ocurra, cuánto bid vale hoy un desangrado de vol de dos puntos.
 
 ---
 
 ## Ponerle un número
 
-Supongamos que el SPX está en 5.800 la mañana después de un dato de inflación tranquilo, la vol implícita empieza a comprimirse, y el libro del dealer lleva el sesgo típico de cliente largo. El motor repreza el libro con el spot fijo en 5.800 y la vol dos puntos más baja, y encuentra el delta del dealer más alto por el equivalente a 60 millones de dólares de exposición al índice. Eso es aproximadamente **60 millones de dólares** de compra forzada, repartidos a lo largo de la sesión a medida que la vol efectivamente se desangra - un bid persistente sin ningún catalizador detrás que ningún titular reportaría.
+Supongamos que el SPX está en 5.800 la mañana después de un dato de inflación tranquilo, la vol implícita empieza a comprimirse, y el libro del dealer se modela con el sesgo típico de cliente largo. El motor reprecia el libro con el spot fijo en 5.800 y la vol dos puntos más baja, y encuentra el delta modelado del dealer más alto por el equivalente a 60 millones de dólares de exposición al índice. Eso es aproximadamente **60 millones de dólares** de compra de cobertura estimada, repartidos a lo largo de la sesión a medida que la vol efectivamente se desangra - un bid persistente sin ningún catalizador detrás que ningún titular reportaría.
 
-Invierte el movimiento de la vol y el mismo mecanismo fuerza ventas. Vanna, como charm, no tiene una dirección incorporada; el signo viene del libro y de la dirección del movimiento de vol. Lo que sí es fiable es el *carácter* del flujo: lento, constante, invisible en el volumen y estrechamente acoplado a la tendencia de la vol más que a la tendencia del precio.
+Invierte el movimiento de la vol y el mismo mecanismo tiende a generar ventas. Vanna, como charm, no tiene una dirección incorporada; el signo viene del libro y de la dirección del movimiento de vol. Lo que tiende a ser fiable es el *carácter* del flujo: lento, constante, fácil de pasar por alto en el volumen (las operaciones de cobertura se imprimen en el tape, solo que no anuncian su motivo) y estrechamente acoplado a la tendencia de la vol más que a la tendencia del precio.
 
 ---
 
@@ -64,14 +62,15 @@ Invierte el movimiento de la vol y el mismo mecanismo fuerza ventas. Vanna, como
 Vanna es contexto, no un disparador. Una disciplina breve:
 
 - **Revisa primero la tendencia de la vol.** Un desangrado de IV de varios días tras un evento es el esquema clásico de bid por vanna. Una vol en ascenso invierte el flujo hacia la venta. Sin tendencia de vol, no hay historia de vanna.
-- **Confirma el régimen.** El vanna grind coexiste de forma natural con un régimen de gamma positivo - ambos favorecen el mismo tape calmado y absorbente. En un régimen de gamma negativo, el mismo movimiento de vol puede verse desbordado por reacciones de precio amplificadas. Lee primero [gamma](/education/gamma-exposure-explained), y vanna dentro de ese marco.
+- **Confirma el régimen.** El vanna grind coexiste de forma natural con un régimen de gamma positivo - ambos favorecen el mismo tape calmado y absorbente. En un régimen de gamma negativo, el mismo movimiento de vol puede verse desbordado por reacciones de precio amplificadas. Lee primero [el régimen de gamma](/education/gamma-exposure-explained), y vanna dentro de él.
 - **Espera el grind, no un salto.** La compra por vanna es un goteo. Produce deriva, no impulso. Si estás esperando una vela de vanna, has malinterpretado el flujo - se esconde en la pendiente, no en el pico.
-- **Respeta el desajuste de volumen.** "Sube sin volumen" no es una señal de alarma en un régimen de vanna; es la firma. La ausencia de volumen es la pista de que la compra es mecánica.
+- **Respeta el desajuste de volumen.** Una subida constante con un volumen anodino no es una señal de alarma en un régimen de vanna; es la firma. No es que la compra no deje prints - sí los deja -, sino que nunca se dispara y nunca anuncia su motivo, y esa es la pista de que puede tratarse de cobertura mecánica y no de convicción.
 
 Cuando el susto que nunca llega finalmente pasa, el miedo tiene que desmontarse en algún lugar. Se desmonta a través del libro del dealer, un re-hedge a la vez, y se ve como un mercado que decide en silencio subir sin motivo. Ahora conoces el motivo.
 
 Para el hermano gobernado por el reloj, ver [Charm: el reloj es un trader](/education/charm-the-clock-is-a-trader); para los fundamentos, ver [Por qué los market makers están obligados a negociar acciones](/education/why-market-makers-trade-stock); y para ver la escalera de vanna moverse con el libro de hoy, abre la página en vivo [Forced Flow](/forced-flow).
 
-Contenido solo con fines educativos - nada de lo anterior es una recomendación de trading.
+Solo contenido educativo - nada de lo anterior es una recomendación de trading.
+
 
 > Bajo la convención tradicional de dealer largo de calls y corto de puts, algunas configuraciones de la cadena pueden generar presión compradora modelada sobre el subyacente cuando cae la volatilidad implícita. El signo depende de la propiedad, el tipo de opción, la moneyness, el vencimiento, el skew y de cómo cambia la superficie de volatilidad; comprar no es una propiedad inherente de la vanna.

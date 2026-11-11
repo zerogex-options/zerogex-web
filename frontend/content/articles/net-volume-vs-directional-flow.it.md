@@ -1,6 +1,4 @@
 # Net Volume vs Directional Flow: cosa conta davvero nel tape delle opzioni?
-> **Nota metodologica.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso; la distanza da un target non implica repulsione. Che in gamma negativo il termine pin di EOD Pressure segua il movimento recente è un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
-
 
 *La maggior parte dei trader dibatte tra put/call volume e directional flow. I professionisti trattano solitamente questo confronto come un primo passo, per poi concentrarsi rapidamente sulle metriche pesate per premium.*
 
@@ -42,7 +40,7 @@ Questa metrica cerca di rispondere a una domanda migliore:
 
 > **Chi è stato l'aggressore?**
 
-Quando i trader sollevano l'ask, esprimono di solito urgenza e intento direzionale. Quando colpiscono il bid, di solito stanno riducendo il rischio, incassando premium o facendo fade.
+Quando i trader sollevano l'ask, spesso esprimono urgenza o intento direzionale. Quando colpiscono il bid, spesso stanno riducendo il rischio, incassando premium o facendo fade. Il lato da solo, però, non rivela ancora la *motivazione* - un dealer che copre un book esistente può sollevare l'ask proprio come uno speculatore, e quel trade di copertura compare sul tape allo stesso modo.
 
 In teoria, questo rende il directional volume più informativo del volume grezzo.
 
@@ -53,7 +51,7 @@ La maggior parte dei sistemi deduce l'intento di compratore/venditore dalla vici
 - avvengono crossing negoziati fuori schermo,
 - oppure esecuzioni dark/complesse non si mappano in modo pulito sulle quotazioni lit.
 
-Ironicamente, questi trade "disordinati" sono spesso gli stampi istituzionali più significativi.
+Ironicamente, questi trade "disordinati" sono spesso i print istituzionali più significativi.
 
 ---
 
@@ -71,7 +69,7 @@ Il tuo campo:
 
 `= (calls bought premium − calls sold premium) − (puts bought premium − puts sold premium)`
 
-è generalmente una lettura singola più forte su dove si sta orientando il denaro informato, perché riflette i dollari effettivamente impegnati.
+misura i dollari scambiati e può aggiungere contesto oltre al conteggio dei contratti. Non stabilisce se un trade sia informato, direzionale, in apertura o speculativo.
 
 ---
 
@@ -98,4 +96,4 @@ Una sequenza pratica che i trader possono applicare in intraday:
 - Valida con il **net directional premium** prima di assumere rischio.
 - Se volume e premium sono in disaccordo, fidati dei dollari più dei contratti.
 
-Nessun singolo pannello dovrebbe guidare da solo l'intero albero decisionale. Ma il directional flow pesato per premium ti terrà solitamente più vicino al segnale del "denaro informato" e più lontano dagli stampi rumorosi da titolo.
+Nessun singolo pannello dovrebbe guidare da solo il tuo intero albero decisionale. Ma ZeroGEX usa la classificazione dell'aggressore pesata per premium come uno degli input del flusso di lavoro, non come una classifica universale delle metriche di flow. Il lato aggressore stima chi ha attraversato lo spread; non rivela se si tratta di un'apertura o di una chiusura, la strategia completa, il proprietario finale o un vantaggio informativo.

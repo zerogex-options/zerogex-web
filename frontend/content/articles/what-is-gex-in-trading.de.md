@@ -10,13 +10,13 @@
 
 Das ist die gesamte Idee in einem Satz: GEX schätzt, in welche Richtung und wie stark die Dealer wahrscheinlich handeln, um ihre Bücher neutral zu halten, wenn sich der Preis bewegt. Wenn dieser Hedging-Flow gegen Bewegungen läuft, ist der Markt klebriger und ruhiger. Wenn er *mit* den Bewegungen läuft, wird der Markt schneller und trendet stärker.
 
-Alles andere - der Gamma Flip, Call Walls, Put Walls, das Pinning - ist nur eine detailliertere Lesart derselben Kraft. Das ist die einfache Version. Für die vollständige, ausführliche Behandlung lies den umfassenden Leitfaden [Gamma Exposure (GEX) Explained: The Complete Guide](/education/gamma-exposure-explained).
+Alles andere - der Gamma Flip, Call Walls, Put Walls, das Pinning - ist nur eine detailliertere Lesart derselben Kraft. Das ist die einfache Version. Für die vollständige, ausführliche Behandlung lies den Grundlagenartikel [Gamma Exposure (GEX) erklärt: Der vollständige Leitfaden](/education/gamma-exposure-explained).
 
 ---
 
 ## Was misst GEX eigentlich?
 
-Market Maker, die dir Optionen verkaufen, wollen keine Richtungswette eingehen - sie wollen die Gebühr, nicht das Risiko. Also hedgen sie. **Gamma** ist die Griechische Kennzahl, die angibt, wie schnell sich das Richtungs-Exposure einer Option (Delta) verändert, wenn sich der Basiswert bewegt. Da Gamma die Dealer dazu treibt, sich neu abzusichern, während sich der Spot bewegt, sagt dir das *aggregierte* Gamma über die gesamte Optionskette ungefähr, wie viel Re-Hedging der Markt wahrscheinlich leisten wird.
+Market Maker, die dir Optionen verkaufen, wollen keine Richtungswette eingehen - sie wollen die Gebühr, nicht das Risiko. Also hedgen sie. **Gamma** ist die griechische Kennzahl, die angibt, wie schnell sich das Richtungs-Exposure einer Option (Delta) verändert, wenn sich der Basiswert bewegt. Da Gamma die Dealer dazu treibt, sich neu abzusichern, während sich der Spot bewegt, sagt dir das *aggregierte* Gamma über die gesamte Optionskette ungefähr, wie viel Re-Hedging der Markt wahrscheinlich leisten wird.
 
 GEX fasst das in einer einzigen vorzeichenbehafteten Zahl zusammen - üblicherweise in Dollar-Gamma ausgedrückt, oder "Dollar Gamma" - für einen ganzen Index wie den S&P 500. Ein größerer Betrag bedeutet mehr potenzielles Hedging unter dem Markt. Das **Vorzeichen** sagt dir, in welche Richtung dieses Hedging drückt.
 
@@ -39,11 +39,11 @@ Gleicher Index, gleicher Chart - entgegengesetzter Marktcharakter je nach Vorze
 
 GEX ist nicht nur eine Zahl; es bildet sich auf spezifische Preisniveaus ab, die es zu beobachten gilt:
 
-- **Gamma Flip** - der Preis, an dem das gesamte Dealer-Gamma von positiv auf negativ wechselt. Darüber befindet sich der Markt meist im beruhigenden Long-Gamma-Regime; darunter im verstärkenden Short-Gamma-Regime. Es ist die Trennlinie zwischen den Regimen. Siehe [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+- **Gamma Flip** - der Preis, an dem das gesamte Dealer-Gamma von positiv auf negativ wechselt. Darüber befindet sich der Markt meist im beruhigenden Long-Gamma-Regime; darunter im verstärkenden Short-Gamma-Regime. Es ist die Trennlinie zwischen den Regimen. Siehe [Was ist ein Gamma Flip?](/education/how-to-read-a-gamma-flip)
 - **Call Wall** - der Strike mit dem stärksten Call-Gamma oberhalb des Spotpreises, an dem sich das Hedging bei positivem Gamma gegen Rallys stemmt.
 - **Put Wall** - der Strike mit dem stärksten Put-Gamma unterhalb des Spotpreises, an dem sich das aggregierte Hedging bei positivem Gamma gegen Dips stemmt.
 
-Die Call Wall und die Put Wall skizzieren die Range, die die Dealer verteidigen; der Gamma Flip sagt dir, ob sich ihr Hedging gegen eine Bewegung zu den Rändern hin stemmt oder eine Bewegung, die durchbricht, noch verstärkt. [Gamma Walls Explained](/education/gamma-walls-explained) behandelt beide Walls im Detail. Wie diese Levels im aktuellen Markt aussehen, siehst du in den [heutigen SPX-Gamma-Levels](/spx-gamma-levels).
+Die Call Wall und die Put Wall skizzieren die Range, die die Dealer verteidigen; der Gamma Flip sagt dir, ob sich ihr Hedging gegen eine Bewegung zu den Rändern hin stemmt oder eine Bewegung, die durchbricht, noch verstärkt. [Gamma Walls erklärt](/education/gamma-walls-explained) behandelt beide Walls im Detail. Wie diese Levels im aktuellen Markt aussehen, siehst du in den [heutigen SPX-Gamma-Levels](/spx-gamma-levels).
 
 ---
 
@@ -61,15 +61,15 @@ GEX sagt dir nicht, *was* als Nächstes passieren wird. Es sagt dir, in welcher 
 
 ## Wo du GEX selbst einsehen kannst
 
-Du musst das Dealer-Gamma nicht von Hand berechnen. ZeroGEX veröffentlicht das heutige Net GEX, den Gamma Flip, die Call Wall und die Put Wall - kostenlos und mit etwa 15 Minuten Verzögerung - für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels). Für die Live-Ansicht mit dem vollständigen Gamma-Profil, einer Strike-nach-DTE-Heatmap und dem Market State Index öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
+Du musst das Dealer-Gamma nicht von Hand berechnen. ZeroGEX veröffentlicht das heutige Net GEX, den Gamma Flip, die Call Wall und die Put Wall - kostenlos und mit etwa 15 Minuten Verzögerung - für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) sowie für die ES- und NQ-Futures, mit allen sechs nebeneinander auf der [Seite mit den heutigen GEX-Levels](/gex-levels). Für die Live-Ansicht mit dem vollständigen Gamma-Profil, einer Strike-nach-DTE-Heatmap und dem Market State Index öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
 
 ---
 
 ## Fazit
 
-> GEX - Gamma Exposure - ist eine Momentaufnahme des erzwungenen Dealer-Hedgings unter dem Markt. Positives GEX dämpft Bewegungen; negatives GEX verstärkt sie. Bekomme zuerst das Vorzeichen richtig, dann beginnt der Rest des Marktgeschehens, Sinn zu ergeben.
+> GEX - Gamma Exposure - ist eine Lesart des erzwungenen Dealer-Hedgings unter dem Markt. Positives GEX dämpft Bewegungen; negatives GEX verstärkt sie. Bekomme zuerst das Vorzeichen richtig, dann beginnt der Rest des Marktgeschehens, Sinn zu ergeben.
 
-Nur Bildungsinhalt - nichts von dem Vorstehenden ist eine Handelsempfehlung.
+Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 

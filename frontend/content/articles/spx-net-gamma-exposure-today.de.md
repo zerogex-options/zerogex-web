@@ -1,23 +1,21 @@
-# SPX Net Gamma Exposure heute: So liest du das aktuelle Net GEX
-> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Dass der EOD-Pressure-Pin-Term bei negativem Gamma der jüngsten Bewegung folgt, ist eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+# SPX Net GEX heute: Aktueller Wert der SPX Net Gamma Exposure
 
-
-*"Wie hoch ist die aktuelle Net Gamma Exposure von SPX?" Die Zahl ändert sich jede Session - aber wie man sie liest, bleibt gleich. Hier erfährst du, was das Net GEX von SPX ist, wie du eine positive von einer negativen Lesart unterscheidest, wo der Zero-Cross liegt und wie du den aktuellen Live-Wert abrufst.*
+*"Wie hoch ist die aktuelle Net Gamma Exposure von SPX?" Der heutige verzögerte Wert steht oben auf dieser Seite und wird im Laufe der Session aktualisiert. Darunter: was das Net GEX von SPX ist, wie du einen positiven Wert im Vergleich zu einem negativen liest, was die Einheit "Dollar-Gamma" bedeutet und wo der Zero-Cross liegt.*
 
 ---
 
 ## Wo du die heutige SPX Net Gamma Exposure findest
 
-Wenn du hier bist, um die aktuelle Zahl zu sehen: ZeroGEX veröffentlicht das heutige **SPX Net GEX** - inklusive Gamma Flip, Call Wall, Put Wall und Max Pain - kostenlos und mit rund 15 Minuten Verzögerung auf der [SPX-Gamma-Levels-Seite](/spx-gamma-levels). Dieselbe Auswertung gibt es auch für [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels). Für den Live-Wert sorgt das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte), das während der gesamten Session aktualisiert wird. Der Rest dieser Seite erklärt, was diese Zahl bedeutet und wie du sie nutzt.
+Wenn du wegen der aktuellen Zahl hier bist, findest du sie im Kasten oben - dasselbe um rund 15 Minuten verzögerte **SPX Net GEX** samt Gamma Flip, Call Wall, Put Wall und Max Pain, das die kostenlose [SPX-Gamma-Levels-Seite](/spx-gamma-levels) veröffentlicht, im selben Rhythmus aktualisiert. Dieselbe Auswertung gibt es auch für [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels). Für den Live-Wert sorgt das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte), das während der gesamten Session aktualisiert wird. Der Rest dieser Seite erklärt, was diese Zahl bedeutet und wie du sie nutzt.
 
 ---
 
 ## Was ist die SPX Net Gamma Exposure?
 
-Die **Net Gamma Exposure (Net GEX)** für SPX ist die Summe der Dealer-Gamma über die gesamte Optionskette des S&P 500, verdichtet auf eine einzige vorzeichenbehaftete Dollarzahl - oft auch "Dollar Gamma" genannt. Sie schätzt, wie viel S&P-Index-Exposure Options-Dealer mechanisch kaufen oder verkaufen müssten, um abgesichert zu bleiben, während sich SPX bewegt.
+Die **Net Gamma Exposure (Net GEX)** für SPX ist die Summe des Dealer-Gammas über die gesamte Optionskette des S&P 500, verdichtet auf eine einzige vorzeichenbehaftete Dollarzahl - oft auch "Dollar Gamma" genannt. Sie schätzt, wie viel S&P-Index-Exposure Options-Dealer mechanisch kaufen oder verkaufen müssten, um abgesichert zu bleiben, während sich SPX bewegt.
 
 - Das **Vorzeichen** verrät das Regime: positiv bedeutet, dass das Dealer-Hedging Bewegungen tendenziell dämpft, negativ bedeutet, dass es sie tendenziell verstärkt.
-- Die **Größenordnung** (z. B. +$1.5B, −$800M) zeigt, wie viel modelliertes Hedging im Markt steckt - wie stark sich das Regime voraussichtlich auswirken wird.
+- Die **Größenordnung** (z. B. +1,5 Mrd. $, −800 Mio. $) zeigt, wie viel modelliertes Hedging im Markt steckt - wie stark sich das Regime voraussichtlich auswirken wird.
 
 Net GEX ist die zentrale Kennzahl im übergeordneten [Gamma-Exposure](/education/what-is-gex-in-trading)-Framework. Sie wird zum aktuellen Spotpreis berechnet, bewegt sich also mit SPX und mit der Neubewertung der Optionskette im Tagesverlauf.
 
@@ -58,7 +56,7 @@ Welcher dieser Zustände auf SPX zutrifft, zeigen dir die [SPX-Gamma-Levels von 
 
 ## Warum das SPX-0DTE-Buch die heutige Zahl bewegt
 
-SPX wird inzwischen von taggleichen (0DTE) Verfallsterminen dominiert, was das Net GEX ungewöhnlich *lebendig* macht. Taggleiche Kontrakte tragen direkt am Geld enorme Gamma, die bis zum Handelsschluss auf null zerfällt. Die aktuelle SPX-Net-GEX-Lesart kann daher innerhalb einer einzigen Session deutlich schwanken - vor allem, weil Kursbewegungen, verstreichende Zeit und Verschiebungen der impliziten Volatilität diese konzentrierte Gamma im Tagesverlauf neu bewerten. (Das offizielle Open Interest wird für die nächste Session gecleart, sodass jede Lesart einer sich intraday *aufbauenden* Positionierung aus dem Flow abgeleitet und nicht durch OI bestätigt ist.)
+0DTE-Optionen machen einen großen Teil der Handelsaktivität bei SPX aus und können an manchen Sessions die Gamma-Sensitivität nahe am Spot dominieren. Mit nahendem Verfall kann das ATM-Gamma stark steigen, während das Gamma deutlich ITM oder OTM liegender Optionen gegen null tendiert. Spot, Zeit und implizite Volatilität können das modellierte Net GEX daher intraday bewegen, auch wenn das offizielle OI in der Regel erst nach dem Clearing aktualisiert wird. Bruttovolumen und OI zeigen weder das Verhältnis von Kundenkäufen zu Kundenverkäufen, noch belegen sie das Netto-Exposure der Dealer.
 
 Praktische Konsequenz: Eine Net-GEX-Zahl von vor drei Stunden kann bereits veraltet sein. Bei SPX zählt die *aktuelle* Lesart mehr als bei langsameren Büchern mit längeren Laufzeiten - genau deshalb lohnt es sich, den Live-Wert abzurufen, statt sich auf einen Morgen-Snapshot zu verlassen. Für den Kontext zur Dealer-Positionierung hinter der Intraday-Schwankung siehe [0DTE-Dealer-Positionierung erklärt](/education/0dte-dealer-positioning-explained).
 
@@ -81,4 +79,4 @@ Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Willst du die heutige Zahl sehen? Prüfe das heutige SPX Net GEX auf der kostenlosen [SPX-Gamma-Levels-Seite](/spx-gamma-levels) (auch [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels)), vertiefe dein Wissen mit [Gamma Exposure Explained](/education/gamma-exposure-explained), oder öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte) - [starte eine kostenlose Testphase](/register) für die Live-Lesart.
+Willst du die heutige Zahl sehen? Prüfe das heutige SPX Net GEX auf der kostenlosen [SPX-Gamma-Levels-Seite](/spx-gamma-levels) (auch [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels)), vertiefe dein Wissen mit [Gamma Exposure erklärt](/education/gamma-exposure-explained), oder öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte) - [starte eine kostenlose Testphase](/register) für die Live-Lesart.

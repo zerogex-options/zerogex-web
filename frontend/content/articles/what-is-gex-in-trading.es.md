@@ -10,7 +10,7 @@
 
 Esa es la idea completa en una frase: el GEX estima en qué dirección, y con cuánta fuerza, es probable que operen los dealers para mantener neutros sus libros cuando el precio se mueve. Cuando ese flujo de cobertura va en contra de los movimientos, el mercado es más pegajoso y calmado. Cuando va *con* los movimientos, el mercado se vuelve más rápido y las tendencias se refuerzan.
 
-Todo lo demás - el gamma flip, los call walls, los put walls, el pinning - es solo una lectura más detallada de esa misma fuerza. Esta es la versión sencilla. Para el tratamiento completo y en profundidad, lee la guía [Gamma Exposure (GEX) Explained: The Complete Guide](/education/gamma-exposure-explained).
+Todo lo demás - el gamma flip, los call walls, los put walls, el pinning - es solo una lectura más detallada de esa misma fuerza. Esta es la versión sencilla. Para el tratamiento completo y en profundidad, lee el pilar [Gamma Exposure (GEX) explicado: la guía completa](/education/gamma-exposure-explained).
 
 ---
 
@@ -39,11 +39,11 @@ Mismo índice, mismo gráfico - carácter de mercado opuesto según el signo de
 
 El GEX no es solo un número; se traduce en niveles de precio concretos que vale la pena vigilar:
 
-- **Gamma flip** - el precio en el que la gamma total de los dealers pasa de positiva a negativa. Por encima, el mercado suele estar en el régimen calmante de gamma larga; por debajo, en el régimen amplificador de gamma corta. Es la línea que separa los regímenes. Consulta [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+- **Gamma flip** - el precio en el que la gamma total de los dealers pasa de positiva a negativa. Por encima, el mercado suele estar en el régimen calmante de gamma larga; por debajo, en el régimen amplificador de gamma corta. Es la línea que separa los regímenes. Consulta [¿Qué es un gamma flip?](/education/how-to-read-a-gamma-flip)
 - **Call wall** - el strike con la mayor gamma de calls por encima del spot, donde la cobertura se opone a los rallies en gamma positiva.
 - **Put wall** - el strike con la mayor gamma de puts por debajo del spot, donde la cobertura agregada se opone a las caídas en gamma positiva.
 
-El call wall y el put wall dibujan el rango que los dealers defienden; el gamma flip te dice si su cobertura se opone a un movimiento hacia los extremos o se suma a uno que los atraviesa. [Gamma Walls Explained](/education/gamma-walls-explained) cubre ambos walls en profundidad. Para ver estos niveles en el mercado actual, consulta los [niveles gamma de SPX de hoy](/spx-gamma-levels).
+El call wall y el put wall dibujan el rango que los dealers defienden; el gamma flip te dice si su cobertura se opone a un movimiento hacia los extremos o se suma a uno que los atraviesa. [Gamma Walls explicados](/education/gamma-walls-explained) cubre ambos walls en profundidad. Para ver estos niveles en el mercado actual, consulta los [niveles gamma de SPX de hoy](/spx-gamma-levels).
 
 ---
 
@@ -61,7 +61,7 @@ El GEX no te dirá *qué* va a pasar a continuación. Te dice en qué *tipo* de 
 
 ## Dónde ver el GEX por ti mismo
 
-No tienes que calcular la gamma de los dealers a mano. ZeroGEX publica el Net GEX de hoy, el gamma flip, el call wall y el put wall - gratis y con un retraso de unos 15 minutos - para [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels). Para la lectura en vivo, con el perfil de gamma completo, el mapa de calor strike por DTE y el Market State Index, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).
+No tienes que calcular la gamma de los dealers a mano. ZeroGEX publica el Net GEX de hoy, el gamma flip, el call wall y el put wall - gratis y con un retraso de unos 15 minutos - para [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels), además de los futuros ES y NQ, con los seis uno junto a otro en la [página de niveles GEX de hoy](/gex-levels). Para la lectura en vivo, con el perfil de gamma completo, el mapa de calor strike por DTE y el Market State Index, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).
 
 ---
 

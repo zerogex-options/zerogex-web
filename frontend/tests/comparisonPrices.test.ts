@@ -6,10 +6,12 @@ import {
   COMPETITOR_PRICES,
   competitorCheckedLabel,
   fillComparisonPrices,
+  formatCheckedDate,
   type CompetitorId,
   type CompetitorPlanPrice,
 } from '../core/comparisonPrices.ts';
 import { ARTICLE_FAQ } from '../core/articleFaq.ts';
+import { DEFAULT_LOCALE, LOCALES } from '../core/i18n/locales.ts';
 
 // The ZeroGEX-vs-competitor pages quote both sides' prices. Ours are filled
 // from the plan catalogue at render, the competitor's from one dated constant,
@@ -29,6 +31,8 @@ const PAGES: Array<[CompetitorId, string]> = [
 const readArticle = (slug: string) =>
   readFileSync(new URL(`../content/articles/${slug}.md`, import.meta.url), 'utf8');
 
+const priceTokens = (markdown: string) => (markdown.match(/\{\{[^{}]*\}\}/g) ?? []).sort();
+
 for (const [competitor, slug] of PAGES) {
   test(`${slug}: every price token resolves and the check date is published`, () => {
     const filled = fillComparisonPrices(readArticle(slug));
@@ -43,7 +47,47 @@ for (const [competitor, slug] of PAGES) {
     for (const { a } of faq) assert.equal(/\$\d/.test(a), false, a);
     assert.ok(faq.some(({ a }) => a.includes(competitorCheckedLabel(competitor))));
   });
+
+  // A translation quotes the same figures through the same tokens. One that
+  // wrote a price out by hand would go stale on the next price change, and a
+  // mistyped token throws at render, which would take the page down for every
+  // reader of that language.
+  for (const locale of LOCALES.filter((l) => l !== DEFAULT_LOCALE)) {
+    test(`${slug}.${locale}: the same price tokens as the English page, every one resolving`, () => {
+      const page = readArticle(`${slug}.${locale}`);
+      assert.deepEqual(priceTokens(page), priceTokens(readArticle(slug)));
+      const filled = fillComparisonPrices(page, locale);
+      assert.equal(filled.includes('{{'), false);
+      assert.equal(filled.includes('}}'), false);
+      assert.ok(filled.includes(competitorCheckedLabel(competitor, locale)));
+    });
+  }
 }
+
+test('a translated page gets its dates and dollar figures in its own format', () => {
+  assert.equal(formatCheckedDate('2026-09-29', 'de'), '29. September 2026');
+  assert.equal(formatCheckedDate('2026-09-29', 'es'), '29 de septiembre de 2026');
+  assert.equal(formatCheckedDate('2026-09-29', 'fr'), '29 septembre 2026');
+  assert.equal(formatCheckedDate('2026-09-29', 'it'), '29 settembre 2026');
+  assert.equal(competitorCheckedLabel('bullflow', 'de'), '29. September 2026');
+
+  assert.equal(fillComparisonPrices('{{bullflow:basic:monthly}}', 'de'), '39\u00a0$');
+  assert.equal(fillComparisonPrices('{{bullflow:dataApi:annual}}', 'de'), '1.188\u00a0$');
+  assert.equal(fillComparisonPrices('{{quantdata:api:annual}}', 'de'), '1.499,99\u00a0$');
+  assert.equal(fillComparisonPrices('{{quantdata:api:annual}}', 'es'), '1.499,99\u00a0$');
+  assert.equal(fillComparisonPrices('{{menthorq:pro:annual}}', 'it'), '3.108\u00a0$');
+  assert.equal(fillComparisonPrices('{{bullflow:dataApi:annual}}', 'fr'), '1\u202f188\u00a0$');
+  assert.equal(fillComparisonPrices('{{menthorq:pro:firstMonth}}', 'fr'), '174,50\u00a0$');
+  assert.equal(fillComparisonPrices('{{tradegex:platform:annual:mo}}', 'it'), '49,92\u00a0$');
+  // ZeroGEX's per-month figure stays to the cent, as on the pricing page.
+  assert.equal(
+    fillComparisonPrices('{{zgx:basic:annual:mo}}', 'de'),
+    `${(LIST_PRICE_USD.basic.annual / 12).toFixed(2).replace('.', ',')}\u00a0$`,
+  );
+  // English is untouched by default.
+  assert.equal(fillComparisonPrices('{{bullflow:dataApi:annual}}'), '$1,188');
+  assert.equal(fillComparisonPrices('{{bullflow:dataApi:annual}}', 'en'), '$1,188');
+});
 
 test('ZeroGEX figures come from the plan catalogue', () => {
   assert.equal(fillComparisonPrices('{{zgx:basic:monthly}}'), `$${LIST_PRICE_USD.basic.monthly}`);

@@ -1,6 +1,4 @@
 # Net Volume vs Directional Flow : qu'est-ce qui compte vraiment dans le tape des options ?
-> **Note méthodologique.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. Qu’en gamma négatif le terme de pin d’EOD Pressure suive le mouvement récent est une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
-
 
 *La plupart des traders débattent du put/call volume face au directional flow. Les professionnels traitent généralement cela comme une première étape, avant de passer rapidement à la conviction pondérée par le premium.*
 
@@ -42,7 +40,7 @@ Cette métrique tente de répondre à une meilleure question :
 
 > **Qui était l'agresseur ?**
 
-Lorsque les traders lèvent l'ask, ils expriment généralement de l'urgence et une intention directionnelle. Lorsqu'ils tapent le bid, ils réduisent généralement le risque, encaissent du premium, ou font du fade.
+Lorsque les traders lèvent l'ask, ils expriment souvent de l'urgence ou une intention directionnelle. Lorsqu'ils tapent le bid, ils réduisent souvent le risque, encaissent du premium, ou font du fade. Le côté seul ne révèle toutefois pas la *motivation* - un dealer qui couvre un book existant peut lever l'ask tout comme un spéculateur, et cette transaction de couverture s'imprime sur le tape de la même façon.
 
 En théorie, cela rend le directional volume plus informatif que le volume brut.
 
@@ -71,7 +69,7 @@ Votre champ :
 
 `= (calls bought premium − calls sold premium) − (puts bought premium − puts sold premium)`
 
-constitue généralement une lecture unique plus solide sur l'orientation de l'argent informé, car elle reflète les dollars réellement engagés.
+mesure les dollars échangés et peut apporter un contexte au-delà du nombre de contrats. Cette mesure n'établit pas si un trade est informé, directionnel, d'ouverture ou spéculatif.
 
 ---
 
@@ -98,4 +96,4 @@ Une séquence pratique que les traders peuvent appliquer en intraday :
 - Validez avec le **net directional premium** avant d'engager du risque.
 - Si le volume et le premium divergent, faites confiance aux dollars plutôt qu'aux contrats.
 
-Aucun panneau unique ne devrait piloter à lui seul votre arbre de décision. Mais le directional flow pondéré par le premium vous maintiendra généralement plus proche du signal de « l'argent informé » et plus loin des prints bruyants de gros titres.
+Aucun panneau unique ne devrait piloter à lui seul votre arbre de décision. Mais ZeroGEX utilise la classification de l'agresseur pondérée par le premium comme une donnée du workflow parmi d'autres, et non comme un classement universel des métriques de flow. Le côté agresseur estime qui a franchi le spread ; il ne révèle pas s'il s'agit d'une ouverture ou d'une clôture, ni la stratégie complète, ni le détenteur final, ni un avantage informationnel.

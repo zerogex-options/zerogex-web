@@ -40,7 +40,7 @@ ZeroGEX è un **Proud Supporter di Folds of Honor** - il livello di badge partn
 Per ogni abbonamento a pagamento su ZeroGEX accadono tre cose:
 
 1. **A ogni fattura Stripe andata a buon fine**, il sistema di fatturazione registra l'accantonamento del 3% relativo a quella fattura. Il totale si accumula in un conteggio che chiudiamo a fine trimestre.
-2. **Alla fine di ogni trimestre solare**, il totale consolidato viene bonificato a Folds of Honor. Conserviamo la ricevuta e pubblichiamo la donazione su [/giving](/giving).
+2. **Alla fine di ogni trimestre solare**, il totale consolidato viene bonificato a Folds of Honor. Conserviamo la ricevuta e pubblichiamo la donazione sulla [pagina delle donazioni](/giving).
 3. **Il totale in tempo reale su /giving viene aggiornato** con il nuovo importo della donazione, la data e il trimestre coperto. Le donazioni passate restano elencate, così la cronologia è verificabile a colpo d'occhio.
 
 Se vuoi vedere esattamente quanto ZeroGEX ha donato finora, quella pagina è la fonte autorevole - non un'affermazione di marketing, ma il registro reale.
@@ -58,7 +58,7 @@ Un abbonato mensile Pro, ad esempio, contribuisce con 1,77 $ a Folds of Honor og
 ## Alcune precisazioni oneste
 
 - **La ricevuta della donazione appartiene a ZeroGEX, non a te.** Poiché la donazione è effettuata da ZeroGEX e non da te personalmente, la ricevuta 501(c)(3) viene rilasciata a ZeroGEX. Se desideri effettuare anche tu personalmente una donazione deducibile a Folds of Honor, oltre al tuo abbonamento, puoi farlo direttamente su [foldsofhonor.org](https://foldsofhonor.org).
-- **L'impegno è un minimo, non un massimo.** Il 3% è ciò a cui ci impegniamo. Potremmo aumentarlo nel tempo, in particolare durante il Memorial Day, il Veterans Day e altre settimane commemorative - ma non lo ridurremo mai senza una spiegazione chiara sulla pagina delle donazioni.
+- **L'impegno è un minimo, non un massimo.** Il 3% è ciò a cui ci impegniamo. Potremmo aumentarlo nel tempo, in particolare durante il Memorial Day, il Veterans Day e altre settimane commemorative - ma non lo ridurremo senza una spiegazione chiara sulla pagina delle donazioni.
 - **Non siamo Folds of Honor.** ZeroGEX è un Proud Supporter di Folds of Honor - un livello di badge partner per le organizzazioni che finanziano la missione - ma siamo un sostenitore finanziario, non un portavoce. Qualsiasi domanda su borse di studio, requisiti o programmi dell'organizzazione va rivolta direttamente a Folds of Honor.
 
 ---
@@ -69,7 +69,7 @@ Se sei un abbonato ZeroGEX: grazie. Ogni abbonamento sulla piattaforma contribui
 
 Se stai pensando di abbonarti: le [pagine gratuite dei Gamma Levels](/spx-gamma-levels) (SPX, SPY, QQQ e NDX) - ritardate di circa 15 minuti - sono sempre gratuite, e un abbonamento a pagamento aiuta su entrambi i fronti - sblocca la Dashboard in tempo reale e le funzionalità Pro, e contribuisce con il 3% a Folds of Honor.
 
-I meccanismi completi, il totale delle donazioni in tempo reale e le nostre FAQ sono disponibili su [/giving](/giving).
+I meccanismi completi, il totale delle donazioni in tempo reale e le nostre FAQ sono disponibili sulla [pagina delle donazioni](/giving).
 
 ---
 

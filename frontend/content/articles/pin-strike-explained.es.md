@@ -1,6 +1,4 @@
 # Pin Strike explicado: el pin de gamma 0DTE alcanzable
-> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Que el término pin de EOD Pressure siga el movimiento reciente cuando la gamma es negativa es una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
-
 
 *Pin Strike es el strike 0DTE alcanzable con la mayor estabilización modelada por gamma positiva del dealer hacia el vencimiento. Qué es, cómo se construye, por qué deliberadamente no es "el strike de mayor gamma" y por qué se le permite no devolver ningún pin activo.*
 
@@ -17,7 +15,7 @@ Pin Strike es una respuesta diseñada a propósito para esa pregunta concreta. E
 
 Ambas mitades importan, y la segunda es la que hace que Pin Strike se diferencie de cualquier otro nivel del tablero. Un strike puede cargar con una huella de gamma enorme y aun así ser un pésimo candidato a pin si el precio no tiene ninguna posibilidad realista de alcanzarlo hacia la campana. Pin Strike está construido para relegar a esos gigantes inalcanzables y hacer aflorar el nodo alcanzable en torno al cual el precio puede realmente organizarse.
 
-Si eres nuevo en la mecánica subyacente, el [pilar de Gamma Exposure](/education/gamma-exposure-explained) cubre cómo la gamma del dealer impulsa la cobertura, [Cómo leer un Gamma Flip](/education/how-to-read-a-gamma-flip) cubre la línea de régimen, y [Max Pain explicado](/education/max-pain-explained) cubre la idea del imán de liquidación con la que a menudo se confunde Pin Strike. Este artículo da por supuesto ese contexto y construye sobre él.
+Si eres nuevo en la mecánica subyacente, el [pilar de Gamma Exposure](/education/gamma-exposure-explained) cubre cómo la gamma del dealer impulsa la cobertura, [¿Qué es un Gamma Flip?](/education/how-to-read-a-gamma-flip) cubre la línea de régimen, y [Max Pain explicado](/education/max-pain-explained) cubre la idea del imán de liquidación con la que a menudo se confunde Pin Strike. Este artículo da por supuesto ese contexto y construye sobre él.
 
 ---
 
@@ -97,7 +95,7 @@ reachability(K) = exp( −½ × z² )
 Dos entradas de esa fórmula merecen énfasis, porque son donde la alcanzabilidad demuestra su valía:
 
 - **`σ` es una volatilidad implícita at-the-money representativa**, tomada de las propias opciones 0DTE cercanas al dinero (la misma base de IV ATM que la plataforma usa en otros lugares). No es un valor por defecto inventado - si no hay una IV ATM utilizable, no se puede confiar en la alcanzabilidad y la métrica se niega a producir un pin en lugar de inventar un número.
-- **`τ` es el tiempo *intradía real* restante hasta la liquidación 0DTE**, en años - segundos hasta el cierre, no un perezoso `1/365`. Esto importa enormemente para 0DTE: a las 10:00 a.m. un strike a cinco puntos de distancia es muy alcanzable; a las 3:45 p.m. el mismo strike puede estar a varios movimientos esperados de distancia. La alcanzabilidad se desploma a medida que se agota el reloj, exactamente como lo hace un pin real hacia el vencimiento.
+- **`τ` es el tiempo *intradía real* restante hasta la liquidación 0DTE**, en años - segundos hasta el cierre, no un perezoso `1/365`. Esto importa enormemente para 0DTE: a las 10:00 un strike a cinco puntos de distancia es muy alcanzable; a las 15:45 el mismo strike puede estar a varios movimientos esperados de distancia. La alcanzabilidad se desploma a medida que se agota el reloj, exactamente como lo hace un pin real hacia el vencimiento.
 
 ---
 
@@ -119,7 +117,7 @@ Junto al strike, Pin Strike informa de una **confianza** - cuán dominante es e
 pin_confidence = max_pin_score / Σ (all positive pin_scores)
 ```
 
-Una confianza cercana a 1.0 significa que un nodo posee de forma abrumadora el paisaje de gamma positiva alcanzable - un pin limpio y singular. Una confianza baja significa que varios candidatos comparables están compitiendo, y es más probable que el precio oscile entre ellos a que se fije en uno. La puntuación máxima bruta también se conserva, porque la concentración por sí sola puede inducir a error cuando *todas* las puntuaciones son diminutas - un pin "dominante" entre candidatos insignificantes sigue siendo insignificante.
+Una confianza cercana a 1,0 significa que un nodo posee de forma abrumadora el paisaje de gamma positiva alcanzable - un pin limpio y singular. Una confianza baja significa que varios candidatos comparables están compitiendo, y es más probable que el precio oscile entre ellos a que se fije en uno. La puntuación máxima bruta también se conserva, porque la concentración por sí sola puede inducir a error cuando *todas* las puntuaciones son diminutas - un pin "dominante" entre candidatos insignificantes sigue siendo insignificante.
 
 ---
 
@@ -127,9 +125,9 @@ Una confianza cercana a 1.0 significa que un nodo posee de forma abrumadora el p
 
 Pin Strike pertenece a una familia de niveles de posicionamiento de dealers, y todo su valor reside en ser genuinamente distinto de cada uno de ellos. Las diferencias no son cosméticas:
 
-- **Call Wall / Put Wall** - los strikes por encima y por debajo del spot con la mayor gamma *actual* de calls/puts de un solo lado. Marcan las concentraciones dominantes de resistencia y soporte al precio de *hoy*. Pin Strike no trata de la mayor concentración de un solo lado ni se mide al precio de hoy - trata de la estabilización local *neta* evaluada en cada strike candidato como si el precio estuviera ahí. Consulta [Gamma Walls explicado](/education/gamma-walls-explained).
+- **Call Wall / Put Wall** - los strikes por encima y por debajo del spot con la mayor gamma *actual* de calls/puts de un solo lado. Marcan las concentraciones dominantes de resistencia y soporte al precio de *hoy*. Pin Strike no trata de la mayor concentración de un solo lado ni se mide al precio de hoy - trata de la estabilización local *neta* evaluada en cada strike candidato como si el precio estuviera ahí. Consulta [Gamma Walls explicados](/education/gamma-walls-explained).
 
-- **Gamma Flip** - el spot hipotético en el que la gamma *agregada* del dealer cambia de signo; la frontera entre los regímenes estabilizador y desestabilizador para todo el libro. El flip es una línea de régimen; Pin Strike es un imán específico *dentro* de un régimen estabilizador. (De hecho, si el spot se sitúa por debajo del flip, en territorio de gamma neta corta, Pin Strike a menudo no encontrará nada a lo que hacer pin - que es la respuesta correcta.) Consulta [Cómo leer un Gamma Flip](/education/how-to-read-a-gamma-flip).
+- **Gamma Flip** - el spot hipotético en el que la gamma *agregada* del dealer cambia de signo; la frontera entre los regímenes estabilizador y desestabilizador para todo el libro. El flip es una línea de régimen; Pin Strike es un imán específico *dentro* de un régimen estabilizador. (De hecho, si el spot se sitúa por debajo del flip, en territorio de gamma neta corta, Pin Strike a menudo no encontrará nada a lo que hacer pin - que es la respuesta correcta.) Consulta [¿Qué es un Gamma Flip?](/education/how-to-read-a-gamma-flip)
 
 - **Max Pain** - el strike de liquidación que minimiza el pago intrínseco agregado a los tenedores de opciones. Usa solo el open interest y los strikes - sin griegas, sin volatilidad, sin signo de dealer, y sin noción de alcanzabilidad ni de *cómo* se cubren los dealers. Es un nivel de contabilidad de pagos. Pin Strike es un nivel de mecánica de cobertura. Con frecuencia discrepan, y cuando coinciden suele ser porque una gamma pesada y un OI pesado resultan coincidir. Consulta [Max Pain explicado](/education/max-pain-explained).
 

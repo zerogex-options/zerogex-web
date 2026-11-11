@@ -1,6 +1,4 @@
 # Net Volume vs Directional Flow: ¿qué es lo que realmente importa en el tape de opciones?
-> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Que el término pin de EOD Pressure siga el movimiento reciente cuando la gamma es negativa es una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
-
 
 *La mayoría de los traders debate entre el put/call volume y el directional flow. Los profesionales suelen tratar eso como el primer paso, para luego pasar rápidamente a la conviction ponderada por premium.*
 
@@ -42,7 +40,7 @@ Esta métrica intenta responder a la pregunta más relevante:
 
 > **¿Quién fue el agresor?**
 
-Cuando los traders levantan el ask, normalmente están expresando urgencia e intención direccional. Cuando golpean el bid, suelen estar reduciendo riesgo, cobrando premium o haciendo fade.
+Cuando los traders levantan el ask, a menudo están expresando urgencia o intención direccional. Cuando golpean el bid, a menudo están reduciendo riesgo, cobrando premium o haciendo fade. Aun así, el lado por sí solo no revela la *motivación* - un dealer que cubre un book existente puede levantar el ask igual que un especulador, y esa operación de cobertura se imprime en el tape de la misma manera.
 
 En teoría, esto hace que el directional volume sea más informativo que el volumen bruto.
 
@@ -71,7 +69,7 @@ Tu campo:
 
 `= (calls bought premium − calls sold premium) − (puts bought premium − puts sold premium)`
 
-suele ser una lectura individual más sólida sobre hacia dónde se está inclinando el dinero informado, porque refleja los dólares realmente comprometidos.
+mide los dólares negociados y puede aportar contexto más allá del conteo de contratos. No establece si una operación es informada, direccional, de apertura o especulativa.
 
 ---
 
@@ -98,4 +96,4 @@ Una secuencia práctica que los traders pueden aplicar intradía:
 - Valida con el **net directional premium** antes de comprometer riesgo.
 - Si el volumen y el premium están en desacuerdo, confía en los dólares antes que en los contratos.
 
-Ningún panel único debería guiar todo tu árbol de decisión. Pero el directional flow ponderado por premium normalmente te mantendrá más cerca de la señal del "dinero informado" y más lejos de los prints ruidosos de titulares.
+Ningún panel único debería guiar todo tu árbol de decisión. Pero ZeroGEX usa la clasificación por agresor ponderada por premium como una entrada más del flujo de trabajo, no como una clasificación universal de las métricas de flow. El lado agresor estima quién cruzó el spread; no revela si la operación abre o cierra posición, la estrategia completa, el propietario final ni una ventaja informativa.

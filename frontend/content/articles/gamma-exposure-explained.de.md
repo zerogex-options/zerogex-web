@@ -1,6 +1,4 @@
 # Gamma Exposure (GEX) erklärt: Der vollständige Leitfaden
-> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Dass der EOD-Pressure-Pin-Term bei negativem Gamma der jüngsten Bewegung folgt, ist eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
-
 
 *Gamma Exposure von Grund auf erklärt - was GEX ist, wie das Dealer-Gamma berechnet und mit Vorzeichen versehen wird, warum sich das Regime oberhalb und unterhalb des Flips so unterschiedlich verhält, und wie man es während einer Handelssession tatsächlich einsetzt.*
 
@@ -12,7 +10,7 @@ Ein Großteil des Kursverlaufs, den Trader auf einem Chart zu lesen versuchen, i
 
 Gamma Exposure (GEX) ist der sauberste Weg, um abzulesen, was dieses Dealer-Buch gerade tut. Sie zeigt, ob die strukturelle Kraft im Markt in Richtung Stabilität oder Instabilität wirkt, ob sich das Hedging gegen einen Ausbruch (Breakout) stemmen oder ihn verstärken wird, und ob sich das Hedging an den Strikes, die man in der Optionskette sieht, gegen den Flow stemmt oder ihn verstärkt. Sie sagt nicht die Richtung voraus. Sie zeigt den **Charakter des Regimes**, in dem man handelt - und genau darin liegt der größte Teil des Edge.
 
-Dieser Artikel ist die umfassende Lektüre. Wir behandeln, was Gamma Exposure ist, wie sie aus der Optionskette aufgebaut wird, die Mechanik von positiven versus negativen Gamma-Regimen, die Rolle des Gamma-Flips und der Gamma-Walls sowie den praktischen Workflow, um all das intraday zu nutzen. Für vertiefende Beiträge zu den einzelnen Unterthemen verweist dieser Leitfaden auf [Wie man einen Gamma-Flip liest](/education/how-to-read-a-gamma-flip), [Gamma-Walls erklärt](/education/gamma-walls-explained) und [0DTE-Dealer-Positionierung erklärt](/education/0dte-dealer-positioning-explained). Zu spezifischen Greeks zweiter Ordnung siehe [Vanna und Charm für Optionshändler erklärt](/education/vanna-and-charm-explained), und zur Pinning-versus-Magnet-Diskussion siehe [Max Pain erklärt - funktioniert es wirklich?](/education/max-pain-explained).
+Dieser Artikel ist die umfassende Lektüre. Wir behandeln, was Gamma Exposure ist, wie sie aus der Optionskette aufgebaut wird, die Mechanik von positiven versus negativen Gamma-Regimen, die Rolle des Gamma-Flips und der Gamma-Walls sowie den praktischen Workflow, um all das intraday zu nutzen. Für die vertiefenden, auf Trader ausgerichteten Beiträge zu den einzelnen Unterthemen verweist dieser Leitfaden auf [Was ist ein Gamma-Flip?](/education/how-to-read-a-gamma-flip), [Gamma-Walls erklärt](/education/gamma-walls-explained) und [0DTE-Dealer-Positionierung erklärt](/education/0dte-dealer-positioning-explained). Zu spezifischen Greeks zweiter Ordnung siehe [Vanna und Charm für Optionshändler erklärt](/education/vanna-and-charm-explained), und zur Pinning-versus-Magnet-Diskussion siehe [Max Pain erklärt - funktioniert es wirklich?](/education/max-pain-explained).
 
 ---
 
@@ -91,7 +89,7 @@ Die meiste Regimearbeit nutzt Net GEX. Die Größenordnung zählt ebenfalls - e
 
 Es gibt zwei Wege, Regimeinformationen aus der Optionskette zu extrahieren:
 
-1. Die **Aggregation pro Strike** summiert das vorzeichenbehaftete Gamma an jedem Strike beim heutigen Spot. Sie ist schnell und intuitiv.
+1. Die **Aggregation pro Strike** summiert die vorzeichenbehaftete Gamma Exposure an jedem Strike beim heutigen Spot. Sie ist schnell und intuitiv.
 2. Das **Spot-Shift-Dealer-Gamma** bewertet das Gamma jeder Option bei jedem hypothetischen Spot-Preis auf einem Raster neu und summiert dann zu einer *Kurve* des Dealer-Gammas gegenüber dem Kurs. Der Nulldurchgang dieser Kurve ist der Gamma-Flip; der Wert beim heutigen Spot ist das Net GEX-at-Spot.
 
 ZeroGEX bevorzugt ein Spot-Shift-Profil, weil es modelliertes Gamma über hypothetische Kurse des Basiswerts auswertet. Headline-Net-GEX und den ausgewählten Flip aus demselben Profil abzuleiten verbessert die interne Konsistenz, während der Resolver weiterhin mehrfache, schwache oder fehlende Kreuzungen sowie Unterschiede in den Verfallsuniversen behandeln muss. Die Methodik hinter der ZeroGEX-Implementierung ist detailliert dokumentiert in [GEX und der Gamma-Flip - Wie ZeroGEX sie berechnet](/guides/gamma-flip-calculation-before-vs-after).
@@ -143,7 +141,7 @@ Ein paar Punkte, bei denen Präzision wichtig ist:
 - Er ist **dynamisch**. Während das Open Interest rolliert und sich die Optionskette neu gewichtet, wandert der Flip. Ein veralteter Flip ist ein irreführender Flip.
 - Er ist ein **Filter, kein Signal**. Er sagt, welches Playbook man fahren sollte; der Einstieg muss anderswoher kommen.
 
-Für den praktischen Lese-Workflow - einschließlich dessen, was sich oberhalb versus unterhalb ändert, wie man intraday darauf reagiert, und die üblichen Fehler - siehe [Wie man einen Gamma-Flip liest](/education/how-to-read-a-gamma-flip).
+Für den praktischen Lese-Workflow - einschließlich dessen, was sich oberhalb versus unterhalb ändert, wie man intraday darauf reagiert, und der üblichen Fehler - siehe [Was ist ein Gamma-Flip?](/education/how-to-read-a-gamma-flip)
 
 ---
 
@@ -156,7 +154,7 @@ Das Hedging rund um die Walls verhält sich in den beiden Regimen sehr unterschi
 - In einem **positiven Gamma**-Regime stemmt sich das Hedging rund um die Walls gegen Bewegungen - es verkauft Rallyes in Richtung Call-Wall und kauft Rücksetzer in Richtung Put-Wall.
 - In einem **negativen Gamma**-Regime läuft das Hedging mit der Bewegung, sodass eine Wall, die nachgibt, zum Breakout-Beschleuniger statt zum Widerstand werden kann. In unserer Messung brachen Walls in keinem der beiden Regime häufiger.
 
-Auch Walls wandern. Eine Call-Wall, die nach oben wandert, während der Kurs sie testet, ist strukturell eine andere Ablesung als eine, die hält. Für den vollständigen Lese-Workflow siehe [Gamma-Walls erklärt: Call-Wall, Put-Wall und wie der Kurs reagiert](/education/gamma-walls-explained).
+Auch Walls wandern. Eine Call-Wall, die nach oben wandert, während der Kurs sie testet, ist strukturell eine andere Ablesung als eine, die hält. Für den vollständigen Lese-Workflow siehe [Gamma-Walls erklärt: Call-Wall und Put-Wall](/education/gamma-walls-explained).
 
 ---
 
@@ -205,7 +203,7 @@ Gamma ist nicht das gesamte Bild. Vanna (vola-getriebenes Hedging) erzeugt in Vo
 
 GEX ist die Schlagzeilen-Ablesung, aber nicht das gesamte Dealer-Buch. Zwei Greeks zweiter Ordnung prägen die Dealer-Hedging-Flows zusätzlich zum Gamma maßgeblich:
 
-- **Vanna** ist die Empfindlichkeit des Deltas gegenüber der impliziten Volatilität. Wenn sich die IV bewegt, bewegen sich die Options-Deltas der Dealer, auch wenn sich der Spot nicht bewegt - und sie hedgen das im Allgemeinen. In einem Vol-Kompressionsregime kann vanna-getriebenes Hedging aus dem modellierten Short-Put-Bestand der Dealer ein anhaltendes, allmählich steigendes Bid im Basiswert hinzufügen, auch wenn dessen Richtung von der Zusammensetzung des Buchs abhängt.
+- **Vanna** ist die Empfindlichkeit des Deltas gegenüber der impliziten Volatilität. Wenn sich die IV bewegt, bewegen sich die Options-Deltas der Dealer, auch wenn sich der Spot nicht bewegt - und sie hedgen das im Allgemeinen. In einem Vol-Kompressionsregime kann vanna-getriebenes Hedging aus dem modellierten Short-Put-Bestand der Dealer ein anhaltendes, allmählich steigendes Bid im Basiswert hinzufügen, auch wenn die Richtung dieses Hedgings von der Zusammensetzung des Buchs abhängt.
 - **Charm** ist die Empfindlichkeit des Deltas gegenüber der Zeit. Während Optionen sich dem Verfall nähern, driftet ihr Delta in eine vorhersehbare Richtung - Out-of-the-money-Optionen verfallen Richtung 0, In-the-money-Optionen Richtung 1 bei Calls und −1 bei Puts -, und Dealer tendieren dazu, diese Drift kontinuierlich neu zu hedgen. Der klarste Ort, um Charm im Markt zu beobachten, sind die letzten 90 Minuten der Cash-Session.
 
 Beide Effekte sind am größten, wenn auch das Gamma groß ist - also wenn 0DTE- und kurzlaufende Optionen die Optionskette dominieren. Lies sie gemeinsam mit GEX, nicht isoliert.
@@ -257,11 +255,11 @@ Ein durchgerechnetes Beispiel. Angenommen, SPX steht bei 5.830 und das Dashboard
 - **Call Wall:** 5.850
 - **Put Wall:** 5.790
 
-Die Gesamtablesung: Der Spot befindet sich komfortabel im Long-Gamma-Territorium (20 Punkte oberhalb des Flips), das Net GEX ist eine deutlich positive Zahl, die auf eine reale Größenordnung im Dealer-Buch hinweist, und der Wall-Bereich ist asymmetrisch, wobei die Call-Wall näher liegt als die Put-Wall. Die praktische Tendenz: gedämpftes Vola-Regime, mean-reversion-freundlicher Markt und mögliches Pin-Verhalten in Richtung der starken Gamma-Konzentration zum Handelsschluss hin. Nichts davon ist ein Trade-Signal - es ist der strukturelle Hintergrund, an dem jedes andere Werkzeug, das man nutzt, kalibriert werden sollte.
+Die Gesamtablesung: Der Spot befindet sich komfortabel im Long-Gamma-Territorium (20 $ oberhalb des Flips), das Net GEX ist eine deutlich positive Zahl, die auf eine reale Größenordnung im Dealer-Buch hinweist, und der Wall-Bereich ist asymmetrisch, wobei die Call-Wall näher liegt als die Put-Wall. Die praktische Tendenz: gedämpftes Vola-Regime, mean-reversion-freundlicher Markt und mögliches Pin-Verhalten in Richtung der starken Gamma-Konzentration zum Handelsschluss hin. Nichts davon ist ein Trade-Signal - es ist der strukturelle Hintergrund, an dem jedes andere Werkzeug, das man nutzt, kalibriert werden sollte.
 
 ![ZeroGEX-Strike-Profil-Chart mit hervorgehobener Dealer-Gamma-Kurve, Flip-Linie und Walls](/blog/zerogex-strike-profile-overview.png)
 
-Stell dir nun dasselbe Dashboard 90 Minuten später vor: Das Net GEX ist auf −150 Mio. $ abgeklungen, und der Gamma-Flip ist auf 5.825 nach oben gewandert, während der Spot auf 5.818 zurückgefallen ist. Das Regime ist jetzt umstritten - der Spot liegt technisch unterhalb des Flips, aber nur um wenige Punkte, und die Größenordnung hat sich ausgedünnt. Genau das ist der strukturelle Zustand, in dem beide Regime teilweise aktiv sind, das Verhalten instabil wird, und die richtige Disziplin normalerweise darin besteht, auf eine klarere Ablesung zu warten, bevor man sich festlegt.
+Stell dir nun dasselbe Dashboard 90 Minuten später vor: Das Net GEX ist auf −150 Mio. $ abgeklungen, und der Gamma-Flip ist auf 5.825 nach oben gewandert, während der Spot auf 5.818 zurückgefallen ist. Das Regime ist jetzt umstritten - der Spot liegt technisch unterhalb des Flips, aber nur um wenige Punkte, und die Größenordnung hat sich ausgedünnt. Genau das ist der strukturelle Zustand, in dem sich positive und negative modellierte Beiträge annähernd ausgleichen, die Nettotendenz schwach ist und die richtige Disziplin normalerweise darin besteht, auf eine klarere Ablesung zu warten, bevor man sich festlegt.
 
 ---
 
@@ -275,4 +273,4 @@ Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du die vollständige Gamma-Exposure-Ablesung von heute sehen möchtest - Net GEX, den Gamma-Flip, die Call- und Put-Walls und das Dealer-Gamma-Profil -, zeigen dir [die kostenlosen ZeroGEX-Gamma-Levels-Seiten](/spx-gamma-levels) all das, rund 15 Minuten verzögert, und die bezahlten Pläne zeigen es [in Echtzeit](/real-time-gex-0dte). Für einen direkten Vergleich, wie ZeroGEX im Vergleich zu anderen Gamma-Exposure-Plattformen abschneidet, siehe [den Leitfaden zu den besten GEX-Tools](/education/best-gex-tools).
+Wenn du die vollständige Gamma-Exposure-Ablesung von heute sehen möchtest - Net GEX, den Gamma-Flip, die Call- und Put-Walls und das Dealer-Gamma-Profil -, zeigen dir [die kostenlosen ZeroGEX-Gamma-Levels-Seiten](/spx-gamma-levels) all das, rund 15 Minuten verzögert, und die bezahlten Pläne zeigen es [im Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte). Für einen direkten Vergleich, wie ZeroGEX im Vergleich zu anderen Gamma-Exposure-Plattformen abschneidet, siehe [den Leitfaden zu den besten GEX-Tools](/education/best-gex-tools).

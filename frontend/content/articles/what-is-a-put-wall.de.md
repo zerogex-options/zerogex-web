@@ -1,5 +1,4 @@
 # Was ist eine Put Wall? Put-Gamma-Konzentration erklärt
-> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Dass der EOD-Pressure-Pin-Term bei negativem Gamma der jüngsten Bewegung folgt, ist eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 *Die Put Wall in einfachen Worten - was sie ist, warum der Preis in ihrer Nähe oft reagiert, warum der modellierte Short-Put-Hedge sie nicht zu einem mechanischen Boden macht, wie sie sich von der Call Wall unterscheidet, was ein Bruch bedeutet und wo du die heutige Put Wall für SPX, SPY, QQQ und NDX findest.*
 
@@ -11,7 +10,7 @@ Eine **Put Wall** ist der Strike unterhalb des aktuellen Preises, an dem die Put
 
 Genauer: Die Put Wall ist der Strike auf oder unter Spot mit dem größten vorzeichenlosen Put-Gamma-Betrag in der ausgewählten Optionskette. ZeroGEX rankt Strikes aus modelliertem Gamma multipliziert mit dem offiziellen Open Interest und wendet den Spot-seitigen Filter an. Sie ist eine strukturelle Referenz, kein Versprechen, dass der Preis abprallt.
 
-Unter der traditionellen Call-positiv/Put-negativ-Konvention von ZeroGEX ist der Put-Bestand an diesem Strike **lokal negatives modelliertes Dealer-Gamma**. Für einen delta-gehedgten Dealer, der einen Put short ist, macht ein Preisrückgang die Optionsposition positiver im Delta; um den Hedge zu halten, muss er in der Regel mehr Underlying verkaufen. Diese lokale Anpassung kann den Rückgang verstärken. Die Put Wall ist damit kein mechanisch verteidigter Dealer-Boden und kein Spiegelbild einer positiven Call Wall.
+Unter der traditionellen Call-positiv/Put-negativ-Konvention von ZeroGEX ist der Put-Bestand an diesem Strike **lokal negatives modelliertes Dealer-Gamma**. Für einen delta-gehedgten Dealer, der einen Put short ist, macht ein Preisrückgang die Optionsposition positiver im Delta; um den Hedge aufrechtzuerhalten, ist in der Regel der Verkauf von mehr Underlying erforderlich. Diese lokale Anpassung kann den Rückgang verstärken. Die Put Wall ist damit kein mechanisch verteidigter Dealer-Boden und kein Spiegelbild einer positiven Call Wall.
 
 ## Wie ZeroGEX Dealer-Positioning modelliert
 
@@ -20,7 +19,7 @@ Unter der traditionellen Call-positiv/Put-negativ-Konvention von ZeroGEX ist der
 Das modellierte Net GEX bleibt:
 
 ```text
-Modelliertes Net GEX = Call GEX - Put GEX
+Modeled Net GEX = Call GEX - Put GEX
 ```
 
 Long Calls und Long Puts haben jeweils positives Gamma; Short Calls und Short Puts jeweils negatives Gamma. Das negative Vorzeichen der Puts oben stammt aus der unterstellten Dealerposition, nicht aus einem inhärent negativen Gamma von Puts.
@@ -46,14 +45,14 @@ Die beiden Walls werden auf gegenüberliegenden Seiten des Spot auf dieselbe Wei
 | Gerankt nach | Größtem Put-Gamma-Betrag (modelliertes Gamma × Open Interest) | Größtem Call-Gamma-Betrag (modelliertes Gamma × Open Interest) |
 | Modelliertes Dealer-Vorzeichen | Negativ - Dealer modelliert short die von Kunden gekauften Puts | Positiv - Dealer modelliert long die von Kunden verkauften Calls |
 | Übliche Lesart | Untere Kante der Positioning-Spanne; kann mit Unterstützung zusammenfallen | Obere Kante der Positioning-Spanne; kann mit Widerstand oder Pinning zusammenfallen |
-| Lokaler Hedge, isoliert betrachtet | Ein Rückgang kann weiteres Verkaufen erfordern, was die Bewegung verstärken kann | Eine Rally kann Verkäufe erfordern, was sich gegen die Bewegung lehnen kann |
+| Lokaler Hedge, isoliert betrachtet | Ein Rückgang kann weiteres Verkaufen erfordern, was die Bewegung verstärken kann | Eine Rally kann weitere Verkäufe erfordern, die sich gegen die Bewegung stemmen können |
 | Bei einem Bruch | Die Referenz ist gescheitert oder gewandert; bei negativem Gamma kann sich die Bewegung beschleunigen | Die Referenz ist gescheitert oder gewandert; oft als Positioning-Verschiebung gelesen |
 
-Call und Put Wall sind nicht mechanisch symmetrisch. Eine Call Wall ist der Strike auf oder über Spot mit dem größten Call-Gamma-Betrag; eine Put Wall nutzt den Put-Gamma-Betrag unter Spot. Der Optionstyp allein entscheidet weder über Widerstand noch Unterstützung, Anziehung oder Beschleunigung. Der ausführlichere Vergleich steht in [Was ist eine Call Wall?](/education/what-is-a-call-wall) und [Gamma Walls Explained](/education/gamma-walls-explained).
+Call und Put Wall sind nicht mechanisch symmetrisch. Eine Call Wall ist der Strike auf oder über Spot mit dem größten Call-Gamma-Betrag; eine Put Wall nutzt den Put-Gamma-Betrag unter Spot. Der Optionstyp allein entscheidet weder über Widerstand noch Unterstützung, Anziehung oder Beschleunigung. Der ausführlichere Vergleich steht in [Was ist eine Call Wall?](/education/what-is-a-call-wall) und [Gamma Walls erklärt](/education/gamma-walls-explained).
 
 ## Put Wall vs. Gamma Flip vs. Max Pain
 
-Drei Levels, die häufig miteinander verwechselt werden:
+Drei Levels, die miteinander verwechselt werden:
 
 - Die **Put Wall** ist eine *Konzentration* - der dichteste Put-Gamma-Strike unter Spot.
 - Der [Gamma Flip](/education/how-to-read-a-gamma-flip), auch [Zero-Gamma-Level](/education/zero-gamma-level-explained), ist eine *Regimelinie* - der Preis, an dem das modellierte Netto-Dealer-Gamma das Vorzeichen wechselt. Er entscheidet, ob Hedging nahe den Walls Bewegungen eher dämpft oder verstärkt. Der Flip liegt häufig über der Put Wall, sodass der Preis die Put Wall brechen kann, während er noch in positivem Gamma steht - oder sie halten kann, während er bereits in negativem Gamma ist.
@@ -94,6 +93,6 @@ Zwei Gewohnheiten machen die Zahl nützlich statt dekorativ: Achte auf die Snaps
 
 > Die Put Wall ist eine modellierte Put-Gamma-Konzentration und eine nützliche strukturelle Referenz. Sie kann mit Unterstützung zusammenfallen, aber Unterstützung ist keine direkte Folge des modellierten Dealer-Short-Put-Hedges an diesem Strike.
 
-Sieh dir die heutigen modellierten Walls für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) an, oder vergleiche den breiteren Rahmen in [Gamma Walls Explained](/education/gamma-walls-explained).
+Sieh dir die heutigen modellierten Walls für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) an, oder vergleiche den breiteren Rahmen in [Gamma Walls erklärt](/education/gamma-walls-explained).
 
 Nur zu Bildungszwecken - nichts davon ist eine Handelsempfehlung.

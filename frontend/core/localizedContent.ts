@@ -53,6 +53,16 @@ export async function getServerT(dict: PageDictionary) {
 // hreflang for SEO would be a separate, larger routing change; this delivers
 // the user-facing translation the content needs.)
 export async function loadLocalizedMarkdown(absoluteMdPath: string): Promise<string> {
+  return (await loadLocalizedMarkdownWithLocale(absoluteMdPath)).markdown;
+}
+
+// The same, plus the language of the file it actually served: the reader's when
+// a translation exists, English when it falls back. A page that fills values
+// into the text (the comparison pages' prices and dates) formats them in that
+// language, so English prose never gets a German date and the reverse.
+export async function loadLocalizedMarkdownWithLocale(
+  absoluteMdPath: string,
+): Promise<{ markdown: string; locale: Locale }> {
   let locale = DEFAULT_LOCALE;
   try {
     const store = await cookies();
@@ -64,11 +74,11 @@ export async function loadLocalizedMarkdown(absoluteMdPath: string): Promise<str
   if (locale !== DEFAULT_LOCALE) {
     const localizedPath = absoluteMdPath.replace(/\.md$/, `.${locale}.md`);
     try {
-      return fs.readFileSync(localizedPath, 'utf8');
+      return { markdown: fs.readFileSync(localizedPath, 'utf8'), locale };
     } catch {
       // No translation for this locale yet — fall through to the English source.
     }
   }
 
-  return fs.readFileSync(absoluteMdPath, 'utf8');
+  return { markdown: fs.readFileSync(absoluteMdPath, 'utf8'), locale: DEFAULT_LOCALE };
 }

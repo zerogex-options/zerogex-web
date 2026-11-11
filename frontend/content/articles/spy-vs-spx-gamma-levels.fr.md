@@ -1,14 +1,12 @@
 # Options SPY vs SPX : Quels Niveaux de Gamma Comptent ?
-> **Note méthodologique.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. Qu’en gamma négatif le terme de pin d’EOD Pressure suive le mouvement récent est une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
 
-
-*SPY et SPX suivent le même indice à travers deux contrats différents - et deux carnets de gamma des dealers distincts. Voici en quoi leurs niveaux de gamma diffèrent, comment convertir un niveau de l'un à l'autre, quel carnet pèse le plus, et pourquoi le niveau qui compte le plus est celui sur lequel les deux s'accordent.*
+*SPY et SPX suivent le même indice à travers deux contrats différents - et deux carnets de gamma des dealers distincts. Voici en quoi leurs niveaux de gamma diffèrent, comment convertir un niveau de l'un à l'autre, quel carnet tend à peser le plus, et pourquoi les niveaux sur lesquels les deux s'accordent peuvent compter le plus.*
 
 ---
 
 ## La réponse courte
 
-Si vous tradez le SPX, lisez les niveaux de gamma du SPX. Si vous tradez le SPY, lisez les niveaux de gamma du SPY. Mais comme les deux contrats couvrent le **même** indice sous-jacent à partir de pools d'open interest **distincts**, la lecture la plus précise consiste à observer les deux - et à considérer les niveaux où ils convergent comme les plus susceptibles de tenir.
+Si vous tradez le SPX, lisez les niveaux de gamma du SPX. Si vous tradez le SPY, lisez les niveaux de gamma du SPY. Mais comme les deux contrats suivent le **même** indice sous-jacent tout en portant des pools d'open interest **distincts**, observer les deux peut apporter un contexte supplémentaire. ZeroGEX n'a pas établi qu'un accord entre les deux garantisse une plus grande fiabilité.
 
 Le reste de cet article explique pourquoi les deux carnets diffèrent, comment convertir un niveau entre eux, et lequel mérite le plus de poids en cas de désaccord.
 
@@ -24,10 +22,10 @@ Le SPX et le SPY suivent tous deux le S&P 500. Ce qui diffère, c'est le *contra
 | Échelle de prix | Le niveau de l'indice (ex. 6000) | ~1/10 de l'indice (ex. 600) |
 | Règlement | Réglé en espèces | Réglé physiquement (actions) |
 | Style d'exercice | Européen - pas d'exercice anticipé | Américain - risque d'exercice anticipé |
-| Notionnel du contrat | ~$100 × niveau de l'indice (≈10× SPY) | ~$100 × prix de l'ETF |
-| Espacement des strikes | Plus large (généralement 5 points) | Plus fin ($1, parfois $0,50) |
+| Notionnel du contrat | ~100 $ × niveau de l'indice (≈10× SPY) | ~100 $ × prix de l'ETF |
+| Espacement des strikes | Plus large (généralement 5 points) | Plus fin (1 $, parfois 0,50 $) |
 | Dividendes et fiscalité | Pas de dividende ; traitement Section 1256 | Verse des dividendes ; traitement option sur action |
-| Public typique | Institutionnels, desks indice et 0DTE | Retail plus institutionnels, hedgers d'actions |
+| Public typique | Institutionnels, desks indice et 0DTE | Investisseurs particuliers et institutionnels, hedgers d'actions |
 
 La ligne la plus importante pour le gamma est le **notionnel du contrat**. Un contrat SPX contrôle environ dix fois l'exposition en dollars d'un contrat SPY, donc la couverture des dealers sur le SPX déplace bien plus de delta équivalent-indice par contrat. Cela compte pour la suite.
 
@@ -35,11 +33,11 @@ La ligne la plus importante pour le gamma est le **notionnel du contrat**. Un co
 
 ## Pourquoi SPY et SPX ont des carnets de gamma distincts
 
-L'exposition gamma est calculée à partir de l'open interest d'une chaîne d'options - strike par strike, échéance par échéance. SPX et SPY sont des chaînes différentes avec un open interest différent, donc chacune produit son **propre** [profil de gamma](/education/gamma-exposure-explained) : son propre [gamma flip](/education/how-to-read-a-gamma-flip), son propre [call wall et put wall](/education/gamma-walls-explained), son propre net GEX.
+L'exposition gamma est calculée à partir de l'open interest d'une chaîne d'options - strike par strike, échéance par échéance - puis se voit attribuer un signe de dealer par convention. SPX et SPY sont des chaînes différentes avec un open interest différent, donc chacune produit son **propre** [profil de gamma](/education/gamma-exposure-explained) : son propre [gamma flip](/education/how-to-read-a-gamma-flip), son propre [call wall et put wall](/education/gamma-walls-explained), son propre net GEX.
 
-Comme les deux chaînes se réfèrent au même indice, ces niveaux pointent généralement vers le même endroit en termes de S&P. Mais ils sont construits par des publics différents - le SPX penche vers les institutionnels et l'indice/0DTE, le SPY porte un flux retail et de couverture d'actions important - donc les deux carnets peuvent pondérer les strikes différemment et diverger en marge. Quand ils divergent, c'est une information, pas du bruit.
+Une précision de cadrage sur l'ensemble de ces éléments : le net GEX et le « carnet de gamma des dealers » sont des estimations *modélisées* - des magnitudes de gamma tirées de la chaîne publique, signées selon la convention traditionnelle calls positifs / puts négatifs. L'inventaire réel des dealers n'est pas directement observable à partir des données de la chaîne d'options ; considérez donc les deux carnets comme des modèles de positionnement plutôt que comme un registre de ce que les dealers détiennent réellement.
 
-Comme les deux chaînes portent sur le même indice, ces niveaux pointent en général au même endroit en termes de S&P. Mais elles sont construites par des publics différents - le SPX penche vers l'institutionnel et l'indice/0DTE, le SPY porte une part plus lourde d'investisseurs particuliers et de flux de couverture sur actions -, si bien que les deux livres peuvent pondérer les strikes différemment et s'écarter à la marge. Quand ils divergent, cela peut être une information plutôt qu'un bruit.
+Comme les deux chaînes portent sur le même indice, ces niveaux pointent en général au même endroit en termes de S&P. Mais elles sont construites par des publics différents - le SPX penche vers l'institutionnel et l'indice/0DTE, le SPY porte une part plus lourde d'investisseurs particuliers et de flux de couverture sur actions - si bien que les deux carnets peuvent pondérer les strikes différemment et s'écarter à la marge. Quand ils divergent, cela peut être une information plutôt qu'un bruit.
 
 ---
 
@@ -52,19 +50,19 @@ Le SPY se traite à environ un dixième de l'indice S&P 500, donc en première a
 Deux réserves empêchent cette correspondance d'être exacte :
 
 - **Dérive de suivi.** Le prix du SPY reflète les dividendes accumulés et de petites différences de suivi, donc le ratio n'est jamais un 10,000 parfait. Convertissez pour vous orienter, pas au centime près.
-- **Granularité des strikes.** En dollars bruts, le SPY liste des strikes plus fins ($1, parfois $0,50) que l'espacement de cinq points du SPX - mais appliquez l'échelle de ~10× : un dollar de SPY vaut dix points d'indice, de sorte que les strikes à $1 du SPY sont en réalité *plus grossiers* que les strikes de cinq points du SPX en termes d'indice, et ses strikes à $0,50 ne font que les égaler. En termes d'indice, le SPX résout le gamma au moins aussi finement que le SPY ; le véritable atout du SPY réside dans ses strikes à dollar rond qui attirent les pins et dans sa liquidité sur les actions, non dans une résolution d'indice plus fine.
+- **Granularité des strikes.** En dollars bruts, le SPY liste des strikes plus fins (1 $, parfois 0,50 $) que l'espacement de cinq points du SPX - mais appliquez l'échelle de ~10× : un dollar de SPY vaut dix points d'indice, de sorte que les strikes à 1 $ du SPY sont en réalité *plus grossiers* que les strikes de cinq points du SPX en termes d'indice, et ses strikes à 0,50 $ ne font que les égaler. En termes d'indice, le SPX résout le gamma au moins aussi finement que le SPY ; le véritable atout du SPY réside dans ses strikes à dollar rond, qui peuvent attirer le pinning, et dans sa liquidité sur les actions, non dans une résolution d'indice plus fine.
 
 ---
 
 ## Quel carnet pèse le plus ?
 
-Pour la *véritable* pression de couverture des dealers sur le S&P, le SPX est généralement la carte principale. Trois raisons :
+Pour la pression de couverture agrégée des dealers sur le S&P, le SPX est généralement la carte principale. Trois raisons :
 
-1. **Notionnel.** Environ 10 fois le delta en dollars par contrat signifie que les flux de couverture du SPX dominent le gamma au niveau de l'indice, celui qui déplace réellement l'indice cash et le /ES.
-2. **Profondeur 0DTE.** Le SPX liste une échéance chaque jour de bourse et constitue le marché d'options sur indice le plus profond qui soit ; le [positionnement des dealers](/education/0dte-dealer-positioning-explained) du jour même, qui pilote la volatilité intrajournalière, s'y manifeste en premier.
+1. **Notionnel.** Environ 10× le delta en dollars par contrat signifie que les flux de couverture du SPX tendent à dominer le gamma au niveau de l'indice, celui qui influence le plus l'indice cash et le /ES.
+2. **Profondeur 0DTE.** Le SPX liste une échéance chaque jour de bourse et constitue le marché d'options sur indice le plus profond qui soit ; le [positionnement des dealers](/education/0dte-dealer-positioning-explained) du jour même, qui peut piloter la volatilité intrajournalière, tend à s'y manifester en premier.
 3. **Mécanique plus propre.** Le règlement en espèces et l'exercice européen signifient l'absence de course à l'exercice anticipé qui viendrait distordre le carnet à l'approche de l'échéance.
 
-Le SPY mérite sa place en tant que couche de **granularité et de confirmation** : strikes plus fins, énorme liquidité sur les actions, et le flux retail et de hedgers qui produit le [pinning spécifique au SPY](/education/why-spy-pins-near-strikes). Et lorsque vous tradez le SPY lui-même, ce sont ses propres walls auxquels votre instrument réagira réellement.
+Le SPY mérite sa place en tant que couche de **granularité et de confirmation** : strikes plus fins, énorme liquidité sur les actions, et le flux des investisseurs particuliers et des hedgers qui peut produire le [pinning spécifique au SPY](/education/why-spy-pins-near-strikes). Et lorsque vous tradez le SPY lui-même, ses propres walls sont les niveaux auxquels votre instrument est le plus susceptible de réagir.
 
 ---
 
@@ -76,15 +74,15 @@ Faites correspondre la carte à l'instrument que vous tradez réellement :
 - **Actions SPY ou options SPY** → niveaux de gamma du SPY - les walls et le pin propres à votre instrument.
 - **QQQ** → niveaux QQQ (voir ci-dessous).
 
-Cherchez ensuite la **confluence**. Quand le call wall du SPX à 6000 s'aligne avec le call wall du SPY à 600, ce niveau partagé est plus solide que chacun pris isolément - deux carnets de dealers distincts s'appuyant sur le même prix. Quand ils *ne sont pas d'accord*, considérez les deux comme plus fragiles et laissez le prix vous indiquer quel carnet a le contrôle.
+Cherchez ensuite la **confluence**. Quand un niveau du SPX s'aligne sur le niveau converti du SPY, ZeroGEX traite cet accord comme une confluence contextuelle entre deux carnets modélisés distincts. C'est une heuristique maison, pas la preuve que le niveau partagé a un taux de réussite plus élevé. Quand ils ne s'accordent pas, conservez les deux comme des références distinctes plutôt que de supposer que l'un ou l'autre carnet contrôle le prix.
 
-> Le niveau basé sur les options le plus solide n'est pas le plus grand wall sur un seul graphique. C'est le niveau sur lequel le SPX et le SPY s'accordent.
+> Un niveau sur lequel le SPX et le SPY s'accordent peut compter davantage que le plus grand wall de l'un ou l'autre graphique pris isolément.
 
 ---
 
 ## QQQ et NDX : la même logique sur le Nasdaq
 
-Le Nasdaq-100 présente la même scission : **QQQ** est l'ETF, **NDX** est l'indice cash, et chacun porte son propre carnet de gamma à une échelle de prix différente. Si vous tradez le QQQ, lisez les [niveaux de gamma QQQ](/qqq-gamma-levels) ; si vous tradez le NDX ou le /NQ, le carnet de l'indice est votre référence. L'idée de confluence s'applique aussi ici - les walls du QQQ qui concordent avec le carnet NDX sont ceux qu'il vaut la peine de respecter.
+Le Nasdaq-100 présente la même scission : **QQQ** est l'ETF, **NDX** est l'indice cash, et chacun porte son propre carnet de gamma à une échelle de prix différente. Si vous tradez le QQQ, lisez les [niveaux de gamma QQQ](/qqq-gamma-levels) ; si vous tradez le NDX ou le /NQ, le carnet de l'indice est votre référence. La même comparaison peut apporter du contexte pour QQQ et NDX, sans garantir que la confluence améliore la fiabilité.
 
 ---
 
@@ -96,12 +94,12 @@ Les pages gratuites de niveaux de gamma de ZeroGEX publient les trois carnets c�
 - [Niveaux de gamma SPY](/spy-gamma-levels) - le carnet de l'ETF, strikes plus fins et détail du pinning.
 - [Niveaux de gamma QQQ](/qqq-gamma-levels) - la lecture du Nasdaq-100.
 
-Chaque page débute par le gamma flip, le call wall, le put wall, le max pain et le net dealer GEX de son propre ticker, puis affiche les deux autres pour recoupement. Pour comprendre la mécanique derrière ces niveaux, commencez par [Gamma Exposure (GEX) Explained](/education/gamma-exposure-explained), puis [Gamma Walls Explained](/education/gamma-walls-explained) et [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
+Chaque page débute par le gamma flip, le call wall, le put wall, le max pain et le net dealer GEX de son propre ticker, puis affiche les deux autres pour recoupement. Pour comprendre la mécanique derrière ces niveaux, commencez par [Gamma Exposure (GEX) expliqué](/education/gamma-exposure-explained), puis [Les gamma walls expliqués](/education/gamma-walls-explained) et [Qu'est-ce qu'un gamma flip ?](/education/how-to-read-a-gamma-flip)
 
 ---
 
 ## En résumé
 
-Le SPY et le SPX suivent un même indice à travers deux contrats et deux carnets de gamma des dealers distincts. Tradez les niveaux propres à votre instrument, utilisez le ratio de ~10× pour convertir entre eux, appuyez-vous sur le SPX comme carte principale au niveau de l'indice et sur le SPY pour le pinning sur les nombres ronds et la liquidité sur les actions - et accordez le plus grand respect aux niveaux sur lesquels les deux s'accordent.
+Le SPY et le SPX suivent un même indice à travers deux contrats et deux carnets de gamma des dealers distincts. Tradez les niveaux propres à votre instrument, utilisez le ratio de ~10× pour convertir entre eux, appuyez-vous sur le SPX comme la carte qui pèse le plus au niveau de l'indice et sur le SPY pour le pinning sur les nombres ronds et la liquidité sur les actions - et accordez un poids supplémentaire aux niveaux sur lesquels les deux s'accordent.
 
 *Il s'agit d'analyses dérivées à des fins éducatives, et non d'un conseil en investissement. Le trading d'options comporte des risques significatifs.*

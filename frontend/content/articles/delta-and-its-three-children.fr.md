@@ -1,8 +1,6 @@
 # Delta et ses trois enfants
-> **Note méthodologique.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. Qu’en gamma négatif le terme de pin d’EOD Pressure suive le mouvement récent est une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
 
-
-*Delta indique à un dealer combien d'actions détenir. Mais delta ne reste jamais immobile - et il ne peut se déplacer que de trois façons : avec le prix, avec le temps et avec la volatilité. Ces trois sensibilités sont gamma, charm et vanna. Chaque dollar de flux forcé du dealer est l'un des trois enfants de delta qui vient percevoir son dû.*
+*Delta indique à un dealer combien d'actions détenir. Mais delta ne reste jamais immobile - et ses trois principaux moteurs sont le prix, le temps et la volatilité. Ces trois sensibilités sont gamma, charm et vanna. L'essentiel du flux forcé des dealers qui apparaît sur le tape, c'est l'un des trois enfants de delta qui vient percevoir son dû.*
 
 ---
 
@@ -12,21 +10,21 @@ Delta est le chiffre le plus important d'une option et, en même temps, le moins
 
 Si delta était une constante, l'histoire s'arrêterait là. On couvrirait la position une fois pour toutes et on n'y toucherait plus jamais. Mais delta est une dérivée - le taux de variation de la valeur de l'option par rapport au spot - et les dérivées sont elles-mêmes des fonctions du monde. Le monde change, delta change. Le travail permanent du dealer, et toute la source de flux de dealer lisible, consiste à courir après delta pendant qu'il se déplace.
 
-La question qui compte vraiment n'est donc pas « qu'est-ce que delta » mais « qu'est-ce qui fait bouger delta ». Il y a exactement trois réponses.
+La question qui compte vraiment n'est donc pas « qu'est-ce que delta » mais « qu'est-ce qui fait bouger delta ». Trois moteurs font l'essentiel du travail.
 
 ---
 
 ## Les trois façons dont delta peut bouger
 
-Entre le moment où un dealer met en place une couverture et le moment où l'option expire, trois choses dans le monde peuvent changer, et chacune entraîne delta avec elle :
+Entre le moment où un dealer met en place une couverture et le moment où l'option expire, trois paramètres de marché bougent de façon plus ou moins continue, et chacun entraîne delta avec lui :
 
 1. **Le prix de l'action change.** La sensibilité de delta au spot est le **gamma** (∂Δ/∂S).
 2. **Le temps passe.** La sensibilité de delta au temps est le **charm** (∂Δ/∂t).
 3. **La volatilité implicite change.** La sensibilité de delta à la vol est le **vanna** (∂Δ/∂σ).
 
-Voilà toute la famille. Gamma, charm et vanna sont les trois dérivées premières de delta, une pour chaque variable susceptible de bouger sous un book couvert. Les traders les mémorisent comme des greeks distincts aux noms exotiques ; on les comprend mieux comme une seule idée - *comment delta se déplace* - répartie en trois selon *ce qui l'a fait bouger*.
+Voilà le cœur de la famille. Gamma, charm et vanna sont les dérivées premières de delta par rapport aux trois paramètres qui bougent le plus sous un book couvert. Les traders les mémorisent comme des greeks distincts aux noms exotiques ; on les comprend mieux comme une seule idée - *comment delta se déplace* - répartie en trois selon *ce qui l'a fait bouger*.
 
-C'est le modèle mental le plus clair pour le flux du dealer : un dealer ne couvre pas delta, il couvre la **variation** de delta. Et il n'existe précisément que trois canaux par lesquels cette variation peut arriver. Nommez le canal, et vous avez nommé le flux.
+Ce ne sont pas littéralement les seules choses qui déplacent delta. Les taux d'intérêt, les dividendes et les coûts d'emprunt, les changements de forme de la surface de volatilité, et le renouvellement du book lui-même - nouvelles transactions des clients, clôtures, exercices et assignations, positions compensatoires - font eux aussi bouger delta. Mais ces facteurs sont soit lents, soit faibles, soit ponctuels, alors que le prix, le temps et la vol bougent en continu toute la séance. C'est pourquoi ces trois-là génèrent l'essentiel du flux de couverture régulier et lisible, et pourquoi ce sont les enfants qui méritent d'être nommés.
 
 C'est le modèle mental le plus propre du flux des dealers : un dealer ne couvre pas le delta, il couvre la **variation** du delta. Et trois canaux portent l'essentiel de cette variation. Nommez le canal et vous avez nommé le flux.
 
@@ -44,7 +42,7 @@ Le gamma est l'enfant le plus bruyant. C'est aussi le seul qui a besoin d'un mou
 
 ## Charm : delta bouge parce que le temps a passé
 
-Le charm est la sensibilité de delta au passage du temps. Une option hors de la monnaie ne vaut quelque chose aujourd'hui que parce qu'il reste encore du temps pour que le spot l'atteigne ; à mesure que ce temps s'écoule, son delta s'effrite vers zéro. Le delta d'une option dans la monnaie, lui, se raffermit vers 1. Delta représente approximativement la probabilité d'expirer dans la monnaie, et à l'approche de l'échéance, cette probabilité doit se résoudre en un oui ou un non net. La dérive pendant cette résolution, *c'est* le charm.
+Le charm est la sensibilité de delta au passage du temps. Une option hors de la monnaie ne vaut quelque chose aujourd'hui que parce qu'il reste encore du temps pour que le spot l'atteigne ; à mesure que ce temps s'écoule, son delta s'effrite vers zéro. Le delta d'une option dans la monnaie, lui, se raffermit vers 1. Delta est étroitement lié - sans lui être exactement égal - à la probabilité de terminer dans la monnaie, et à l'approche de l'échéance, cette probabilité implicite doit se résoudre vers un oui ou un non net. La dérive pendant cette résolution, *c'est* le charm.
 
 Le côté déstabilisant : le charm impose une couverture même avec un spot parfaitement immobile. L'horloge est un trader. Un dealer peut observer le tape ne rien faire du tout pendant une heure et se retrouver quand même contraint de vendre des actions tout ce temps, parce que les deltas du book se dégradent silencieusement et que la couverture doit se réduire en conséquence. Sur une chaîne fortement 0DTE, ce flux se concentre violemment dans la dernière heure, lorsque le taux de dégradation atteint son maximum. [Charm : l'horloge est un trader](/education/charm-the-clock-is-a-trader) en propose le traitement complet.
 
@@ -54,7 +52,7 @@ Le côté déstabilisant : le charm impose une couverture même avec un spot par
 
 Le vanna est la sensibilité de delta à la volatilité implicite. Augmenter la peur intégrée dans les prix du marché épaissit la distribution des issues possibles, tirant les deltas hors de la monnaie vers le centre ; la diminuer resserre la distribution, les repoussant vers leur valeur intrinsèque de 0 ou 1. Un changement de vol reprice donc le delta de chaque option sans que le spot ne bouge d'un centime.
 
-Le vanna est l'enfant le plus discret et, dans le bon régime, le plus persistant. Après une frayeur qui ne se concrétise jamais - un événement où la vol implicite s'est envolée puis se dégonfle lentement pendant des jours une fois le risque passé - le delta du book du dealer glisse un peu plus bas chaque heure, et le rehedge devient une offre constante et mécanique. C'est le grind de compression de vol : des marchés qui montent sans nouvelles et sans volume. [Vanna : quand la peur s'estompe, les dealers achètent](/education/vanna-when-fear-fades) détaille le mécanisme.
+Le vanna mesure la sensibilité de delta à la volatilité implicite. Selon la convention d'inventaire modélisée, une baisse de l'IV peut créer une pression acheteuse sur le sous-jacent dans certaines configurations de la chaîne, mais le signe dépend de la détention, du type d'option, de la moneyness, de l'échéance, du skew et du mouvement de la surface. [Vanna : comment la baisse de la volatilité implicite peut modifier la couverture des dealers](/education/vanna-when-fear-fades) détaille ce mécanisme conditionnel.
 
 ---
 
@@ -64,14 +62,14 @@ Un raccourci tentant : calculer le flux de chaque greek séparément et les addi
 
 Le gamma lui-même change à mesure que le temps passe et que la vol évolue. Le charm que l'on a au spot d'aujourd'hui n'est pas le charm que l'on a après un mouvement de 2 %. Un scénario combinant un mouvement du spot, un après-midi de dégradation et une baisse de vol n'est pas la somme des trois effets calculés isolément - les termes croisés sont bien réels et, à l'approche de l'échéance, importants. Additionner les greeks revient à faire un développement de Taylor, et les développements de Taylor s'effondrent précisément là où se joue l'action : proche de la monnaie, proche de l'échéance, là où la surface se courbe le plus fortement.
 
-La façon honnête de calculer le flux forcé consiste à **repricer entièrement le book** dans le nouveau scénario, à relever le delta du dealer dans ce nouvel état, puis à en prendre la différence avec le delta actuel. Les greeks deviennent alors utiles pour l'**attribution** - indiquer quelle part de l'opération imposée relevait du gamma, du charm ou du vanna -, mais le total provient du repricing, pas de la sommation. C'est exactement ce que fait la courbe de repricing en direct [Forced Flow](/forced-flow) : elle déplace le spot sur une grille, reprice chaque contrat et lit directement la couverture imposée. La répartition gamma/charm/vanna est représentée en dessous sous forme de bandes d'attribution, afin de voir à la fois le total et quel enfant en est le moteur.
+La façon honnête de calculer le flux forcé consiste à **repricer entièrement le book** dans le nouveau scénario, à relever le delta du dealer dans ce nouvel état, puis à en prendre la différence avec le delta actuel. Les greeks deviennent alors utiles pour l'*attribution* - indiquer quelle part de l'opération imposée relevait du gamma, du charm ou du vanna -, mais le total provient du repricing, pas de la sommation. C'est exactement ce que fait la courbe de repricing en direct [Forced Flow](/forced-flow) : elle déplace le spot sur une grille, reprice chaque contrat et lit directement la couverture imposée. La répartition gamma/charm/vanna est représentée en dessous sous forme de bandes d'attribution, afin de voir à la fois le total et quel enfant en est le moteur.
 
 ---
 
 ## La version en une phrase
 
-Delta est un hedge ratio qui refuse de rester immobile. Il bouge avec le prix (gamma), avec le temps (charm) et avec la volatilité (vanna) - et rien d'autre. Chaque opération forcée d'un dealer sur le marché correspond à l'une de ces trois sensibilités qui tire le book hors de sa couverture et exige une opération sur l'action pour le rééquilibrer.
+Delta est un hedge ratio qui refuse de rester immobile. Il bouge avec le prix (gamma), avec le temps (charm) et avec la volatilité (vanna) - les trois paramètres qui bougent en continu et génèrent l'essentiel du flux. La plupart des opérations forcées des dealers sur le marché correspondent à l'une de ces trois sensibilités qui tire le book hors de sa couverture et exige une opération sur l'action pour l'y ramener, les taux, les dividendes et le renouvellement du book lui-même complétant le tableau à la marge.
 
 Apprenez le parent et les trois enfants, et le flux du dealer cesse d'être un mystère pour devenir un problème de comptabilité. Pour les fondations de toute cette idée, voir [Pourquoi les market makers sont contraints d'échanger des actions](/education/why-market-makers-trade-stock).
 
-Contenu à visée pédagogique uniquement - rien de ce qui précède ne constitue une recommandation d'investissement.
+Contenu éducatif uniquement - rien de ce qui précède ne constitue une recommandation de trading.

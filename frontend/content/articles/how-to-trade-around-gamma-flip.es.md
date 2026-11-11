@@ -1,14 +1,12 @@
 # Cómo operar en torno a los niveles de Gamma Flip
-> **Nota metodológica.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Que el término pin de EOD Pressure siga el movimiento reciente cuando la gamma es negativa es una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
 
-
-*El gamma flip es la línea de régimen más nítida en el análisis del posicionamiento de los dealers. Aquí te explicamos cómo operar en torno a él - qué cambia cuando el spot lo cruza, los tres tipos de setup que soporta cada régimen, y el flujo de trabajo para usar el flip como un cambio de playbook en lugar de una señal direccional.*
+*El gamma flip es una de las líneas de régimen individuales más claras del análisis del posicionamiento de los dealers. Aquí te explicamos cómo operar en torno a él - qué tiende a cambiar cuando el spot lo cruza, los tres tipos de setup que soporta cada régimen, y el flujo de trabajo para usar el flip como un cambio de playbook en lugar de una señal direccional.*
 
 ---
 
 ## El flip no es un nivel - es un cambio de playbook
 
-La mayoría de los traders minoristas que oyen hablar del "gamma flip" lo tratan como otra línea de soporte/resistencia. Comprar en el flip; vender en el flip; operar el rebote. Ese enfoque pasa por alto lo que realmente es el flip. El flip no es un nivel que el precio respeta - es una **frontera de régimen** que determina qué playbook está respaldando hoy el mecanismo de cobertura de los dealers.
+La mayoría de los traders minoristas que oyen hablar del "gamma flip" lo tratan como otra línea de soporte/resistencia. Comprar en el flip; vender en el flip; operar el rebote. Ese enfoque pasa por alto lo que realmente es el flip. El flip no es un nivel que el precio respeta - es una **frontera de régimen**, una lectura modelada de qué playbook es más probable que esté respaldando hoy el mecanismo de cobertura de los dealers.
 
 Por encima del flip, el reflejo modelado del dealer es desvanecer la fortaleza y comprar la debilidad. Los playbooks de reversión a la media tienen a su favor la cobertura modelada: los movimientos tienden a amortiguarse, pueden formarse pins y la volatilidad tiende a comprimirse.
 
@@ -16,7 +14,7 @@ Por debajo del flip, el reflejo modelado cambia de signo. Se supone que el libro
 
 Eso no es "soporte y resistencia en el flip". Son dos playbooks distintos para el mismo gráfico, dependiendo de en qué lado de un precio específico te encuentres. Operar bien en torno al flip significa cambiar de playbook en el cruce - no operar un nivel.
 
-Este artículo cubre el flujo de trabajo. Para la lectura más profunda sobre qué es el flip y cómo interpretarlo conceptualmente, ver [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip); para la mecánica subyacente, el [pilar de Gamma Exposure](/education/gamma-exposure-explained).
+Este artículo cubre el flujo de trabajo. Para la lectura más profunda sobre qué es el flip y cómo interpretarlo conceptualmente, ver [¿Qué es un gamma flip?](/education/how-to-read-a-gamma-flip); para la mecánica subyacente, el [pilar de Gamma Exposure](/education/gamma-exposure-explained).
 
 ---
 
@@ -25,18 +23,18 @@ Este artículo cubre el flujo de trabajo. Para la lectura más profunda sobre qu
 ### Por encima del flip (régimen long-gamma)
 
 **Setup tipo 1: Desvanecer los extremos de vuelta al imán.**
-El reflejo modelado del dealer tiende a atraer el precio hacia los strikes de gamma pesado. Vender en los empujes cerca del call wall y comprar en las caídas cerca del put wall puede tener soporte estructural cuando el flujo de cobertura modelado está de tu lado. Dimensiona la posición en pequeño; toma beneficios en el imán.
+El reflejo modelado del dealer tiende a atraer el precio hacia los strikes de gamma pesada. Vender en los empujes cerca del call wall y comprar en las caídas cerca del put wall puede tener soporte estructural cuando el flujo de cobertura modelado está de tu lado. Dimensiona la posición en pequeño; toma beneficios en el imán.
 
 **Setup tipo 2: Desvanecer breakouts fallidos.**
 Cuando SPX perfora por encima del call wall pero el Net GEX es positivo y se fortalece, la cobertura modelada se está oponiendo a la ruptura. Ese es el mecanismo, no las probabilidades: en nuestra medición, ni el régimen ni la trayectoria del Net GEX predijeron qué walls se romperían. El fade - corto sobre la ruptura, objetivo de reingreso al rango previo - es el trade canónico de long-gamma. La señal de Trap Detection existe específicamente para esta lectura; ver el [artículo combinado de EOD Pressure y Trap Detection](/education/eod-pressure-and-trap-detection).
 
 **Setup tipo 3: Venta de prima en torno al imán de gamma.**
-El comportamiento de pin en un régimen de gamma positivo tiende a comprimir la volatilidad realizada. Vender prima cercana al dinero contra el strike imán puede funcionar - aunque es un trade de riesgo definido, no un lock estructural. Dimensiona adecuadamente para el riesgo de cola.
+El comportamiento de pin en un régimen de gamma positiva tiende a comprimir la volatilidad realizada. Vender prima cercana al dinero contra el strike imán puede funcionar - aunque es un trade de riesgo definido, no un lock estructural. Dimensiona adecuadamente para el riesgo de cola.
 
 ### Por debajo del flip (régimen short-gamma)
 
 **Setup tipo 1: Breakouts de continuación.**
-En este régimen modelado, los dealers tienden a comprar fortaleza y vender debilidad - el reflejo extiende los movimientos. Comprar una ruptura limpia por encima de la resistencia (especialmente con el Net GEX claramente negativo) puede tener viento estructural de cola a favor. La señal Squeeze Setup puntúa exactamente para este tipo de setup comprimido y en extensión; ver [Squeeze Setup Signal Explained](/education/squeeze-setup-explained).
+En este régimen modelado, los dealers tienden a comprar fortaleza y vender debilidad - el reflejo extiende los movimientos. Comprar una ruptura limpia por encima de la resistencia (especialmente con el Net GEX claramente negativo) puede tener viento estructural de cola a favor. La señal Squeeze Setup puntúa exactamente para este tipo de setup comprimido y en extensión; ver [Señal Squeeze Setup explicada](/education/squeeze-setup-explained).
 
 **Setup tipo 2: No atrapar el cuchillo que cae.**
 El mismo reflejo que amplifica los rallies también amplifica las ventas masivas. Atrapar setups de "cuchillo que cae" en un régimen short-gamma profundo tiende a agravar las pérdidas, porque el mecanismo del dealer que habría producido el rebote en long-gamma está invertido. La tesis de comprar la caída pierde específicamente su soporte estructural por debajo del flip.
@@ -56,11 +54,11 @@ Antes de cualquier setup, consulta el gamma flip y el Net GEX. Anota el gamma ma
 
 ### Paso 2: Define un disparador de "cambio de régimen"
 
-Si el spot cruza el flip durante la sesión, tu playbook por defecto se invierte. Esto no es simbólico - es el mecanismo real invirtiéndose. Un trader que ha estado desvaneciendo rallies durante dos horas por encima del flip debería dejar de hacerlo en el momento en que el spot cruza por debajo; el mismo trade ya no tiene soporte estructural.
+Si el spot cruza el flip durante la sesión, tu playbook por defecto se invierte. Cruzar el flip modelado sugiere que la tendencia agregada de cobertura del modelo ha cambiado de signo - así que un trader que ha estado desvaneciendo rallies durante dos horas por encima del flip debería ser mucho más cauteloso en el momento en que el spot cruza por debajo, ya que ese trade puede haber dejado de tener el reflejo modelado a su favor. El comportamiento realizado sigue dependiendo del flujo, la liquidez, la volatilidad y los catalizadores.
 
 ### Paso 3: Observa la distancia, no solo el lado
 
-Un spot situado un 0,05% por encima del flip está estructuralmente disputado - ambos regímenes están parcialmente activos. Un spot situado un 0,4% por encima está firmemente en long-gamma. La distancia al flip forma parte de la lectura. La zona disputada (aproximadamente ±0,1% del flip) es el entorno de mayor ruido; reduce el tamaño de posición o mantente al margen.
+Un spot situado un 0,05% por encima del flip está estructuralmente disputado - las contribuciones modeladas positivas y negativas casi se compensan. Un spot situado un 0,4% por encima está firmemente en long-gamma. La distancia al flip forma parte de la lectura. La zona disputada (ZeroGEX la marca en aproximadamente ±0,1% del flip) es el entorno de mayor ruido; reduce el tamaño de posición o mantente al margen.
 
 ### Paso 4: Observa la migración del flip
 
@@ -68,18 +66,18 @@ El flip se mueve intradía a medida que el posicionamiento se rebalancea. Un fli
 
 ### Paso 5: Verifica de forma cruzada con la magnitud del Net GEX
 
-Un flip con $1.500 millones de Net GEX por encima es un régimen marcado. Un flip con $200 millones es débil. La magnitud importa tanto como el signo. Cuanto mayor es el libro del dealer, más se manifiesta el reflejo de régimen en el tape.
+Un flip con 1.500 millones de $ de Net GEX por encima es un régimen marcado; un flip con 200 millones de $ es uno débil. (El Net GEX es gamma modelada de los dealers según la convención tradicional call-positivo / put-negativo, no un inventario observado.) La magnitud importa tanto como el signo - cuanto mayor es el libro modelado, más tiende a manifestarse el reflejo de régimen en el tape.
 
 ---
 
 ## Cuando el flip está disputado
 
-El estado más peligroso es cuando el spot se sitúa *justo en* el flip. Los reflejos de ambos regímenes están parcialmente activos, ninguno domina, y el comportamiento es inestable. Los trades que funcionan por encima del flip no funcionan; los que funcionan por debajo tampoco funcionan. En la práctica:
+El estado más peligroso es cuando el spot se sitúa *justo en* el flip. La tendencia neta de la cobertura modelada es débil, y pequeños cambios en el spot o en los datos de entrada del modelo pueden cambiar su signo. Los trades que funcionan por encima del flip no funcionan; los que funcionan por debajo tampoco funcionan. En la práctica:
 
 - Reduce el tamaño de posición o mantente al margen.
 - No te comprometas con un único playbook de régimen.
 - Observa en qué lado del flip se asienta el precio - la respuesta te indica qué playbook ejecutar a continuación.
-- Sé especialmente cauteloso hacia el cierre, cuando los flujos de charm pueden empujar el spot a través del flip y consolidar un cambio de régimen.
+- Sé especialmente cauteloso hacia el cierre, cuando los flujos relacionados con el charm pueden empujar el spot a través del flip y desplazar el régimen modelado.
 
 Un flip disputado es una señal de incertidumbre de régimen. La respuesta correcta es reducir la exposición, no hacer un trade distinto.
 
@@ -90,19 +88,19 @@ Un flip disputado es una señal de incertidumbre de régimen. La respuesta corre
 SPX está en 5.810 en la apertura. ZeroGEX muestra:
 
 - **Gamma Flip:** 5.802 (el spot está +8 por encima)
-- **Net GEX:** +$1.200 millones
+- **Net GEX:** +1.200 millones de $
 - **Call Wall:** 5.820
 - **Put Wall:** 5.790
 
 Lectura inicial: régimen long-gamma, posicionamiento saludable, rango estructural 5.790-5.820. Playbook por defecto: desvanecer los extremos (vender en los empujes hacia 5.820, comprar las caídas hacia 5.790), evitar la zona media.
 
-Hacia las 13:00 ET, SPX ha resbalado a 5.806 y el flip ha derivado hacia arriba hasta 5.803 - los dos han convergido casi por completo. El Net GEX se ha reducido a +$300 millones. El régimen está disputado - el spot está apenas por encima del flip, la magnitud se está reduciendo, y el reflejo estructural se está debilitando.
+Hacia las 13:00 ET, SPX ha resbalado a 5.806 y el flip ha derivado hacia arriba hasta 5.803 - los dos han convergido casi por completo. El Net GEX se ha reducido a +300 millones de $. El régimen está disputado - el spot está apenas por encima del flip, la magnitud se está reduciendo, y el reflejo estructural se está debilitando.
 
 El playbook cambia. El setup de desvanecer el rally que estaba activo en la apertura ha perdido la mayor parte de su respaldo de cobertura, y una continuación al alza tendría la cobertura a su favor si el Net GEX se vuelve negativo. El tamaño de posición debería reducirse; el trade por defecto es no operar hasta que el régimen se resuelva.
 
-A las 14:30 ET, el Net GEX ha pasado a −$200 millones y SPX ha subido a 5.815. Este es ahora un régimen short-gamma modelado - se supone que el reflejo del dealer amplifica - así que, si el call wall en 5.820 cede, la cobertura se suma a la ruptura en lugar de oponerse a ella. En nuestra medición, el régimen no cambió la frecuencia con la que se rompieron los walls, así que 5.820 no tiene menos probabilidades de aguantar que en la apertura; lo que ha cambiado es el coste de equivocarse. Un fade fallido ahora puede irse más lejos, así que el trade de desvanecer el breakout pierde su colchón, y si el setup es correcto, la persecución del movimiento tiene la cobertura a su favor.
+A las 14:30 ET, el Net GEX ha pasado a −200 millones de $ y SPX ha subido a 5.815. Este es ahora un régimen short-gamma modelado - se supone que el reflejo del dealer amplifica - así que, si el call wall en 5.820 cede, la cobertura se suma a la ruptura en lugar de oponerse a ella. En nuestra medición, el régimen no cambió la frecuencia con la que se rompieron los walls, así que 5.820 no tiene menos probabilidades de aguantar que en la apertura; lo que ha cambiado es el coste de equivocarse. Un fade fallido ahora puede irse más lejos, así que el trade de desvanecer el breakout pierde su colchón, y si el setup es correcto, la persecución del movimiento tiene la cobertura a su favor.
 
-Mismo gráfico, tres playbooks distintos a lo largo de la sesión - impulsados enteramente por la variable de régimen.
+Mismo gráfico, tres playbooks distintos a lo largo de la sesión - impulsados en gran medida por la variable de régimen modelada.
 
 ---
 
@@ -121,8 +119,8 @@ Mismo gráfico, tres playbooks distintos a lo largo de la sesión - impulsados 
 
 La disciplina consiste en verificar el régimen antes de cada setup y volver a verificarlo en cada cruce del flip. El playbook que tiene viento estructural de cola a favor en un lado del flip es el playbook que resulta aplastado en el otro. La mayoría de los traders que pierden dinero "operando el flip" en realidad pierden dinero ejecutando el playbook equivocado para el régimen.
 
-Contenido solo con fines educativos - nada de lo anterior es una recomendación de trading.
+Solo contenido educativo - nada de lo anterior es una recomendación de trading.
 
 ---
 
-Si quieres ver el gamma flip de hoy con su distancia respecto al spot, la verificación del régimen y la magnitud del Net GEX - los tres números que deciden qué playbook está respaldando ahora mismo la fuerza estructural en el tape - [la vista gratuita de gamma-levels de ZeroGEX](/spx-gamma-levels) los muestra todos, con unos 15 minutos de retraso; los planes de pago los muestran [en tiempo real](/real-time-gex-0dte).
+Si quieres ver el gamma flip de hoy con su distancia respecto al spot, la verificación del régimen y la magnitud del Net GEX - los tres números que deciden qué playbook está respaldando ahora mismo la fuerza estructural en el tape - [la vista gratuita de niveles gamma de ZeroGEX](/spx-gamma-levels) los muestra todos, con unos 15 minutos de retraso; los planes de pago los muestran [en el dashboard de GEX 0DTE en tiempo real](/real-time-gex-0dte).

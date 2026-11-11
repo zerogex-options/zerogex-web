@@ -1,6 +1,4 @@
-# Qu'est-ce qu'un Call Wall ? Comment les Dealers Défendent le Haut du Marché
-> **Note méthodologique.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. Qu’en gamma négatif le terme de pin d’EOD Pressure suive le mouvement récent est une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
-
+# Qu'est-ce qu'un call wall ? Comment les dealers défendent le haut du marché en options
 
 *Le call wall est le strike où se concentre le gamma des dealers côté call - le niveau que les dealers ont tendance à défendre à la hausse. Voici ce qu'est un call wall, pourquoi il plafonne les rallyes, comment il migre, et pourquoi une cassure nette au-dessus signale souvent que le régime lui-même est en train de basculer.*
 
@@ -12,13 +10,13 @@ Un **call wall** est le strike au-dessus du spot qui porte la plus forte concent
 
 La signification du call wall, en une phrase : ce n'est ni un chiffre rond ni une ligne sur un graphique - c'est un positionnement réel, l'open interest pondéré par le gamma que porte chaque contrat. Le strike unique où ce gamma call est le plus dense au-dessus du prix actuel, c'est le call wall.
 
-Le [Put Wall](/education/what-is-a-put-wall) correspond à la plus grande magnitude de gamma put sous le spot, mais ce n'est pas un miroir mécanique : selon la convention, l'inventaire de puts à ce strike est modélisé comme un gamma négatif. Les deux walls sont des références structurelles dont le comportement dépend du profil complet et du flux. Cet article traite spécifiquement du call wall - ce qu'il est, pourquoi il agit comme une résistance, comment il se déplace, et quand une cassure au travers compte réellement. Pour la vue d'ensemble, associez-le à [Gamma Walls Explained](/education/gamma-walls-explained) et à l'[article pilier sur le Gamma Exposure](/education/gamma-exposure-explained).
+Le [Put Wall](/education/what-is-a-put-wall) correspond à la plus grande magnitude de gamma put sous le spot, mais ce n'est pas un miroir mécanique : selon la convention, l'inventaire de puts à ce strike est modélisé comme un gamma négatif. Les deux walls sont des références structurelles dont le comportement dépend du profil complet et du flux. Cet article traite spécifiquement du call wall - ce qu'il est, pourquoi il agit comme une résistance, comment il se déplace, et quand une cassure au travers compte réellement. Pour la vue d'ensemble, associez-le à [Les gamma walls expliqués](/education/gamma-walls-explained) et à l'[article pilier sur le Gamma Exposure](/education/gamma-exposure-explained).
 
 ---
 
 ## Pourquoi le call wall agit comme une résistance
 
-Le mécanisme, c'est la couverture des dealers. Dans un régime de **gamma positif** - spot au-dessus du [gamma flip](/education/how-to-read-a-gamma-flip) - les dealers sont nets longs en gamma, et les desks qui détiennent les calls lourds au strike du call wall sont longs sur ces calls (les clients les ont vendus en overwriting). Pour rester delta-neutres, ils doivent **vendre** le sous-jacent à mesure que le prix monte vers le strike, car une position long call voit son delta devenir de plus en plus positif à mesure que le marché grimpe.
+Le mécanisme, c'est la couverture des dealers. Dans un régime de **gamma positif** - spot au-dessus du [gamma flip](/education/how-to-read-a-gamma-flip) - le book agrégé des dealers est modélisé comme net long gamma, et selon la convention traditionnelle, les desks qui détiennent les calls lourds au strike du call wall sont longs de ces calls (les clients les ont vendus en overwriting). Pour rester delta-neutres, ils tendent à **vendre** le sous-jacent à mesure que le prix monte vers le strike, car une position long call voit son delta devenir de plus en plus positif à mesure que le marché grimpe.
 
 C'est cette vente qui peut créer la résistance. À mesure que le prix se rapproche d'un strike call dense, le réflexe de couverture tend à s'intensifier - un petit mouvement à la hausse peut appeler une vente de couverture relativement plus importante en sens inverse. Les envolées sont vendues, et l'avancée peut caler. Pas parce que le chiffre serait magique, mais parce que la couverture modélisée s'oppose au mouvement.
 
@@ -48,8 +46,8 @@ Aucun des deux n'est directionnel en soi, et le type d'option ne détermine pas 
 Le call wall est une lecture en direct qui se déplace au fil de la séance pour trois raisons :
 
 1. **Rééquilibrage de l'OI.** Un afflux de volume call sur un strike plus élevé peut déplacer la plus forte concentration vers le haut. Le wall est toujours le strike le plus dense *actuellement*, pas celui de ce matin.
-2. **Migration avec le prix.** À mesure que le prix teste le call wall, dealers et traders peuvent bâtir de l'OI call frais juste au-dessus, poussant ainsi le wall plus haut. Un wall qui *suit* le prix est structurellement différent d'un wall qui *tient*.
-3. **Décroissance liée à l'échéance.** Sur les chaînes fortement pondérées en 0DTE, les contrats qui ont bâti le wall peuvent expirer en milieu d'après-midi, amincissant le plafond.
+2. **Migration avec le prix.** À mesure que le prix teste le call wall, un volume call frais peut se concentrer juste au-dessus, poussant le wall modélisé plus haut. (L'open interest officiel est mis à jour pour la séance suivante ; il s'agit donc d'un positionnement intraday inféré, pas d'un OI vérifié.) Un wall qui *suit* le prix est structurellement différent d'un wall qui *tient*.
+3. **Revalorisation à l'approche de l'échéance.** Le gamma ATM peut augmenter tandis que le gamma nettement ITM ou OTM tend vers zéro, ce qui change le strike à OI inchangé qui arrive en tête du classement.
 
 La migration est en elle-même une information. Si le call wall continue de dériver vers le haut à mesure que le prix approche, le wall poursuit le prix - le strike que vous surveilliez n'est plus le plus lourd, donc le niveau défendu s'est déplacé. Elle ne constitue pas, à elle seule, le signe que le breakout va durer : selon nos mesures, le fait qu'un wall migre ou non avec le prix ne permettait pas de prédire s'il allait céder.
 
@@ -57,7 +55,7 @@ La migration est en elle-même une information. Si le call wall continue de dér
 
 ## Quand une cassure au-dessus du call wall compte
 
-Comme les dealers défendent le call wall en gamma positif, une cassure *décisive* au-dessus de celui-ci est l'un des événements structurels les plus significatifs du tape. Cela signifie généralement l'une de deux choses :
+Comme les dealers tendent à défendre le call wall en gamma positif, une cassure *décisive* au-dessus de celui-ci est l'un des événements structurels les plus significatifs du tape. Cela signifie généralement l'une de deux choses :
 
 - **Le wall était en migration**, et le prix a simplement suivi un plafond qui montait déjà - moins significatif, souvent une simple continuation de tendance.
 - **Le wall était statique et le prix l'a franchi quand même** - un signe que la couverture qui plafonnait le mouvement a été débordée, et fréquemment que le régime de gamma lui-même est en train de basculer. Une fois que le spot pousse au-dessus d'un call wall qui tenait et entre dans une zone de gamma plus mince, le réflexe des dealers peut s'inverser, passant de la vente des rallyes à leur poursuite - c'est ainsi qu'un tape figé devient un tape rapide.
@@ -68,7 +66,7 @@ La lecture, dans l'ordre : le wall tient-il ou poursuit-il le prix, et le Net GE
 
 ## Un exemple chiffré
 
-Supposons que SPX soit à 5 830 et que le carnet affiche :
+Supposons que SPX soit à 5 830 et que le book affiche :
 
 - **Call Wall :** 5 850 (+0,34 % par rapport au spot)
 - **Put Wall :** 5 790 (−0,69 % par rapport au spot)
@@ -89,8 +87,8 @@ ZeroGEX publie le call wall actuel - avec le put wall, le gamma flip, le max pa
 
 > Le call wall est un positionnement réel - le strike où la couverture des dealers est la plus concentrée côté hausse. La fréquence à laquelle il plafonne un rallye est un taux de base propre à l'indice et ne dépend pas du régime ; le régime détermine si la couverture s'oppose à une cassure ou l'alimente. Une cassure nette d'un wall qui *tenait* est souvent le premier signe que le régime bascule. Lisez d'abord le régime, puis le wall, puis la migration du wall.
 
-Contenu à visée uniquement éducative - rien de ce qui précède ne constitue une recommandation de trading.
+Contenu éducatif uniquement - rien de ce qui précède ne constitue une recommandation de trading.
 
 ---
 
-Vous voulez le voir en temps réel ? Consultez dès aujourd'hui les **call walls SPX / SPY / QQQ / NDX** sur ZeroGEX - les pages gratuites de niveaux gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels) tracent le call wall à côté du [put wall](/education/what-is-a-put-wall), du [gamma flip](/education/how-to-read-a-gamma-flip) et du Net GEX. Pour la lecture en direct pendant que le wall migre, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
+Vous voulez le voir en temps réel ? Consultez les **call walls SPX / SPY / QQQ / NDX** du jour sur ZeroGEX - les pages gratuites de niveaux gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels) tracent le call wall à côté du [put wall](/education/what-is-a-put-wall), du [gamma flip](/education/how-to-read-a-gamma-flip) et du Net GEX. Pour la lecture en direct pendant que le wall migre, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).

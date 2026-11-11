@@ -21,6 +21,10 @@
 //   {{spotgamma:essential:annual}}   "$891"
 //   {{bullflow:checked}}             "September 29, 2026"
 //
+// A translated page (zerogex-vs-bullflow.de.md, ...) carries the same tokens
+// and is filled in its own language: "1.188 $" and "29. September 2026" in
+// German, the way the translated articles write a dollar figure and a date.
+//
 // An unknown or malformed token throws, so a typo fails
 // tests/comparisonPrices.test.ts instead of reaching a reader as literal
 // braces. So does a token for a figure the competitor did not publish, such
@@ -34,6 +38,16 @@ import {
   isBillableTier,
   perMonthEquivalentUsd,
 } from './billingPlans.ts';
+import type { Locale } from './i18n/locales.ts';
+
+// The number and date format of each page language.
+const INTL_LOCALE: Record<Locale, string> = {
+  en: 'en-US',
+  it: 'it-IT',
+  de: 'de-DE',
+  es: 'es-ES',
+  fr: 'fr-FR',
+};
 
 export type ComparedCadence = 'monthly' | 'annual';
 
@@ -152,10 +166,10 @@ function isComparedCadence(value: string): value is ComparedCadence {
   return value === 'monthly' || value === 'annual';
 }
 
-// "2026-09-29" → "September 29, 2026". Read as a calendar date, never through
-// the server's time zone.
-export function formatCheckedDate(iso: string): string {
-  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', {
+// "2026-09-29" → "September 29, 2026" ("29. September 2026" in German). Read as
+// a calendar date, never through the server's time zone.
+export function formatCheckedDate(iso: string, locale: Locale = 'en'): string {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString(INTL_LOCALE[locale], {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
@@ -164,14 +178,27 @@ export function formatCheckedDate(iso: string): string {
 }
 
 // The date a competitor's figures were last checked, as the pages print it.
-export function competitorCheckedLabel(id: CompetitorId): string {
-  return formatCheckedDate(COMPETITOR_PRICES[id].checked);
+export function competitorCheckedLabel(id: CompetitorId, locale: Locale = 'en'): string {
+  return formatCheckedDate(COMPETITOR_PRICES[id].checked, locale);
+}
+
+// A dollar figure on a translated page: the amount in that language's number
+// format, then the sign ("1.188 $", "16,58 $"), as the translated articles
+// write one. Grouped from four digits on, like the prose around it.
+function formatTranslatedUsd(amount: number, fractionDigits: number, locale: Locale): string {
+  const number = amount.toLocaleString(INTL_LOCALE[locale], {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+    useGrouping: 'always',
+  });
+  return `${number}\u00a0$`;
 }
 
 // Whole dollars without cents ("$39", "$1,188"), anything else to the cent
 // ("$16.58", "$149.99"), the way the vendors quote them.
-function formatUsd(amount: number): string {
+function formatUsd(amount: number, locale: Locale): string {
   const rounded = Math.round(amount * 100) / 100;
+  if (locale !== 'en') return formatTranslatedUsd(rounded, Number.isInteger(rounded) ? 0 : 2, locale);
   return Number.isInteger(rounded)
     ? `$${rounded.toLocaleString('en-US')}`
     : `$${rounded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -184,10 +211,10 @@ function competitorAmount(plan: CompetitorPlanPrice, cadence: ComparedCadence, p
   return plan.annual !== undefined ? plan.annual / 12 : null;
 }
 
-function resolveToken(body: string): string | null {
+function resolveToken(body: string, locale: Locale): string | null {
   const parts = body.split(':');
   if (parts.length === 2 && parts[1] === 'checked' && isCompetitorId(parts[0])) {
-    return competitorCheckedLabel(parts[0]);
+    return competitorCheckedLabel(parts[0], locale);
   }
   if (parts.length < 3 || parts.length > 4) return null;
   const [vendor, plan, cadence, unit] = parts;
@@ -199,7 +226,7 @@ function resolveToken(body: string): string | null {
     if (unit !== undefined || !isCompetitorId(vendor)) return null;
     const plans: Record<string, CompetitorPlanPrice> = COMPETITOR_PRICES[vendor].plans;
     const amount = Object.hasOwn(plans, plan) ? plans[plan][cadence] : undefined;
-    return amount === undefined ? null : formatUsd(amount);
+    return amount === undefined ? null : formatUsd(amount, locale);
   }
 
   if (!isComparedCadence(cadence)) return null;
@@ -207,23 +234,25 @@ function resolveToken(body: string): string | null {
 
   if (vendor === 'zgx') {
     if (!isBillableTier(plan)) return null;
-    return perMonth
-      ? formatPerMonthUsd(perMonthEquivalentUsd({ tier: plan, cadence }))
-      : formatUsd(LIST_PRICE_USD[plan][cadence]);
+    if (!perMonth) return formatUsd(LIST_PRICE_USD[plan][cadence], locale);
+    // Always to the cent, as the pricing page prints a per-month figure.
+    const amount = perMonthEquivalentUsd({ tier: plan, cadence });
+    return locale === 'en' ? formatPerMonthUsd(amount) : formatTranslatedUsd(amount, 2, locale);
   }
   if (isCompetitorId(vendor)) {
     const plans: Record<string, CompetitorPlanPrice> = COMPETITOR_PRICES[vendor].plans;
     if (!Object.hasOwn(plans, plan)) return null;
     const amount = competitorAmount(plans[plan], cadence, perMonth);
-    return amount === null ? null : formatUsd(amount);
+    return amount === null ? null : formatUsd(amount, locale);
   }
   return null;
 }
 
-// Replaces every {{…}} in `content` with the price it names.
-export function fillComparisonPrices(content: string): string {
+// Replaces every {{…}} in `content` with the price it names, formatted for the
+// language the content is written in.
+export function fillComparisonPrices(content: string, locale: Locale = 'en'): string {
   return content.replace(/\{\{([^{}]*)\}\}/g, (token, body: string) => {
-    const value = resolveToken(body.trim());
+    const value = resolveToken(body.trim(), locale);
     if (value === null) throw new Error(`fillComparisonPrices: unknown price token ${token}`);
     return value;
   });

@@ -8,7 +8,7 @@ import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
 import { fillComparisonPrices } from '@/core/comparisonPrices';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
-import { loadLocalizedMarkdown } from '@/core/localizedContent';
+import { loadLocalizedMarkdownWithLocale } from '@/core/localizedContent';
 
 // A head-to-head with MenthorQ, the closest of the compared tools: the same
 // kind of levels, delivered into charting platforms. Every claim about
@@ -22,7 +22,8 @@ export const metadata = articleMetadata('zerogex-vs-menthorq');
 const articlePath = path.join(process.cwd(), 'content/articles/zerogex-vs-menthorq.md');
 
 export default async function ZeroGexVsMenthorQPage() {
-  const markdown = fillComparisonPrices(await loadLocalizedMarkdown(articlePath));
+  const { markdown: source, locale } = await loadLocalizedMarkdownWithLocale(articlePath);
+  const markdown = fillComparisonPrices(source, locale);
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">

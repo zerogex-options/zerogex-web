@@ -8,7 +8,7 @@ import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
 import { fillComparisonPrices } from '@/core/comparisonPrices';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
-import { loadLocalizedMarkdown } from '@/core/localizedContent';
+import { loadLocalizedMarkdownWithLocale } from '@/core/localizedContent';
 
 // A head-to-head with Quant Data, for readers who search its name or its
 // Interval Map. Every claim about Quant Data comes from its own site, help
@@ -21,7 +21,8 @@ export const metadata = articleMetadata('zerogex-vs-quant-data');
 const articlePath = path.join(process.cwd(), 'content/articles/zerogex-vs-quant-data.md');
 
 export default async function ZeroGexVsQuantDataPage() {
-  const markdown = fillComparisonPrices(await loadLocalizedMarkdown(articlePath));
+  const { markdown: source, locale } = await loadLocalizedMarkdownWithLocale(articlePath);
+  const markdown = fillComparisonPrices(source, locale);
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-6 sm:px-6 sm:py-12">
