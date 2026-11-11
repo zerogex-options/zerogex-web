@@ -9,7 +9,8 @@ iPad last week while out of the office, has since set it up on his laptop and
 "imported into my charts," and says it's "just what I was looking for." He
 signs "TW".
 
-> **Status:** draft, unsent. Reply in the same thread.
+> **Status:** sent Mon Nov 9 at 8:31 PM ET, with a shorter first line. Todd's
+> next email is in `2026-11-11-todd-flip-time-tradingview-trace.md`.
 
 His question:
 
