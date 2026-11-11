@@ -1,15 +1,17 @@
-# Todd: is the 10:25 flip Eastern, and is this like SpotGamma's TRACE? (2026-11-11)
+# Todd: is the 10:25 flip Eastern, and is this like SpotGamma's HIRO? (2026-11-11)
 
 American English, and each paragraph in the draft is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
 
 Todd Williams wrote again in the same thread on Wed Nov 11 at 11:00 AM ET,
 answering the reply sent Mon Nov 9 at 8:31 PM ET
-(`2026-11-10-todd-es-chart-and-squeeze-one-board.md`). He signs "TW".
+(`2026-11-10-todd-es-chart-and-squeeze-one-board.md`), then sent a short
+follow-up before we replied. He signs "TW".
 
-> **Status:** draft, unsent. Reply in the same thread.
+> **Status:** draft, unsent. One reply covers both emails: send it in the
+> same thread, as a reply to his follow-up.
 
-His message, trimmed:
+His first email, trimmed:
 
 > Side by side charts on iPad. Have fuselune open on zerogex. TradingView in
 > the right. Both 5 min charts. Have curser vertical line at 10:25 am. Right in
@@ -27,6 +29,13 @@ His message, trimmed:
 > several small moves - (2-4 pts) I like to test live and in ranges to gain
 > confidence.
 
+His follow-up:
+
+> Made a mistake - meant HIRO.
+>
+> However - been making small trades again using this and have caught 3
+> trades.
+
 His photo is an iPad in split screen. Left: Fuseline Radar on ES, scrolled to
 the Hedging Flow section, on 5-minute bars, Pressure rate, Significant flips
 only ticked. The badge reads "Flipped to buying pressure at 10:25" and the Last
@@ -39,9 +48,9 @@ under the cursor reads **"Wed Nov 11, 2026 09:25"**.
 - **Yes, Eastern.** The flip time is formatted with
   `timeZone: 'America/New_York'` whatever the device's zone (`safeTimeLabel` in
   `frontend/core/flowSeriesCharts.ts`), and the Radar's chart pins the same
-  zone (`GammaTerminalChart.tsx`). The Hedging Flow article already says it:
-  "All times on the page are Eastern, on a 24-hour clock." He's in Eastern
-  anyway.
+  zone (`GammaTerminalChart.tsx`). No component on the Radar page formats a
+  time in the device's zone. The Hedging Flow article already says it: "All
+  times on the page are Eastern, on a 24-hour clock." He's in Eastern anyway.
 - **His TradingView is on Chicago time, so its 09:25 candle is the 10:25 ET
   candle.** It can't be 9:25 Eastern. The Radar beside it already shows a
   10:25 flip, the newest TradingView candle is about six bars past the cursor
@@ -57,24 +66,21 @@ under the cursor reads **"Wed Nov 11, 2026 09:25"**.
   `src/analytics/hedging_flow.py`). So a flip on the 10:25 bar could show up
   before 10:30 and vanish again. Finished bars don't change: both thresholds
   use only bars before the flip. The article says the same ("a flip on it can
-  appear and disappear before that bar closes"). He trades 2-4 point moves
-  live, so this gets one sentence.
-- **TRACE vs HIRO.** Our comparison article calls TRACE "an S&P 500 heatmap"
-  and HIRO "its real-time hedging indicator"
-  (`frontend/content/articles/zerogex-vs-spotgamma.md`). Hedging Flow, an
-  estimate of hedging pressure from the day's option trades, is the HIRO-like
-  one. Our closest thing to TRACE is the GEX Heatmap, which the code calls the
-  "SpotGamma-style candle-overlay surface" (`frontend/app/gamma-exposure/page.tsx`).
-  It's Basic tier and serves ES (`/api/gex/` is projected in zerogex-oa
-  `src/api/futures_middleware.py`). The draft describes SpotGamma's tools only
-  in the words our article already uses. The one difference it adds is ours to
-  state: the heatmap's positions are open interest, which updates once a day
-  (the page's own tooltip says so).
-- **The Squeeze Setup note: thank him, don't grade the trades.** No comment on
-  the moves themselves (Terms section 5).
+  appear and disappear before that bar closes"). He's trading off it live, so
+  this gets one sentence.
+- **He meant HIRO, so agree and describe only ours.** Our comparison article
+  calls HIRO SpotGamma's "real-time hedging indicator"
+  (`frontend/content/articles/zerogex-vs-spotgamma.md`), and Hedging Flow is
+  ours. The draft confirms the comparison and says how ours is built, without
+  claiming how HIRO is built. The earlier TRACE paragraph and GEX Heatmap link
+  are gone, since he didn't mean TRACE.
+- **The trades: glad it's useful, no grading.** He says he "caught 3 trades"
+  with it. One warm line, no comment on the trades themselves (Terms section
+  5), and nothing that celebrates the results.
 - **No "it's an estimate" line.** The chart prints "Not observed dealer flow"
   right under it, and he's using it as one input among several. Repeating it
-  would read as a lecture.
+  would read as a lecture. The bar-close sentence is the caveat that changes
+  how he uses it live.
 
 ## Draft
 
@@ -88,9 +94,9 @@ It's your TradingView chart that's on a different clock. It's showing Chicago ti
 
 One detail for trading it live: 10:25 is when that five-minute bar started. A flip on a bar that's still filling can come and go, so this one was only final when the bar closed at 10:30.
 
-On SpotGamma: what you're looking at is closer to their HIRO than to TRACE. Hedging Flow is a live estimate of the hedging pressure created by the day's option trades, and HIRO is their real-time hedging indicator. TRACE is their heatmap, and the closest thing we have to it is the GEX Heatmap, which lays dealer gamma out by strike through the day: https://zerogex.io/gex-heatmap. The positions behind it update once a day, after the close, so a band that brightens during the session mostly means price is moving toward that strike.
+And yes, HIRO is the right comparison. Hedging Flow is our real-time hedging indicator: a live estimate of the hedging pressure created by the day's option trades. If you'd like to dig into how it works and how the flips are picked out, this covers it: https://zerogex.io/education/hedging-flow-explained
 
-Thanks for telling me how you used the Squeeze Setup yesterday. Hearing how members actually use these tools helps me decide what to build next. And if you'd like to dig into how the flips are picked out, this covers it: https://zerogex.io/education/hedging-flow-explained
+Glad to hear it's been useful, and thanks for telling me how you've been using it with the Squeeze Setup. Hearing how members actually use these tools helps me decide what to build next.
 
 Best,
 
@@ -118,6 +124,15 @@ zerogex.io
   aggressor-classified option trades, assuming the passive side of each print
   was a market maker, and that assumption is unvalidated (the note under the
   chart). The article above covers it.
-- **"Does the heatmap update positions during the day, like TRACE?"** Say what
-  ours does (open interest is fixed through the session; a band brightens as
-  price nears its strike) and don't describe how TRACE works.
+- **"Do you have anything like TRACE?"** The GEX Heatmap
+  (`https://zerogex.io/gex-heatmap`), dealer gamma by strike through the day,
+  which the code calls the "SpotGamma-style candle-overlay surface"
+  (`frontend/app/gamma-exposure/page.tsx`). It serves ES. Its positions are
+  open interest, fixed through the session, so a band brightens as price nears
+  its strike. Say what ours does; don't describe how TRACE works.
+
+## Worth knowing
+
+- **If you ever want to quote him,** quote what he says about the tool, not
+  his trade results. "Caught 3 trades" in marketing reads as a performance
+  claim.
