@@ -1,16 +1,16 @@
 # Wir kündigen unsere 3%-Zusage an Folds of Honor an
 
-*Ab heute spendet ZeroGEX 3% jedes Abonnements an Folds of Honor - zur Finanzierung von Bildungsstipendien für die Ehepartner und Kinder gefallener und behinderter US-Soldaten.*
+*Ab heute spendet ZeroGEX 3 % jedes Abonnements an Folds of Honor - zur Finanzierung von Bildungsstipendien für die Ehepartner und Kinder gefallener und behinderter US-Soldaten.*
 
 ---
 
 ## Was wir tun
 
-Beginnend mit dem aktuellen Abrechnungszeitraum werden **3% jedes ZeroGEX-Abonnements - monatlich oder jährlich, Founding oder Standard, Basic oder Pro - für [Folds of Honor](https://foldsofhonor.org) zurückgelegt**. Wir summieren die Beiträge jeden Monat und überweisen am Ende jedes Kalenderquartals eine einzige, konsolidierte Spende.
+Beginnend mit dem aktuellen Abrechnungszeitraum werden **3 % jedes ZeroGEX-Abonnements - monatlich oder jährlich, Founding oder Standard, Basic oder Pro - für [Folds of Honor](https://foldsofhonor.org) zurückgelegt**. Wir summieren die Beiträge jeden Monat und überweisen am Ende jedes Kalenderquartals eine einzige, konsolidierte Spende.
 
 Die Spende wird auf Basis des **Bruttoumsatzes aus Abonnements** berechnet, vor Zahlungsabwicklungsgebühren und vor Steuern. Wir haben uns für den Bruttoumsatz statt des Gewinns entschieden, weil er eindeutig ist, sich innerhalb weniger Minuten anhand unserer Stripe-Rechnungen prüfen lässt und keinen Anreiz schafft, die Spende durch kreative Buchführung zu verringern.
 
-Der Preis deines Abonnements ändert sich nicht. Die 3% werden aus dem Anteil von ZeroGEX am Umsatz entnommen, nicht aus deinem.
+Der Preis deines Abonnements ändert sich nicht. Die 3 % werden aus dem Anteil von ZeroGEX am Umsatz entnommen, nicht aus deinem.
 
 ---
 
@@ -21,9 +21,9 @@ Der Preis deines Abonnements ändert sich nicht. Die 3% werden aus dem Anteil vo
 Die Zahlen aus dem jüngsten Bericht der Organisation:
 
 - **Fast 73.000 vergebene Stipendien** seit 2007, in allen 50 Bundesstaaten
-- **Über 340 Mio. USD an ausgeschütteten Stipendiengeldern** bisher
-- **91% der Ausgaben fließen in die Stipendien-Mission**
-- **43% der betreuten Studierenden gehören Minderheiten an; 57% sind weiblich**
+- **Über 340 Mio. $ an ausgeschütteten Stipendiengeldern** bisher
+- **91 % der Ausgaben fließen in die Stipendien-Mission**
+- **43 % der betreuten Studierenden gehören Minderheiten an; 57 % sind weiblich**
 - **4-Sterne-Bewertung von Charity Navigator** und **Platin bei Candid** - die höchsten Transparenzstufen auf beiden Plattformen
 - Eingetragene 501(c)(3)-gemeinnützige Organisation
 
@@ -40,7 +40,7 @@ ZeroGEX ist ein **Folds of Honor Proud Supporter** - die Partner-Badge-Stufe f�
 Bei jedem bezahlten ZeroGEX-Abonnement passieren drei Dinge:
 
 1. **Bei jeder erfolgreichen Stripe-Rechnung** vermerkt das Abrechnungssystem die 3%-Zuweisung für diese Rechnung. Der Gesamtbetrag summiert sich in einem Zwischenstand, den wir am Quartalsende abrechnen.
-2. **Am Ende jedes Kalenderquartals** wird der konsolidierte Gesamtbetrag an Folds of Honor überwiesen. Wir bewahren die Quittung auf und veröffentlichen die Spende auf [/giving](/giving).
+2. **Am Ende jedes Kalenderquartals** wird der konsolidierte Gesamtbetrag an Folds of Honor überwiesen. Wir bewahren die Quittung auf und veröffentlichen die Spende auf der [Spendenseite](/giving).
 3. **Der laufende Gesamtbetrag auf /giving wird aktualisiert** - mit dem neuen Spendenbetrag, dem Datum und dem abgedeckten Quartal. Frühere Spenden bleiben gelistet, sodass die Historie auf einen Blick nachvollziehbar ist.
 
 Wenn du jemals genau sehen möchtest, wie viel ZeroGEX bisher gespendet hat, ist diese Seite die maßgebliche Quelle - keine Marketingaussage, sondern das tatsächliche Kontobuch.
@@ -49,7 +49,7 @@ Wenn du jemals genau sehen möchtest, wie viel ZeroGEX bisher gespendet hat, ist
 
 ## Was das beim Checkout bedeutet
 
-Wenn du ein Abonnement abschließt, siehst du auf der [Preisseite](/pricing) unter jeder Stufe eine neue Zeile: *Enthält 3% Spende an Folds of Honor*. Nach dem Checkout zeigt der Bestätigungsbildschirm den tatsächlichen Dollarbetrag, den dein Abonnement für den aktuellen Abrechnungszeitraum beigetragen hat - keine Prozentzahl, keine Marketingfloskel, die echte Zahl.
+Wenn du ein Abonnement abschließt, siehst du auf der [Preisseite](/pricing) unter jeder Stufe eine neue Zeile: *Beinhaltet eine Spende von 3 % an Folds of Honor*. Nach dem Checkout zeigt der Bestätigungsbildschirm den tatsächlichen Dollarbetrag, den dein Abonnement für den aktuellen Abrechnungszeitraum beigetragen hat - keine Prozentzahl, keine Marketingfloskel, die echte Zahl.
 
 Ein monatlicher Pro-Abonnent trägt beispielsweise jeden Monat 1,77 $ zu Folds of Honor bei. Ein jährliches Pro-Abonnement trägt im Voraus etwa 8,97 $ bei. Über die gesamte ZeroGEX-Abonnentenbasis summiert sich das schnell.
 
@@ -58,7 +58,7 @@ Ein monatlicher Pro-Abonnent trägt beispielsweise jeden Monat 1,77 $ zu Folds o
 ## Ein paar ehrliche Hinweise
 
 - **Die Spendenquittung gehört ZeroGEX, nicht dir.** Da die Spende von ZeroGEX und nicht von dir persönlich geleistet wird, wird die 501(c)(3)-Quittung auf ZeroGEX ausgestellt. Wenn du zusätzlich zu deinem Abonnement eine persönliche, steuerlich absetzbare Spende an Folds of Honor leisten möchtest, kannst du das direkt auf [foldsofhonor.org](https://foldsofhonor.org) tun.
-- **Die Zusage ist eine Untergrenze, keine Obergrenze.** 3% ist das, wozu wir uns verpflichten. Wir könnten diesen Wert im Laufe der Zeit anheben, insbesondere rund um den Memorial Day, den Veterans Day und andere Gedenkwochen - aber wir werden ihn nicht senken, ohne eine klare Erklärung auf der Spendenseite.
+- **Die Zusage ist eine Untergrenze, keine Obergrenze.** 3 % ist das, wozu wir uns verpflichten. Wir könnten diesen Wert im Laufe der Zeit anheben, insbesondere rund um den Memorial Day, den Veterans Day und andere Gedenkwochen - aber wir werden ihn nicht senken, ohne eine klare Erklärung auf der Spendenseite.
 - **Wir sind nicht Folds of Honor.** ZeroGEX ist ein Folds of Honor Proud Supporter - eine Partner-Badge-Stufe für Organisationen, die die Mission finanziell fördern - aber wir sind ein finanzieller Förderer, kein Sprecher. Fragen zu Stipendien, Anspruchsvoraussetzungen oder den Programmen der Organisation sollten direkt an Folds of Honor gerichtet werden.
 
 ---
@@ -67,9 +67,9 @@ Ein monatlicher Pro-Abonnent trägt beispielsweise jeden Monat 1,77 $ zu Folds o
 
 Wenn du ZeroGEX-Abonnent bist: danke. Jedes Abonnement auf der Plattform hilft, ein Stipendium für eine Militärfamilie zu finanzieren. Das ist die klarste Übereinstimmung, die wir zwischen dem, was wir bauen, und dem, woran wir glauben, finden konnten.
 
-Wenn du über ein Abonnement nachdenkst: Die [kostenlosen Gamma-Levels-Seiten](/spx-gamma-levels) (SPX, SPY, QQQ und NDX) - mit rund 15 Minuten Verzögerung - sind immer kostenlos, und ein bezahltes Abonnement hilft gleich doppelt - es schaltet das Echtzeit-Dashboard und die Pro-Funktionen frei und trägt 3% zu Folds of Honor bei.
+Wenn du über ein Abonnement nachdenkst: Die [kostenlosen Gamma-Levels-Seiten](/spx-gamma-levels) (SPX, SPY, QQQ und NDX) - mit rund 15 Minuten Verzögerung - sind immer kostenlos, und ein bezahltes Abonnement hilft gleich doppelt - es schaltet das Echtzeit-Dashboard und die Pro-Funktionen frei und trägt 3 % zu Folds of Honor bei.
 
-Alle Details, den laufenden Spenden-Gesamtstand und unsere FAQ findest du unter [/giving](/giving).
+Alle Details, den laufenden Spenden-Gesamtstand und unsere FAQ findest du auf der [Spendenseite](/giving).
 
 ---
 
