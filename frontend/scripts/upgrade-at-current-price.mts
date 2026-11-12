@@ -864,9 +864,7 @@ if (finalCents !== null && finalCents !== currentEffectiveCents) {
 }
 
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const recordSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -881,8 +879,34 @@ execSqlite(
          `${finalCents !== null ? `; next invoice ${formatCents(finalCents, currency)}` : ''}`,
      )}',
      '${escapeSqlLiteral(nowIso())}'
-   );`,
-);
+   );`;
+try {
+  execSqlite(dbPath, recordSql);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\nSubscription ${subscription.id} was CHANGED in Stripe (${repairOnly ? '' : `moved to ${cliArgs.tier} on ${targetPriceId}, `}${couponId ? `coupon ${couponId} applied` : 'discounts cleared'}), but not recorded here: ${message}`,
+  );
+  console.error(
+    `Unrecorded, the audit log has no trace of why ${user.email} pays ${formatCents(currentEffectiveCents, currency)} on ${cliArgs.tier}. Record it now:`,
+  );
+  // A quoted heredoc: the shell passes the SQL through untouched.
+  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // The next invoice was already checked above. Its verdict decides whether the
+  // member can be told yet, so this report gives it too.
+  if (finalCents === null) {
+    console.error('Then VERIFY THE AMOUNT BY HAND before telling the member: Stripe could not confirm the next invoice.');
+  } else if (finalCents !== currentEffectiveCents) {
+    console.error(
+      `Then fix the discount in Stripe before telling the member anything: the next invoice is ${formatCents(finalCents, currency)}, not ${formatCents(currentEffectiveCents, currency)}.`,
+    );
+  } else {
+    console.error(
+      `Then tell the member yourself (no email was sent): the next invoice was verified at ${formatCents(finalCents, currency)}.`,
+    );
+  }
+  process.exit(1);
+}
 
 if (finalCents === null) {
   console.error('\nCould not confirm the next invoice from Stripe. VERIFY THE AMOUNT BY HAND before telling the member.');
