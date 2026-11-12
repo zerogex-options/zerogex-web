@@ -243,6 +243,7 @@
     "test:flow-sessions": "node --experimental-strip-types --test tests/flowSessions.test.ts",
     "test:checkout-recovery": "node --experimental-strip-types --test tests/checkoutRecovery.test.ts",
     "test:verified-never-paid": "node --experimental-strip-types --test tests/verifiedNeverPaid.test.ts",
+    "test:scheduled-jobs-busy-db": "node --experimental-strip-types --test tests/scheduledJobsBusyDb.test.ts",
     "test:busy-database": "node --experimental-strip-types --test tests/busyDatabase.test.ts"
   },
   "dependencies": {
