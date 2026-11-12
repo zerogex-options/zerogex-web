@@ -406,6 +406,8 @@ execSqlite(
 // codes by (coupon, code) AND match metadata.partner_user_id, so we never
 // deactivate someone else's code that happens to share a string.
 let stripeResult = 'skipped';
+// The code switched off below, named if recording the revocation fails.
+let deactivatedPromoId: string | null = null;
 if (!cliArgs.keepStripePromo && user.partner_audience_promo_code && audienceCouponId) {
   try {
     const stripe = new Stripe(STRIPE_SECRET_KEY!);
@@ -418,6 +420,7 @@ if (!cliArgs.keepStripePromo && user.partner_audience_promo_code && audienceCoup
     const match = list.data.find((p) => p.metadata?.partner_user_id === user.id);
     if (match) {
       await stripe.promotionCodes.update(match.id, { active: false });
+      deactivatedPromoId = match.id;
       stripeResult = `deactivated ${match.id}`;
     } else if (list.data.length > 0) {
       // Code string exists but metadata doesn't match — safer to leave it.
@@ -440,10 +443,13 @@ if (!cliArgs.keepStripePromo && user.partner_audience_promo_code && audienceCoup
   stripeResult = 'skipped (no audience coupon configured)';
 }
 
+// The audit row is the only record here of the revocation and of what was
+// switched off in Stripe, and a re-run finds no partner state left to clear,
+// so it would never write the row. Stripe is already done at this point, so a
+// failure is reported with the statement to write it by hand, not left to
+// crash the run.
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const recordSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      'partner_revoked',
@@ -453,8 +459,22 @@ execSqlite(
      'revoke-partner-script',
      '${escapeSqlLiteral(`partner cleared; stripe_promo=${stripeResult}; tier=${tierWillDowngrade ? 'pro->public' : user.tier}`)}',
      '${escapeSqlLiteral(nowIso)}'
-   );`,
-);
+   );`;
+try {
+  execSqlite(dbPath, recordSql);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  const done = deactivatedPromoId
+    ? `Stripe promotion code ${deactivatedPromoId} (${user.partner_audience_promo_code} on coupon ${audienceCouponId}) was DEACTIVATED and ${user.email}'s partner state cleared`
+    : `${user.email}'s partner state was cleared (Stripe promo: ${stripeResult})`;
+  console.error(`\n${done}, but the revocation is not recorded in the audit log: ${message}`);
+  console.error(
+    'Unrecorded, nothing here shows the revocation, and a re-run finds nothing left to clear and writes nothing. Record it now:',
+  );
+  // A quoted heredoc: the shell passes the SQL through untouched.
+  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  process.exit(1);
+}
 
 console.log('\nRevoked.');
 console.log(`  Stripe promo:       ${stripeResult}`);
