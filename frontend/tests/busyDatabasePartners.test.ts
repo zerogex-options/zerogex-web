@@ -70,7 +70,7 @@ function promotionCodes(data: unknown[]) {
 // What the run(s) changed in Stripe, in order: the path and the decoded form body.
 function stripeWrites(f: Fixture): string[][] {
   return httpCalls(f)
-    .filter((c) => c.method === 'POST')
+    .filter((c) => c.method === 'POST' && new URL(c.url).host === 'api.stripe.com')
     .map((c) => [new URL(c.url).pathname, decodeURIComponent(c.body ?? '')]);
 }
 
@@ -161,33 +161,51 @@ test('grant-partner-pro: when the audit row fails after Stripe, it names the cod
 });
 
 // ---------------------------------------------------------------------------
-// revoke-partner: the partner state is cleared before Stripe, then the audit
-// row, the only record of the code it switched off, after.
+// revoke-partner: the partner state is cleared and, when that ends their Pro,
+// their API keys revoked before Stripe; then the audit row, the only record of
+// the code it switched off, after.
 // ---------------------------------------------------------------------------
 
-function revokeSetup(f: Fixture) {
-  const id = partner(f, 'leaving@example.com', 'LEAVING25');
+// The ZeroGEX backend's key service, answered by stub-http.mts.
+const KEY_ENV = {
+  ZEROGEX_API_BASE_URL: 'https://keys.zerogex.test',
+  ZEROGEX_API_TOKEN: 'test-bearer',
+  ZEROGEX_ADMIN_TOKEN: 'test-admin',
+};
+const KEY_ROUTES = { 'POST keys.zerogex.test/api/admin/api-keys/revoke-all': { revoked: 1 } };
+
+// Whose keys the run(s) revoked, in order: one entry per revoke-all call.
+function keyRevocations(f: Fixture): string[] {
+  return httpCalls(f)
+    .filter((c) => new URL(c.url).pathname === '/api/admin/api-keys/revoke-all')
+    .map((c) => (JSON.parse(c.body ?? '{}') as { user_id: string }).user_id);
+}
+
+function revokeSetup(f: Fixture, columns: Record<string, string | null> = {}) {
+  const id = partner(f, 'leaving@example.com', 'LEAVING25', columns);
   const code = promotionCode('promo_leaving', 'LEAVING25', coupon(AUDIENCE_COUPON, 25), id);
   const opts: RunOptions = {
-    env: STRIPE_ENV,
+    env: { ...STRIPE_ENV, ...KEY_ENV },
     routes: {
       'GET api.stripe.com/v1/promotion_codes': promotionCodes([code]),
       'POST api.stripe.com/v1/promotion_codes/promo_leaving': { ...code, active: false },
+      ...KEY_ROUTES,
     },
   };
   return { id, opts, args: ['--email', 'leaving@example.com', '--yes'] };
 }
 
 const switchedOffLeaving = [['/v1/promotion_codes/promo_leaving', 'active=false']];
-const leavingRecord = 'partner cleared; stripe_promo=deactivated promo_leaving; tier=pro->public';
+const leavingRecord = 'partner cleared; stripe_promo=deactivated promo_leaving; tier=pro->public; api_keys=revoked 1';
 
-test('revoke-partner: a busy database waits, so the code is switched off and the revocation recorded once', { skip: sqlite3Missing }, async (t) => {
+test('revoke-partner: a busy database waits, so the code is switched off, the API keys revoked and the revocation recorded once', { skip: sqlite3Missing }, async (t) => {
   const f = fixture(t, 'revoke-partner');
   const { id, opts, args } = revokeSetup(f);
 
   const first = await runWhileLocked(f, 'revoke-partner.mts', args, opts);
   assert.equal(first.status, 0, first.stderr + first.stdout);
   assert.match(first.stdout, /^ {2}Stripe promo: +deactivated promo_leaving$/m);
+  assert.match(first.stdout, /^ {2}API keys: +revoked 1$/m);
   assert.equal(column(f, id, 'partner_tier'), null);
   assert.equal(column(f, id, 'partner_audience_promo_code'), null);
   assert.equal(column(f, id, 'tier'), 'public', 'no paid subscription, so Pro ends with the partnership');
@@ -199,6 +217,7 @@ test('revoke-partner: a busy database waits, so the code is switched off and the
   assert.equal(second.status, 0, second.stderr + second.stdout);
   assert.match(second.stdout, /has no partner state to clear\. Nothing to do\.$/m);
   assert.deepEqual(stripeWrites(f), switchedOffLeaving, 'switched off once');
+  assert.deepEqual(keyRevocations(f), ['leaving@example.com'], 'keys revoked once');
   assert.equal(auditCount(f, 'partner_revoked', id), 1);
 });
 
@@ -213,6 +232,7 @@ test('revoke-partner: when the audit row fails after Stripe, it names the code i
   assert.match(result.stderr, /partner state cleared, but the revocation is not recorded in the audit log: .*write blocked by the test/);
   assert.match(result.stderr, /Record it now:$/m);
   assert.deepEqual(stripeWrites(f), switchedOffLeaving, 'switched off in Stripe');
+  assert.deepEqual(keyRevocations(f), ['leaving@example.com'], 'keys revoked before the record step, so none is left working');
   assert.equal(auditCount(f, 'partner_revoked', id), 0, 'nothing recorded');
 
   unblockWrites(f);
@@ -221,6 +241,62 @@ test('revoke-partner: when the audit row fails after Stripe, it names the code i
   const fix = runPrinted(command);
   assert.equal(fix.status, 0, fix.stderr);
   assert.deepEqual(auditMessages(f, 'partner_revoked', id), [leavingRecord], 'recorded by the printed command');
+});
+
+test('revoke-partner: with key administration not configured, the downgrade stands, the run fails, and the retry it prints revokes the keys', { skip: sqlite3Missing }, (t) => {
+  const f = fixture(t, 'revoke-partner-keys-unconfigured');
+  const { id, opts, args } = revokeSetup(f);
+  const unconfigured: RunOptions = { ...opts, env: STRIPE_ENV };
+
+  // The dry run says so before anything changes.
+  const preview = run(f, 'revoke-partner.mts', ['--email', 'leaving@example.com', '--dry-run'], unconfigured);
+  assert.equal(preview.status, 0, preview.stderr + preview.stdout);
+  assert.match(preview.stdout, /^ {2}- revoke all of their API keys: NOT POSSIBLE, key administration is not configured /m);
+
+  const result = run(f, 'revoke-partner.mts', args, unconfigured);
+  assert.equal(result.status, 3, result.stderr + result.stdout);
+  assert.equal(column(f, id, 'tier'), 'public', 'the downgrade stands');
+  assert.equal(column(f, id, 'partner_tier'), null);
+  assert.match(result.stdout, /^ {2}API keys: +NOT revoked \(key administration is not configured\)$/m);
+  assert.match(result.stderr, /leaving@example\.com's API keys were NOT revoked: key administration is not configured\./);
+  assert.match(result.stderr, /^ {2}make partner-grant-revoke-backfill YES=1$/m);
+  assert.deepEqual(keyRevocations(f), [], 'the key service was not called');
+  assert.deepEqual(auditMessages(f, 'partner_revoked', id), [
+    'partner cleared; stripe_promo=deactivated promo_leaving; tier=pro->public; api_keys=NOT revoked (key administration is not configured)',
+  ]);
+
+  // The retry it printed (make partner-grant-revoke-backfill YES=1), once key
+  // administration is configured: it finds them by their partner_revoked row.
+  const retry = run(f, 'expire-partner-grants.mjs', ['--backfill-revocations', '--yes'], { env: KEY_ENV, routes: KEY_ROUTES });
+  assert.equal(retry.status, 0, retry.stderr + retry.stdout);
+  assert.deepEqual(keyRevocations(f), ['leaving@example.com'], 'revoked by the retry');
+});
+
+test('revoke-partner: when the key service fails, the downgrade still stands and the run fails with the retry', { skip: sqlite3Missing }, (t) => {
+  const f = fixture(t, 'revoke-partner-keys-down');
+  const { id, opts, args } = revokeSetup(f);
+  // Configured, but nothing listens there.
+  const down: RunOptions = { ...opts, env: { ...opts.env, ZEROGEX_API_BASE_URL: 'http://127.0.0.1:9' } };
+
+  const result = run(f, 'revoke-partner.mts', args, down);
+  assert.equal(result.status, 3, result.stderr + result.stdout);
+  assert.equal(column(f, id, 'tier'), 'public', 'the downgrade stands');
+  assert.deepEqual(stripeWrites(f), switchedOffLeaving, 'the rest of the wind-down still ran');
+  assert.match(result.stderr, /API keys were NOT revoked: the key service failed \(Could not reach the key service: /);
+  assert.match(result.stderr, /^ {2}make partner-grant-revoke-backfill YES=1$/m);
+  const [record] = auditMessages(f, 'partner_revoked', id);
+  assert.match(record, /; tier=pro->public; api_keys=NOT revoked \(Could not reach the key service: [^)]+\)$/);
+});
+
+test('revoke-partner: a partner who pays for Pro keeps Pro and their API keys', { skip: sqlite3Missing }, (t) => {
+  const f = fixture(t, 'revoke-partner-paying');
+  const { id, opts, args } = revokeSetup(f, { stripe_subscription_id: 'sub_paying', subscription_status: 'active' });
+
+  const result = run(f, 'revoke-partner.mts', args, opts);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.equal(column(f, id, 'partner_tier'), null, 'no longer a partner');
+  assert.equal(column(f, id, 'tier'), 'pro', 'the webhook owns a paying member');
+  assert.deepEqual(keyRevocations(f), [], 'their keys are left alone');
 });
 
 // ---------------------------------------------------------------------------

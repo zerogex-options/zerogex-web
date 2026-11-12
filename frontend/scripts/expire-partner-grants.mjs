@@ -13,6 +13,9 @@
 // keeps authenticating after the grant ends, because the backend does not
 // re-derive tier per request. --backfill-revocations sweeps partners already
 // downgraded before this was wired in, and retries any revocation that failed.
+// It also covers partners wound down by scripts/revoke-partner.mts (found by
+// their partner_revoked audit row): that script downgrades too, revoked no keys
+// before it was wired in, and sends its own failed revocations here to retry.
 //
 // partner_tier='creator' STAYS SET on downgrade — the partner can still
 // refer audience members and accrue commissions; they just no longer get
@@ -66,13 +69,15 @@ Options:
   -y, --yes        Apply the downgrade (and revoke keys).
       --backfill-revocations
                    Do NOT downgrade anyone. Instead, revoke keys for partners
-                   this script has ALREADY downgraded (a partner_grant_expired
-                   audit row) whose tier is still not key-eligible. Use it once
-                   to clean up downgrades made before revocation was wired in,
-                   and to retry a run where the key service was unreachable —
-                   those partners no longer match the downgrade query, so
-                   re-running without this flag will not retry them. Combine
-                   with --dry-run to list, or --yes to apply.
+                   ALREADY taken off the program, by this script (a
+                   partner_grant_expired audit row) or by revoke-partner.mts (a
+                   partner_revoked row), whose tier is still not key-eligible.
+                   Use it to clean up downgrades made before revocation was
+                   wired in, and to retry a run of either script where the key
+                   service was unreachable or not configured. Those partners no
+                   longer match the downgrade query, and revoke-partner finds
+                   nothing left to clear, so re-running either one will not
+                   retry them. Combine with --dry-run to list, or --yes to apply.
   -h, --help       Show this help.
 
 Requires the sqlite3 CLI. Set AUTH_DB_PATH (env or frontend/.env.local) to
@@ -183,7 +188,7 @@ for (const key of ['ZEROGEX_API_BASE_URL', 'ZEROGEX_API_TOKEN', 'ZEROGEX_API_KEY
 const { isApiKeyAdminConfigured, revokeAllApiKeys, revokeApiKeysIfTierDropped } = await import(
   '../core/apiKeyAdmin.ts'
 );
-const { isApiKeyEligibleTier } = await import('../core/auth.ts');
+const { isApiKeyEligibleTier, normalizeTier } = await import('../core/auth.ts');
 const keyAdminReady = isApiKeyAdminConfigured();
 
 // Never throws: a key-service failure must not unwind or abort the tier change,
@@ -240,24 +245,27 @@ if (!userCols.has('partner_pro_grant_expires_at')) {
 const nowIso = new Date().toISOString();
 
 if (cliArgs.backfillRevocations) {
-  // Partners this script already downgraded, identified by the audit row it
-  // writes, whose tier is STILL not key-eligible. Anyone who later started a
-  // paid Pro subscription is excluded by that second condition — their keys are
-  // legitimately theirs again.
+  // Partners already taken off the program, identified by the audit row each
+  // script writes (this one's partner_grant_expired, revoke-partner.mts's
+  // partner_revoked), whose tier is STILL not key-eligible. Anyone who later
+  // started a paid Pro subscription, or a partner revoke-partner left on Pro
+  // because they pay, is excluded by that second condition: their keys are
+  // legitimately theirs. normalizeTier first, so a legacy tier id that means
+  // Pro ('elite') is not taken for a lapsed one.
   const rows = querySqlite(
     dbPath,
     `SELECT DISTINCT u.id, u.email, u.tier
        FROM users u
        JOIN audit_events a ON a.user_id = u.id
-      WHERE a.type = 'partner_grant_expired'
+      WHERE a.type IN ('partner_grant_expired', 'partner_revoked')
       ORDER BY u.email;`,
   );
-  const stale = rows.filter((r) => !isApiKeyEligibleTier(r.tier));
+  const stale = rows.filter((r) => !isApiKeyEligibleTier(normalizeTier(r.tier)));
 
   console.log(`Auth DB:   ${dbPath}`);
   console.log(`Key admin: ${keyAdminReady ? 'configured' : 'NOT CONFIGURED'}`);
   console.log(
-    `Downgraded by this script: ${rows.length}; still not key-eligible: ${stale.length}`,
+    `Partners whose grant expired or who were revoked: ${rows.length}; still not key-eligible: ${stale.length}`,
   );
   for (const r of stale) console.log(`  - ${r.email}  tier=${r.tier}`);
 

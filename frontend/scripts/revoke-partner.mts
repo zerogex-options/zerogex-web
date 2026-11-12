@@ -38,6 +38,23 @@
 //     under a fresh promotion_code. Pass --keep-stripe-promo to skip this
 //     step (e.g. you'll handle Stripe manually).
 //
+// API keys:
+//   - When the tier drops 'pro' -> 'public', every API key the partner holds
+//     is revoked, right after the tier change commits and before the Stripe
+//     step. Every other way out of Pro does the same (the Stripe webhook,
+//     core/serverAuth.ts, expire-partner-grants.mjs): the backend does not
+//     re-derive tier per request, so a key minted during the grant keeps
+//     authenticating until it is revoked. A paying partner keeps Pro and keeps
+//     their keys.
+//   - A key-service failure never undoes the downgrade. The run says so, the
+//     audit row records it, and the script exits 3. Re-running this script
+//     does not retry it (the partner state is already gone, so it finds
+//     nothing to do); `make partner-grant-revoke-backfill YES=1` does, because
+//     it finds every partner by their `partner_revoked` row.
+//   - Needs ZEROGEX_API_TOKEN (or the legacy ZEROGEX_API_KEY) and
+//     ZEROGEX_ADMIN_TOKEN, and ZEROGEX_API_BASE_URL when the backend is not on
+//     http://127.0.0.1:8000, in env or frontend/.env.local.
+//
 // Audit:
 //   - One `partner_revoked` row in audit_events for traceability.
 //
@@ -112,6 +129,12 @@ deactivates the Stripe promotion_code, downgrades tier 'pro' -> 'public'
 if and only if the user has no active paying subscription, and keeps the
 referral_code + commission ledger so any already-accrued payouts survive.
 
+A downgrade also REVOKES the partner's API keys, as every other way out of
+Pro does: the backend does not re-check tier per request, so a key minted on
+Pro keeps working until it is revoked. If the keys can't be revoked (the key
+service is down, or not configured), the downgrade still stands and the run
+exits 3 with the command that retries it.
+
 Options:
   -e, --email <email>          Target partner's account email. Required.
       --keep-stripe-promo      Skip the Stripe promotion_code deactivation
@@ -124,7 +147,10 @@ Options:
 Idempotent: re-running on an already-revoked user exits cleanly with
 "nothing to do" rather than scrambling state.
 
-Requires sqlite3 CLI and STRIPE_SECRET_KEY in env or frontend/.env.local.`);
+Requires sqlite3 CLI and STRIPE_SECRET_KEY in env or frontend/.env.local.
+Revoking keys also needs ZEROGEX_API_TOKEN (or the legacy ZEROGEX_API_KEY)
+and ZEROGEX_ADMIN_TOKEN there, plus ZEROGEX_API_BASE_URL if the backend is
+not on http://127.0.0.1:8000.`);
 }
 
 function ensureSqlite3Cli() {
@@ -219,6 +245,45 @@ const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 function envOrLocal(key: string): string | undefined {
   return process.env[key] || envLocal[key] || undefined;
+}
+
+// core/apiKeyAdmin.ts reads its credentials from process.env only, and this
+// script keeps .env.local in its own map. Seed the keys it needs BEFORE the
+// dynamic import: the module captures ZEROGEX_API_BASE_URL at load time, and a
+// static import would be hoisted ahead of this loop. (Same approach as
+// scripts/expire-partner-grants.mjs.)
+for (const key of ['ZEROGEX_API_BASE_URL', 'ZEROGEX_API_TOKEN', 'ZEROGEX_API_KEY', 'ZEROGEX_ADMIN_TOKEN']) {
+  if (!process.env[key] && envLocal[key]) process.env[key] = envLocal[key];
+}
+const { isApiKeyAdminConfigured, revokeAllApiKeys } = await import('../core/apiKeyAdmin.ts');
+const keyAdminReady = isApiKeyAdminConfigured();
+
+type KeyRevocation =
+  | { status: 'revoked'; revoked: number }
+  | { status: 'unconfigured' }
+  | { status: 'failed'; error: string };
+
+// Never throws: it runs after the downgrade has committed, and a key-service
+// failure must neither unwind that nor stop the rest of the wind-down. The end
+// of the run reports a key left live and exits non-zero.
+async function revokeKeys(email: string): Promise<KeyRevocation> {
+  if (!keyAdminReady) return { status: 'unconfigured' };
+  try {
+    return { status: 'revoked', revoked: await revokeAllApiKeys(email) };
+  } catch (err) {
+    // One line, so it reads cleanly in the audit row and the printed record SQL.
+    const message = err instanceof Error ? err.message : String(err);
+    return { status: 'failed', error: message.replace(/\s+/g, ' ').trim() };
+  }
+}
+
+// How the outcome reads in the summary and in the partner_revoked audit row.
+function describeKeyRevocation(result: KeyRevocation): string {
+  if (result.status === 'revoked') {
+    return result.revoked === 0 ? 'none were active' : `revoked ${result.revoked}`;
+  }
+  if (result.status === 'unconfigured') return 'NOT revoked (key administration is not configured)';
+  return `NOT revoked (${result.error})`;
 }
 
 const dbPath =
@@ -356,8 +421,16 @@ if (user.partner_commission_window_months !== DEFAULT_WINDOW_MONTHS) {
 }
 if (tierWillDowngrade) {
   planned.push(`tier 'pro' -> 'public'   (no active Stripe sub)`);
+  planned.push(
+    keyAdminReady
+      ? `revoke all of their API keys (they leave Pro), right after the tier change commits`
+      : `revoke all of their API keys: NOT POSSIBLE, key administration is not configured ` +
+          `(ZEROGEX_API_TOKEN / ZEROGEX_ADMIN_TOKEN). A --yes run would still downgrade them, ` +
+          `leave any key they hold working, and exit non-zero`,
+  );
 } else if (user.tier === 'pro' && isActivelyPaying) {
   planned.push(`tier kept at 'pro' (active Stripe sub — webhook owns this)`);
+  planned.push(`KEEP API keys (still on Pro)`);
 }
 planned.push(`KEEP referral_code (referrals ledger references it as join key)`);
 planned.push(`KEEP partner_commissions ledger rows (accrued financial records)`);
@@ -401,6 +474,17 @@ execSqlite(
   dbPath,
   `UPDATE users SET ${setClauses.join(', ')} WHERE id = '${escapeSqlLiteral(user.id)}';`,
 );
+
+// Revoke the API keys now that the downgrade has committed, and before Stripe
+// and the audit row: the downgrade stands whatever the key service does, and a
+// step after this that stops the run (an unwritable audit row) can't leave a
+// key working behind it. A paying partner keeps Pro, so keeps their keys.
+const keyRevocation = tierWillDowngrade ? await revokeKeys(user.email) : null;
+// Set when a key may still work: the run says so and exits non-zero. Re-running
+// this script finds no partner state left and does nothing, so the retry is the
+// backfill, which finds the partner by the partner_revoked row written below.
+const keysLeftLive = keyRevocation && keyRevocation.status !== 'revoked' ? keyRevocation : null;
+const RETRY_KEYS_COMMAND = 'make partner-grant-revoke-backfill YES=1';
 
 // Stripe-side deactivation. Defensive lookup: filter the active promo
 // codes by (coupon, code) AND match metadata.partner_user_id, so we never
@@ -457,7 +541,7 @@ const recordSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, e
      NULL,
      '${escapeSqlLiteral(user.email)}',
      'revoke-partner-script',
-     '${escapeSqlLiteral(`partner cleared; stripe_promo=${stripeResult}; tier=${tierWillDowngrade ? 'pro->public' : user.tier}`)}',
+     '${escapeSqlLiteral(`partner cleared; stripe_promo=${stripeResult}; tier=${tierWillDowngrade ? 'pro->public' : user.tier}${keyRevocation ? `; api_keys=${describeKeyRevocation(keyRevocation)}` : ''}`)}',
      '${escapeSqlLiteral(nowIso)}'
    );`;
 try {
@@ -474,6 +558,13 @@ try {
   // A quoted heredoc, so the shell passes the SQL through untouched, and
   // -bail, so a statement that fails stops the rest and nothing is half-written.
   console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  if (keysLeftLive) {
+    // The retry finds the partner by the row above, so it has to come second.
+    console.error(
+      `\nTheir API keys were ${describeKeyRevocation(keysLeftLive)} either, so any key they hold still works.`,
+    );
+    console.error(`Once the row above is recorded and that is fixed, revoke them with: ${RETRY_KEYS_COMMAND}`);
+  }
   process.exit(1);
 }
 
@@ -481,6 +572,9 @@ console.log('\nRevoked.');
 console.log(`  Stripe promo:       ${stripeResult}`);
 if (tierWillDowngrade) {
   console.log(`  Tier:               pro -> public`);
+}
+if (keyRevocation) {
+  console.log(`  API keys:           ${describeKeyRevocation(keyRevocation)}`);
 }
 console.log(
   `  Kept (historical):  referral_code, partner_commissions ledger rows (accrued payouts)`,
@@ -493,3 +587,20 @@ console.log(
   'will accrue for this user. Accrued-but-unpaid ledger rows remain payable per the original',
 );
 console.log('deal — review and mark paid (or reversed) through the Phase 4 payout flow.');
+
+if (keysLeftLive) {
+  const [why, fix] =
+    keysLeftLive.status === 'unconfigured'
+      ? [
+          'key administration is not configured',
+          'Set ZEROGEX_API_TOKEN (or ZEROGEX_API_KEY) and ZEROGEX_ADMIN_TOKEN in frontend/.env.local, then run:',
+        ]
+      : [`the key service failed (${keysLeftLive.error})`, 'Once the key service is reachable, run:'];
+  console.error(`\nWARNING: ${user.email}'s API keys were NOT revoked: ${why}.`);
+  console.error('The downgrade to public stands, but any API key they made while on Pro still works.');
+  console.error("Re-running revoke-partner won't retry this, because their partner state is already cleared.");
+  console.error(fix);
+  console.error(`  ${RETRY_KEYS_COMMAND}`);
+  // 3, as in expire-partner-grants.mjs: the wind-down is done, the keys are not.
+  process.exit(3);
+}

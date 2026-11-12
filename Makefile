@@ -86,9 +86,9 @@ help:
 	@echo "  make checkout-recovery - Send the one-shot abandoned-checkout recovery nudge to users who started Stripe Checkout but never subscribed (promo copy quotes the live Basic/Pro rates from Stripe). Skips anyone unsubscribed from marketing (counted every run, named on DRY_RUN=1); each email carries a one-click unsubscribe. Fired by the checkout-recovery systemd timer. DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample, PREVIEW_FOUNDING=1 for the founding variant, LAG_HOURS/LOOKBACK_HOURS override the window"
 	@echo "  make founding-final-call - Send the one-shot founding final-call urgency email to founding-eligible non-redeemers before the lock-in deadline (quotes live founding rates from Stripe; no-op once the deadline passes). DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample"
 	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] [X_HANDLE=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code, optionally sets the X handle (DRY_RUN=1 to preview, YES=1 to apply)"
-	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
+	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub AND revokes their API keys when it does. Keeps referral_code + accrued commission ledger. Needs ZEROGEX_API_TOKEN + ZEROGEX_ADMIN_TOKEN for the keys; exits non-zero if they could not be revoked (retry: make partner-grant-revoke-backfill YES=1). (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make move-partner-promo PROMO_CODE=<code> [COUPON_ID=...] - Move a Creator Partner's typed code (e.g. PCB25) onto the current audience coupon, keeping the code: switches off the old Stripe promotion code, creates the same code on the new coupon with the partner metadata. Use after STRIPE_COUPON_PARTNER_AUDIENCE changes. Leaves the Pro grant and commission terms alone. EMAIL= instead of PROMO_CODE= also works (DRY_RUN=1 to preview, YES=1 to apply)"
-	@echo "  make partner-grant-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for partners whose Pro grant already expired but whose keys were never deprovisioned, and retry any revocation that failed mid-sweep. Skips partners who have since started paying for Pro"
+	@echo "  make partner-grant-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for partners taken off the program (Pro grant expired, or make revoke-partner) whose keys were never deprovisioned, and retry any revocation either one failed to make. Skips partners who are on Pro now (paying for it)"
 	@echo "  make partner-grant-expiry - Sweep expired Creator Partner Pro grants and downgrade to public (DRY_RUN=1 to preview, YES=1 to apply). Driven daily by systemd timer; this target is the same thing the timer fires."
 	@echo "  make partners [EMAIL=<partner>] [SIGNUPS=1] - Roster of every Creator Partner: X handle, referral + promo codes, signups and how many pay, commission rate/window, Pro-grant expiry, activation date, disclosure URL. SIGNUPS=1 (or EMAIL=) lists each partner's signups: who, when, where they stand now, what they've paid and the commission on it. The 'who are my partners' view."
 	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
@@ -1514,6 +1514,12 @@ comp-member:
 # Pass KEEP_STRIPE_PROMO=1 to skip the Stripe deactivation (e.g. you'll
 # handle it manually). Idempotent: re-runs on an already-revoked user
 # exit cleanly with "nothing to do".
+#
+# A downgrade also revokes the partner's API keys (the backend does not
+# re-check tier, so a key made on Pro works until revoked). That needs
+# ZEROGEX_API_TOKEN + ZEROGEX_ADMIN_TOKEN in frontend/.env.local. If the keys
+# can't be revoked, the downgrade still stands and the run exits 3; a re-run
+# finds nothing left to clear, so retry with partner-grant-revoke-backfill.
 # Usage:
 #   make revoke-partner EMAIL=creator@example.com DRY_RUN=1
 #   make revoke-partner EMAIL=creator@example.com YES=1
@@ -1550,16 +1556,18 @@ move-partner-promo:
 partner-grant-expiry:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-partner-grants.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
-# Revoke API keys for partners the expiry sweep ALREADY downgraded but whose
-# keys were never deprovisioned — nothing revoked before the revocation wiring
-# landed, so every partner it demoted kept a working key. Also the retry path
-# when the key service was unreachable during a sweep: those partners no longer
-# match the downgrade query, so a plain re-run will not pick them up.
+# Revoke API keys for partners the expiry sweep or revoke-partner ALREADY
+# downgraded but whose keys were never deprovisioned — neither revoked anything
+# before its revocation wiring landed, so every partner they demoted kept a
+# working key. Also the retry path when the key service was unreachable or not
+# configured during either one: those partners no longer match the downgrade
+# query, and revoke-partner finds nothing left to clear, so a plain re-run of
+# either will not pick them up.
 #
-# Selects users with a partner_grant_expired audit row whose CURRENT tier is
-# still not API-key-eligible, so a partner who has since started paying for Pro
-# is left alone. Exits non-zero if any revocation fails, so re-running is safe
-# and visible.
+# Selects users with a partner_grant_expired or partner_revoked audit row whose
+# CURRENT tier is still not API-key-eligible, so a partner who is on Pro now
+# (paying for it) is left alone. Exits non-zero if any revocation fails, so
+# re-running is safe and visible.
 # Usage:
 #   make partner-grant-revoke-backfill DRY_RUN=1
 #   make partner-grant-revoke-backfill YES=1
