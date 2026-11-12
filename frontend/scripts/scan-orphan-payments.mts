@@ -171,6 +171,14 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+// The live site writes to this same database whenever a member is active, and
+// the sqlite3 CLI's default busy timeout is zero, so a write that lands while
+// the site holds the lock fails on the spot with "database is locked (5)"
+// instead of waiting the few milliseconds the site needs. `.timeout` makes the
+// CLI wait, as the site does (core/db.ts). Passed via -cmd so it applies before
+// the SQL and adds nothing to the -json output.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
 /**
  * A write against the same sqlite3 CLI the reads go through.
  *
@@ -181,7 +189,9 @@ function escapeSqlLiteral(value: string): string {
  */
 function execSqlite(dbPath: string, sql: string): void {
   try {
-    execFileSync('sqlite3', [dbPath, sql], { stdio: ['ignore', 'ignore', 'pipe'] });
+    execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, dbPath, sql], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
   } catch (err) {
     const stderr = (err as { stderr?: Buffer | string }).stderr;
     const message =
@@ -193,7 +203,7 @@ function execSqlite(dbPath: string, sql: string): void {
 function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): T[] {
   let output: string;
   try {
-    output = execFileSync('sqlite3', ['-json', dbPath, sql], {
+    output = execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', dbPath, sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });

@@ -242,7 +242,8 @@
     "test:churn-series": "node --experimental-strip-types --test tests/churnSeries.test.ts",
     "test:flow-sessions": "node --experimental-strip-types --test tests/flowSessions.test.ts",
     "test:checkout-recovery": "node --experimental-strip-types --test tests/checkoutRecovery.test.ts",
-    "test:verified-never-paid": "node --experimental-strip-types --test tests/verifiedNeverPaid.test.ts"
+    "test:verified-never-paid": "node --experimental-strip-types --test tests/verifiedNeverPaid.test.ts",
+    "test:scheduled-jobs-busy-db": "node --experimental-strip-types --test tests/scheduledJobsBusyDb.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

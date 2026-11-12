@@ -1801,7 +1801,7 @@ backup-auth:
 	snap="$(AUTH_BACKUP_DIR)/auth-$$ts.db"; \
 	archive="$$snap.gz"; \
 	echo "Backing up $$db ..."; \
-	sqlite3 "$$db" ".backup '$$snap'"; \
+	sqlite3 -cmd ".timeout 15000" "$$db" ".backup '$$snap'"; \
 	if ! sqlite3 "$$snap" 'PRAGMA integrity_check;' | head -1 | grep -q '^ok$$'; then \
 		echo "ERROR: integrity_check failed on snapshot; not keeping it."; rm -f "$$snap"; exit 1; \
 	fi; \

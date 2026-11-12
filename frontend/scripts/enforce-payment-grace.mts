@@ -171,10 +171,17 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+// These reads never wait on the site's writes, but around a site restart SQLite
+// briefly locks the file while it tidies up its journal, and the sqlite3 CLI's
+// default busy timeout is zero, so a read at that moment fails on the spot.
+// `.timeout` makes it wait, as the site does (core/db.ts). Passed via -cmd so it
+// applies before the SQL and adds nothing to the -json output.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
 function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): T[] {
   let output: string;
   try {
-    output = execFileSync('sqlite3', ['-readonly', '-json', dbPath, sql], {
+    output = execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-readonly', '-json', dbPath, sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
