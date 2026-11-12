@@ -441,10 +441,22 @@ if (!customerId) {
     metadata: { user_id: user.id },
   });
   customerId = customer.id;
-  execSqlite(
-    dbPath,
-    `UPDATE users SET stripe_customer_id = '${escapeSqlLiteral(customerId)}', updated_at = '${escapeSqlLiteral(nowIso())}' WHERE id = '${escapeSqlLiteral(user.id)}';`,
-  );
+  // Nothing is minted until this lands: a checkout on a customer the row does
+  // not name would not map back to the member.
+  const linkSql = `UPDATE users SET stripe_customer_id = '${escapeSqlLiteral(customerId)}', updated_at = '${escapeSqlLiteral(nowIso())}' WHERE id = '${escapeSqlLiteral(user.id)}';`;
+  try {
+    execSqlite(dbPath, linkSql);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`\nStripe customer ${customerId} was CREATED for ${user.email}, but not recorded here: ${message}`);
+    console.error(
+      'Unrecorded, the member is not linked to it: a re-run would create a second customer, and a checkout on this one would not map back to the member, so no link was minted. Record it now:',
+    );
+    // A quoted heredoc: the shell passes the SQL through untouched.
+    console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${linkSql}\nCOMMIT;\nSQL`);
+    console.error(`Then re-run the same command to mint the link(s); it will reuse ${customerId}.`);
+    process.exit(1);
+  }
   console.log(`\nCreated Stripe customer ${customerId} and persisted to user row.`);
 }
 
@@ -507,9 +519,7 @@ if (minted.length === 0) {
 
 // Audit trail: one row recording the mint so re-runs are traceable.
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const auditSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -519,8 +529,20 @@ execSqlite(
      'manual-script',
      '${escapeSqlLiteral(`Minted founding activation link(s): ${minted.join(', ')}; trialEnd=${trialEndUnix ? new Date(trialEndUnix * 1000).toISOString() : 'none'}`)}',
      '${escapeSqlLiteral(nowIso())}'
-   );`,
-);
+   );`;
+try {
+  execSqlite(dbPath, auditSql);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(`\nThe link(s) above were MINTED in Stripe (${minted.join(', ')}), but not recorded here: ${message}`);
+  console.error(
+    "Unrecorded, the member's history here will not show that these links were minted. Record it now:",
+  );
+  // A quoted heredoc: the shell passes the SQL through untouched.
+  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${auditSql}\nCOMMIT;\nSQL`);
+  console.error('The links work either way (valid ~24h): send the member whichever plan(s) apply.');
+  process.exit(1);
+}
 
 console.log(
   `\nDone. ${minted.length} link(s) minted (valid ~24h; re-run to refresh if they lapse). Send the member whichever plan(s) apply — the webhook grants the tier, emails the founding welcome, and schedules the lifetime 25% coupon once they complete checkout.`,
