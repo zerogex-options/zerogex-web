@@ -153,6 +153,15 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
   );
 }
 
+// ── Founder card switch ───────────────────────────────────────────────────────
+// The "I'm Michael, and I built ZeroGEX." card near the top of the page is
+// hidden for now (November 2026). To bring it back, change false to true and
+// deploy. Nothing else was taken out: the card's copy is still in
+// Client.i18n.ts, page.tsx still finds the photo in public/, and the footer,
+// homepage hero and article bylines still link to /about#founder. While the
+// card is off, those links open this page at the top.
+const SHOW_FOUNDER_CARD = false;
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AboutPage({ founderPhoto = null }: { founderPhoto?: string | null }) {
   const t = usePageT(dict);
@@ -267,58 +276,61 @@ export default function AboutPage({ founderPhoto = null }: { founderPhoto?: stri
       {/* ── Founder Intro ────────────────────────────────────────────────────── */}
       {/* Who builds it, then what it is. The footer and the homepage hero both
           link to /about#founder, so the id sits on the card itself and the
-          scroll margin keeps it clear of the fixed LandingHeader. */}
+          scroll margin keeps it clear of the fixed LandingHeader. The card is
+          switched off for now; see SHOW_FOUNDER_CARD above. */}
       <section style={{ padding: '40px 32px 0', maxWidth: 880, margin: '0 auto', display: 'grid', gap: 16 }}>
-        <div
-          id="founder"
-          className="zg-panel"
-          style={{
-            padding: 'clamp(28px, 4vw, 44px)',
-            position: 'relative',
-            overflow: 'hidden',
-            scrollMarginTop: 88,
-          }}
-        >
+        {SHOW_FOUNDER_CARD && (
           <div
+            id="founder"
+            className="zg-panel"
             style={{
-              position: 'absolute',
-              top: 0, left: 0, bottom: 0,
-              width: 3,
-              background: C.green,
+              padding: 'clamp(28px, 4vw, 44px)',
+              position: 'relative',
+              overflow: 'hidden',
+              scrollMarginTop: 88,
             }}
-          />
-          {/* The photo column only exists once page.tsx finds a photo file;
-              without one the card is text only. Beside the text from sm up,
-              above it on phones. */}
-          <div className={founderPhoto ? 'grid items-center gap-5 sm:grid-cols-[auto_1fr] sm:gap-8' : undefined}>
-            {founderPhoto && (
-              <Image
-                src={founderPhoto}
-                alt={t('founderPhotoAlt')}
-                width={120}
-                height={120}
-                className="h-20 w-20 sm:h-[120px] sm:w-[120px]"
-                style={{
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  objectPosition: 'center 25%',
-                  border: `2px solid color-mix(in srgb, ${C.green} 45%, transparent)`,
-                }}
-              />
-            )}
-            <div>
-              <div className="zg-eyebrow" style={{ color: C.green, marginBottom: 18, fontSize: 12 }}>
-                {t('founderEyebrow')}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: 0, left: 0, bottom: 0,
+                width: 3,
+                background: C.green,
+              }}
+            />
+            {/* The photo column only exists once page.tsx finds a photo file;
+                without one the card is text only. Beside the text from sm up,
+                above it on phones. */}
+            <div className={founderPhoto ? 'grid items-center gap-5 sm:grid-cols-[auto_1fr] sm:gap-8' : undefined}>
+              {founderPhoto && (
+                <Image
+                  src={founderPhoto}
+                  alt={t('founderPhotoAlt')}
+                  width={120}
+                  height={120}
+                  className="h-20 w-20 sm:h-[120px] sm:w-[120px]"
+                  style={{
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    objectPosition: 'center 25%',
+                    border: `2px solid color-mix(in srgb, ${C.green} 45%, transparent)`,
+                  }}
+                />
+              )}
+              <div>
+                <div className="zg-eyebrow" style={{ color: C.green, marginBottom: 18, fontSize: 12 }}>
+                  {t('founderEyebrow')}
+                </div>
+                <p style={{ fontSize: 'clamp(19px, 2.4vw, 24px)', fontWeight: 700, color: text, lineHeight: 1.4, margin: '0 0 14px' }}>
+                  {t('founderLine')}
+                </p>
+                <p style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', color: subtext, lineHeight: 1.7, margin: 0, textWrap: 'pretty' }}>
+                  {t('founderBody')}
+                </p>
               </div>
-              <p style={{ fontSize: 'clamp(19px, 2.4vw, 24px)', fontWeight: 700, color: text, lineHeight: 1.4, margin: '0 0 14px' }}>
-                {t('founderLine')}
-              </p>
-              <p style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', color: subtext, lineHeight: 1.7, margin: 0, textWrap: 'pretty' }}>
-                {t('founderBody')}
-              </p>
             </div>
           </div>
-        </div>
+        )}
         <div
           className="zg-panel"
           style={{
