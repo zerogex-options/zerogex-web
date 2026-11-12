@@ -538,8 +538,9 @@ if (!user.stripe_subscription_id) {
       console.error(
         "Unrecorded, the member's history here never shows the void: a re-run finds nothing open and records nothing. Record it now:",
       );
-      // A quoted heredoc: the shell passes the SQL through untouched.
-      console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${strayRecordSql}\nCOMMIT;\nSQL`);
+      // A quoted heredoc, so the shell passes the SQL through untouched, and
+      // -bail, so a statement that fails stops the rest and nothing is half-written.
+      console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${strayRecordSql}\nCOMMIT;\nSQL`);
       process.exit(1);
     }
   }
@@ -705,8 +706,9 @@ try {
   console.error(
     `Unrecorded, the site can still show ${user.email} on ${normalizeTier(user.tier)} with a subscription that has ended, and nothing here says this script ended it. Record it now:`,
   );
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
   // Step 5 is left for later, as before. Unmirrored, the row still shows the
   // old tier, so Stripe's cancel webhook sees the drop and revokes a Pro key
   // itself; the re-run below catches any key left.

@@ -476,8 +476,9 @@ if (!cliArgs.finalize && stripe && subscription && subIsLive) {
     console.error(
       `Unrecorded, the site can still show ${user.email} on ${user.tier ?? 'public'} with a subscription that has ended, and if Stripe's cancel webhook lands first it sees a drop to public and revokes any API key they hold. Record it now:`,
     );
-    // A quoted heredoc: the shell passes the SQL through untouched.
-    console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${mirrorSql}\nCOMMIT;\nSQL`);
+    // A quoted heredoc, so the shell passes the SQL through untouched, and
+    // -bail, so a statement that fails stops the rest and nothing is half-written.
+    console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${mirrorSql}\nCOMMIT;\nSQL`);
     console.error('\nNot done:');
     if (cliArgs.refund && refundTarget) {
       console.error(
@@ -571,8 +572,9 @@ try {
     console.error(`\nThe comp to ${cliArgs.tier} is not recorded here: ${message}`);
     console.error(`This run changed nothing in Stripe, and ${user.email} is still on ${user.tier ?? 'public'}. Record it now:`);
   }
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${compSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${compSql}\nCOMMIT;\nSQL`);
   console.error('\nNot done: the check that the tier stuck. After recording, check it with:');
   console.error(`  make diagnose-user EMAIL=${user.email}`);
   process.exit(1);

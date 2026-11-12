@@ -737,8 +737,9 @@ try {
   console.error(
     `Unrecorded, ${user.email} stays on 'public' here until the customer.subscription.created webhook syncs the row, and the admin headcount counts them as Converting until their first renewal. A re-run won't record it: it now finds the subscription and stops. Record it now:`,
   );
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
   // A finished run ends by asking for this check, and it still applies.
   if (carryOver.flagged.some((f) => f.needsReview) || droppedParams.includes('discounts')) {
     console.error('Then CHECK THE RENEWAL PRICE: this subscription does not carry every discount the');

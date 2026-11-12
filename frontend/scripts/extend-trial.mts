@@ -525,8 +525,9 @@ try {
   console.error(
     'Unrecorded, the site shows the old trial end until the webhook catches up, and the ~48h reminder is not re-armed for the new end (the webhook only re-arms it for a new trial). A re-run will not record it, and with --extend-days it would extend the trial again. Record it now:',
   );
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
   process.exit(1);
 }
 

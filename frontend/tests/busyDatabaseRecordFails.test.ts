@@ -22,7 +22,8 @@ import {
 // (an email, a Stripe change, an alert), run with that record step failing even
 // after the wait and the retries: a trigger rejects its audit row. Each must
 // leave nothing of the record half-written, exit non-zero, and print a command
-// that, run as printed, finishes the record by hand. The scripts' tests under a
+// that, run as printed, finishes the record by hand, or, if it fails too,
+// writes nothing. The scripts' tests under a
 // busy database are in tests/busyDatabase.test.ts; the same seeds are used here.
 
 const { fixture, member, audit, run } = await createBusyDb('busy-db-record-fails');
@@ -34,8 +35,10 @@ type Case = {
   seed: (f: Fixture) => string;
   // The record's audit type: only that insert is rejected.
   auditType: string;
-  // Whether the record is in the database.
+  // Whether the whole record is in the database.
   recorded: (f: Fixture, id: string) => boolean;
+  // Whether any of it is, for a record of more than one write (default: recorded).
+  anyOf?: (f: Fixture, id: string) => boolean;
 };
 
 const latch = (name: string) => (f: Fixture, id: string) => column(f, id, name) != null;
@@ -222,13 +225,15 @@ const cases: Case[] = [
     auditType: 'cancel_reason_followup_sent',
     // The win-back it arms is part of the same record.
     recorded: (f, id) => audited('cancel_reason_followup_sent')(f, id) && latch('winback_email_sent_at')(f, id),
+    anyOf: (f, id) => audited('cancel_reason_followup_sent')(f, id) || latch('winback_email_sent_at')(f, id),
   },
   {
     script: 'send-welcome-email.mts',
     args: ['--email', 'new-member@example.com', '--variant', 'paid'],
     seed: (f) => member(f, 'new-member@example.com', { tier: 'basic', subscription_lapsed: 1 }),
     auditType: 'paid_welcome_email_sent',
-    recorded: latch('paid_welcome_email_sent_at'),
+    recorded: (f, id) => latch('paid_welcome_email_sent_at')(f, id) && audited('paid_welcome_email_sent')(f, id),
+    anyOf: (f, id) => latch('paid_welcome_email_sent_at')(f, id) || audited('paid_welcome_email_sent')(f, id),
   },
   {
     script: 'back-credit-trial.mts',
@@ -288,13 +293,23 @@ for (const c of cases) {
     const id = c.seed(f);
     blockWrites(f, 'INSERT', 'audit_events', `NEW.type = '${c.auditType}'`);
 
+    const anyOf = c.anyOf ?? c.recorded;
     const result = run(f, c.script, c.args, c.opts);
     assert.notEqual(result.status, 0, result.stderr + result.stdout);
-    assert.equal(c.recorded(f, id), false, 'nothing of the record is left behind');
+    assert.equal(anyOf(f, id), false, 'nothing of the record is left behind');
 
-    unblockWrites(f);
     const command = printedCommand(result.stderr);
     assert.ok(command, `no command to finish by hand in:\n${result.stderr}`);
+    // A command that writes the audit row itself (its type as an SQL value, not
+    // just inside a column name) must, run while that insert still fails, not
+    // half-record either.
+    if (command.includes(`'${c.auditType}'`)) {
+      const failed = runPrinted(command);
+      assert.notEqual(failed.status, 0, 'the printed command fails while the insert does');
+      assert.equal(anyOf(f, id), false, 'and writes nothing');
+    }
+
+    unblockWrites(f);
     const ran = runPrinted(command);
     assert.equal(ran.status, 0, ran.stderr);
     assert.equal(c.recorded(f, id), true, 'the printed command records it');

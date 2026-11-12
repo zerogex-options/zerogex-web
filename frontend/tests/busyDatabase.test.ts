@@ -91,6 +91,19 @@ test('every sqlite3 CLI call in a script waits for a busy database', () => {
   assert.deepEqual(missing, [], 'pass -cmd ".timeout N" before the database path');
 });
 
+test('every hand-fix command a script prints stops at its first failed statement', () => {
+  // Read from a heredoc, sqlite3 carries on past a failed statement and a
+  // closing COMMIT keeps what ran before it. -bail stops there instead, so the
+  // printed command can't half-record a member either.
+  const missing = scriptSources.flatMap(({ name, source }) =>
+    source
+      .split('\n')
+      .filter((line) => line.includes("<<'SQL'") && !line.includes('sqlite3 -bail '))
+      .map((line) => `${name}: ${line.trim()}`),
+  );
+  assert.deepEqual(missing, []);
+});
+
 test('every node:sqlite open in a script sets a busy timeout', () => {
   const missing: string[] = [];
   for (const { name, source } of scriptSources) {

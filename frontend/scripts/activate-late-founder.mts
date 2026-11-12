@@ -452,8 +452,9 @@ if (!customerId) {
     console.error(
       'Unrecorded, the member is not linked to it: a re-run would create a second customer, and a checkout on this one would not map back to the member, so no link was minted. Record it now:',
     );
-    // A quoted heredoc: the shell passes the SQL through untouched.
-    console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${linkSql}\nCOMMIT;\nSQL`);
+    // A quoted heredoc, so the shell passes the SQL through untouched, and
+    // -bail, so a statement that fails stops the rest and nothing is half-written.
+    console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${linkSql}\nCOMMIT;\nSQL`);
     console.error(`Then re-run the same command to mint the link(s); it will reuse ${customerId}.`);
     process.exit(1);
   }
@@ -538,8 +539,9 @@ try {
   console.error(
     "Unrecorded, the member's history here will not show that these links were minted. Record it now:",
   );
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${auditSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${auditSql}\nCOMMIT;\nSQL`);
   console.error('The links work either way (valid ~24h): send the member whichever plan(s) apply.');
   process.exit(1);
 }

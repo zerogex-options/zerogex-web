@@ -635,8 +635,9 @@ try {
   console.error(
     'Unrecorded, nothing sets founding_eligible (the webhook does not), and nothing here shows the grant or what it charged. Record it now:',
   );
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
   console.error(`Then confirm the webhook stamped founding_member_started_at: make diagnose-user EMAIL=${user.email}`);
   process.exit(1);
 }

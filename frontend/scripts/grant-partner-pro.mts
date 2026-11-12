@@ -633,8 +633,9 @@ try {
   console.error(
     "Unrecorded, nothing here shows the grant's terms or which Stripe promotion code is theirs. Record it now:",
   );
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
   // The links don't depend on the audit row, and the activation DM needs them.
   console.error(`\nThe activation summary was not printed. Their links for the DM: ${partnerLink} and ${promoLink}`);
   process.exit(1);

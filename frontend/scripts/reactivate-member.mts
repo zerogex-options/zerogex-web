@@ -641,7 +641,7 @@ console.log(
 );
 console.log('late rather than on day 2. Suppress it with a stamp if you would rather write your own:');
 console.log(
-  `  sqlite3 ${dbPath} "UPDATE users SET trial_midpoint_email_sent_at = datetime('now') WHERE id = '${user.id}';"`,
+  `  sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' "UPDATE users SET trial_midpoint_email_sent_at = datetime('now') WHERE id = '${user.id}';"`,
 );
 
 if (cliArgs.dryRun) {
@@ -705,8 +705,9 @@ try {
   console.error(
     "Unrecorded, nothing here shows this was a manual goodwill reactivation: the member's history reads as if they came back on their own. Record it now:",
   );
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
   console.error('\nNot checked: that the webhook granted the tier. Check it with:');
   console.error(`  make diagnose-user EMAIL=${user.email}`);
   process.exit(1);

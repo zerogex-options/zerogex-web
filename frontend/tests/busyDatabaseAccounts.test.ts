@@ -56,9 +56,12 @@ test('send-trial-quickstart: an email that went out but could not be recorded is
   assert.deepEqual(sentTo(f), ['mid-trial@example.com']);
   assert.equal(auditCount(f, 'trial_quickstart_email_sent', id), 0);
 
-  unblockWrites(f);
   const command = printedCommand(result.stderr);
   assert.ok(command, result.stderr);
+  assert.notEqual(runPrinted(command).status, 0, 'run while the insert still fails, it fails');
+  assert.equal(auditCount(f, 'trial_quickstart_email_sent', id), 0, 'and writes nothing');
+
+  unblockWrites(f);
   const ran = runPrinted(command);
   assert.equal(ran.status, 0, ran.stderr);
   assert.equal(auditCount(f, 'trial_quickstart_email_sent', id), 1, 'the printed command records the send');

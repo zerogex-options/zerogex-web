@@ -490,8 +490,9 @@ try {
       ? `Unrecorded, the partner's link still applies ${plan.couponOverride.from ?? 'the STRIPE_COUPON_PARTNER_AUDIENCE coupon'}, not ${target.id}, so the link and the typed code give different deals, and nothing here shows the move. Record it now:`
       : `Unrecorded, nothing here shows the move, and a re-run finds ${code} already on ${target.id} and writes nothing. Record it now:`,
   );
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
   process.exit(1);
 }
 

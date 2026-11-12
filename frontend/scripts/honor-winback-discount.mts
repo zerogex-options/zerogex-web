@@ -966,8 +966,9 @@ try {
   console.error(
     `Unrecorded, ${willClearCancel ? 'the site shows the member as still canceling until the webhook catches up, and ' : ''}nothing here shows the grant. A re-run finds nothing left to do, so it will not record it either. Record it now:`,
   );
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
   if (willClearCancel) {
     console.error('Then reply to the member so the charge at period end is expected (this script sent no email).');
   }
