@@ -1,20 +1,24 @@
 'use client';
 
 /**
- * TradesAuditPanel — admin-only "every trade in one place" audit surface.
+ * TradesAuditPanel — the "every trade in one place" audit surface on the
+ * Pro /trading-signals page.
  *
- * The leaderboard shows aggregated NAV curves; this panel shows the raw
- * closed trades one row per trade, filterable by SIM vs LIVE and by
- * bot. A LIVE badge distinguishes real engine-opened trades from
- * synthetic seeder rows, so the operator can never confuse them again
- * (this became a real question after a P&L math bug on live trades
- * pushed a bot's sleeve from $111k to $4.4M).
+ * The leaderboard shows aggregated NAV curves; this panel shows what the
+ * fleet holds right now and the raw closed trades, one row per trade,
+ * filterable by bot.
  *
- * Data source: GET /api/tradeworkz/admin/trades — filter args match
- * the query params exposed there (origin/bot_id/since/until/limit/
- * offset/format). CSV export hits the same endpoint with format=csv
- * so what the operator opens in Excel is exactly what the JSON view
- * shows.
+ * Data source: GET /api/tradeworkz/trades and /api/tradeworkz/positions,
+ * live engine entries only: the API drops seeder rows whatever the caller
+ * asks. Filter args match the query params exposed there (bot_id/since/
+ * until/limit/offset/format). CSV export hits the same endpoint with
+ * format=csv so what the operator opens in Excel is exactly what the JSON
+ * view shows.
+ *
+ * It used to read /api/tradeworkz/admin/trades and /admin/positions, with
+ * an All/Live/Sim toggle for admins. Those routes need the API's admin
+ * token, which this website never sends, so the panel showed "HTTP 403" to
+ * every viewer, the admin included (reported by a Pro member 2026-11-12).
  *
  * All state is local; the panel doesn't affect the rest of the page.
  */
@@ -23,8 +27,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, FileSpreadsheet, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { fmtMoney, fmtSignedMoney, fmtSignedPct } from './format';
 import type { BotRow } from './types';
-
-type Origin = 'all' | 'live' | 'simulate';
 
 interface Leg {
   option_symbol?: string | null;
@@ -134,21 +136,13 @@ interface OpenPositionsResponse {
 
 interface Props {
   bots: BotRow[];
-  /**
-   * When true, the panel shows the origin (LIVE/SIM/all) tab, the CSV
-   * export, and does not force live-only filtering. Non-admin viewers
-   * only ever see live trades — they never need to know sim exists.
-   */
+  /** When true, the panel shows the CSV export. */
   isAdmin?: boolean;
 }
 
 const PAGE_SIZE = 100;
 
 export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
-  // Non-admin viewers are locked to origin='live' — they never see sim
-  // rows or the origin toggle. The backend endpoint respects this filter
-  // regardless of whether the tab is present in the DOM.
-  const [origin, setOrigin] = useState<Origin>(isAdmin ? 'all' : 'live');
   const [botId, setBotId] = useState<string>('');
   const [offset, setOffset] = useState<number>(0);
   const [data, setData] = useState<AuditResponse | null>(null);
@@ -163,18 +157,17 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
 
   const queryParams = useMemo(() => {
     const p = new URLSearchParams();
-    p.set('origin', origin);
     if (botId) p.set('bot_id', botId);
     p.set('limit', String(PAGE_SIZE));
     p.set('offset', String(offset));
     return p.toString();
-  }, [origin, botId, offset]);
+  }, [botId, offset]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/tradeworkz/admin/trades?${queryParams}`, {
+      const res = await fetch(`/api/tradeworkz/trades?${queryParams}`, {
         credentials: 'include',
         cache: 'no-store',
       });
@@ -198,7 +191,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
   // the same 100 rows keep showing after they narrow the filter.
   useEffect(() => {
     setOffset(0);
-  }, [origin, botId]);
+  }, [botId]);
 
   // Open positions — polls every 15 s so mark-to-market and time-stop
   // countdown refresh without a page reload. Failures are swallowed
@@ -208,7 +201,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
     let cancelled = false;
     const fetchOpen = async () => {
       try {
-        const res = await fetch('/api/tradeworkz/admin/positions', {
+        const res = await fetch('/api/tradeworkz/positions', {
           credentials: 'include',
           cache: 'no-store',
         });
@@ -232,17 +225,16 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
 
   const downloadCsv = useCallback(() => {
     const p = new URLSearchParams();
-    p.set('origin', origin);
     if (botId) p.set('bot_id', botId);
     p.set('limit', '2000');
     p.set('format', 'csv');
     // Same-origin GET, credentialed. A plain anchor triggers download
     // because the endpoint sets Content-Disposition: attachment.
     const a = document.createElement('a');
-    a.href = `/api/tradeworkz/admin/trades?${p.toString()}`;
+    a.href = `/api/tradeworkz/trades?${p.toString()}`;
     a.rel = 'noopener';
     a.click();
-  }, [origin, botId]);
+  }, [botId]);
 
   return (
     <section
@@ -265,19 +257,9 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
             closed. Prices are{' '}
             <span className="font-medium text-[var(--color-text-primary)]">per share</span>
             ; each contract = 100 shares.
-            {isAdmin ? (
-              <>
-                {' '}Origin tags:{' '}
-                <span className="font-medium text-[var(--color-text-primary)]">SIM</span>{' '}
-                = seed data,{' '}
-                <span className="font-medium text-[var(--color-text-primary)]">LIVE</span>{' '}
-                = real engine entries.
-              </>
-            ) : null}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {isAdmin ? <OriginTabs current={origin} onChange={setOrigin} /> : null}
           <select
             value={botId}
             onChange={(e) => setBotId(e.target.value)}
@@ -397,7 +379,6 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                   color: 'var(--color-text-secondary)',
                 }}
               >
-                {isAdmin ? <Th>Origin</Th> : null}
                 <Th width="6.5rem">Opened</Th>
                 <Th width="6.5rem">Closed</Th>
                 <Th width="9.5rem">Bot</Th>
@@ -444,11 +425,6 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                       }}
                       onClick={() => setExpandedId(isOpen ? null : row.id)}
                     >
-                      {isAdmin ? (
-                        <td className="px-3 py-2">
-                          <OriginBadge origin={row.origin} />
-                        </td>
-                      ) : null}
                       <td className="px-3 py-2 align-top">
                         <DateTimeCell iso={row.opened_at} />
                       </td>
@@ -499,7 +475,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                     </tr>
                     {isOpen ? (
                       <tr>
-                        <td colSpan={isAdmin ? 14 : 13} className="px-5 pb-4 pt-1 bg-[var(--color-surface-subtle)]">
+                        <td colSpan={13} className="px-5 pb-4 pt-1 bg-[var(--color-surface-subtle)]">
                           <ExpandedDetail row={row} />
                         </td>
                       </tr>
@@ -734,63 +710,6 @@ function fmtDuration(seconds: number | null | undefined): string | null {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-function OriginTabs({
-  current,
-  onChange,
-}: {
-  current: Origin;
-  onChange: (o: Origin) => void;
-}) {
-  const opts: { key: Origin; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'live', label: 'Live' },
-    { key: 'simulate', label: 'Sim' },
-  ];
-  return (
-    <div
-      className="inline-flex rounded-full p-1"
-      style={{
-        backgroundColor: 'var(--color-surface-subtle)',
-        border: '1px solid var(--color-border)',
-      }}
-    >
-      {opts.map((o) => {
-        const active = o.key === current;
-        return (
-          <button
-            key={o.key}
-            onClick={() => onChange(o.key)}
-            className="text-xs px-3 py-1 rounded-full transition-colors font-medium"
-            style={{
-              backgroundColor: active ? 'var(--color-info)' : 'transparent',
-              color: active ? 'var(--color-on-info, #ffffff)' : 'var(--color-text-secondary)',
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function OriginBadge({ origin }: { origin: 'live' | 'simulate' }) {
-  const isSim = origin === 'simulate';
-  return (
-    <span
-      className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold"
-      style={{
-        backgroundColor: isSim
-          ? 'var(--color-warning-soft)'
-          : 'var(--color-bull-soft)',
-        color: isSim ? 'var(--color-warning)' : 'var(--color-bull)',
-      }}
-    >
-      {isSim ? 'SIM' : 'LIVE'}
-    </span>
-  );
 }
 
 /**

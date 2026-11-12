@@ -59,6 +59,21 @@ test('tradeworkz signal product is pro', () => {
   }
 });
 
+// The Trade audit panel's feeds. It read /api/tradeworkz/admin/trades and
+// /admin/positions, which 403 every viewer (the API wants its admin token,
+// and the gate above wants admin), so it now reads these live-only copies.
+// Unmapped they would fail open to anonymous callers; the /admin copies must
+// stay admin.
+test('the Trade audit feeds are pro, and their admin copies stay admin', () => {
+  eq('/api/tradeworkz/trades', 'pro');
+  eq('/api/tradeworkz/positions', 'pro');
+  eq('/api/v2/tradeworkz/trades', 'pro');
+  eq('/api/tradeworkz/admin/trades', 'admin');
+  eq('/api/tradeworkz/admin/positions', 'admin');
+  // Segment-aware: a sibling name is not swallowed by the prefix.
+  eq('/api/tradeworkz/tradesx', null);
+});
+
 test('the follow carve-out is exact — it never widens the /bots gate', () => {
   // Only the literal .../follow leaf passes; neighbors and deeper paths do not.
   eq('/api/tradeworkz/bots/7/follow', 'public');

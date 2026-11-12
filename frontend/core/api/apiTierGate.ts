@@ -78,6 +78,10 @@ const RULES: readonly Rule[] = [
   { prefix: '/api/tradeworkz/leaderboard', access: 'pro' },
   { prefix: '/api/tradeworkz/equity-curves', access: 'pro' },
   { prefix: '/api/tradeworkz/performance-trend', access: 'pro' },
+  // The Trade audit panel's fleet-wide feeds, live rows only. It read the
+  // /admin copies until 2026-11-12, which answered 403 to every viewer.
+  { prefix: '/api/tradeworkz/trades', access: 'pro' },
+  { prefix: '/api/tradeworkz/positions', access: 'pro' },
 
   // Signals: the advanced-signal surface and Trade Bias are pro-exclusive (only
   // pro pages fetch them). The composite score / action / basic components under
