@@ -165,9 +165,18 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+// The live site holds this database open and writes to it whenever a member
+// is active. A read never waits on those writes, but the sqlite3 CLI's default
+// busy timeout is ZERO, so in the moment the database is locked outright (while
+// the site restarts, say) a read fails on the spot with "database is locked
+// (5)". `.timeout` makes the CLI wait instead, the way the site does
+// (core/db.ts sets busy_timeout too). Passed via -cmd so it applies before the
+// SQL and adds nothing to the -json output. Same fix as the scheduled jobs.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
 function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): T[] {
   try {
-    const out = execFileSync('sqlite3', ['-json', dbPath, sql], {
+    const out = execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', dbPath, sql], {
       encoding: 'utf8',
       maxBuffer: 256 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'],

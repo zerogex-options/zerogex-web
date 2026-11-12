@@ -43,7 +43,7 @@ DAYS="${DAYS:-7}"
 case "$DAYS" in ''|*[!0-9]*) echo "DAYS must be a whole number of days, got '$DAYS'"; exit 1;; esac
 OUT="${OUT:-$HOME/payment-failures-$(date -u +%Y%m%d-%H%M).txt}"
 W="strftime('%Y-%m-%dT%H:%M:%fZ','now','-$DAYS days')"
-q() { sqlite3 -readonly -header -separator ' | ' "$AUTH_DB_PATH" "$1"; }
+q() { sqlite3 -readonly -cmd ".timeout 15000" -header -separator ' | ' "$AUTH_DB_PATH" "$1"; }
 
 echo "Collecting payment failures from the last $DAYS day(s) — $AUTH_DB_PATH (read-only)…"
 
@@ -90,7 +90,7 @@ q "SELECT lower(u.email) AS email, a.created_at, a.type,
     ORDER BY 1, 2;"
 
 echo; echo "=== diagnose-user for each member whose failed invoice is not paid ==="
-sqlite3 -readonly "$AUTH_DB_PATH" \
+sqlite3 -readonly -cmd ".timeout 15000" "$AUTH_DB_PATH" \
   "SELECT DISTINCT lower(d.email) FROM payment_declines d
     WHERE d.failed_at >= $W AND d.email IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM payment_declines r WHERE r.invoice_id = d.invoice_id AND r.outcome = 'recovered')

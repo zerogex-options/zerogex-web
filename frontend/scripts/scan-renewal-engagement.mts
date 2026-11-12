@@ -128,12 +128,21 @@ function ensureSqlite3Cli(): void {
   }
 }
 
+// The live site holds this database open and writes to it whenever a member
+// is active. A read never waits on those writes, but the sqlite3 CLI's default
+// busy timeout is ZERO, so in the moment the database is locked outright (while
+// the site restarts, say) a read fails on the spot with "database is locked
+// (5)". `.timeout` makes the CLI wait instead, the way the site does
+// (core/db.ts sets busy_timeout too). Passed via -cmd so it applies before the
+// SQL and adds nothing to the -json output. Same fix as the scheduled jobs.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
 // Existence is not enough: an empty or stale auth.db is a file too. Fail here,
 // naming the path, instead of surfacing a raw execFileSync stack trace.
 function ensureUsersTable(file: string): void {
   const probe = spawnSync(
     'sqlite3',
-    ['-json', file, "SELECT name FROM sqlite_master WHERE type='table' AND name='users';"],
+    ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', file, "SELECT name FROM sqlite_master WHERE type='table' AND name='users';"],
     { encoding: 'utf8' },
   );
   if (probe.status !== 0 || !probe.stdout.trim()) {
@@ -156,7 +165,7 @@ ensureSqlite3Cli();
 ensureUsersTable(dbPath);
 
 function querySqlite<T>(file: string, sql: string): T[] {
-  const out = execFileSync('sqlite3', ['-json', file, sql], { encoding: 'utf8' }).trim();
+  const out = execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', file, sql], { encoding: 'utf8' }).trim();
   return out ? (JSON.parse(out) as T[]) : [];
 }
 

@@ -113,6 +113,11 @@ const isUnmappedPrice = (priceId: string | null | undefined) =>
   priceTableKnown && (!priceId || !configuredPriceIds.has(priceId));
 
 const db = new DatabaseSync(dbPath, { readOnly: true });
+// The live site writes to this database whenever a member is active, and
+// node:sqlite's busy timeout is zero unless set: a statement that meets the
+// site's lock fails on the spot with "database is locked". Wait instead, the
+// way the site does (core/db.ts sets busy_timeout too).
+db.exec('PRAGMA busy_timeout = 15000;');
 
 // The chart's rule reads the per-SUBSCRIPTION payment pointer. Against a DB the
 // migration has not reached yet those columns do not exist, and the SELECT below

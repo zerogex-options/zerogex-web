@@ -75,6 +75,11 @@ if (!fs.existsSync(dbPath)) {
 }
 
 const db = new DatabaseSync(dbPath, { readOnly: true });
+// The live site writes to this database whenever a member is active, and
+// node:sqlite's busy timeout is zero unless set: a statement that meets the
+// site's lock fails on the spot with "database is locked". Wait instead, the
+// way the site does (core/db.ts sets busy_timeout too).
+db.exec('PRAGMA busy_timeout = 15000;');
 
 const cols = new Set(
   (db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>).map((c) =>

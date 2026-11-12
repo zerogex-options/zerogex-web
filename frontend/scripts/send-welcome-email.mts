@@ -166,9 +166,27 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+// The live site writes to this same database whenever a member is active
+// (session refreshes, last-seen stamps), and the sqlite3 CLI's default busy
+// timeout is ZERO: a statement that lands while the site holds the write lock
+// fails on the spot with "database is locked (5)" and stops the run partway.
+// `.timeout` makes the CLI wait for the lock the way the site does (core/db.ts
+// sets busy_timeout too). Passed via -cmd so it applies before the SQL and adds
+// nothing to the -json output. Same fix as the scheduled jobs.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
+function isLockError(message: string): boolean {
+  return /database is locked|database table is locked|busy/i.test(message);
+}
+
+// Synchronous pause between retries; execSqlite is synchronous.
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function runSqlite(dbPath: string, sql: string): string {
   try {
-    return execFileSync('sqlite3', ['-json', dbPath, sql], {
+    return execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', dbPath, sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -188,8 +206,22 @@ function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): 
   return JSON.parse(output) as T[];
 }
 
-function execSqlite(dbPath: string, sql: string) {
-  runSqlite(dbPath, sql);
+// Retries on top of the busy timeout: the timeout covers a write that holds the
+// lock briefly, the retries a burst of writes that outlasts it. Anything that is
+// not a lock error fails on the first try, since a bad statement won't fix
+// itself. Safe to repeat: every write here is a single statement or a whole
+// BEGIN ... COMMIT, the CLI stops at the first failing statement, and it rolls
+// back an open transaction when it exits, so a failed attempt wrote nothing.
+function execSqlite(dbPath: string, sql: string, attempts = 3) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      runSqlite(dbPath, sql);
+      return;
+    } catch (err) {
+      if (attempt >= attempts || !isLockError((err as Error).message)) throw err;
+      sleepSync(attempt * 500);
+    }
+  }
 }
 
 const cliArgs = parseArgs(process.argv.slice(2));
@@ -330,24 +362,16 @@ const nowIso = new Date().toISOString();
 // Always clear subscription_lapsed so the next webhook for this user doesn't
 // also fire a welcome-back. For paid/founding, additionally stamp the
 // first-time send column.
-if (stampsThisVariant) {
-  execSqlite(
-    dbPath,
-    `UPDATE users
+const stampSql = stampsThisVariant
+  ? `UPDATE users
      SET paid_welcome_email_sent_at = '${escapeSqlLiteral(nowIso)}',
          subscription_lapsed = 0,
          updated_at = '${escapeSqlLiteral(nowIso)}'
-     WHERE id = '${escapeSqlLiteral(user.id)}';`,
-  );
-} else {
-  execSqlite(
-    dbPath,
-    `UPDATE users
+     WHERE id = '${escapeSqlLiteral(user.id)}';`
+  : `UPDATE users
      SET subscription_lapsed = 0,
          updated_at = '${escapeSqlLiteral(nowIso)}'
-     WHERE id = '${escapeSqlLiteral(user.id)}';`,
-  );
-}
+     WHERE id = '${escapeSqlLiteral(user.id)}';`;
 
 const auditId = `audit_manual_${crypto.randomBytes(12).toString('hex')}`;
 const auditType =
@@ -360,20 +384,34 @@ const auditMessage =
     ? ` (forced; prior stamp was ${user.paid_welcome_email_sent_at})`
     : '');
 
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
-   VALUES (
-     '${escapeSqlLiteral(auditId)}',
-     '${escapeSqlLiteral(auditType)}',
-     '${escapeSqlLiteral(user.id)}',
-     NULL,
-     '${escapeSqlLiteral(email)}',
-     'manual-script',
-     '${escapeSqlLiteral(auditMessage)}',
-     '${escapeSqlLiteral(nowIso)}'
-   );`,
-);
+// The stamp and the audit row go in one transaction: one lock to wait for
+// instead of two, and never one without the other.
+try {
+  execSqlite(
+    dbPath,
+    `BEGIN IMMEDIATE;
+     ${stampSql}
+     INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+     VALUES (
+       '${escapeSqlLiteral(auditId)}',
+       '${escapeSqlLiteral(auditType)}',
+       '${escapeSqlLiteral(user.id)}',
+       NULL,
+       '${escapeSqlLiteral(email)}',
+       'manual-script',
+       '${escapeSqlLiteral(auditMessage)}',
+       '${escapeSqlLiteral(nowIso)}'
+     );
+     COMMIT;`,
+  );
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(`\nThe ${cliArgs.variant} welcome email was SENT to ${email}, but not recorded: ${message}`);
+  console.error('Unrecorded, the next Stripe webhook for this member can send it again. Record it now:');
+  // A quoted heredoc: the shell passes the SQL through untouched.
+  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\n${stampSql}\nSQL`);
+  process.exit(1);
+}
 
 console.log(`\nSent ${cliArgs.variant} welcome email to ${email}.`);
 if (stampsThisVariant) {

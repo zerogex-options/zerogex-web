@@ -7,9 +7,10 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// The scheduled scripts that write to the auth database through the sqlite3
-// CLI, each run for real (--yes, or --alert) while another process holds the
-// database's write lock.
+// Every script that opens the auth database waits for a busy one: first read
+// from the source for all of them, then the ones that write, each run for real
+// (--yes, --alert, --apply) while another process holds the database's write
+// lock.
 //
 // The live site writes to that database whenever a member is active (session
 // refreshes, users.last_seen_at), and the sqlite3 CLI's busy timeout is zero
@@ -206,6 +207,87 @@ async function runWhileLocked(f: Fixture, script: string, args: string[], opts: 
   await lock.released;
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Every script, scheduled or run by hand, read from its source: each way it
+// opens the database waits for the lock. A script added later is checked the
+// day it lands. tests/scheduledJobsBusyDb.test.ts checks the same for what
+// the timers run, found through their unit files.
+// ---------------------------------------------------------------------------
+
+const REPO = fileURLToPath(new URL('../../', import.meta.url));
+
+function scriptFiles(dirPath: string): string[] {
+  return fs.readdirSync(dirPath, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : scriptFiles(full);
+    return /\.(?:mts|mjs|ts|js|sh)$/.test(entry.name) ? [full] : [];
+  });
+}
+const scriptSources = scriptFiles(scriptsDir).map((file) => ({
+  name: path.relative(REPO, file),
+  source: fs.readFileSync(file, 'utf8'),
+}));
+
+// An argument list that passes the wait itself, or spreads a helper defined in
+// the same file that does (send-product-update.mts builds its arguments with
+// sqliteArgs()).
+function passesWait(source: string, args: string): boolean {
+  const waits = (text: string) => /['"]-cmd['"]/.test(text) && /\.timeout /.test(text);
+  if (waits(args)) return true;
+  return [...args.matchAll(/\.\.\.(\w+)\(/g)].some(([, helper]) =>
+    waits(new RegExp(`function ${helper}\\([\\s\\S]*?\\n\\}`).exec(source)?.[0] ?? ''),
+  );
+}
+
+test('every sqlite3 CLI call in a script waits for a busy database', () => {
+  const missing: string[] = [];
+  let checked = 0;
+  for (const { name, source } of scriptSources) {
+    for (const m of source.matchAll(/\b(?:execFileSync|execFile|spawnSync|spawn)\(\s*['"]sqlite3['"]\s*,\s*\[([^\]]*)\]/g)) {
+      // The probe that checks the CLI is installed opens no database.
+      if (/['"]-version['"]/.test(m[1])) continue;
+      checked += 1;
+      if (!passesWait(source, m[1])) missing.push(`${name}: sqlite3 [${m[1].replace(/\s+/g, ' ').trim()}]`);
+    }
+  }
+  assert.ok(checked >= 50, `found only ${checked} sqlite3 calls, so the search is missing some`);
+  assert.deepEqual(missing, [], 'pass -cmd ".timeout N" before the database path');
+});
+
+test('every node:sqlite open in a script sets a busy timeout', () => {
+  const missing: string[] = [];
+  for (const { name, source } of scriptSources) {
+    const opens = source.match(/new DatabaseSync\(/g)?.length ?? 0;
+    const timeouts = source.match(/PRAGMA busy_timeout/g)?.length ?? 0;
+    if (timeouts < opens) missing.push(`${name}: ${opens} opens, ${timeouts} busy timeouts`);
+  }
+  assert.deepEqual(missing, []);
+});
+
+test('every sqlite3 command in a shell script or a make recipe waits for a busy database', () => {
+  const lines = [
+    ...scriptSources
+      .filter(({ name }) => name.endsWith('.sh'))
+      .flatMap(({ name, source }) => source.split('\n').map((line) => ({ where: name, line }))),
+    ...fs
+      .readFileSync(path.join(REPO, 'Makefile'), 'utf8')
+      .split('\n')
+      .filter((line) => line.startsWith('\t'))
+      .map((line) => ({ where: 'Makefile', line })),
+  ];
+  const missing: string[] = [];
+  for (const { where, line: raw } of lines) {
+    if (/^\s*#/.test(raw)) continue;
+    // Not invocations: the install check and the messages that name the CLI.
+    const line = raw.replace(/command -v sqlite3/g, '').replace(/echo\s+"[^"]*"/g, '').replace(/echo\s+'[^']*'/g, '');
+    if (!/\bsqlite3\s/.test(line)) continue;
+    // The backup's integrity check opens its own private snapshot.
+    if (/\bsqlite3\s+"\$\$snap"/.test(line)) continue;
+    if (!/-cmd\s+"\.timeout \d+"/.test(line)) missing.push(`${where}: ${raw.trim()}`);
+  }
+  assert.deepEqual(missing, []);
+});
 
 // ---------------------------------------------------------------------------
 // The customer emails the timers send with YES=1.
@@ -539,4 +621,162 @@ test('scan-orphan-payments --alert: a busy database waits, so the operator is al
   assert.equal(second.status, 0, second.stderr + second.stdout);
   assert.match(second.stdout, /^Alerting: all 1 finding\(s\) were alerted previously — nothing new\.$/m);
   assert.deepEqual(sentTo(f), ['ops@zerogex.test']);
+});
+
+// ---------------------------------------------------------------------------
+// The manual admin scripts. Run by hand, so a lock error shows on screen
+// rather than in an alert, but one that lands after an email or a Stripe
+// credit leaves the member half-recorded all the same. These are the ones
+// whose write path changed, plus a runtime check of each other kind of fix:
+// the plain-JS (.mjs) helpers, which tsc does not check, and node:sqlite.
+// ---------------------------------------------------------------------------
+
+test('send-cancel-reason-followup: a busy database waits, so the member is followed up once and their win-back armed', { skip: sqlite3Missing }, async (t) => {
+  const f = fixture(t, 'cancel-reason');
+  // Asked to cancel three days ago as too expensive; access has since ended.
+  const id = member(f, 'too-pricey@example.com', { subscription_lapsed: 1 });
+  audit(f, id, 'stripe_cancellation_requested', at(-3 * DAY), 'Cancellation requested for sub_old cancel_feedback=too_expensive');
+
+  const first = await runWhileLocked(f, 'send-cancel-reason-followup.mts', ['--yes']);
+  assert.equal(first.status, 0, first.stderr + first.stdout);
+  assert.match(first.stdout, /^Done\. 1 sent, 0 failed\.$/m);
+  assert.ok(column(f, id, 'winback_email_sent_at'), 'the win-back the email offered is armed');
+  assert.equal(auditCount(f, 'cancel_reason_followup_sent', id), 1, 'marked as sent, with the win-back');
+
+  const second = run(f, 'send-cancel-reason-followup.mts', ['--yes']);
+  assert.equal(second.status, 0, second.stderr + second.stdout);
+  assert.match(second.stdout, /^Eligible: +0$/m);
+  assert.deepEqual(sentTo(f), ['too-pricey@example.com']);
+});
+
+test('send-welcome-email: a busy database waits, so the welcome is stamped and the webhook will not send it again', { skip: sqlite3Missing }, async (t) => {
+  const f = fixture(t, 'welcome');
+  const id = member(f, 'new-member@example.com', { tier: 'basic', subscription_lapsed: 1 });
+  const args = ['--email', 'new-member@example.com', '--variant', 'paid'];
+
+  const first = await runWhileLocked(f, 'send-welcome-email.mts', args);
+  assert.equal(first.status, 0, first.stderr + first.stdout);
+  assert.ok(column(f, id, 'paid_welcome_email_sent_at'), 'stamped');
+  assert.equal(column(f, id, 'subscription_lapsed'), 0);
+  assert.equal(auditCount(f, 'paid_welcome_email_sent', id), 1, 'one audit row, written with the stamp');
+
+  // The stamp is what makes a second run (and the webhook) hold off.
+  const second = run(f, 'send-welcome-email.mts', args);
+  assert.equal(second.status, 3, second.stderr + second.stdout);
+  assert.deepEqual(sentTo(f), ['new-member@example.com']);
+});
+
+test('back-credit-trial: a busy database waits, so each member is credited, and recorded as credited, once', { skip: sqlite3Missing }, async (t) => {
+  const f = fixture(t, 'back-credit');
+  const id = member(f, 'monthly@example.com', {
+    tier: 'basic',
+    subscription_status: 'active',
+    stripe_customer_id: 'cus_monthly',
+    stripe_subscription_id: 'sub_monthly',
+  });
+  const opts: RunOptions = {
+    env: { STRIPE_SECRET_KEY: 'sk_test_busy_db' },
+    routes: {
+      'GET api.stripe.com/v1/subscriptions/sub_monthly': {
+        id: 'sub_monthly',
+        object: 'subscription',
+        items: { object: 'list', data: [{ id: 'si_1', object: 'subscription_item', price: { id: 'price_m', object: 'price', recurring: { interval: 'month' } } }] },
+      },
+      'GET api.stripe.com/v1/invoices': {
+        object: 'list',
+        url: '/v1/invoices',
+        has_more: false,
+        data: [{ id: 'in_paid', object: 'invoice', amount_paid: 3100, currency: 'usd' }],
+      },
+      'POST api.stripe.com/v1/customers/cus_monthly/balance_transactions': { id: 'cbtxn_1', object: 'customer_balance_transaction', amount: -700, currency: 'usd' },
+    },
+  };
+
+  const first = await runWhileLocked(f, 'back-credit-trial.mts', ['--yes'], opts);
+  assert.equal(first.status, 0, first.stderr + first.stdout);
+  assert.match(first.stdout, /^Done\. 1 credited, 0 failed\.$/m);
+  // The audit row is the only thing that stops a re-run crediting them again.
+  assert.equal(auditCount(f, 'billing_trial_back_credit', id), 1, 'recorded as credited');
+
+  const second = run(f, 'back-credit-trial.mts', ['--yes'], opts);
+  assert.equal(second.status, 0, second.stderr + second.stdout);
+  assert.match(second.stdout, /^Already credited: +1$/m);
+  assert.equal(httpCalls(f).filter((c) => c.method === 'POST').length, 1, 'credited once');
+  assert.deepEqual(sentTo(f), ['monthly@example.com']);
+});
+
+test('credit-founders-july1-delay: a busy database waits, so each founder is credited, and recorded as credited, once', { skip: sqlite3Missing }, async (t) => {
+  const f = fixture(t, 'founders-credit');
+  const id = member(f, 'founder@example.com', {
+    tier: 'basic',
+    stripe_customer_id: 'cus_founder',
+    stripe_price_id: 'price_basic_monthly',
+    founding_member_started_at: at(-150 * DAY),
+  });
+  const opts: RunOptions = {
+    env: { STRIPE_SECRET_KEY: 'sk_test_busy_db', STRIPE_PRICE_BASIC_MONTHLY: 'price_basic_monthly' },
+    routes: {
+      'POST api.stripe.com/v1/customers/cus_founder/balance_transactions': { id: 'cbtxn_2', object: 'customer_balance_transaction', amount: -1200, currency: 'usd' },
+    },
+  };
+
+  const first = await runWhileLocked(f, 'credit-founders-july1-delay.mts', ['--yes'], opts);
+  assert.equal(first.status, 0, first.stderr + first.stdout);
+  assert.match(first.stdout, /^Done\. 1 credited, 0 failed\.$/m);
+  assert.equal(auditCount(f, 'billing_founding_july1_credit', id), 1, 'recorded as credited');
+
+  const second = run(f, 'credit-founders-july1-delay.mts', ['--yes'], opts);
+  assert.equal(second.status, 0, second.stderr + second.stdout);
+  assert.match(second.stdout, /^Already credited: 1$/m);
+  assert.equal(httpCalls(f).filter((c) => c.method === 'POST').length, 1, 'credited once');
+  assert.deepEqual(sentTo(f), ['founder@example.com']);
+});
+
+test('delete-user (.mjs): a busy database waits, so the account and everything on it go together', { skip: sqlite3Missing }, async (t) => {
+  const f = fixture(t, 'delete-user');
+  const id = member(f, 'leaving@example.com');
+  audit(f, id, 'login_success', at(-DAY), 'Login');
+
+  const result = await runWhileLocked(f, 'delete-user.mjs', ['--email', 'leaving@example.com', '--yes']);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /^Deleted leaving@example\.com /m);
+  const left = f.db
+    .prepare('SELECT (SELECT COUNT(*) FROM users WHERE id = ?) + (SELECT COUNT(*) FROM audit_events WHERE user_id = ?) AS n')
+    .get(id, id) as { n: number };
+  assert.equal(left.n, 0, 'nothing left behind');
+});
+
+test('update-user-tier (.mjs): a busy database waits, so the comp lands', { skip: sqlite3Missing }, async (t) => {
+  const f = fixture(t, 'update-tier');
+  const id = member(f, 'comped@example.com');
+
+  const result = await runWhileLocked(f, 'update-user-tier.mjs', ['--email', 'comped@example.com', '--tier', 'pro', '--founding-eligible']);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.equal(column(f, id, 'tier'), 'pro');
+  assert.equal(column(f, id, 'founding_eligible'), 1);
+});
+
+test('seed-founders (.mjs): a busy database waits, so every earlier signup is flagged', { skip: sqlite3Missing }, async (t) => {
+  const f = fixture(t, 'seed-founders');
+  const id = member(f, 'early@example.com');
+
+  const result = await runWhileLocked(f, 'seed-founders.mjs', ['--yes']);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /^Flagged 1 user\(s\) as founding_eligible=1\.$/m);
+  assert.equal(column(f, id, 'founding_eligible'), 1);
+});
+
+test('reset-user-for-testing (node:sqlite): a busy database waits, so the reset and its audit row land', { skip: sqlite3Missing }, async (t) => {
+  const f = fixture(t, 'reset-user');
+  const id = member(f, 'tester@example.com', {
+    tier: 'pro',
+    subscription_status: 'active',
+    stripe_subscription_id: 'sub_tester',
+  });
+
+  const result = await runWhileLocked(f, 'reset-user-for-testing.mjs', ['--email', 'tester@example.com', '--apply']);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.equal(column(f, id, 'tier'), 'public');
+  assert.equal(column(f, id, 'stripe_subscription_id'), null);
+  assert.equal(auditCount(f, 'billing_test_reset', id), 1);
 });

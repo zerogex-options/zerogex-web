@@ -385,7 +385,7 @@ decline-diagnostics:
 	case "$$days" in ''|*[!0-9]*) echo "DAYS must be a whole number of days, got '$$days'"; exit 1;; esac; \
 	echo "Payment failures in the last $$days day(s) — $$db (read-only)"; \
 	echo; \
-	sed "s/__DAYS__/$$days/g" frontend/scripts/decline-diagnostics.sql | sqlite3 -readonly -header -column "$$db"
+	sed "s/__DAYS__/$$days/g" frontend/scripts/decline-diagnostics.sql | sqlite3 -readonly -cmd ".timeout 15000" -header -column "$$db"
 
 decline-timing:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/decline-timing.mts'

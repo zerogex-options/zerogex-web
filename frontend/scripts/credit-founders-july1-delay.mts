@@ -137,9 +137,27 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+// The live site writes to this same database whenever a member is active
+// (session refreshes, last-seen stamps), and the sqlite3 CLI's default busy
+// timeout is ZERO: a statement that lands while the site holds the write lock
+// fails on the spot with "database is locked (5)" and stops the run partway.
+// `.timeout` makes the CLI wait for the lock the way the site does (core/db.ts
+// sets busy_timeout too). Passed via -cmd so it applies before the SQL and adds
+// nothing to the -json output. Same fix as the scheduled jobs.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
+function isLockError(message: string): boolean {
+  return /database is locked|database table is locked|busy/i.test(message);
+}
+
+// Synchronous pause between retries; execSqlite is synchronous.
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function runSqlite(dbPath: string, sql: string): string {
   try {
-    return execFileSync('sqlite3', ['-json', dbPath, sql], {
+    return execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', dbPath, sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -159,8 +177,22 @@ function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): 
   return JSON.parse(output) as T[];
 }
 
-function execSqlite(dbPath: string, sql: string) {
-  runSqlite(dbPath, sql);
+// Retries on top of the busy timeout: the timeout covers a write that holds the
+// lock briefly, the retries a burst of writes that outlasts it. Anything that is
+// not a lock error fails on the first try, since a bad statement won't fix
+// itself. Safe to repeat: every write here is a single statement or a whole
+// BEGIN ... COMMIT, the CLI stops at the first failing statement, and it rolls
+// back an open transaction when it exits, so a failed attempt wrote nothing.
+function execSqlite(dbPath: string, sql: string, attempts = 3) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      runSqlite(dbPath, sql);
+      return;
+    } catch (err) {
+      if (attempt >= attempts || !isLockError((err as Error).message)) throw err;
+      sleepSync(attempt * 500);
+    }
+  }
 }
 
 const cliArgs = parseArgs(process.argv.slice(2));
@@ -443,6 +475,10 @@ if (!cliArgs.yes) {
 let successCount = 0;
 let failCount = 0;
 let emailFailCount = 0;
+// Credited in Stripe, but the audit row, the only thing that stops a re-run
+// from crediting them a second time, still not written after waiting out the
+// lock and retrying. Named at the end with the command that writes it.
+const unrecorded: Array<{ email: string; sql: string }> = [];
 
 for (const plan of plans) {
   try {
@@ -451,12 +487,17 @@ for (const plan of plans) {
       currency: CREDIT_CURRENCY,
       description: `Founding first-payment delay credit (one month at founding rate)`,
     });
+  } catch (err) {
+    // Not credited: nothing to record.
+    failCount++;
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`  FAIL ${plan.user.email}: ${message}`);
+    continue;
+  }
 
-    const nowIso = new Date().toISOString();
-    const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-    execSqlite(
-      dbPath,
-      `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+  const nowIso = new Date().toISOString();
+  const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+  const auditSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
        VALUES (
          '${escapeSqlLiteral(auditId)}',
          '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -466,24 +507,35 @@ for (const plan of plans) {
          'manual-script',
          '${escapeSqlLiteral(`Credited ${plan.amount} USD (${plan.basis})`)}',
          '${escapeSqlLiteral(nowIso)}'
-       );`,
-    );
+       );`;
+  try {
+    execSqlite(dbPath, auditSql);
     successCount++;
-
-    try {
-      await sendFoundingDelayEmail(plan.user.email, formatUsd(plan.amount));
-    } catch (err) {
-      emailFailCount++;
-      const message = err instanceof Error ? err.message : 'unknown error';
-      console.error(`  EMAIL-FAIL ${plan.user.email}: ${message}`);
-    }
   } catch (err) {
-    failCount++;
     const message = err instanceof Error ? err.message : 'unknown error';
-    console.error(`  FAIL ${plan.user.email}: ${message}`);
+    console.error(`  UNRECORDED ${plan.user.email}: credited, but not recorded: ${message}`);
+    unrecorded.push({ email: plan.user.email, sql: auditSql });
+  }
+
+  try {
+    await sendFoundingDelayEmail(plan.user.email, formatUsd(plan.amount));
+  } catch (err) {
+    emailFailCount++;
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`  EMAIL-FAIL ${plan.user.email}: ${message}`);
   }
 }
 
 console.log(
-  `\nDone. ${successCount} credited, ${failCount} failed${emailFailCount ? `, ${emailFailCount} email send(s) failed (credit still posted)` : ''}.`,
+  `\nDone. ${successCount + unrecorded.length} credited, ${failCount} failed${emailFailCount ? `, ${emailFailCount} email send(s) failed (credit still posted)` : ''}.`,
 );
+if (unrecorded.length > 0) {
+  console.error(
+    `\n${unrecorded.length} member(s) were CREDITED but not recorded, so a re-run would credit them again. Record them now:`,
+  );
+  for (const u of unrecorded) {
+    // A quoted heredoc: the shell passes the SQL through untouched.
+    console.error(`\n  ${u.email}:\nsqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\n${u.sql}\nSQL`);
+  }
+  process.exit(1);
+}
