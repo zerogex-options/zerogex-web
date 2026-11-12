@@ -519,9 +519,7 @@ if (!user.stripe_subscription_id) {
 
   if (strayVoided.length > 0) {
     const strayAuditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-    execSqlite(
-      dbPath,
-      `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+    const strayRecordSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
        VALUES (
          '${escapeSqlLiteral(strayAuditId)}',
          '${escapeSqlLiteral('billing_stale_invoice_voided')}',
@@ -531,8 +529,19 @@ if (!user.stripe_subscription_id) {
          'manual-script',
          '${escapeSqlLiteral(`Voided stray open invoice(s) ${strayVoided.join(', ')} on customer ${user.stripe_customer_id}; no subscription on file`)}',
          '${escapeSqlLiteral(new Date().toISOString())}'
-       );`,
-    );
+       );`;
+    try {
+      execSqlite(dbPath, strayRecordSql);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error';
+      console.error(`\nVoided ${strayVoided.join(', ')} in Stripe, but not recorded here: ${message}`);
+      console.error(
+        "Unrecorded, the member's history here never shows the void: a re-run finds nothing open and records nothing. Record it now:",
+      );
+      // A quoted heredoc: the shell passes the SQL through untouched.
+      console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${strayRecordSql}\nCOMMIT;\nSQL`);
+      process.exit(1);
+    }
   }
 
   console.log(
@@ -655,10 +664,12 @@ const voidFailures = ended.voidFailed.map((failure) => failure.invoiceId);
 // 3. Mirror the downgrade onto the row — the same columns clearSubscriptionFromUser
 //    writes on customer.subscription.deleted. The webhook reconciles to identical
 //    values (idempotent) and revokes any API keys on the pro->public drop.
+// 4. Audit row, in the same transaction as the mirror: one lock to wait for
+//    instead of two, and never one without the other.
 const stamp = nowIso();
-execSqlite(
-  dbPath,
-  `UPDATE users SET
+const voidedSuffix = voided.length ? `; voided invoices ${voided.join(', ')}` : '';
+const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+const recordSql = `UPDATE users SET
      tier = 'public',
      stripe_subscription_id = NULL,
      stripe_price_id = NULL,
@@ -669,15 +680,8 @@ execSqlite(
      payment_recovery_pending = 0,
      payment_grace_started_at = NULL,
      updated_at = '${escapeSqlLiteral(stamp)}'
-   WHERE id = '${escapeSqlLiteral(user.id)}';`,
-);
-
-// 4. Audit row.
-const voidedSuffix = voided.length ? `; voided invoices ${voided.join(', ')}` : '';
-const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+   WHERE id = '${escapeSqlLiteral(user.id)}';
+INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -687,8 +691,34 @@ execSqlite(
      'manual-script',
      '${escapeSqlLiteral(`Canceled sub ${subscription.id} (was ${status}) immediately; tier reset to public${voidedSuffix}`)}',
      '${escapeSqlLiteral(stamp)}'
-   );`,
-);
+   );`;
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${recordSql}\nCOMMIT;`);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  const stripeDone = alreadyTerminal
+    ? `Found ${subscription.id} already '${status}'`
+    : `Canceled ${subscription.id}`;
+  console.error(
+    `\n${stripeDone}${voided.length ? ` and voided ${voided.join(', ')}` : ''} in Stripe, but not recorded here: ${message}`,
+  );
+  console.error(
+    `Unrecorded, the site can still show ${user.email} on ${normalizeTier(user.tier)} with a subscription that has ended, and nothing here says this script ended it. Record it now:`,
+  );
+  // A quoted heredoc: the shell passes the SQL through untouched.
+  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // Step 5 is left for later, as before. Unmirrored, the row still shows the
+  // old tier, so Stripe's cancel webhook sees the drop and revokes a Pro key
+  // itself; the re-run below catches any key left.
+  console.error("\nNot done: revoking the member's API keys. After recording, revoke any key still active with:");
+  console.error(`  make cancel-subscription EMAIL=${user.email} YES=1`);
+  if (voidFailures.length) {
+    console.error(
+      `Also still open, because the void failed: ${voidFailures.join(', ')}. Void them by hand in the Stripe Dashboard.`,
+    );
+  }
+  process.exit(1);
+}
 
 console.log(
   `\nDone. ${user.email}: subscription ${finalStatus === status ? `is '${finalStatus}'` : `canceled (now '${finalStatus}')`}, tier reset to public.`,
