@@ -171,6 +171,26 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+// The live site writes to this same database whenever a member is active
+// (session refreshes, last-seen stamps), and the sqlite3 CLI's default busy
+// timeout is ZERO: a write that lands while the site holds the write lock fails
+// on the spot with "database is locked (5)". Here that is the alert latch,
+// written AFTER the alert went out: the run crashed, the unit failed, and the
+// next tick sent the same alert again. `.timeout` makes the CLI wait for the
+// lock the way the site does (core/db.ts sets busy_timeout too). Passed via
+// -cmd so it applies before the SQL and adds nothing to the -json output. Same
+// fix as scripts/send-product-update.mts.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
+function isLockError(message: string): boolean {
+  return /database is locked|database table is locked|busy/i.test(message);
+}
+
+// Synchronous pause between retries; execSqlite is synchronous.
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 /**
  * A write against the same sqlite3 CLI the reads go through.
  *
@@ -178,22 +198,37 @@ function escapeSqlLiteral(value: string): string {
  * than node:sqlite keeps this script's whole DB story in one place, and the
  * latch is the only reason this otherwise read-only sweep touches the file at
  * all — which is why the systemd unit has to grant it a writable DB directory.
+ *
+ * Retries on top of the busy timeout: the timeout covers a write that holds the
+ * lock briefly, the retries a burst of writes that outlasts it. Anything that
+ * is not a lock error fails on the first try, since a bad statement won't fix
+ * itself. Safe to repeat: the CLI stops at the first failing statement and
+ * rolls back an open transaction when it exits, so a failed attempt wrote
+ * nothing.
  */
-function execSqlite(dbPath: string, sql: string): void {
-  try {
-    execFileSync('sqlite3', [dbPath, sql], { stdio: ['ignore', 'ignore', 'pipe'] });
-  } catch (err) {
-    const stderr = (err as { stderr?: Buffer | string }).stderr;
-    const message =
-      typeof stderr === 'string' ? stderr : stderr?.toString?.() ?? (err as Error).message;
-    throw new Error(message.trim() || (err as Error).message);
+function execSqlite(dbPath: string, sql: string, attempts = 3): void {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, dbPath, sql], {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
+      return;
+    } catch (err) {
+      const stderr = (err as { stderr?: Buffer | string }).stderr;
+      const message =
+        typeof stderr === 'string' ? stderr : stderr?.toString?.() ?? (err as Error).message;
+      if (attempt >= attempts || !isLockError(message)) {
+        throw new Error(message.trim() || (err as Error).message);
+      }
+      sleepSync(attempt * 500);
+    }
   }
 }
 
 function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): T[] {
   let output: string;
   try {
-    output = execFileSync('sqlite3', ['-json', dbPath, sql], {
+    output = execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', dbPath, sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -779,15 +814,29 @@ if (cliArgs.alert || cliArgs.previewTo) {
       // Latch only AFTER a successful send, so a Resend failure retries next
       // tick instead of silently swallowing the one alert that mattered.
       if (!cliArgs.previewTo) {
+        // Every invoice in the alert latched in one transaction: one lock to
+        // wait for, and never half an alert latched.
         const nowIso = new Date().toISOString();
-        for (const invoiceId of alert.invoiceIds) {
-          execSqlite(
-            dbPath,
-            `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
-             VALUES ('orph_${Math.random().toString(36).slice(2, 12)}_${Date.now().toString(36)}',
-                     '${escapeSqlLiteral(ORPHAN_LATCH_AUDIT_TYPE)}', NULL, NULL, NULL, 'timer',
-                     '${escapeSqlLiteral(orphanLatchMessage(invoiceId))}', '${escapeSqlLiteral(nowIso)}');`,
+        const latchSql = alert.invoiceIds
+          .map(
+            (invoiceId) =>
+              `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+               VALUES ('orph_${Math.random().toString(36).slice(2, 12)}_${Date.now().toString(36)}',
+                       '${escapeSqlLiteral(ORPHAN_LATCH_AUDIT_TYPE)}', NULL, NULL, NULL, 'timer',
+                       '${escapeSqlLiteral(orphanLatchMessage(invoiceId))}', '${escapeSqlLiteral(nowIso)}');`,
+          )
+          .join('\n');
+        try {
+          execSqlite(dbPath, `BEGIN IMMEDIATE;\n${latchSql}\nCOMMIT;`);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'unknown error';
+          console.error(
+            `Alerting: the alert was SENT, but its ${alert.invoiceIds.length} invoice(s) were not latched (${message}), so the next run would send it again. Latch them now:`,
           );
+          console.error(
+            `  sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' "BEGIN; ${latchSql.replace(/\s+/g, ' ')} COMMIT;"`,
+          );
+          process.exit(1);
         }
       }
     }

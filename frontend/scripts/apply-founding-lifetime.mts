@@ -142,9 +142,29 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+// The live site writes to this same database whenever a member is active
+// (session refreshes, last-seen stamps), and the sqlite3 CLI's default busy
+// timeout is ZERO: a write that lands while the site holds the write lock fails
+// on the spot with "database is locked (5)". Here that write is the stamp made
+// AFTER the coupon went onto the subscription in Stripe, so the run crashed
+// with the member unstamped and the unit failed with an alert. `.timeout` makes
+// the CLI wait for the lock the way the site does (core/db.ts sets busy_timeout
+// too). Passed via -cmd so it applies before the SQL and adds nothing to the
+// -json output. Same fix as scripts/send-product-update.mts.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
+function isLockError(message: string): boolean {
+  return /database is locked|database table is locked|busy/i.test(message);
+}
+
+// Synchronous pause between retries; execSqlite is synchronous.
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function runSqlite(dbPath: string, sql: string): string {
   try {
-    return execFileSync('sqlite3', ['-json', dbPath, sql], {
+    return execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', dbPath, sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -162,8 +182,22 @@ function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): 
   return JSON.parse(output) as T[];
 }
 
-function execSqlite(dbPath: string, sql: string) {
-  runSqlite(dbPath, sql);
+// Retries on top of the busy timeout: the timeout covers a write that holds the
+// lock briefly, the retries a burst of writes that outlasts it. Anything that is
+// not a lock error fails on the first try, since a bad statement won't fix
+// itself. Safe to repeat: the CLI stops at the first failing statement and
+// rolls back an open transaction when it exits, so a failed attempt wrote
+// nothing.
+function execSqlite(dbPath: string, sql: string, attempts = 3) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      runSqlite(dbPath, sql);
+      return;
+    } catch (err) {
+      if (attempt >= attempts || !isLockError((err as Error).message)) throw err;
+      sleepSync(attempt * 500);
+    }
+  }
 }
 
 function nowIso() {
@@ -307,6 +341,9 @@ const stripe = new StripeClient(STRIPE_SECRET_KEY);
 let applied = 0;
 let skippedInactive = 0;
 let failed = 0;
+// Applied in Stripe, but still not stamped here after waiting out the lock and
+// retrying. Named at the end with the command that stamps them by hand.
+const unrecorded: Array<{ id: string; email: string; stampedAt: string }> = [];
 
 for (const { row } of due) {
   const subId = row.stripe_subscription_id as string;
@@ -338,31 +375,50 @@ for (const { row } of due) {
     continue;
   }
 
+  // Applied. The stamp (users.founding_lifetime_applied_at, what keeps the next
+  // run from applying it again) and the audit row go in one transaction: one
+  // lock to wait for instead of two, and never one without the other.
   const stamp = nowIso();
-  execSqlite(
-    dbPath,
-    `UPDATE users SET founding_lifetime_applied_at = '${escapeSqlLiteral(stamp)}', updated_at = '${escapeSqlLiteral(stamp)}' WHERE id = '${escapeSqlLiteral(row.id)}';`,
-  );
   const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-  execSqlite(
-    dbPath,
-    `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
-     VALUES (
-       '${escapeSqlLiteral(auditId)}',
-       '${escapeSqlLiteral(AUDIT_TYPE)}',
-       '${escapeSqlLiteral(row.id)}',
-       NULL,
-       '${escapeSqlLiteral(row.email)}',
-       'manual-script',
-       '${escapeSqlLiteral(`Applied founding lifetime coupon ${lifetimeCouponId} to sub ${subId} (batch${cliArgs.force ? ', forced' : ''})`)}',
-       '${escapeSqlLiteral(stamp)}'
-     );`,
-  );
+  try {
+    execSqlite(
+      dbPath,
+      `BEGIN IMMEDIATE;
+       UPDATE users SET founding_lifetime_applied_at = '${escapeSqlLiteral(stamp)}', updated_at = '${escapeSqlLiteral(stamp)}' WHERE id = '${escapeSqlLiteral(row.id)}';
+       INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+       VALUES (
+         '${escapeSqlLiteral(auditId)}',
+         '${escapeSqlLiteral(AUDIT_TYPE)}',
+         '${escapeSqlLiteral(row.id)}',
+         NULL,
+         '${escapeSqlLiteral(row.email)}',
+         'manual-script',
+         '${escapeSqlLiteral(`Applied founding lifetime coupon ${lifetimeCouponId} to sub ${subId} (batch${cliArgs.force ? ', forced' : ''})`)}',
+         '${escapeSqlLiteral(stamp)}'
+       );
+       COMMIT;`,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`  UNRECORDED ${row.email}: coupon applied to ${subId}, but not stamped: ${message}`);
+    unrecorded.push({ id: row.id, email: row.email, stampedAt: stamp });
+    continue;
+  }
   console.log(`  OK   ${row.email}: lifetime coupon ${lifetimeCouponId} applied to ${subId}, stamped.`);
   applied++;
 }
 
 console.log(
-  `\nDone. Applied ${applied}, skipped ${skippedInactive} (inactive sub), failed ${failed}, of ${due.length} due.`,
+  `\nDone. Applied ${applied + unrecorded.length}, skipped ${skippedInactive} (inactive sub), failed ${failed}, of ${due.length} due.`,
 );
-if (failed > 0) process.exit(1);
+if (unrecorded.length > 0) {
+  console.error(
+    `\n${unrecorded.length} coupon(s) were APPLIED in Stripe but not stamped here. The next run would apply them again (a no-op in Stripe); stamp them now instead:`,
+  );
+  for (const u of unrecorded) {
+    console.error(
+      `  sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' "UPDATE users SET founding_lifetime_applied_at = '${u.stampedAt}' WHERE id = '${escapeSqlLiteral(u.id)}' AND founding_lifetime_applied_at IS NULL;"`,
+    );
+  }
+}
+if (failed > 0 || unrecorded.length > 0) process.exit(1);

@@ -95,9 +95,30 @@ function escapeSqlLiteral(value) {
   return String(value).replace(/'/g, "''");
 }
 
+// The live site writes to this same database whenever a member is active
+// (session refreshes, last-seen stamps), and the sqlite3 CLI's default busy
+// timeout is ZERO: a write that lands while the site holds the write lock fails
+// on the spot with "database is locked (5)". Here that crashed the run, and
+// could leave a partner downgraded with no audit row, which is the row
+// --backfill-revocations finds them by, so a key minted during the grant
+// stayed live. `.timeout` makes the CLI wait for the lock the way the site does
+// (core/db.ts sets busy_timeout too). Passed via -cmd so it applies before the
+// SQL and adds nothing to the -json output. Same fix as
+// scripts/send-product-update.mts.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
+function isLockError(message) {
+  return /database is locked|database table is locked|busy/i.test(message);
+}
+
+// Synchronous pause between retries; execSqlite is synchronous.
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function runSqlite(dbPath, sql) {
   try {
-    return execFileSync('sqlite3', ['-json', dbPath, sql], {
+    return execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', dbPath, sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -113,8 +134,22 @@ function querySqlite(dbPath, sql) {
   return JSON.parse(output);
 }
 
-function execSqlite(dbPath, sql) {
-  runSqlite(dbPath, sql);
+// Retries on top of the busy timeout: the timeout covers a write that holds the
+// lock briefly, the retries a burst of writes that outlasts it. Anything that is
+// not a lock error fails on the first try, since a bad statement won't fix
+// itself. Safe to repeat: the CLI stops at the first failing statement and
+// rolls back an open transaction when it exits, so a failed attempt wrote
+// nothing.
+function execSqlite(dbPath, sql, attempts = 3) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      runSqlite(dbPath, sql);
+      return;
+    } catch (err) {
+      if (attempt >= attempts || !isLockError(err.message)) throw err;
+      sleepSync(attempt * 500);
+    }
+  }
 }
 
 const cliArgs = parseArgs(process.argv.slice(2));
@@ -311,28 +346,39 @@ if (cliArgs.dryRun) {
 
 let keysRevokedTotal = 0;
 const revokeFailures = [];
+// Still on Pro after waiting out the lock and retrying. Nothing was written for
+// them, so they keep Pro and their keys until the next run picks them up.
+const downgradeFailures = [];
 
 for (const c of candidates) {
-  execSqlite(
-    dbPath,
-    `UPDATE users SET tier = 'public', updated_at = '${escapeSqlLiteral(nowIso)}'
-     WHERE id = '${escapeSqlLiteral(c.id)}' AND tier = 'pro';`,
-  );
+  // The downgrade and its audit row go in one transaction: one lock to wait
+  // for instead of two, and never a downgrade without the row that
+  // --backfill-revocations finds it by.
   const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-  execSqlite(
-    dbPath,
-    `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
-     VALUES (
-       '${escapeSqlLiteral(auditId)}',
-       'partner_grant_expired',
-       '${escapeSqlLiteral(c.id)}',
-       NULL,
-       '${escapeSqlLiteral(c.email)}',
-       'expire-partner-grants-script',
-       '${escapeSqlLiteral(`grant expired at ${c.partner_pro_grant_expires_at}; tier pro -> public`)}',
-       '${escapeSqlLiteral(nowIso)}'
-     );`,
-  );
+  try {
+    execSqlite(
+      dbPath,
+      `BEGIN IMMEDIATE;
+       UPDATE users SET tier = 'public', updated_at = '${escapeSqlLiteral(nowIso)}'
+       WHERE id = '${escapeSqlLiteral(c.id)}' AND tier = 'pro';
+       INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+       VALUES (
+         '${escapeSqlLiteral(auditId)}',
+         'partner_grant_expired',
+         '${escapeSqlLiteral(c.id)}',
+         NULL,
+         '${escapeSqlLiteral(c.email)}',
+         'expire-partner-grants-script',
+         '${escapeSqlLiteral(`grant expired at ${c.partner_pro_grant_expires_at}; tier pro -> public`)}',
+         '${escapeSqlLiteral(nowIso)}'
+       );
+       COMMIT;`,
+    );
+  } catch (err) {
+    downgradeFailures.push(`${c.email}: ${err.message}`);
+    console.error(`  downgrade FAILED for ${c.email} — ${err.message}`);
+    continue;
+  }
 
   // Revoke AFTER the tier change commits: the downgrade is the primary job and
   // must stand even if the key service is down. The cost of that ordering is
@@ -349,7 +395,7 @@ for (const c of candidates) {
   }
 }
 
-console.log(`\nDowngraded ${candidates.length} partner(s) to tier='public'.`);
+console.log(`\nDowngraded ${candidates.length - downgradeFailures.length} partner(s) to tier='public'.`);
 if (keyAdminReady) {
   console.log(`Revoked ${keysRevokedTotal} API key(s) across those partners.`);
 } else {
@@ -366,8 +412,13 @@ if (revokeFailures.length > 0) {
   for (const f of revokeFailures) console.error(`  - ${f}`);
   console.error('Retry with: make partner-grant-revoke-backfill YES=1');
 }
-if (!keyAdminReady || revokeFailures.length > 0) {
-  // Non-zero so the systemd timer records a failure. The downgrades above are
-  // committed and the sweep is idempotent, so a retry is safe.
+if (downgradeFailures.length > 0) {
+  console.error(`\n${downgradeFailures.length} downgrade(s) FAILED and wrote nothing; the next run retries them:`);
+  for (const f of downgradeFailures) console.error(`  - ${f}`);
+}
+if (!keyAdminReady || revokeFailures.length > 0 || downgradeFailures.length > 0) {
+  // Non-zero so the systemd timer records a failure. Each downgrade above
+  // either committed with its audit row or wrote nothing, and the sweep is
+  // idempotent, so a retry is safe.
   process.exit(3);
 }

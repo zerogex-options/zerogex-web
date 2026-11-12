@@ -136,9 +136,29 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+// The live site writes to this same database whenever a member is active
+// (session refreshes, last-seen stamps), and the sqlite3 CLI's default busy
+// timeout is ZERO: a write that lands while the site holds the write lock fails
+// on the spot with "database is locked (5)". Here that write is the per-card
+// mark made AFTER the warning, so the member stayed unmarked to be emailed
+// again on the next tick, and the unit failed with an alert. `.timeout` makes
+// the CLI wait for the lock the way the site does (core/db.ts sets busy_timeout
+// too). Passed via -cmd so it applies before the SQL and adds nothing to the
+// -json output. Same fix as scripts/send-product-update.mts.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
+function isLockError(message: string): boolean {
+  return /database is locked|database table is locked|busy/i.test(message);
+}
+
+// Synchronous pause between retries; execSqlite is synchronous.
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function runSqlite(dbPath: string, sql: string): string {
   try {
-    return execFileSync('sqlite3', ['-json', dbPath, sql], {
+    return execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', dbPath, sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -156,8 +176,22 @@ function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): 
   return JSON.parse(output) as T[];
 }
 
-function execSqlite(dbPath: string, sql: string) {
-  runSqlite(dbPath, sql);
+// Retries on top of the busy timeout: the timeout covers a write that holds the
+// lock briefly, the retries a burst of writes that outlasts it. Anything that is
+// not a lock error fails on the first try, since a bad statement won't fix
+// itself. Safe to repeat: the CLI stops at the first failing statement and
+// rolls back an open transaction when it exits, so a failed attempt wrote
+// nothing.
+function execSqlite(dbPath: string, sql: string, attempts = 3) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      runSqlite(dbPath, sql);
+      return;
+    } catch (err) {
+      if (attempt >= attempts || !isLockError((err as Error).message)) throw err;
+      sleepSync(attempt * 500);
+    }
+  }
 }
 
 // Defensive: the app's core/db.ts creates this column at boot, but a cron tick
@@ -325,8 +359,16 @@ const nowMs = Date.now();
 let successCount = 0;
 let failCount = 0;
 let skippedCount = 0;
+// Delivered, but still not marked for this card after waiting out the lock and
+// retrying. Unmarked means the next run warns them again, so they are named at
+// the end with the command that marks them by hand.
+const unrecorded: Array<{ id: string; email: string; ym: string }> = [];
 
 for (const user of candidates) {
+  // What the warning was about, for the mark below.
+  let notifyYm: string;
+  let last4: string;
+  let expiryLabel: string;
   try {
     const card = await resolveCardWithExpiry(
       stripe,
@@ -363,20 +405,32 @@ for (const user of candidates) {
       cardLast4: card.last4,
       expiryLabel: decision.expiryLabel,
     });
+    notifyYm = decision.notifyYm;
+    last4 = card.last4;
+    expiryLabel = decision.expiryLabel;
+  } catch (err) {
+    // Not delivered: nothing to record, and the next run tries them again.
+    failCount++;
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`  FAIL ${user.email}: ${message}`);
+    continue;
+  }
 
-    const stamp = new Date().toISOString();
-    // Stamp the latch FIRST so a crash after send doesn't re-nag next run.
+  // Delivered. The latch (users.card_expiry_notified_ym, what keeps the next
+  // run from warning them again about this card) and the audit row go in one
+  // transaction: one lock to wait for instead of two, and never one without
+  // the other.
+  const stamp = new Date().toISOString();
+  const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+  try {
     execSqlite(
       dbPath,
-      `UPDATE users
-       SET card_expiry_notified_ym = '${escapeSqlLiteral(decision.notifyYm)}',
+      `BEGIN IMMEDIATE;
+       UPDATE users
+       SET card_expiry_notified_ym = '${escapeSqlLiteral(notifyYm)}',
            updated_at = '${escapeSqlLiteral(stamp)}'
-       WHERE id = '${escapeSqlLiteral(user.id)}';`,
-    );
-    const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-    execSqlite(
-      dbPath,
-      `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+       WHERE id = '${escapeSqlLiteral(user.id)}';
+       INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
        VALUES (
          '${escapeSqlLiteral(auditId)}',
          'card_expiry_reminder_sent',
@@ -384,21 +438,32 @@ for (const user of candidates) {
          NULL,
          '${escapeSqlLiteral(user.email)}',
          'cron-script',
-         '${escapeSqlLiteral(`Card ****${card.last4} expiring ${decision.expiryLabel}; reminder sent`)}',
+         '${escapeSqlLiteral(`Card ****${last4} expiring ${expiryLabel}; reminder sent`)}',
          '${escapeSqlLiteral(stamp)}'
-       );`,
+       );
+       COMMIT;`,
     );
     successCount++;
   } catch (err) {
-    failCount++;
     const message = err instanceof Error ? err.message : 'unknown error';
-    console.error(`  FAIL ${user.email}: ${message}`);
+    console.error(`  UNRECORDED ${user.email}: delivered, but not marked as warned: ${message}`);
+    unrecorded.push({ id: user.id, email: user.email, ym: notifyYm });
   }
 }
 
 if (cliArgs.dryRun) {
   console.log(`\n[dry-run] ${successCount} would be emailed, ${skippedCount} skipped (not expiring / already warned / no card).`);
 } else {
-  console.log(`\nDone. ${successCount} sent, ${skippedCount} skipped, ${failCount} failed.`);
+  console.log(`\nDone. ${successCount + unrecorded.length} sent, ${skippedCount} skipped, ${failCount} failed.`);
 }
-process.exit(failCount > 0 ? 1 : 0);
+if (unrecorded.length > 0) {
+  console.error(
+    `\n${unrecorded.length} email(s) were DELIVERED but not marked as warned, so the next run would email them again. Mark them now:`,
+  );
+  for (const u of unrecorded) {
+    console.error(
+      `  sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' "UPDATE users SET card_expiry_notified_ym = '${escapeSqlLiteral(u.ym)}' WHERE id = '${escapeSqlLiteral(u.id)}';"`,
+    );
+  }
+}
+process.exit(failCount > 0 || unrecorded.length > 0 ? 1 : 0);

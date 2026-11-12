@@ -283,9 +283,29 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
+// The live site writes to this same database whenever a member is active
+// (session refreshes, last-seen stamps), and the sqlite3 CLI's default busy
+// timeout is ZERO: a write that lands while the site holds the write lock fails
+// on the spot with "database is locked (5)". Here that write is the mark made
+// AFTER the email, so the member stayed unmarked to be emailed again on the
+// next tick, and the unit failed with an alert. `.timeout` makes the CLI wait
+// for the lock the way the site does (core/db.ts sets busy_timeout too). Passed
+// via -cmd so it applies before the SQL and adds nothing to the -json output.
+// Same fix as scripts/send-product-update.mts.
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
+function isLockError(message: string): boolean {
+  return /database is locked|database table is locked|busy/i.test(message);
+}
+
+// Synchronous pause between retries; execSqlite is synchronous.
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function runSqlite(dbPath: string, sql: string): string {
   try {
-    return execFileSync('sqlite3', ['-json', dbPath, sql], {
+    return execFileSync('sqlite3', ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, '-json', dbPath, sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -305,8 +325,22 @@ function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): 
   return JSON.parse(output) as T[];
 }
 
-function execSqlite(dbPath: string, sql: string) {
-  runSqlite(dbPath, sql);
+// Retries on top of the busy timeout: the timeout covers a write that holds the
+// lock briefly, the retries a burst of writes that outlasts it. Anything that is
+// not a lock error fails on the first try, since a bad statement won't fix
+// itself. Safe to repeat: the CLI stops at the first failing statement and
+// rolls back an open transaction when it exits, so a failed attempt wrote
+// nothing.
+function execSqlite(dbPath: string, sql: string, attempts = 3) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      runSqlite(dbPath, sql);
+      return;
+    } catch (err) {
+      if (attempt >= attempts || !isLockError((err as Error).message)) throw err;
+      sleepSync(attempt * 500);
+    }
+  }
 }
 
 const cliArgs = parseArgs(process.argv.slice(2));
@@ -634,27 +668,37 @@ if (!cliArgs.yes) {
 
 let successCount = 0;
 let failCount = 0;
+// Delivered, but still not marked as sent after waiting out the lock and
+// retrying. Unmarked means the next run emails them again, so they are named
+// at the end with the command that marks them by hand.
+const unrecorded: Array<{ id: string; email: string; sentAt: string }> = [];
 
 for (const user of eligible) {
   try {
     await sendWinbackEmail(user.email, optsForMode(resolvedMode, buildUnsubUrl(appUrl, user.id)));
-    const nowIso = new Date().toISOString();
-    // Stamp the latch FIRST so a partial run that crashes after some sends
-    // doesn't re-send to anyone who already received. Audit row is best-effort;
-    // the column on `users` is the source of truth for idempotency.
+  } catch (err) {
+    // Not delivered: nothing to record, and the next run tries them again.
+    failCount++;
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`  FAIL ${user.email}: ${message}`);
+    continue;
+  }
+
+  // Delivered. The latch (users.winback_email_sent_at, what keeps the next run
+  // from emailing them again) and the audit row go in one transaction: one lock
+  // to wait for instead of two, and never one without the other.
+  const nowIso = new Date().toISOString();
+  const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+  const variant = resolvedMode;
+  try {
     execSqlite(
       dbPath,
-      `UPDATE users
+      `BEGIN IMMEDIATE;
+       UPDATE users
        SET winback_email_sent_at = '${escapeSqlLiteral(nowIso)}',
            updated_at = '${escapeSqlLiteral(nowIso)}'
-       WHERE id = '${escapeSqlLiteral(user.id)}';`,
-    );
-
-    const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-    const variant = resolvedMode;
-    execSqlite(
-      dbPath,
-      `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+       WHERE id = '${escapeSqlLiteral(user.id)}';
+       INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
        VALUES (
          '${escapeSqlLiteral(auditId)}',
          'winback_email_sent',
@@ -664,15 +708,26 @@ for (const user of eligible) {
          'cron-script',
          '${escapeSqlLiteral(`Win-back email sent; variant=${variant} churned=${user.churned_at}`)}',
          '${escapeSqlLiteral(nowIso)}'
-       );`,
+       );
+       COMMIT;`,
     );
     successCount++;
   } catch (err) {
-    failCount++;
     const message = err instanceof Error ? err.message : 'unknown error';
-    console.error(`  FAIL ${user.email}: ${message}`);
+    console.error(`  UNRECORDED ${user.email}: delivered, but not marked as sent: ${message}`);
+    unrecorded.push({ id: user.id, email: user.email, sentAt: nowIso });
   }
 }
 
-console.log(`\nDone. ${successCount} sent, ${failCount} failed.`);
-process.exit(failCount > 0 ? 1 : 0);
+console.log(`\nDone. ${successCount + unrecorded.length} sent, ${failCount} failed.`);
+if (unrecorded.length > 0) {
+  console.error(
+    `\n${unrecorded.length} email(s) were DELIVERED but not marked as sent, so the next run would email them again. Mark them now:`,
+  );
+  for (const u of unrecorded) {
+    console.error(
+      `  sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' "UPDATE users SET winback_email_sent_at = '${u.sentAt}' WHERE id = '${escapeSqlLiteral(u.id)}' AND winback_email_sent_at IS NULL;"`,
+    );
+  }
+}
+process.exit(failCount > 0 || unrecorded.length > 0 ? 1 : 0);
