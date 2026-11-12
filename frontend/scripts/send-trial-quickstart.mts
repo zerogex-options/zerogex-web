@@ -313,23 +313,29 @@ if (!cliArgs.yes) {
 
 let successCount = 0;
 let failCount = 0;
+// Delivered, but the audit row, the only thing that stops a re-run from
+// emailing them again, still not written after waiting out the lock and
+// retrying. Named at the end with the command that writes it.
+const unrecorded: Array<{ email: string; sql: string }> = [];
 
 for (let i = 0; i < eligible.length; i++) {
   const user = eligible[i];
   try {
     await sendTrialQuickstartEmail(user.email, { trialEndIso: user.current_period_end });
+  } catch (err) {
+    // Not delivered: nothing to record, and a re-run tries them again.
+    failCount++;
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`  FAIL ${user.email}: ${message}`);
+    continue;
+  }
 
-    // The audit row is the idempotency latch, so it can only be written AFTER
-    // a confirmed send (stamping before would wrongly latch a user who never
-    // got the email if the send threw). If the send succeeds but this insert
-    // fails, that single user could receive a duplicate on a re-run — we log
-    // it loudly so it can be reconciled by hand; it does not abort the batch.
-    const nowIso = new Date().toISOString();
-    const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-    try {
-      execSqlite(
-        dbPath,
-        `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+  // The audit row is the idempotency latch, so it can only be written AFTER
+  // a confirmed send (stamping before would wrongly latch a user who never
+  // got the email if the send threw).
+  const nowIso = new Date().toISOString();
+  const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+  const auditSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
          VALUES (
            '${escapeSqlLiteral(auditId)}',
            '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -339,28 +345,30 @@ for (let i = 0; i < eligible.length; i++) {
            'manual-script',
            '${escapeSqlLiteral(`Trial quickstart bridge email sent; current_period_end=${user.current_period_end ?? 'null'}`)}',
            '${escapeSqlLiteral(nowIso)}'
-         );`,
-      );
-    } catch (auditErr) {
-      const message = auditErr instanceof Error ? auditErr.message : 'unknown error';
-      console.error(
-        `  WARN ${user.email}: email SENT but audit write failed (${message}). ` +
-          'A re-run may resend to this user — reconcile manually if needed.',
-      );
-    }
-
+         );`;
+  try {
+    execSqlite(dbPath, auditSql);
     successCount++;
-    console.log(`  sent ${user.email}  (${successCount}/${eligible.length})`);
-
-    if (cliArgs.sleepMs > 0 && i < eligible.length - 1) {
-      await sleep(cliArgs.sleepMs);
-    }
+    console.log(`  sent ${user.email}  (${successCount + unrecorded.length}/${eligible.length})`);
   } catch (err) {
-    failCount++;
     const message = err instanceof Error ? err.message : 'unknown error';
-    console.error(`  FAIL ${user.email}: ${message}`);
+    console.error(`  UNRECORDED ${user.email}: delivered, but not recorded as sent: ${message}`);
+    unrecorded.push({ email: user.email, sql: auditSql });
+  }
+
+  if (cliArgs.sleepMs > 0 && i < eligible.length - 1) {
+    await sleep(cliArgs.sleepMs);
   }
 }
 
-console.log(`\nDone. ${successCount} sent, ${failCount} failed.`);
-process.exit(failCount > 0 ? 1 : 0);
+console.log(`\nDone. ${successCount + unrecorded.length} sent, ${failCount} failed.`);
+if (unrecorded.length > 0) {
+  console.error(
+    `\n${unrecorded.length} email(s) were DELIVERED but not recorded as sent, so a re-run would email them again. Record them now:`,
+  );
+  for (const u of unrecorded) {
+    // A quoted heredoc: the shell passes the SQL through untouched.
+    console.error(`\n  ${u.email}:\nsqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\n${u.sql}\nSQL`);
+  }
+}
+process.exit(failCount > 0 || unrecorded.length > 0 ? 1 : 0);

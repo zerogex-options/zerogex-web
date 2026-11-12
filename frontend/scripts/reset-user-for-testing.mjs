@@ -179,17 +179,31 @@ if (!cliArgs.apply) {
 }
 
 const stamp = nowIso();
-db.prepare(`UPDATE users SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`).run(stamp, user.id);
-
 const detail =
   `test reset to public` +
   `${cliArgs.keepCustomer ? '' : '; customer cleared'}` +
   `${cliArgs.keepFounding ? '' : '; founding cleared'}` +
   ` (was tier=${user.tier}, status=${user.subscription_status ?? 'none'})`;
-db.prepare(
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
-   VALUES (?, 'billing_test_reset', ?, NULL, ?, 'manual-script', ?, ?)`,
-).run(`audit_${crypto.randomBytes(12).toString('hex')}`, user.id, user.email, detail, stamp);
+
+// The reset and its audit row land together or not at all. Nothing outside
+// this database is touched, so a failure needs no repair: re-run the command.
+try {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare(`UPDATE users SET ${sets.join(', ')}, updated_at = ? WHERE id = ?`).run(stamp, user.id);
+    db.prepare(
+      `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+       VALUES (?, 'billing_test_reset', ?, NULL, ?, 'manual-script', ?, ?)`,
+    ).run(`audit_${crypto.randomBytes(12).toString('hex')}`, user.id, user.email, detail, stamp);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+} catch (err) {
+  console.error(`\nNothing was changed: ${err instanceof Error ? err.message : String(err)}. Re-run the same command.`);
+  process.exit(1);
+}
 
 console.log(`\nDone. ${user.email} reset to public.`);
 console.log('Next: log out, then sign up again — a fresh 7-day trial applies, and you can test the plan switch.');
