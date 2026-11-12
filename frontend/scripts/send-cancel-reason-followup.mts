@@ -503,8 +503,9 @@ if (unrecorded.length > 0) {
     `\n${unrecorded.length} email(s) were DELIVERED but not recorded as sent, so a re-run would email them again. Record them now:`,
   );
   for (const u of unrecorded) {
-    // A quoted heredoc: the shell passes the SQL through untouched.
-    console.error(`\n  ${u.email}:\nsqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\n${u.sql}\nSQL`);
+    // A quoted heredoc, so the shell passes the SQL through untouched, and
+    // -bail, so a statement that fails stops the rest and nothing is half-written.
+    console.error(`\n  ${u.email}:\nsqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\n${u.sql}\nSQL`);
   }
 }
 process.exit(failCount > 0 || unrecorded.length > 0 ? 1 : 0);
