@@ -90,6 +90,12 @@ make no-card-trials
 
 Read-only. It shows, since the first no-card checkout, for no-card and card-first trials side by side: checkouts opened, trials started, still in trial (and whether a card was added), paid, and ended without paying. Also how many were refused a no-card trial because the inbox had already had one.
 
+With the flag on, every first-time trial is a no-card one, so after the switch the card-first column holds only inboxes that had already had a trial. The fair comparison is with the card-first trials from **before** the switch. Start the report a month before the first no-card checkout; the default run prints this command with the right date. On this deploy the first no-card checkout was 2026-11-07, so:
+
+```
+make no-card-trials SINCE=2026-10-08
+```
+
 **Expect** many more trials to start and a smaller share of them to pay. The number that decides whether to keep it is **"Paid … of checkouts"**: paying members per checkout opened. Give it until most trials in the window have ended (two to three weeks) before comparing.
 
 The admin Growth page's trial-to-paid rate mixes both kinds of trial, so it will drop when this is on. That is expected; the report splits them.

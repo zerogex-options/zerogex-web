@@ -11,8 +11,10 @@
 //                    split into still running (and whether a card has been
 //                    added), paid, and ended without paying.
 //   Card-first       members whose checkout opened a 7-day trial that asked for
-//                    a card (billing_checkout_started ... trial=7d card=1) and
-//                    whose subscription then started, split the same way.
+//                    a card and whose subscription then started, split the same
+//                    way. That is a checkout tagged card=1, or any 7-day trial
+//                    checkout from before the card= tag shipped with the no-card
+//                    trial: until then, every trial asked for a card.
 //
 // "Paid" is users.first_payment_at: a member on their first trial has never
 // paid before, so any first payment is this trial converting. The two numbers
@@ -20,9 +22,15 @@
 // no-card trial is expected to start far more often and convert less often per
 // trial, and the question is which yields more paying members.
 //
-// --since narrows both sides to trials started on or after a date (default:
-// the first no-card checkout on record, so the comparison covers the same
-// weeks). Reads AUTH_DB_PATH from env or .env.local.
+// THE COMPARISON THAT DECIDES IT is against the card-first trial from BEFORE
+// the switch. With BILLING_NO_CARD_TRIAL on, every first-time trial is a no-card
+// one, so after the switch the card-first side holds only inboxes that had
+// already had a trial: a handful at most, and not a fair comparison group.
+// A --since date before the first no-card checkout brings the earlier
+// card-first trials in. The default run prints that command, 30 days back.
+//
+// --since counts checkouts opened on or after a date (default: the first
+// no-card checkout on record). Reads AUTH_DB_PATH from env or .env.local.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -78,8 +86,9 @@ db.exec('PRAGMA busy_timeout = 15000;');
 
 type Checkout = { user_id: string; created_at: string; card: string };
 
-// Each member's most recent trial checkout, with whether it asked for a card.
-// Only checkouts the card= tag exists on (it shipped with the no-card trial).
+// Every 7-day trial checkout, with whether it asked for a card. card=0 marks a
+// no-card checkout. card=1, or no tag at all, marks a card-first one: the tag
+// shipped with the no-card trial, and every trial before it asked for a card.
 const checkouts = db
   .prepare(
     `SELECT user_id, created_at,
@@ -87,7 +96,6 @@ const checkouts = db
        FROM audit_events
       WHERE type = 'billing_checkout_started'
         AND message LIKE '% trial=7d %'
-        AND (message LIKE '% card=0%' OR message LIKE '% card=1%')
       ORDER BY created_at ASC`,
   )
   .all() as Checkout[];
@@ -102,6 +110,9 @@ if (!floor) {
   process.exit(0);
 }
 console.log(`Trials since:          ${floor.slice(0, 10)}${since ? '' : ' (the first no-card checkout)'}`);
+if (since && firstNoCard && since < firstNoCard) {
+  console.log(`No-card since:         ${firstNoCard.slice(0, 10)} (the first no-card checkout)`);
+}
 
 type Member = {
   id: string;
@@ -123,26 +134,55 @@ for (const row of db
   memberById.set(row.id, row);
 }
 
-type Tally = { opened: number; started: number; running: number; runningWithCard: number; paid: number; ended: number };
-const blank = (): Tally => ({ opened: 0, started: 0, running: 0, runningWithCard: 0, paid: 0, ended: 0 });
+type Tally = {
+  opened: number;
+  started: number;
+  running: number;
+  runningWithCard: number;
+  paid: number;
+  ended: number;
+  // Earliest and latest checkout counted on this side, so a reader can see how
+  // many weeks each column covers before comparing its counts.
+  firstAt: string | null;
+  lastAt: string | null;
+};
+const blank = (): Tally => ({
+  opened: 0,
+  started: 0,
+  running: 0,
+  runningWithCard: 0,
+  paid: 0,
+  ended: 0,
+  firstAt: null,
+  lastAt: null,
+});
 const noCard = blank();
 const cardFirst = blank();
 
-// The latest checkout per member inside the window decides which side they are on.
+// Each member's latest checkout on EACH side inside the window. A member can
+// be on both sides: a card-first checkout abandoned before the switch, then a
+// no-card trial after it. Each side's funnel counts its own checkouts.
 const latest = new Map<string, Checkout>();
-for (const c of checkouts) if (c.created_at >= floor) latest.set(c.user_id, c);
+for (const c of checkouts) if (c.created_at >= floor) latest.set(`${c.card}:${c.user_id}`, c);
 
 for (const c of latest.values()) {
   const side = c.card === '0' ? noCard : cardFirst;
   side.opened++;
+  if (!side.firstAt || c.created_at < side.firstAt) side.firstAt = c.created_at;
+  if (!side.lastAt || c.created_at > side.lastAt) side.lastAt = c.created_at;
   const m = memberById.get(c.user_id);
   if (!m) continue;
   // A trial started: for no-card, the webhook's marker; for card-first, the
-  // welcome stamp landing after this checkout opened.
+  // welcome stamp landing after this checkout opened. An account gets one
+  // trial, and the webhook never clears the no-card marker, so a member who
+  // carries it never had a card-first trial: their welcome stamp belongs to
+  // the no-card trial that followed an abandoned card-first checkout.
   const started =
     c.card === '0'
       ? m.no_card_trial_subscription_id != null
-      : m.paid_welcome_email_sent_at != null && m.paid_welcome_email_sent_at >= c.created_at;
+      : m.no_card_trial_subscription_id == null &&
+        m.paid_welcome_email_sent_at != null &&
+        m.paid_welcome_email_sent_at >= c.created_at;
   if (!started) continue;
   side.started++;
   if (m.first_payment_at) {
@@ -158,6 +198,9 @@ for (const c of latest.values()) {
 const pct = (n: number, d: number) => (d > 0 ? `${((100 * n) / d).toFixed(0)}%` : '-');
 function show(label: string, t: Tally, cardNote: string) {
   console.log(`\n${label}`);
+  if (t.firstAt && t.lastAt) {
+    console.log(`  Checkouts dated:       ${t.firstAt.slice(0, 10)} to ${t.lastAt.slice(0, 10)}`);
+  }
   console.log(`  Checkouts opened:      ${t.opened}`);
   console.log(`  Trials started:        ${t.started}  (${pct(t.started, t.opened)} of checkouts)`);
   console.log(`  Still in trial:        ${t.running}  (${t.runningWithCard} ${cardNote})`);
@@ -180,4 +223,11 @@ console.log(
 console.log(
   '\nTrials still running have no outcome yet. Compare "Paid ... of checkouts" once most of them have ended.',
 );
+if (!since && firstNoCard) {
+  const monthBefore = new Date(Date.parse(firstNoCard) - 30 * 86_400_000).toISOString().slice(0, 10);
+  console.log(
+    'The comparison that decides it is against the card-first trials from before the switch. To include them:' +
+      `\n  make no-card-trials SINCE=${monthBefore}`,
+  );
+}
 db.close();

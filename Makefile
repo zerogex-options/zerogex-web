@@ -730,10 +730,13 @@ wall-alerts-webhooks:
 # live from Stripe) to files without sending — a dry-run of the exact copy they
 # would receive; OUT=<dir> overrides the output directory.
 # How the trial without a card is doing (core/noCardTrial.ts), beside the
-# card-first trial over the same weeks: checkouts opened, trials started, still
-# running (and whether a card was added), paid, and ended. Read-only.
+# card-first trial: checkouts opened, trials started, still running (and
+# whether a card was added), paid, and ended. Read-only. With the flag on,
+# every first-time trial is a no-card one, so the comparison that decides it is
+# against the card-first trials from BEFORE the switch: a SINCE date ahead of
+# the first no-card checkout brings them in (the default run prints the command).
 #   make no-card-trials
-#   make no-card-trials SINCE=2026-11-10
+#   make no-card-trials SINCE=2026-10-08
 no-card-trials:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/no-card-trials.mts $(if $(SINCE),--since $(SINCE),)'
 
