@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -148,11 +148,11 @@ test('the email carries the unsubscribe link and the one-click headers', async (
   assert.match(email.text, /\/pricing\?trial=1/);
 });
 
-// Last on purpose: a real send stamps the latch the dry runs above depend on.
-test('a real send mails each eligible signup their own unsubscribe link, and never the opted-out one', { skip: sqlite3Missing }, () => {
-  const capturePath = path.join(dir, 'sent.ndjson');
+// A real send (--yes), with Resend replaced by the email-audit stub, which
+// appends each email it would have sent to capturePath.
+function realSend(capturePath: string) {
   const stub = pathToFileURL(fileURLToPath(new URL('../scripts/email-audit/stub-resend.mts', import.meta.url))).href;
-  const result = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', `--import=${stub}`, script, '--yes'], {
+  return spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', `--import=${stub}`, script, '--yes'], {
     cwd: dir,
     env: {
       PATH: process.env.PATH ?? '',
@@ -166,6 +166,13 @@ test('a real send mails each eligible signup their own unsubscribe link, and nev
     },
     encoding: 'utf8',
   });
+}
+
+// The last tests on purpose: a real send stamps the latch the dry runs above
+// depend on.
+test('a real send mails each eligible signup their own unsubscribe link, and never the opted-out one', { skip: sqlite3Missing }, () => {
+  const capturePath = path.join(dir, 'sent.ndjson');
+  const result = realSend(capturePath);
   assert.equal(result.status, 0, result.stderr + result.stdout);
 
   const sent = fs.readFileSync(capturePath, 'utf8').trim().split('\n').map((line) => JSON.parse(line) as SentEmail);
@@ -184,4 +191,67 @@ test('a real send mails each eligible signup their own unsubscribe link, and nev
     .prepare('SELECT verified_never_paid_email_sent_at AS at FROM users WHERE email = ?')
     .get('opted-out@example.com') as { at: string | null };
   assert.equal(stamped.at, null, 'skipping a member must not mark them as sent');
+});
+
+// Plays the live site, which writes to this database whenever a member is
+// active: takes the write lock from another process and holds it for `ms`.
+// Resolves once the lock is held; `released` settles when it lets go.
+async function holdWriteLock(ms: number): Promise<{ released: Promise<void> }> {
+  const holder = spawn(
+    process.execPath,
+    [
+      '--no-warnings',
+      '--input-type=module',
+      '-e',
+      `import { DatabaseSync } from 'node:sqlite';
+       const db = new DatabaseSync(process.env.AUTH_DB_PATH);
+       db.exec('BEGIN IMMEDIATE');
+       console.log('held');
+       setTimeout(() => { db.exec('COMMIT'); db.close(); }, ${ms});`,
+    ],
+    { env: { PATH: process.env.PATH ?? '', AUTH_DB_PATH: dbPath, NODE_ENV: 'test' }, stdio: ['ignore', 'pipe', 'inherit'] },
+  );
+  const released = new Promise<void>((resolve, reject) => {
+    holder.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`lock holder exited with ${code}`))));
+  });
+  await new Promise<void>((resolve, reject) => {
+    holder.stdout.on('data', (chunk) => {
+      if (String(chunk).includes('held')) resolve();
+    });
+    released.then(() => reject(new Error('lock holder exited before taking the lock')), reject);
+  });
+  return { released };
+}
+
+test('a busy database makes the job wait to mark the send, so nobody is emailed twice', { skip: sqlite3Missing }, async () => {
+  // 2026-11-12: the site held the write lock at the moment the job marked a
+  // member it had just emailed. The sqlite3 CLI did not wait, so the mark
+  // failed, the unit failed and alerted, and the member, still unmarked, was
+  // due a second copy on the next tick.
+  signup('busy@example.com', 4);
+  const capturePath = path.join(dir, 'sent-busy.ndjson');
+
+  // Held well past the script's start-up and send, so the mark has to wait.
+  const lock = await holdWriteLock(3000);
+  const first = realSend(capturePath);
+  await lock.released;
+  assert.equal(first.status, 0, first.stderr + first.stdout);
+  assert.match(first.stdout, /^Done\. 1 sent, 0 failed\.$/m);
+
+  const row = db
+    .prepare('SELECT id, verified_never_paid_email_sent_at AS at FROM users WHERE email = ?')
+    .get('busy@example.com') as { id: string; at: string | null };
+  assert.ok(row.at, 'marked as sent');
+  const audits = db
+    .prepare("SELECT COUNT(*) AS n FROM audit_events WHERE type = 'verified_never_paid_email_sent' AND user_id = ?")
+    .get(row.id) as { n: number };
+  assert.equal(audits.n, 1, 'one audit row, written with the mark');
+
+  // The next tick finds nobody to email.
+  const second = realSend(capturePath);
+  assert.equal(second.status, 0, second.stderr + second.stdout);
+  assert.match(second.stdout, /^Eligible users: +0$/m);
+
+  const sent = fs.readFileSync(capturePath, 'utf8').trim().split('\n').map((line) => JSON.parse(line) as SentEmail);
+  assert.deepEqual(sent.map((e) => [e.to].flat().join()), ['busy@example.com']);
 });
