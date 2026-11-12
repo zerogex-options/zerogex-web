@@ -511,9 +511,7 @@ const auditMessage =
   `Reconciled discounts on sub ${subscription.id} (${sku.tier}/${sku.cadence}): ` +
   `stripped [${stale.join(', ') || 'none'}], applied ${correctCoupon ?? 'none'} ` +
   `(${resolutionNote})`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const recordSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -523,8 +521,22 @@ execSqlite(
      'manual-script',
      '${escapeSqlLiteral(auditMessage)}',
      '${escapeSqlLiteral(stamp)}'
-   );`,
-);
+   );`;
+try {
+  execSqlite(dbPath, recordSql);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\nThe discounts on ${subscription.id} were CHANGED in Stripe (stripped [${stale.join(', ') || 'none'}], now ${keepUnique.length ? keepUnique.join(', ') : 'no coupons'}), but not recorded here: ${message}`,
+  );
+  console.error(
+    "Unrecorded, the audit log has no trace of the change (scan-late-discount-reconcile reads these rows). A re-run won't record it: it finds the discounts already right and stops. Record it now:",
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  process.exit(1);
+}
 
 console.log(`\nDone. ${user.email}'s subscription ${subscription.id} now carries: ${keepUnique.length ? keepUnique.join(', ') : 'no coupons'}.`);
 if (correctCoupon && subscription.status === 'trialing') {

@@ -492,20 +492,15 @@ const stamp = nowIso();
 // Re-mirror current_period_end and re-arm the reminder latch in one write. The
 // webhook's customer.subscription.updated handler will later set the same
 // values (idempotent); doing it here makes the row correct immediately.
-execSqlite(
-  dbPath,
-  `UPDATE users SET
+const rowSql = `UPDATE users SET
      current_period_end = '${escapeSqlLiteral(mirroredEndIso)}',
      subscription_status = 'trialing',
      trial_reminder_email_sent_at = NULL,
      updated_at = '${escapeSqlLiteral(stamp)}'
-   WHERE id = '${escapeSqlLiteral(user.id)}';`,
-);
+   WHERE id = '${escapeSqlLiteral(user.id)}';`;
 
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const auditSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -515,8 +510,26 @@ execSqlite(
      'manual-script',
      '${escapeSqlLiteral(`Trial extended for sub ${subscription.id}: ${new Date(currentTrialEndMs).toISOString()} → ${newTrialEndIso}; reminder latch re-armed`)}',
      '${escapeSqlLiteral(stamp)}'
-   );`,
-);
+   );`;
+
+// The row and the audit row go in one transaction: one lock to wait for
+// instead of two, and never one without the other.
+const recordSql = `${rowSql}\n${auditSql}`;
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${recordSql}\nCOMMIT;`);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\nThe trial on ${subscription.id} was EXTENDED in Stripe to ${newTrialEndIso}, but not recorded here: ${message}`,
+  );
+  console.error(
+    'Unrecorded, the site shows the old trial end until the webhook catches up, and the ~48h reminder is not re-armed for the new end (the webhook only re-arms it for a new trial). A re-run will not record it, and with --extend-days it would extend the trial again. Record it now:',
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  process.exit(1);
+}
 
 console.log(`\nDone. Trial for ${user.email} now ends ${newTrialEndIso}.`);
 console.log(

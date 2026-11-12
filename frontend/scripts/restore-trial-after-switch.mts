@@ -536,24 +536,19 @@ const stamp = nowIso();
 
 // Re-mirror the row immediately (the webhook's customer.subscription.updated will
 // converge to the same values; these writes are idempotent).
-execSqlite(
-  dbPath,
-  `UPDATE users SET
+const rowSql = `UPDATE users SET
      subscription_status = 'trialing',
      current_period_end = '${escapeSqlLiteral(mirroredEndIso)}',
      trial_reminder_email_sent_at = NULL,
      updated_at = '${escapeSqlLiteral(stamp)}'
-   WHERE id = '${escapeSqlLiteral(user.id)}';`,
-);
+   WHERE id = '${escapeSqlLiteral(user.id)}';`;
 
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
 const auditMessage =
   `Restored trial after wrongful switch-conversion on sub ${subscription.id}: ` +
   `${refundId ? `refunded ${refundInvoice?.id} (${refundId})` : 'refund skipped'}, ` +
   `trial_end → ${newTrialEndIso}, coupon ${couponOk ? expectedCoupon : 'CHECK'}`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const auditSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -563,8 +558,28 @@ execSqlite(
      'manual-script',
      '${escapeSqlLiteral(auditMessage)}',
      '${escapeSqlLiteral(stamp)}'
-   );`,
-);
+   );`;
+
+// The row and the audit row (the only record here of the refund) go in one
+// transaction: one lock to wait for instead of two, and never one without the
+// other.
+const recordSql = `${rowSql}\n${auditSql}`;
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${recordSql}\nCOMMIT;`);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\nThe trial on ${subscription.id} was RESTORED in Stripe until ${newTrialEndIso}` +
+      `${refundId ? `, and ${refundInvoice?.id} REFUNDED (${refundId})` : ' (refund skipped)'}, but not recorded here: ${message}`,
+  );
+  console.error(
+    `Unrecorded, the site shows the member as active with the old period end until the webhook catches up, and nothing here shows the restore${refundId ? ' or the refund' : ''}. A re-run refuses now that the subscription is trialing, so it will not record it either. Record it now:`,
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  process.exit(1);
+}
 
 console.log(`\nDone. ${user.email} is back on a free trial until ${newTrialEndIso}.`);
 console.log(

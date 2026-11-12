@@ -696,9 +696,7 @@ const invoicePaidAtUnix = readInvoicePaidAtUnix(invoice);
 const paidAtIso = invoicePaidAtUnix != null
   ? new Date(invoicePaidAtUnix * 1000).toISOString()
   : stamp;
-execSqlite(
-  dbPath,
-  `UPDATE users SET
+const grantSql = `UPDATE users SET
      tier = '${escapeSqlLiteral(sku.tier)}',
      stripe_subscription_id = '${escapeSqlLiteral(created.id)}',
      stripe_price_id = '${escapeSqlLiteral(decision.priceId)}',
@@ -711,13 +709,10 @@ execSqlite(
      last_paid_subscription_id = '${escapeSqlLiteral(created.id)}',
      last_paid_invoice_at = '${escapeSqlLiteral(paidAtIso)}',
      updated_at = '${escapeSqlLiteral(stamp)}'
-   WHERE id = '${escapeSqlLiteral(user.id)}';`,
-);
+   WHERE id = '${escapeSqlLiteral(user.id)}';`;
 
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const auditSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -727,8 +722,31 @@ execSqlite(
      'manual-script',
      '${escapeSqlLiteral(`Invoice ${invoice.id} recovered as subscription ${created.id} on price ${decision.priceId}; paid period honored through ${isoOf(decision.billingCycleAnchorUnix)} (first renewal charge); tier set to ${sku.tier}${carryOver.carried.length ? `; carried coupon(s) ${carryOver.carried.map((c) => `${c.couponId} (duration=${c.duration}${c.restartsClock ? ', clock restarted' : ''})`).join(', ')}` : ''}${droppedParams.length ? `; Stripe rejected ${droppedParams.join(', ')}` : ''}`)}',
      '${escapeSqlLiteral(stamp)}'
-   );`,
-);
+   );`;
+
+// The grant and its audit row go in one transaction: one lock to wait for
+// instead of two, and never one without the other.
+const recordSql = `${grantSql}\n${auditSql}`;
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${recordSql}\nCOMMIT;`);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\nSubscription ${created.id} was CREATED in Stripe for invoice ${invoice.id}, but not recorded here: ${message}`,
+  );
+  console.error(
+    `Unrecorded, ${user.email} stays on 'public' here until the customer.subscription.created webhook syncs the row, and the admin headcount counts them as Converting until their first renewal. A re-run won't record it: it now finds the subscription and stops. Record it now:`,
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // A finished run ends by asking for this check, and it still applies.
+  if (carryOver.flagged.some((f) => f.needsReview) || droppedParams.includes('discounts')) {
+    console.error('Then CHECK THE RENEWAL PRICE: this subscription does not carry every discount the');
+    console.error('canceled one had. Add the coupon in Stripe if it was meant to be permanent.');
+  }
+  process.exit(1);
+}
 
 console.log('');
 console.log(`Done. ${user.email} is now '${sku.tier}' on subscription ${created.id} (${created.status}).`);

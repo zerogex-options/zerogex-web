@@ -371,18 +371,14 @@ const stamp = nowIso();
 // cancel_ack_email_sent_at, matching the webhook's reactivation branch so a
 // future re-cancel can re-fire the acknowledgment email.
 const clearAckClause = desired ? '' : ", cancel_ack_email_sent_at = NULL";
-execSqlite(
-  dbPath,
-  `UPDATE users SET
+const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+// The mirrored flag and the audit row go in one transaction: one lock to wait
+// for instead of two, and never one without the other.
+const recordSql = `UPDATE users SET
      cancel_at_period_end = ${desired ? 1 : 0}${clearAckClause},
      updated_at = '${escapeSqlLiteral(stamp)}'
-   WHERE id = '${escapeSqlLiteral(user.id)}';`,
-);
-
-const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+   WHERE id = '${escapeSqlLiteral(user.id)}';
+INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -392,8 +388,22 @@ execSqlite(
      'manual-script',
      '${escapeSqlLiteral(`cancel_at_period_end ${subscription.cancel_at_period_end ? 'true' : 'false'} → ${desired ? 'true' : 'false'} for sub ${subscription.id} (status=${subscription.status})`)}',
      '${escapeSqlLiteral(stamp)}'
-   );`,
-);
+   );`;
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${recordSql}\nCOMMIT;`);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\ncancel_at_period_end is now ${desired ? 'true' : 'false'} on ${subscription.id} in Stripe, but not recorded here: ${message}`,
+  );
+  console.error(
+    "Unrecorded, the site goes by the old setting until Stripe's webhook catches up, and nothing here shows it was changed by hand: a re-run finds Stripe already set and records nothing. Record it now:",
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  process.exit(1);
+}
 
 console.log(
   `\nDone. ${user.email}: cancel_at_period_end is now ${desired ? 'true (will cancel at period end)' : 'false (will renew/convert)'}.`,

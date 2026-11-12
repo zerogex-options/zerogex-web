@@ -1,11 +1,23 @@
-import test, { type TestContext } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  DAY,
+  HOUR,
+  NOW_MS,
+  REPO,
+  at,
+  auditCount,
+  column,
+  createBusyDb,
+  httpCalls,
+  scriptsDir,
+  sentTo,
+  sqlite3Missing,
+  type RunOptions,
+  type Fixture,
+} from './support/busyDb.ts';
 
 // Every script that opens the auth database waits for a busy one: first read
 // from the source for all of them, then the ones that write, each run for real
@@ -28,185 +40,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 //
 // Every test gets its own copy of the real schema, so one script never sees
 // another's members. Resend is replaced by the email-audit stub, and Stripe and
-// the ZeroGEX backend by tests/support/stub-http.mts. The scripts shell out to
-// the sqlite3 CLI, so everything here skips where that isn't installed.
+// the ZeroGEX backend by tests/support/stub-http.mts; tests/support/busyDb.ts
+// has the rest. The scripts shell out to the sqlite3 CLI, so the tests that run
+// them skip where that isn't installed.
 
-const sqlite3Missing =
-  spawnSync('sqlite3', ['-version'], { stdio: 'ignore' }).status !== 0 &&
-  'needs the sqlite3 CLI, which the scripts shell out to';
-
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zgx-busy-db-'));
-process.env.AUTH_DB_PATH = path.join(dir, 'schema.db');
-
-// Dynamic import: core/db.ts reads AUTH_DB_PATH at module load, so the
-// assignment above has to land first. getDb() builds the production schema,
-// which each test copies.
-const { getDb } = await import('../core/db.ts');
-const schemaDb = getDb();
-
-const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
-const NOW_MS = Date.now();
-// An ISO timestamp `ms` from now: negative is the past.
-const at = (ms: number) => new Date(NOW_MS + ms).toISOString();
-
-const scriptsDir = fileURLToPath(new URL('../scripts/', import.meta.url));
-const preloads = [
-  new URL('../scripts/email-audit/stub-resend.mts', import.meta.url),
-  new URL('./support/stub-http.mts', import.meta.url),
-].map((url) => `--import=${pathToFileURL(fileURLToPath(url)).href}`);
-
-type Fixture = { dbPath: string; db: DatabaseSync; capturePath: string; httpLogPath: string };
-
-// A fresh copy of the schema for one test, opened the way the site opens it.
-function fixture(t: TestContext, name: string): Fixture {
-  const dbPath = path.join(dir, `${name}.db`);
-  schemaDb.exec(`VACUUM INTO '${dbPath}'`);
-  const db = new DatabaseSync(dbPath);
-  db.exec('PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA busy_timeout = 5000;');
-  t.after(() => db.close());
-  return {
-    dbPath,
-    db,
-    capturePath: path.join(dir, `${name}.sent.ndjson`),
-    httpLogPath: path.join(dir, `${name}.http.ndjson`),
-  };
-}
-
-let seq = 0;
-
-// A verified member who joined 30 days ago, plus whatever `columns` sets.
-function member(f: Fixture, email: string, columns: Record<string, string | number | null> = {}): string {
-  const id = `user_${++seq}`;
-  const joined = at(-30 * DAY);
-  f.db
-    .prepare(
-      `INSERT INTO users (id, email, tier, created_at, updated_at, email_verified_at)
-       VALUES (?, ?, 'public', ?, ?, ?)`,
-    )
-    .run(id, email, joined, joined, joined);
-  for (const [column, value] of Object.entries(columns)) {
-    f.db.prepare(`UPDATE users SET ${column} = ? WHERE id = ?`).run(value, id);
-  }
-  return id;
-}
-
-function audit(f: Fixture, userId: string, type: string, createdAt: string, message: string): void {
-  f.db
-    .prepare(
-      `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
-       VALUES (?, ?, ?, NULL, NULL, NULL, ?, ?)`,
-    )
-    .run(`audit_seed_${++seq}`, type, userId, message, createdAt);
-}
-
-function column(f: Fixture, userId: string, name: string): string | number | null {
-  const row = f.db.prepare(`SELECT ${name} AS value FROM users WHERE id = ?`).get(userId) as {
-    value: string | number | null;
-  };
-  return row.value;
-}
-
-function auditCount(f: Fixture, type: string, userId: string | null): number {
-  const row = f.db
-    .prepare('SELECT COUNT(*) AS n FROM audit_events WHERE type = ? AND user_id IS ?')
-    .get(type, userId) as { n: number };
-  return row.n;
-}
-
-// Who the run(s) emailed, in order, from the email-audit stub's capture.
-function sentTo(f: Fixture): string[] {
-  if (!fs.existsSync(f.capturePath)) return [];
-  return fs
-    .readFileSync(f.capturePath, 'utf8')
-    .trim()
-    .split('\n')
-    .map((line) => [(JSON.parse(line) as { to: string | string[] }).to].flat().join());
-}
-
-// The requests stub-http.mts answered, in order.
-function httpCalls(f: Fixture): Array<{ method: string; url: string; body: string | null }> {
-  if (!fs.existsSync(f.httpLogPath)) return [];
-  return fs
-    .readFileSync(f.httpLogPath, 'utf8')
-    .trim()
-    .split('\n')
-    .map((line) => JSON.parse(line) as { method: string; url: string; body: string | null });
-}
-
-type RunOptions = {
-  // Extra environment, on top of what every send needs.
-  env?: Record<string, string>;
-  // stub-http.mts routes: "<METHOD> <host><path>" -> the JSON to answer with.
-  routes?: Record<string, unknown>;
-};
-
-// A real run of `script` against this test's copy, the way its timer runs it.
-function run(f: Fixture, script: string, args: string[], opts: RunOptions = {}) {
-  return spawnSync(
-    process.execPath,
-    ['--experimental-strip-types', '--no-warnings', ...preloads, path.join(scriptsDir, script), ...args],
-    {
-      // No .env.local in the temp dir and a bare environment, so a run sees only
-      // this database and these stubs.
-      cwd: dir,
-      env: {
-        PATH: process.env.PATH ?? '',
-        AUTH_DB_PATH: f.dbPath,
-        NODE_ENV: 'test',
-        RESEND_API_KEY: 're_test_key',
-        RESEND_FROM_EMAIL: 'ZeroGEX <hello@zerogex.test>',
-        NEXT_PUBLIC_APP_URL: 'https://zerogex.test',
-        ZEROGEX_END_USER_TOKEN_SECRET: 'test-secret',
-        CAPTURE_OUT: f.capturePath,
-        STUB_HTTP_ROUTES: JSON.stringify(opts.routes ?? {}),
-        STUB_HTTP_LOG: f.httpLogPath,
-        ...opts.env,
-      },
-      encoding: 'utf8',
-    },
-  );
-}
-
-// Plays the live site, which writes to the database whenever a member is
-// active: takes the write lock from another process and holds it for `ms`.
-// Resolves once the lock is held; `released` settles when it lets go.
-async function holdWriteLock(dbPath: string, ms: number): Promise<{ released: Promise<void> }> {
-  const holder = spawn(
-    process.execPath,
-    [
-      '--no-warnings',
-      '--input-type=module',
-      '-e',
-      `import { DatabaseSync } from 'node:sqlite';
-       const db = new DatabaseSync(process.env.AUTH_DB_PATH);
-       db.exec('BEGIN IMMEDIATE');
-       console.log('held');
-       setTimeout(() => { db.exec('COMMIT'); db.close(); }, ${ms});`,
-    ],
-    { env: { PATH: process.env.PATH ?? '', AUTH_DB_PATH: dbPath, NODE_ENV: 'test' }, stdio: ['ignore', 'pipe', 'inherit'] },
-  );
-  const released = new Promise<void>((resolve, reject) => {
-    holder.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`lock holder exited with ${code}`))));
-  });
-  await new Promise<void>((resolve, reject) => {
-    holder.stdout.on('data', (chunk) => {
-      if (String(chunk).includes('held')) resolve();
-    });
-    released.then(() => reject(new Error('lock holder exited before taking the lock')), reject);
-  });
-  return { released };
-}
-
-// The run under test. The lock is taken before the script starts and held well
-// past its start-up and its first write, so that write has to wait for it.
-async function runWhileLocked(f: Fixture, script: string, args: string[], opts: RunOptions = {}) {
-  const lock = await holdWriteLock(f.dbPath, 3000);
-  const result = run(f, script, args, opts);
-  await lock.released;
-  return result;
-}
+const { fixture, member, audit, run, runWhileLocked } = await createBusyDb('busy-db');
 
 // ---------------------------------------------------------------------------
 // Every script, scheduled or run by hand, read from its source: each way it
@@ -214,8 +52,6 @@ async function runWhileLocked(f: Fixture, script: string, args: string[], opts: 
 // day it lands. tests/scheduledJobsBusyDb.test.ts checks the same for what
 // the timers run, found through their unit files.
 // ---------------------------------------------------------------------------
-
-const REPO = fileURLToPath(new URL('../../', import.meta.url));
 
 function scriptFiles(dirPath: string): string[] {
   return fs.readdirSync(dirPath, { withFileTypes: true }).flatMap((entry) => {
@@ -253,6 +89,19 @@ test('every sqlite3 CLI call in a script waits for a busy database', () => {
   }
   assert.ok(checked >= 50, `found only ${checked} sqlite3 calls, so the search is missing some`);
   assert.deepEqual(missing, [], 'pass -cmd ".timeout N" before the database path');
+});
+
+test('every hand-fix command a script prints stops at its first failed statement', () => {
+  // Read from a heredoc, sqlite3 carries on past a failed statement and a
+  // closing COMMIT keeps what ran before it. -bail stops there instead, so the
+  // printed command can't half-record a member either.
+  const missing = scriptSources.flatMap(({ name, source }) =>
+    source
+      .split('\n')
+      .filter((line) => line.includes("<<'SQL'") && !line.includes('sqlite3 -bail '))
+      .map((line) => `${name}: ${line.trim()}`),
+  );
+  assert.deepEqual(missing, []);
 });
 
 test('every node:sqlite open in a script sets a busy timeout', () => {

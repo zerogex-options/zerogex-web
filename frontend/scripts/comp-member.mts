@@ -250,11 +250,11 @@ function formatAmount(amount: number | null | undefined, currency: string | null
   }
 }
 
-function auditInsert(dbPath: string, userId: string, email: string, type: string, message: string) {
+// The statement only, so it can go in the same transaction as the write it
+// records.
+function auditInsertSql(userId: string, email: string, type: string, message: string): string {
   const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-  execSqlite(
-    dbPath,
-    `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+  return `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
      VALUES (
        '${escapeSqlLiteral(auditId)}',
        '${escapeSqlLiteral(type)}',
@@ -264,8 +264,7 @@ function auditInsert(dbPath: string, userId: string, email: string, type: string
        'manual-script',
        '${escapeSqlLiteral(message)}',
        '${escapeSqlLiteral(nowIso())}'
-     );`,
-  );
+     );`;
 }
 
 // ---------------------------------------------------------------------------
@@ -434,6 +433,8 @@ if (!cliArgs.yes) {
 // --- Apply -----------------------------------------------------------------
 
 let canceledSubId: string | null = null;
+// What step 3 refunded, named if the comp then fails to record.
+let refunded: string | null = null;
 
 if (!cliArgs.finalize && stripe && subscription && subIsLive) {
   // 1. Cancel in Stripe. After this there is no subscription left to renew, so
@@ -455,9 +456,7 @@ if (!cliArgs.finalize && stripe && subscription && subIsLive) {
   //    clearSubscriptionFromUser writes, so the webhook reconciles to identical
   //    values. Doing it now also means the webhook observes public->public and
   //    leaves the member's API keys alone.
-  execSqlite(
-    dbPath,
-    `UPDATE users SET
+  const mirrorSql = `UPDATE users SET
        tier = 'public',
        stripe_subscription_id = NULL,
        stripe_price_id = NULL,
@@ -468,8 +467,28 @@ if (!cliArgs.finalize && stripe && subscription && subIsLive) {
        payment_recovery_pending = 0,
        payment_grace_started_at = NULL,
        updated_at = '${escapeSqlLiteral(nowIso())}'
-     WHERE id = '${escapeSqlLiteral(user.id)}';`,
-  );
+     WHERE id = '${escapeSqlLiteral(user.id)}';`;
+  try {
+    execSqlite(dbPath, mirrorSql);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`\nCanceled ${subscription.id} in Stripe, but not recorded here: ${message}`);
+    console.error(
+      `Unrecorded, the site can still show ${user.email} on ${user.tier ?? 'public'} with a subscription that has ended, and if Stripe's cancel webhook lands first it sees a drop to public and revokes any API key they hold. Record it now:`,
+    );
+    // A quoted heredoc, so the shell passes the SQL through untouched, and
+    // -bail, so a statement that fails stops the rest and nothing is half-written.
+    console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${mirrorSql}\nCOMMIT;\nSQL`);
+    console.error('\nNot done:');
+    if (cliArgs.refund && refundTarget) {
+      console.error(
+        `  - the refund of ${refundTarget.id} (${formatAmount(refundTarget.amount_paid, refundTarget.currency)}). Refund it by hand in the Stripe Dashboard.`,
+      );
+    }
+    console.error(`  - the comp. Once the ${WEBHOOK_DELETED_AUDIT_TYPE} event shows up, finish with:`);
+    console.error(`    make comp-member EMAIL=${user.email} TIER=${cliArgs.tier} FINALIZE=1 YES=1`);
+    process.exit(1);
+  }
 
   // 3. Refund, if asked. Done after the cancel so a refund failure cannot leave
   //    a live subscription behind; surfaced as a warning because the comp is
@@ -484,9 +503,8 @@ if (!cliArgs.finalize && stripe && subscription && subIsLive) {
     } else {
       try {
         const refund = await stripe.refunds.create({ payment_intent: paymentIntent });
-        console.log(
-          `Refunded ${formatAmount(refund.amount, refund.currency)} against ${refundTarget.id} (${refund.id}).`,
-        );
+        refunded = `${formatAmount(refund.amount, refund.currency)} against ${refundTarget.id} (${refund.id})`;
+        console.log(`Refunded ${refunded}.`);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'unknown error';
         console.error(`Warning: refund failed for ${refundTarget.id}: ${message}`);
@@ -528,19 +546,39 @@ if (!cliArgs.finalize && stripe && subscription && subIsLive) {
   console.log('Webhook landed — safe to comp.');
 }
 
-// 5. Write the comped tier.
-execSqlite(
-  dbPath,
-  `UPDATE users SET tier = '${escapeSqlLiteral(cliArgs.tier)}', updated_at = '${escapeSqlLiteral(nowIso())}'
-   WHERE id = '${escapeSqlLiteral(user.id)}';`,
-);
-auditInsert(
-  dbPath,
+// 5. Write the comped tier, and its audit row in the same transaction: one lock
+//    to wait for instead of two, and never one without the other. The audit row
+//    is what marks the account as comped (core/excludedAccounts.ts).
+const compSql = `UPDATE users SET tier = '${escapeSqlLiteral(cliArgs.tier)}', updated_at = '${escapeSqlLiteral(nowIso())}'
+   WHERE id = '${escapeSqlLiteral(user.id)}';
+${auditInsertSql(
   user.id,
   user.email,
   AUDIT_TYPE,
   `Comped to ${cliArgs.tier} (free, no expiry)${canceledSubId ? `; canceled sub ${canceledSubId}` : ''}`,
-);
+)}`;
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${compSql}\nCOMMIT;`);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  if (canceledSubId) {
+    console.error(
+      `\nCanceled ${canceledSubId}${refunded ? ` and refunded ${refunded}` : ''} in Stripe, but the comp to ${cliArgs.tier} is not recorded here: ${message}`,
+    );
+    console.error(
+      `Unrecorded, ${user.email} is left on public with no subscription, and the lapsed-member emails treat them as a customer who left. Record it now:`,
+    );
+  } else {
+    console.error(`\nThe comp to ${cliArgs.tier} is not recorded here: ${message}`);
+    console.error(`This run changed nothing in Stripe, and ${user.email} is still on ${user.tier ?? 'public'}. Record it now:`);
+  }
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${compSql}\nCOMMIT;\nSQL`);
+  console.error('\nNot done: the check that the tier stuck. After recording, check it with:');
+  console.error(`  make diagnose-user EMAIL=${user.email}`);
+  process.exit(1);
+}
 
 // 6. Settle and verify the tier actually stuck — a webhook already in flight
 //    when we wrote would show up here.

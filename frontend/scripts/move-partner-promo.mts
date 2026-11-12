@@ -433,8 +433,11 @@ if (!outcome.ok) {
 }
 
 // The DB only records the move, plus the link's override when it has to follow.
-// Stripe is already done at this point, so a failure here is reported, not
-// rolled back: re-running finds the code on the target and finishes the rest.
+// Both go in one transaction: one lock to wait for instead of two, and never
+// the override without the audit row. Stripe is already done at this point, so
+// a failure here is reported with the statements to record it by hand, not
+// rolled back: a re-run finds the code on the target and, with no override
+// left to change, writes nothing.
 const nowIso = new Date().toISOString();
 const summary = [
   `${code} -> ${target.id}`,
@@ -447,20 +450,15 @@ const summary = [
 ]
   .filter(Boolean)
   .join('; ');
-try {
-  if (plan.couponOverride) {
-    const to = plan.couponOverride.to;
-    execSqlite(
-      dbPath,
-      `UPDATE users SET partner_audience_coupon_id = ${to ? `'${escapeSqlLiteral(to)}'` : 'NULL'},
+const overrideTo = plan.couponOverride?.to;
+const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+const recordSql = [
+  plan.couponOverride
+    ? `UPDATE users SET partner_audience_coupon_id = ${overrideTo ? `'${escapeSqlLiteral(overrideTo)}'` : 'NULL'},
                         updated_at = '${escapeSqlLiteral(nowIso)}'
-       WHERE id = '${escapeSqlLiteral(partner.id)}';`,
-    );
-  }
-  const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-  execSqlite(
-    dbPath,
-    `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+       WHERE id = '${escapeSqlLiteral(partner.id)}';`
+    : null,
+  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
      VALUES (
        '${escapeSqlLiteral(auditId)}',
        'partner_promo_code_moved',
@@ -471,11 +469,31 @@ try {
        '${escapeSqlLiteral(summary)}',
        '${escapeSqlLiteral(nowIso)}'
      );`,
-  );
+]
+  .filter(Boolean)
+  .join('\n');
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${recordSql}\nCOMMIT;`);
 } catch (err) {
-  console.error(`\nStripe was updated (${summary}), but the auth DB write failed: ${errorMessage(err)}`);
-  console.error('Re-run the same command to finish.');
-  process.exit(5);
+  const inStripe = [
+    outcome.createdId ? `created ${outcome.createdId}` : null,
+    plan.stampMetadataOn ? `stamped ${plan.stampMetadataOn}` : null,
+    outcome.deactivated.length > 0 ? `switched off ${outcome.deactivated.join(', ')}` : null,
+  ]
+    .filter(Boolean)
+    .join('; ');
+  console.error(
+    `\n${code} is now on ${target.id} in Stripe (${inStripe || 'nothing changed there this run'}), but the move is not recorded here: ${errorMessage(err)}`,
+  );
+  console.error(
+    plan.couponOverride
+      ? `Unrecorded, the partner's link still applies ${plan.couponOverride.from ?? 'the STRIPE_COUPON_PARTNER_AUDIENCE coupon'}, not ${target.id}, so the link and the typed code give different deals, and nothing here shows the move. Record it now:`
+      : `Unrecorded, nothing here shows the move, and a re-run finds ${code} already on ${target.id} and writes nothing. Record it now:`,
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  process.exit(1);
 }
 
 console.log('\nMoved.');

@@ -386,11 +386,7 @@ const auditMessage =
 
 // The stamp and the audit row go in one transaction: one lock to wait for
 // instead of two, and never one without the other.
-try {
-  execSqlite(
-    dbPath,
-    `BEGIN IMMEDIATE;
-     ${stampSql}
+const recordSql = `${stampSql}
      INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
      VALUES (
        '${escapeSqlLiteral(auditId)}',
@@ -401,15 +397,16 @@ try {
        'manual-script',
        '${escapeSqlLiteral(auditMessage)}',
        '${escapeSqlLiteral(nowIso)}'
-     );
-     COMMIT;`,
-  );
+     );`;
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${recordSql}\nCOMMIT;`);
 } catch (err) {
   const message = err instanceof Error ? err.message : 'unknown error';
   console.error(`\nThe ${cliArgs.variant} welcome email was SENT to ${email}, but not recorded: ${message}`);
   console.error('Unrecorded, the next Stripe webhook for this member can send it again. Record it now:');
-  // A quoted heredoc: the shell passes the SQL through untouched.
-  console.error(`sqlite3 -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\n${stampSql}\nSQL`);
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
   process.exit(1);
 }
 

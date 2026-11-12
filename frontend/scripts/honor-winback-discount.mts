@@ -925,16 +925,13 @@ const stamp = nowIso();
 // and the webhook reactivation branch (also clear cancel_ack_email_sent_at so a
 // future re-cancel can re-fire the acknowledgment). The webhook reconciles to
 // the same values later (idempotent).
-if (willClearCancel) {
-  execSqlite(
-    dbPath,
-    `UPDATE users SET
+const cancelSql = willClearCancel
+  ? `UPDATE users SET
        cancel_at_period_end = 0,
        cancel_ack_email_sent_at = NULL,
        updated_at = '${escapeSqlLiteral(stamp)}'
-     WHERE id = '${escapeSqlLiteral(user.id)}';`,
-  );
-}
+     WHERE id = '${escapeSqlLiteral(user.id)}';`
+  : null;
 
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
 const auditMessage =
@@ -942,9 +939,7 @@ const auditMessage =
   `applied ${addCouponId} over [${currentCouponIds.join(', ') || 'none'}]` +
   `${supersededCouponIds.length ? `, superseded [${supersededCouponIds.join(', ')}]` : ''}` +
   `${willClearCancel ? ', cleared cancel_at_period_end' : ''} (${resolutionNote})`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const auditSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -954,8 +949,32 @@ execSqlite(
      'manual-script',
      '${escapeSqlLiteral(auditMessage)}',
      '${escapeSqlLiteral(stamp)}'
-   );`,
-);
+   );`;
+
+// The cleared flag and the audit row go in one transaction: one lock to wait
+// for instead of two, and never one without the other.
+const recordSql = cancelSql ? `${cancelSql}\n${auditSql}` : auditSql;
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${recordSql}\nCOMMIT;`);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\n${addCouponId} was APPLIED to ${subscription.id} in Stripe` +
+      `${supersededCouponIds.length ? `, superseding ${supersededCouponIds.join(', ')}` : ''}` +
+      `${willClearCancel ? ', and its cancellation cleared' : ''}, but not recorded here: ${message}`,
+  );
+  console.error(
+    `Unrecorded, ${willClearCancel ? 'the site shows the member as still canceling until the webhook catches up, and ' : ''}nothing here shows the grant. A re-run finds nothing left to do, so it will not record it either. Record it now:`,
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  if (willClearCancel) {
+    console.error('Then reply to the member so the charge at period end is expected (this script sent no email).');
+  }
+  console.error(`The next-charge preview did not run: make diagnose-user EMAIL=${user.email} shows it.`);
+  process.exit(1);
+}
 
 console.log(
   `\nDone. ${user.email}'s subscription ${subscription.id} now carries: ${resultingCouponIds.join(', ')}.`,

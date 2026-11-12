@@ -552,6 +552,9 @@ execSqlite(
 // against a row that doesn't reference it.
 const stripe = new Stripe(STRIPE_SECRET_KEY);
 
+// What the Stripe step did to the code, named if recording the grant fails.
+let stripePromoDone = 'already set up for this partner';
+
 async function ensureStripePromotionCode(): Promise<string> {
   // Stripe promotion codes are UNIQUE per (coupon, code). List the existing
   // codes on the coupon and either reuse or create. Active filter weeds out
@@ -570,6 +573,7 @@ async function ensureStripePromotionCode(): Promise<string> {
       await stripe.promotionCodes.update(promo.id, {
         metadata: { partner_user_id: wantedPartnerId },
       });
+      stripePromoDone = "stamped with this partner's id";
     }
     if (!promo.active) {
       console.warn(
@@ -584,6 +588,7 @@ async function ensureStripePromotionCode(): Promise<string> {
     code: desiredPromoCode!,
     metadata: { partner_user_id: user.id },
   });
+  stripePromoDone = 'created';
   return created.id;
 }
 
@@ -597,10 +602,17 @@ try {
   process.exit(3);
 }
 
+const appUrl =
+  process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const partnerLink = `${appUrl.replace(/\/+$/, '')}/register?ref=${encodeURIComponent(referralCode)}`;
+const promoLink = `${appUrl.replace(/\/+$/, '')}/register?ref=${encodeURIComponent(desiredPromoCode)}`;
+
+// The audit row is the only record here of the grant's terms and of which
+// Stripe promotion code is the partner's. Stripe is already done at this
+// point, so a failure is reported with the statement to write the row by
+// hand, not left to crash the run.
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const recordSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      'partner_grant_created',
@@ -610,13 +622,24 @@ execSqlite(
      'grant-partner-pro-script',
      '${escapeSqlLiteral(`grant ${cliArgs.days}d Pro, bps=${cliArgs.commissionBps}, window=${cliArgs.windowMonths}mo, expires=${effectiveExpiryIso}, promo=${desiredPromoCode}, x_handle=${finalXHandle ? '@' + finalXHandle : '(none)'}, stripe_promo=${stripePromoId}`)}',
      '${escapeSqlLiteral(nowIso)}'
-   );`,
-);
-
-const appUrl =
-  process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const partnerLink = `${appUrl.replace(/\/+$/, '')}/register?ref=${encodeURIComponent(referralCode)}`;
-const promoLink = `${appUrl.replace(/\/+$/, '')}/register?ref=${encodeURIComponent(desiredPromoCode)}`;
+   );`;
+try {
+  execSqlite(dbPath, recordSql);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\nStripe promotion code ${stripePromoId} (${desiredPromoCode} on coupon ${audienceCouponId}) was ${stripePromoDone} and ${user.email} is a partner now, but the grant is not recorded in the audit log: ${message}`,
+  );
+  console.error(
+    "Unrecorded, nothing here shows the grant's terms or which Stripe promotion code is theirs. Record it now:",
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  // The links don't depend on the audit row, and the activation DM needs them.
+  console.error(`\nThe activation summary was not printed. Their links for the DM: ${partnerLink} and ${promoLink}`);
+  process.exit(1);
+}
 
 console.log('\nActivated.');
 console.log(`  referral_code:       ${referralCode}`);

@@ -563,16 +563,8 @@ try {
 
 // Reflect founding eligibility on the row (the webhook stamps
 // founding_member_started_at itself off the metadata; founding_eligible it does
-// NOT touch). Best-effort — the Stripe change above is the load-bearing action.
-try {
-  execSqlite(
-    dbPath,
-    `UPDATE users SET founding_eligible = 1, updated_at = '${escapeSqlLiteral(nowIso())}' WHERE id = '${escapeSqlLiteral(user.id)}';`,
-  );
-} catch (err) {
-  const message = err instanceof Error ? err.message : 'unknown error';
-  console.error(`Warning: Stripe updated, but setting founding_eligible=1 failed: ${message}`);
-}
+// NOT touch). Written with the audit row below.
+const eligibleSql = `UPDATE users SET founding_eligible = 1, updated_at = '${escapeSqlLiteral(nowIso())}' WHERE id = '${escapeSqlLiteral(user.id)}';`;
 
 // Resulting coupon ids on the updated sub.
 const updatedDiscountsRaw = ((updated as unknown as { discounts?: ExpandedDiscount[] }).discounts ??
@@ -617,9 +609,7 @@ const auditMessage =
   `(price ${priceChanges ? `${currentPriceId} -> ${targetPriceId}` : currentPriceId}), ` +
   `coupon ${foundingCouponId}, metadata.founding=1, proration=${cliArgs.proration}` +
   (invoice ? `, invoice ${invoice.id} ${typeof invoice.amount_due === 'number' ? formatMoney(invoice.amount_due, invoice.currency ?? 'usd') : ''}`.trimEnd() : '');
-execSqlite(
-  dbPath,
-  `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const auditSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -629,8 +619,28 @@ execSqlite(
      'manual-script',
      '${escapeSqlLiteral(auditMessage)}',
      '${escapeSqlLiteral(stamp)}'
-   );`,
-);
+   );`;
+
+// The flag and the audit row go in one transaction: one lock to wait for
+// instead of two, and never one without the other.
+const recordSql = `${eligibleSql}\n${auditSql}`;
+try {
+  execSqlite(dbPath, `BEGIN IMMEDIATE;\n${recordSql}\nCOMMIT;`);
+} catch (err) {
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\nSubscription ${subscription.id} was CONVERTED to founding ${cliArgs.tier}/${cliArgs.cadence} in Stripe ` +
+      `(coupon ${foundingCouponId}, metadata.founding=1${invoice ? `, invoice ${invoice.id}` : ''}), but not recorded here: ${message}`,
+  );
+  console.error(
+    'Unrecorded, nothing sets founding_eligible (the webhook does not), and nothing here shows the grant or what it charged. Record it now:',
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  console.error(`Then confirm the webhook stamped founding_member_started_at: make diagnose-user EMAIL=${user.email}`);
+  process.exit(1);
+}
 
 console.log(`\nDone. ${user.email} converted to founding ${cliArgs.tier}/${cliArgs.cadence}.`);
 console.log(`  Coupons now on sub:  ${resultingCoupons.length ? resultingCoupons.join(', ') : 'none'}`);

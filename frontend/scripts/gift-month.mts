@@ -398,10 +398,7 @@ try {
 
 const stamp = new Date().toISOString();
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-try {
-  execSqlite(
-    dbPath,
-    `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+const recordSql = `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
      VALUES (
        '${escapeSqlLiteral(auditId)}',
        '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -411,11 +408,24 @@ try {
        'manual-script',
        '${escapeSqlLiteral(`${request.description}: credited ${fmtMoney(-request.amount, month.currency)} to ${user.stripe_customer_id} (balance transaction ${transaction.id}, tag ${ref}) for sub ${subscription.id}`)}',
        '${escapeSqlLiteral(stamp)}'
-     );`,
-  );
+     );`;
+try {
+  execSqlite(dbPath, recordSql);
 } catch (err) {
-  // The credit is on Stripe either way; the tag still stops a second one today.
-  console.error(`Warning: credit posted but the audit row failed: ${(err as Error).message}`);
+  // The tag still stops a second credit today, but the gift is not on record:
+  // say so, print the command that records it, and fail the run.
+  const message = err instanceof Error ? err.message : 'unknown error';
+  console.error(
+    `\n${fmtMoney(-transaction.amount, transaction.currency)} was CREDITED to ${user.stripe_customer_id} in Stripe (balance transaction ${transaction.id}), but not recorded here: ${message}`,
+  );
+  console.error(
+    `Unrecorded, the audit log has no trace of the gift (its tag, ${ref}, still stops a second credit today). Record it now:`,
+  );
+  // A quoted heredoc, so the shell passes the SQL through untouched, and
+  // -bail, so a statement that fails stops the rest and nothing is half-written.
+  console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\nBEGIN;\n${recordSql}\nCOMMIT;\nSQL`);
+  console.error('Then tell the member yourself: no email was sent.');
+  process.exit(1);
 }
 
 const dueAfter = await nextInvoiceDue(stripe, user.stripe_customer_id, subscription.id);
