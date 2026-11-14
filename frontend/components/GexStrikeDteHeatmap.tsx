@@ -4,6 +4,7 @@ import { Crown, Info } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
+import { daysToExpiry, etTodayDateKey } from '@/core/utils';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import ChartCaption from "./ChartCaption";
@@ -21,13 +22,6 @@ interface GexStrikeDteHeatmapProps {
   // the GEX unit toggle is set to per-1-point. Colors are scale-invariant
   // (normalized to maxAbs) so the surface is unaffected.
   spotPrice?: number | null;
-}
-
-function getDte(expiration: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const exp = new Date(expiration + 'T00:00:00');
-  return Math.max(0, Math.round((exp.getTime() - today.getTime()) / 86400000));
 }
 
 function formatGex(value: number): string {
@@ -73,6 +67,8 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
   const textColor = 'var(--text-primary)';
   // Per-1% (stored) → active unit. Applied only to displayed labels.
   const gexFactor = gexScaleFactor(gexUnit, spotPrice);
+  // DTE counts from New York's date, not the viewer's (see daysToExpiry).
+  const todayKey = etTodayDateKey();
 
   const { strikes, grid, maxAbs, dteColumns, kingStrike } = useMemo(() => {
     const rows = byStrikeData || [];
@@ -85,8 +81,8 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
     const seenDtes = new Set<number>();
 
     rows.forEach((row) => {
-      const dte = getDte(row.expiration);
-      if (dte < 0 || dte > 7) return;
+      const dte = daysToExpiry(row.expiration, todayKey);
+      if (dte == null || dte < 0 || dte > 7) return;
       seenDtes.add(dte);
 
       const strike = Number(row.strike);
@@ -132,7 +128,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
     if (kingMag <= 0) kingStrike = null;
 
     return { strikes: sortedStrikes, grid: agg, maxAbs: maxAbsVal, dteColumns: nonEmptyDtes, kingStrike };
-  }, [byStrikeData]);
+  }, [byStrikeData, todayKey]);
 
   if (strikes.length === 0 || dteColumns.length === 0) {
     return (

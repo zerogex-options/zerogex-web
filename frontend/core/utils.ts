@@ -117,6 +117,24 @@ export function etDateKeyFor(ts: string | null | undefined): string {
   return key;
 }
 
+// Days to an expiration (YYYY-MM-DD; a trailing time is ignored), counted from
+// `todayKey`: 0 on expiry day, negative once it has passed, null when either is
+// not a date. Pass etTodayDateKey() as `todayKey`. Counting from the viewer's
+// own midnight instead runs a day short once their date has rolled past New
+// York's, which put today's and tomorrow's expirations in the same 0DTE column
+// for viewers east of New York. Both days are read at UTC noon, so a DST change
+// can't round a day away.
+const DATE_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})/;
+
+export function daysToExpiry(expiration: string, todayKey: string): number | null {
+  const e = DATE_KEY_RE.exec(expiration);
+  const t = DATE_KEY_RE.exec(todayKey);
+  if (!e || !t) return null;
+  const expNoon = Date.UTC(Number(e[1]), Number(e[2]) - 1, Number(e[3]), 12);
+  const todayNoon = Date.UTC(Number(t[1]), Number(t[2]) - 1, Number(t[3]), 12);
+  return Math.round((expNoon - todayNoon) / 86_400_000);
+}
+
 // Label a daily ("1day") candle by its ET trading date.
 //
 // A daily bucket's timestamp is a DATE marker, not a wall-clock instant: the

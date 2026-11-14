@@ -21,7 +21,7 @@ import ErrorMessage from "@/components/ErrorMessage";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { normalizeToMinute } from "@/core/utils";
+import { daysToExpiry, etTodayDateKey, normalizeToMinute } from "@/core/utils";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -221,12 +221,8 @@ function formatAxisSessionDate(ts: string): string {
 }
 
 function computeDTE(expiration: string): number | null {
-  if (!expiration) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const exp = new Date(expiration + "T00:00:00");
-  if (Number.isNaN(exp.getTime())) return null;
-  return Math.max(0, Math.floor((exp.getTime() - today.getTime()) / 86_400_000));
+  const days = daysToExpiry(expiration, etTodayDateKey());
+  return days == null ? null : Math.max(0, days);
 }
 
 // ── Stats Header ──────────────────────────────────────────────────────────────
