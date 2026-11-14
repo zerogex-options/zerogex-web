@@ -12,7 +12,7 @@ import {
 import { readAttachedDiscounts, stackedDiscountsParam } from '@/core/subscriptionDiscounts';
 import { canOfferRetentionDiscount, discountAuditType } from '@/core/cancelRetention';
 import { sanitizeCancellationComment, validateCancelFeedback } from '@/core/cancellationReason';
-import { clampPauseMonths, computeResumesAtUnix } from '@/core/subscriptionPause';
+import { clampPauseMonths, computeResumesAtUnix, isPausableCadence } from '@/core/subscriptionPause';
 import {
   billWasVoided,
   cancelNowAndVoid,
@@ -263,12 +263,21 @@ export async function POST(request: NextRequest) {
   // -------------------------------------------------------------------------
   // Pause instead of cancel: a bounded 1–3 month break (no charge, no access)
   // that auto-resumes. The webhook drops the tier while paused and syncs
-  // paused_until, but keeps the sub alive — a break, not churn.
+  // paused_until, but keeps the sub alive — a break, not churn. Monthly plans
+  // only.
   // -------------------------------------------------------------------------
   if (action === 'pause') {
     // Only a live sub can be paused; a past_due member should fix payment, not
-    // pause. (The UI only surfaces pause for active/trialing subs.)
-    if (row.subscription_status !== 'active' && row.subscription_status !== 'trialing') {
+    // pause. And only a monthly plan: on a quarterly or annual one a pause can
+    // void a whole renewal invoice (core/subscriptionPause.ts isPausableCadence),
+    // and a price that maps to no SKU can't be shown to be monthly. The UI hides
+    // the option the same way (canPause from /api/billing/status), but a request
+    // from a stale page or a hand-built one must be refused here.
+    const sku = row.stripe_price_id ? priceIdToSku(row.stripe_price_id) : null;
+    if (
+      (row.subscription_status !== 'active' && row.subscription_status !== 'trialing') ||
+      !isPausableCadence(sku?.cadence)
+    ) {
       return NextResponse.json({ ok: false, reason: 'not_pausable' }, { status: 409 });
     }
     const months = clampPauseMonths(body.months);

@@ -5,6 +5,7 @@ import { lengthenOffers } from '@/core/planSwitch';
 import { isSkuSellable, priceIdToSku } from '@/core/stripe';
 import { isUnstartedSubscriptionStatus } from '@/core/billingUser';
 import { noCardTrialState } from '@/core/noCardTrial';
+import { isPausableCadence } from '@/core/subscriptionPause';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,8 +74,11 @@ export async function GET(request: NextRequest) {
     // Longer billing periods the member can switch to in-app, longest first;
     // the cancel flow offers them next to the 25% off.
     planOffers: lengthenOffers({ current: currentPlan, status, paused, isSellable: isSkuSellable }),
-    // A break the cancel flow can offer: only a live, unpaused subscription.
-    canPause: (status === 'active' || status === 'trialing') && !paused,
+    // A break the cancel flow can offer: only a live, unpaused subscription on a
+    // monthly plan (core/subscriptionPause.ts isPausableCadence, also enforced by
+    // the cancel-flow route). Quarterly, annual and unmapped plans get no pause.
+    canPause:
+      (status === 'active' || status === 'trialing') && !paused && isPausableCadence(currentPlan?.cadence),
     // A trial that started without a card (core/noCardTrial.ts): when it ends,
     // and whether a card has been added since. Null outside one. Drives the
     // account page's "Add a card" panel and the dashboard banner, from the row

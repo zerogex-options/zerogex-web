@@ -166,7 +166,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'cancellation',
         q: 'How do I cancel?',
-        a: 'From the Account page: click Cancel subscription (you will also be offered a pause, if a break suits you better), or cancel in the Stripe billing portal via Manage Subscription. Either way, cancellation takes effect at the end of the current billing period\u00a0- you keep paid access until then. After that, your tier reverts to Public; your account is not deleted.',
+        a: 'From the Account page: click Cancel subscription (on a monthly plan you will also be offered a pause, if a break suits you better). Cancellation takes effect at the end of the current billing period\u00a0- you keep paid access until then. After that, your tier reverts to Public; your account is not deleted.',
       },
       {
         id: 'refunds',

@@ -36,7 +36,7 @@ Vous pouvez lier **Google** et **Apple** au même compte. La section Méthodes d
 
 - Votre niveau actuel est affiché en haut de la page.
 - **Gérer l'abonnement**, dans la section Abonnement, ouvre le portail de facturation hébergé par Stripe. Changements de plan, moyens de paiement et factures se gèrent là.
-- Pour résilier, utilisez le lien **Résilier l'abonnement** sous ce bouton. Avant de résilier, il peut vous proposer une réduction, une périodicité plus longue ou une pause d'un à trois mois si une interruption vous suffit.
+- Pour résilier, utilisez le lien **Résilier l'abonnement** sous ce bouton. Avant de résilier, il peut vous proposer une réduction, une périodicité plus longue ou, en facturation mensuelle, une pause d'un à trois mois si une interruption vous suffit.
 - Si un paiement échoue, la section vous le signale et le bouton devient **Ouvrir le portail de facturation**, où vous pouvez régler la facture en attente avec n'importe quelle carte ou mettre à jour votre moyen de paiement.
 - Dans les 7 jours suivant votre premier paiement pour une formule couverte par la garantie satisfait ou remboursé de 7 jours (Pro, ou toute formule trimestrielle ou annuelle), cliquez sur **Demander un remboursement intégral** sur la page Compte. L'accès prend fin dès l'émission du remboursement ; un remboursement par client.
 
