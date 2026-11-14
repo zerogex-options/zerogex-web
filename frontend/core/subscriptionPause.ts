@@ -7,7 +7,8 @@
 // Kept PURE (no imports) so it's unit-tested without Stripe. The webhook derives
 // entitlement from derivePauseState(subscription.pause_collection); the
 // cancel-flow route uses clampPauseMonths + computeResumesAtUnix to set a bounded
-// pause_collection. Locked down in tests/subscriptionPause.test.ts.
+// pause_collection, and it and the billing status route only offer a pause where
+// isPausableCadence allows one. Locked down in tests/subscriptionPause.test.ts.
 
 export const PAUSE_MONTH_OPTIONS = [1, 2, 3] as const;
 const MIN_PAUSE_MONTHS = 1;
@@ -30,6 +31,19 @@ export type PauseState = {
   // ISO of the scheduled auto-resume, or null (an indefinite pause, or not paused).
   resumesAtIso: string | null;
 };
+
+// Whether a plan billed at this cadence may be paused: monthly only. Stripe keeps
+// the billing cycle running through a pause, and with behavior 'void' it voids
+// every invoice generated in the window; nothing is collected for that period
+// afterwards. Monthly evens out (N months without access, N monthly invoices
+// voided). Quarterly and annual do not: a renewal inside the window voids the
+// whole 3- or 12-month invoice while access comes back after 1–3 months (an
+// annual member pausing one month across renewal gets ~11 months free), and a
+// renewal outside it costs the member months they already paid for. A missing
+// cadence (a price that maps to no SKU) is not pausable either.
+export function isPausableCadence(cadence: string | null | undefined): boolean {
+  return cadence === 'monthly';
+}
 
 export function derivePauseState(input: PauseCollectionInput): PauseState {
   if (!input || !input.behavior) return { paused: false, resumesAtIso: null };

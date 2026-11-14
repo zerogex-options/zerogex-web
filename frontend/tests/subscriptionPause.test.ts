@@ -4,11 +4,19 @@ import {
   derivePauseState,
   clampPauseMonths,
   computeResumesAtUnix,
+  isPausableCadence,
 } from '../core/subscriptionPause.ts';
 
+// core/stripe.ts builds its price table at module load, so the env goes first.
+// Every cadence is mapped for one tier, so priceIdToSku resolves the real thing.
+process.env.STRIPE_PRICE_BASIC_MONTHLY = 'price_basic_monthly';
+process.env.STRIPE_PRICE_BASIC_QUARTERLY = 'price_basic_quarterly';
+process.env.STRIPE_PRICE_BASIC_ANNUAL = 'price_basic_annual';
+const { priceIdToSku } = await import('../core/stripe.ts');
+
 // Pause is the entitlement-critical retention lever: a paused sub must read as
-// "no access, not churned", and the pause length must stay bounded. Lock the
-// derivation and the clamp.
+// "no access, not churned", the pause length must stay bounded, and only a
+// monthly plan may pause at all. Lock the derivation, the clamp and the gate.
 
 test('derivePauseState: no pause_collection → not paused', () => {
   assert.deepEqual(derivePauseState(null), { paused: false, resumesAtIso: null });
@@ -53,4 +61,34 @@ test('computeResumesAtUnix: adds calendar months', () => {
   assert.equal(new Date(oneMonth * 1000).toISOString(), new Date(Date.UTC(2026, 8, 14, 12, 0, 0)).toISOString());
   const threeMonths = computeResumesAtUnix(now, 3);
   assert.equal(new Date(threeMonths * 1000).toISOString(), new Date(Date.UTC(2026, 10, 14, 12, 0, 0)).toISOString());
+});
+
+// What both routes compute from users.stripe_price_id before asking the gate.
+function cadenceOfPrice(priceId: string | null) {
+  const sku = priceId ? priceIdToSku(priceId) : null;
+  return sku?.cadence;
+}
+
+test('isPausableCadence: monthly only', () => {
+  assert.equal(isPausableCadence('monthly'), true);
+  // A pause across a quarterly or annual renewal voids the whole renewal invoice.
+  assert.equal(isPausableCadence('quarterly'), false);
+  assert.equal(isPausableCadence('annual'), false);
+  // A cadence added later stays unpausable until someone decides otherwise.
+  assert.equal(isPausableCadence('semiannual'), false);
+});
+
+test('isPausableCadence: through priceIdToSku, as the routes call it', () => {
+  assert.equal(isPausableCadence(cadenceOfPrice('price_basic_monthly')), true);
+  assert.equal(isPausableCadence(cadenceOfPrice('price_basic_quarterly')), false);
+  assert.equal(isPausableCadence(cadenceOfPrice('price_basic_annual')), false);
+});
+
+test('isPausableCadence: an unmapped price (null SKU) is not pausable', () => {
+  assert.equal(priceIdToSku('price_nobody_sells'), null);
+  assert.equal(isPausableCadence(cadenceOfPrice('price_nobody_sells')), false);
+  // No price on the row at all.
+  assert.equal(isPausableCadence(cadenceOfPrice(null)), false);
+  assert.equal(isPausableCadence(null), false);
+  assert.equal(isPausableCadence(undefined), false);
 });

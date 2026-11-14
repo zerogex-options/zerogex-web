@@ -54,7 +54,7 @@ Zum Kündigen nutze stattdessen den Link **Abonnement kündigen** auf deiner Kon
 
 ## Kündigung
 
-- Kündige über den Link **Abonnement kündigen** unter Abonnement verwalten auf deiner Kontoseite. Bevor er kündigt, bietet er dir eventuell einen Rabatt, einen Wechsel zu einem längeren Zahlungsrhythmus oder eine Pause von ein bis drei Monaten an - während der Pause wird nichts berechnet und du hast keinen Zugang, danach läuft es automatisch weiter. Du kannst jedes Angebot überspringen und kündigen.
+- Kündige über den Link **Abonnement kündigen** unter Abonnement verwalten auf deiner Kontoseite. Bevor er kündigt, bietet er dir eventuell einen Rabatt, einen Wechsel zu einem längeren Zahlungsrhythmus oder, bei monatlicher Abrechnung, eine Pause von ein bis drei Monaten an - während der Pause wird nichts berechnet und du hast keinen Zugang, danach läuft es automatisch weiter. Du kannst jedes Angebot überspringen und kündigen.
 - Die Kündigung wird zum **Ende des aktuellen Abrechnungszeitraums** wirksam. Bis dahin behältst du den kostenpflichtigen Zugang, und deine Kontoseite zeigt das Datum an.
 - Ist eine Zahlung bereits fehlgeschlagen, wenn du kündigst, wird die Kündigung stattdessen sofort wirksam, und die offene Rechnung wird mit storniert, sodass nichts mehr abgebucht wird.
 - Nach Ablauf des Zeitraums fällt deine Stufe auf Public zurück. Dein Konto wird nicht gelöscht; deine Empfehlungsdaten und gespeicherten Einstellungen bleiben erhalten.

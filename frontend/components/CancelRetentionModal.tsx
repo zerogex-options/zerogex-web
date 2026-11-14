@@ -76,7 +76,8 @@ type Props = {
   // Longer billing periods the member can switch to, longest first (from
   // /api/billing/status). Empty for anyone not paying monthly or quarterly.
   planOffers: LengthenOffer[];
-  // Whether a pause can be offered (a live, unpaused subscription).
+  // Whether a pause can be offered (a live, unpaused subscription on a monthly
+  // plan; see canPause in /api/billing/status).
   canPause: boolean;
 };
 
