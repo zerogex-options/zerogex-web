@@ -203,6 +203,13 @@ export interface GammaWeatherStripProps {
   symbol?: string;
   /** Set on a dated page so the drawer narrates that session, not today. */
   date?: string | null;
+  /**
+   * Live page only: the session has reached its 16:00 ET close, so this read
+   * is its final one. The header says so, the age is read as at the close, and
+   * the in-progress chips (a state forming, pressure reversing) stand down,
+   * because nothing further can form until the next session.
+   */
+  sessionClosed?: boolean;
 }
 
 export default function GammaWeatherStrip({
@@ -211,6 +218,7 @@ export default function GammaWeatherStrip({
   regime = null,
   symbol,
   date = null,
+  sessionClosed = false,
 }: GammaWeatherStripProps) {
   // Stacked by default. One chart at a time was the right shape while the
   // drawer was being proved and the wrong one for the job it grew into, which
@@ -285,6 +293,19 @@ export default function GammaWeatherStrip({
         <span className="text-lg font-bold" style={{ color }}>
           {payload.label}
         </span>
+        {sessionClosed && (
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+            style={{
+              backgroundColor: 'var(--color-surface-subtle)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+            title="The session has closed. This is its final read; it updates again once the next session's bars come in."
+          >
+            Session closed
+          </span>
+        )}
         {payload.age_label && (
           <span
             className="text-xs font-medium tabular-nums"
@@ -300,12 +321,13 @@ export default function GammaWeatherStrip({
                 or `undefined` in the header is worse than FRESH. */}
             {payload.age_label ?? payload.age}
             {payload.age_minutes != null && ` ${Math.round(payload.age_minutes)}m`}
+            {sessionClosed && ' at the close'}
           </span>
         )}
         {/* The candidate, shown while it waits. Confirmation exists to stop
             the header chasing one-bar noise; showing what is forming anyway
             is what keeps the early read from being thrown away with it. */}
-        {payload.pending_label && (
+        {payload.pending_label && !sessionClosed && (
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
             style={{
@@ -321,7 +343,7 @@ export default function GammaWeatherStrip({
         {/* Only for a genuine reversal: an established side giving way while
             it is still established. A fresh pulse on the other side gets no
             chip, which is what keeps this one worth looking at. */}
-        {payload.pressure_reversing_bars > 0 && (
+        {payload.pressure_reversing_bars > 0 && !sessionClosed && (
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
             style={{

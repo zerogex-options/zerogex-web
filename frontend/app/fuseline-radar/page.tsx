@@ -20,6 +20,7 @@ import PlanInputs from '@/components/fuseline/PlanInputs';
 import HedgingFlowPanels, { ZeroDteToggle } from '@/app/hedging-flow/HedgingFlowPanels';
 import { useLiveHedgingFlow } from '@/app/hedging-flow/useLiveHedgingFlow';
 import { optionChainSymbolFor } from '@/core/symbols';
+import { readingLabel } from '@/core/sessionClosed';
 import { TimeframeSymbolScope, useTimeframe } from '@/core/TimeframeContext';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -529,6 +530,10 @@ export default function FuselineRadarPage() {
         <span>
           {paused ? (
             <><strong style={{ color: 'var(--color-warning)' }}>Paused</strong> · gamma frozen at {timeEt(nowT)} ET · chart price stays live</>
+          ) : !inSession ? (
+            // Outside 09:30-16:00 ET nothing newer exists, so the ladder holds
+            // the session's final reading. Say so rather than "live".
+            <><strong style={{ color: 'var(--color-text-primary)' }}>Market closed</strong> · last gamma reading {readingLabel(nowT, clock)}</>
           ) : (
             <><strong style={{ color: 'var(--color-text-primary)' }}>{MODE_TEXT[settings.mode]}</strong> · gamma as of {timeEt(nowT)} ET</>
           )}

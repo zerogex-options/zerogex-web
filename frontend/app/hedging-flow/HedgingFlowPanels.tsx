@@ -97,6 +97,8 @@ export interface HedgingFlowPanelsProps {
   /** The bar size picked. With `onTimeframeChange`, the chart offers 5 min / 1 min. */
   timeframe?: FlowTimeframe;
   onTimeframeChange?: (timeframe: FlowTimeframe) => void;
+  /** The live session has reached its close: Gamma Weather's read is final. */
+  sessionClosed?: boolean;
 }
 
 export default function HedgingFlowPanels({
@@ -116,6 +118,7 @@ export default function HedgingFlowPanels({
   chartError = null,
   timeframe,
   onTimeframeChange,
+  sessionClosed = false,
 }: HedgingFlowPanelsProps) {
   // One toggle drives both panels. Two that could disagree would let a reader
   // compare a 30-minute flow rate against a since-the-open structure change
@@ -169,6 +172,7 @@ export default function HedgingFlowPanels({
                 regime={regime}
                 symbol={symbol}
                 date={historical ? sessionDateKey : null}
+                sessionClosed={!historical && sessionClosed}
               />
             </div>
           )}

@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { FlowTimeframe } from '@/core/flowSeriesCharts';
+import { sessionHasClosed } from '@/core/sessionClosed';
 import { etTodayDateKey } from '@/core/utils';
 import { useHedgingFlow } from '@/hooks/useHedgingFlow';
 import { useGammaRegimeSeries } from '@/hooks/useGammaRegimeSeries';
@@ -24,6 +25,11 @@ import type { HedgingFlowPanelsProps } from './HedgingFlowPanels';
  * 5-minute series is fetched either way, because Gamma Weather is built on
  * 5-minute bars; the 1-minute one is a second request, made only while it is
  * on screen.
+ *
+ * `sessionClosed` turns true at the 16:00 ET close (and stays true overnight,
+ * on weekends and on holidays, when the newest read is an earlier session's),
+ * so Gamma Weather can say its read is the session's final one instead of
+ * presenting it as current.
  *
  * `enabled: false` holds every read, for a surface that can hide the section.
  * `symbol` must already be an option-chain symbol (optionChainSymbolFor): the
@@ -52,6 +58,14 @@ export function useLiveHedgingFlow(symbol: string, { enabled = true }: { enabled
   // Unfiltered by the 0DTE toggle, same as the structure series.
   const { data: weather, notReady: weatherNotReady } = useGammaWeather(symbol, { enabled });
 
+  // A slow clock is enough: it only has to notice the close.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const sessionClosed = sessionHasClosed(weather?.session ?? data?.session, now);
+
   const panelProps: HedgingFlowPanelsProps = {
     symbol,
     sessionDateKey,
@@ -68,6 +82,7 @@ export function useLiveHedgingFlow(symbol: string, { enabled = true }: { enabled
     chartError: timeframe === '1min' && !minute.data ? minute.error : null,
     timeframe,
     onTimeframeChange: setTimeframe,
+    sessionClosed,
   };
 
   return { zeroDteOnly, setZeroDteOnly, panelProps };

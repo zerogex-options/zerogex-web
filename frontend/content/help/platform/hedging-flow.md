@@ -113,6 +113,8 @@ The strip above the header cards is the combined read of everything below it: on
 
 It classifies market health - whether a condition is healthy enough to persist - not direction. It is not an entry, an exit, or a recommendation, which is why each state has a color of its own rather than buying green and selling red. It inherits the estimated-not-observed caveat from the hedging flow it reads. A new state has to show up on two bars in a row before the headline changes, counting the bar still filling, so it doesn't chase a single noisy bar; until then the strip shows it as forming, with a count such as 1/2. The strip appears once a bar carries both hedging flow and gamma structure.
 
+Beside the state, its **age** says how long it has held: **Fresh** (under 15 minutes), **Running** (15 to 30), **Aging** (30 to 60) and **Long-running** (an hour or more). It is elapsed time and nothing more: across past sessions, older states have been less likely to last another half hour, not more. After the 16:00 ET close the strip says **Session closed**, the age reads as at the close, and it stays that way until the next session's bars come in.
+
 ## The 0DTE toggle
 
 **0DTE only** is the expirations filter carrying today's date - which is also why it can honestly report that there is no 0DTE book to show. On a day that is not an expiry for the symbol, the filter resolves to nothing and the page says so, rather than silently substituting Friday.

@@ -125,6 +125,7 @@ Below the radar sits the live [Hedging Flow](/help/platform/hedging-flow) sessio
 - It reads **SPX** option trades. With the chart in ES, its prices are SPX's, and the line under its heading says so.
 - **0DTE only** and **Full page** sit beside its heading. Its own controls (pressure rate or session cumulative, 5 min or 1 min) work as they do on the full page.
 - It refreshes on its own schedule, not the ladder's, so **Pause** and the ladder's update setting do not affect it.
+- After the close, its Gamma Weather says **Session closed** and shows the session's final read.
 - Turn it off with the **Hedging Flow** switch in the controls. While it is off, or the tab is hidden, it reads nothing.
 
 ## Freshness, updates and pause
@@ -136,6 +137,7 @@ The bar above the chart says how current the ladder is.
 - **Pause** freezes the ladder so you can study it. The chart's price keeps moving, and the bar says the gamma is paused.
 - In a hidden browser tab the ladder stops reading new data until you come back to it.
 - During the session, if the newest reading is five minutes old or more, the bar says how old it is.
+- Before 09:30 ET, after the 16:00 close and on weekends, the bar says **Market closed** and gives the time of the last reading, with its day when it is from an earlier day. The ladder holds that final picture of the session, including that day's 0DTE, which expired at the close, until new readings come in.
 
 ## Messages under the controls
 
