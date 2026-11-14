@@ -53,7 +53,13 @@ export async function GET(request: NextRequest) {
   // via the portal). Once Stripe deletes it, stripe_subscription_id is cleared
   // and the right path is a fresh checkout, not the portal.
   const paymentIssue = hasSubscription && status != null && PAYMENT_ISSUE_STATUSES.has(status);
-  const paused = row?.paused_until != null;
+  // A pause belongs to a subscription, so only one the member still has can be
+  // paused. A row whose subscription ended before markSubscriptionEnded cleared
+  // paused_until still carries it, and passing that on put a "resumes on <date>"
+  // banner, and a Resume button that could only fail, in front of a member with
+  // nothing to resume.
+  const pausedUntil = hasSubscription ? (row?.paused_until ?? null) : null;
+  const paused = pausedUntil != null;
   const currentPlan = hasSubscription && row?.stripe_price_id ? priceIdToSku(row.stripe_price_id) : null;
 
   const response = NextResponse.json({
@@ -68,7 +74,7 @@ export async function GET(request: NextRequest) {
     retentionOfferClaimed: row?.retention_offer_claimed_at != null,
     // ISO auto-resume instant when the subscription is paused, else null. Drives
     // the account page's "paused until X" + Resume affordance.
-    pausedUntil: row?.paused_until ?? null,
+    pausedUntil,
     // The plan the member is on, when its price maps to one we sell.
     currentPlan,
     // Longer billing periods the member can switch to in-app, longest first;

@@ -134,6 +134,13 @@ export function findUserByCustomerIdIncludingDeleted(customerId: string): Billin
 // returning member later canceled their new subscription the claim found it
 // taken and sent nothing: no acknowledgment, no one-click save offer.
 //
+// paused_until goes too. A pause belongs to the subscription (the webhook copies
+// it from that subscription's pause_collection on every sync), and nothing else
+// clears it until a new subscription syncs. Left set, a member whose
+// subscription ended mid-pause kept reading as paused: the Account page said it
+// would resume on a date that never came, and its Resume button answered "No
+// active subscription on file."
+//
 // Only when the row still points at THIS subscription (or at none). The
 // webhook's ordering guard compares events per subscription, so a deletion
 // delivered late — Stripe retrying an event that failed during a deploy restart
@@ -163,6 +170,7 @@ export function markSubscriptionEnded(input: {
          payment_recovery_pending = 0,
          payment_grace_started_at = NULL,
          payment_grace_reason = NULL,
+         paused_until = NULL,
          updated_at = ?
        WHERE id = ? AND (stripe_subscription_id IS NULL OR stripe_subscription_id = ?)`,
     )

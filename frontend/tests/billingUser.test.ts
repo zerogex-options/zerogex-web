@@ -134,6 +134,7 @@ type SubscriptionRow = {
   cancel_at_period_end: number;
   cancel_ack_email_sent_at: string | null;
   subscription_lapsed: number;
+  paused_until: string | null;
 };
 
 function seedSubscriber(opts: {
@@ -141,14 +142,16 @@ function seedSubscriber(opts: {
   subscriptionId: string | null;
   cancelAtPeriodEnd: 0 | 1;
   cancelAckSentAt: string | null;
+  pausedUntil?: string | null;
 }) {
   const now = new Date().toISOString();
   db.prepare(
     `INSERT INTO users (id, email, tier, created_at, updated_at, stripe_customer_id,
                         stripe_subscription_id, stripe_price_id, subscription_status,
-                        current_period_end, cancel_at_period_end, cancel_ack_email_sent_at)
+                        current_period_end, cancel_at_period_end, cancel_ack_email_sent_at,
+                        paused_until)
      VALUES (?, ?, 'pro', ?, ?, ?, ?, 'price_pro_monthly', 'active',
-             '2026-10-01T12:00:00.000Z', ?, ?)`,
+             '2026-10-01T12:00:00.000Z', ?, ?, ?)`,
   ).run(
     opts.id,
     `${opts.id}@example.com`,
@@ -158,6 +161,7 @@ function seedSubscriber(opts: {
     opts.subscriptionId,
     opts.cancelAtPeriodEnd,
     opts.cancelAckSentAt,
+    opts.pausedUntil ?? null,
   );
 }
 
@@ -165,7 +169,7 @@ function subscriptionRow(id: string): SubscriptionRow {
   return db
     .prepare(
       `SELECT tier, stripe_subscription_id, subscription_status, current_period_end,
-              cancel_at_period_end, cancel_ack_email_sent_at, subscription_lapsed
+              cancel_at_period_end, cancel_ack_email_sent_at, subscription_lapsed, paused_until
        FROM users WHERE id = ?`,
     )
     .get(id) as SubscriptionRow;
@@ -215,6 +219,35 @@ test('a subscription ending releases its cancellation acknowledgment', () => {
   assert.equal(subscriptionRow('u_ack').cancel_ack_email_sent_at, null);
 });
 
+// The regression. A pause belongs to its subscription, but ending the
+// subscription left paused_until set, so the Account page kept saying it would
+// resume on a date that never came, next to a Resume button that could only
+// fail. Both ways the deletion can find the row: still naming the subscription,
+// or already taken off it by the money-back refund or an operator script, which
+// leave paused_until for the deletion to clear.
+test('a subscription that ends while paused takes the pause with it', () => {
+  for (const [id, subscriptionOnRow] of [
+    ['u_paused_end', 'sub_PAUSED'],
+    ['u_paused_premirrored', null],
+  ] as const) {
+    seedSubscriber({
+      id,
+      subscriptionId: subscriptionOnRow,
+      cancelAtPeriodEnd: 0,
+      cancelAckSentAt: null,
+      pausedUntil: '2026-12-14T12:00:00.000Z',
+    });
+    const ended = markSubscriptionEnded({
+      userId: id,
+      subscriptionId: 'sub_PAUSED',
+      status: 'canceled',
+      nowIso: '2026-11-14T12:00:00.000Z',
+    });
+    assert.equal(ended, true, id);
+    assert.equal(subscriptionRow(id).paused_until, null, id);
+  }
+});
+
 // comp-member (and the other scripts that mirror a cancel onto the row before
 // the webhook lands) NULL the subscription id first. The deletion still has to
 // finish the job when it arrives, latch included.
@@ -254,6 +287,28 @@ test('a late deletion for a replaced subscription changes nothing', () => {
   });
   assert.equal(ended, false);
   assert.deepEqual(subscriptionRow('u_moved_on'), before);
+});
+
+// The same guard, for the pause: the member is on a break from the subscription
+// that replaced the one ending, and keeps it.
+test("a late deletion leaves a pause on the member's new subscription alone", () => {
+  seedSubscriber({
+    id: 'u_paused_new',
+    subscriptionId: 'sub_NEW',
+    cancelAtPeriodEnd: 0,
+    cancelAckSentAt: null,
+    pausedUntil: '2026-12-14T12:00:00.000Z',
+  });
+  const before = subscriptionRow('u_paused_new');
+  const ended = markSubscriptionEnded({
+    userId: 'u_paused_new',
+    subscriptionId: 'sub_OLD',
+    status: 'canceled',
+    nowIso: '2026-11-14T12:00:00.000Z',
+  });
+  assert.equal(ended, false);
+  assert.equal(subscriptionRow('u_paused_new').paused_until, '2026-12-14T12:00:00.000Z');
+  assert.deepEqual(subscriptionRow('u_paused_new'), before);
 });
 
 // ── Never-started subscriptions ──────────────────────────────────────────────
