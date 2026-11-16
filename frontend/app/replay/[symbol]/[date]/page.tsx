@@ -363,8 +363,8 @@ export default async function ReplayDatePage({
         expiry&nbsp;- 0DTE replays only the contracts that settled that afternoon, the Friday option
         only the next weekly (the Friday after, on a Friday session), and in both the call wall, put
         wall, gamma flip and max pain are re-derived from that book rather than the whole chain (the
-        pin strike and GEX King stay whole-chain in every view, exactly as they do on the live
-        charts) ·
+        pin strike and GEX King ignore the switch, exactly as they do on the live charts: the pin
+        strike is always same-day and the GEX King is always the whole chain) ·
         drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
         the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
         the same price axis so a wick and a strike bar at the same level line up horizontally ·

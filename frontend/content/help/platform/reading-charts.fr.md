@@ -65,7 +65,7 @@ GEX Heatmap · Strike × DTE, sur la page Dealer Positioning.
 - **Lignes** - les strikes portant le plus de gamma sur la semaine à venir, strike le plus haut en tête.
 - **Colonnes** - jours avant l'échéance, jusqu'à 7DTE.
 - **Couleur de cellule** - le gamma net des dealers pour cette combinaison strike/échéance : vert positif, rouge négatif, plus soutenu quand la valeur est plus grande.
-- **Couronne** - le GEX king, le strike présentant le plus grand gamma net des dealers sur ces échéances.
+- **Couronne** - le Near-term King, le strike présentant le plus grand gamma net des dealers sur ces échéances. Ce n'est pas le [GEX King](/help/platform/gamma-terminal#gex-king) du Gamma Terminal, qui couvre toute la chaîne.
 
 Les cellules les plus « chaudes » sont les strikes qui comptent pour les échéances les plus proches. Observez la heatmap évoluer en cours de journée - si la cellule la plus lumineuse change de strike, le wall se déplace.
 

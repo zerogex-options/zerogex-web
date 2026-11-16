@@ -2128,11 +2128,11 @@ export default function GammaTerminalChart({
   // Daily Replay reads, as of the bucket's close).
   //
   // rewindBucket, NOT levelBucket: levelBucket also fires for a LIVE
-  // expiration filter, and the pin must stay whole-chain there — it is
-  // 0DTE-by-construction, so it doesn't follow the Expiry selector on any
-  // surface (see the note in useGammaPlaybook). Falling back to the summary
-  // when there's no bucket keeps it live-sourced alongside flip/walls while
-  // the timeseries seeds.
+  // expiration filter, and the pin must stay unfiltered there — it is
+  // 0DTE-by-construction (always same-day, never whole-chain), so it doesn't
+  // follow the Expiry selector on any surface (see the note in
+  // useGammaPlaybook). Falling back to the summary when there's no bucket
+  // keeps it live-sourced alongside flip/walls while the timeseries seeds.
   //
   // Null (no active pin, or a session predating the pin) draws NO LINE —
   // every levelDefs consumer skips a null value. Never a 0 on the axis.

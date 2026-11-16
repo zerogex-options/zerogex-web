@@ -65,7 +65,7 @@ GEX Heatmap · Strike × DTE, auf der Dealer-Positioning-Seite.
 - **Zeilen** - die Strikes mit dem meisten Gamma in der kommenden Woche, höchster Strike oben.
 - **Spalten** - Tage bis zum Verfall, bis 7DTE.
 - **Zellenfarbe** - Netto-Dealer-Gamma bei dieser Strike-/Verfallskombination: grün positiv, rot negativ, kräftiger bei größerem Wert.
-- **Krone** - der GEX King, der Strike mit dem größten Netto-Dealer-Gamma über diese Verfälle.
+- **Krone** - der Near-term King, der Strike mit dem größten Netto-Dealer-Gamma über diese Verfälle. Das ist nicht der [GEX King](/help/platform/gamma-terminal#gex-king) des Gamma Terminals, der die gesamte Chain umfasst.
 
 Die heißesten Zellen sind die Strikes, die für die nächstliegenden Verfallstermine relevant sind. Beobachte, wie die Heatmap sich im Tagesverlauf verschiebt - springt die hellste Zelle zu einem anderen Strike, verschiebt sich die Wall.
 

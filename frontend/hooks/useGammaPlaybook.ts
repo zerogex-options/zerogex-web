@@ -81,9 +81,10 @@ export interface GammaPlaybookRead {
   /** The options pin, recomputed from the filtered book when one is selected. */
   maxPain: number | null;
   /**
-   * Reachable 0DTE positive-gamma pin. Whole-chain by construction (it models
-   * into-expiration hedging), so — exactly like the chart's pin line — it is
-   * read from the summary and does NOT follow the expiration filter.
+   * Reachable 0DTE positive-gamma pin. Same-day by construction (it models
+   * into-expiration hedging of the same-day expiry only), so — exactly like
+   * the chart's pin line — it is read from the summary and does NOT follow the
+   * expiration filter.
    */
   pinStrike: number | null;
   /** Normalized dominance of that pin, for the strength label. */

@@ -66,8 +66,9 @@ export interface StrikeProfileBucket {
   pin_confidence?: number | string | null;
   /**
    * GEX King as of the bucket's close — the whole-chain heaviest-|net-gamma|
-   * strike. Whole-chain like the pin, so it likewise does not move with the
-   * Expiry selector. `null` on buckets predating the column; draw no line.
+   * strike. Its scope is fixed like the pin's (always the whole chain, where
+   * the pin is always same-day), so it likewise does not move with the Expiry
+   * selector. `null` on buckets predating the column; draw no line.
    */
   max_gamma_strike?: number | string | null;
   /**

@@ -197,7 +197,7 @@ const UPDATES: Update[] = [
       {
         title: 'On the replay, the levels follow the filter\u00a0- not just the bars',
         href: '/replay',
-        body: 'This is the part that matters. On 0DTE the Call Wall, Put Wall, Gamma Flip and Max Pain are rebuilt from that day\u2019s expiry alone, so what you are reading is the book that actually had to be hedged into the bell\u00a0- not a whole-chain level drawn over same-day bars. Pin Strike and GEX King stay whole-chain, because both are whole-chain by definition; that is also how they behave under the Expiry selector on the live charts.',
+        body: 'This is the part that matters. On 0DTE the Call Wall, Put Wall, Gamma Flip and Max Pain are rebuilt from that day\u2019s expiry alone, so what you are reading is the book that actually had to be hedged into the bell\u00a0- not a whole-chain level drawn over same-day bars. Pin Strike and GEX King do not follow the filter, because each is defined on a fixed set of expirations: the Pin Strike is always same-day, and the GEX King is always the whole chain. That is also how they behave under the Expiry selector on the live charts.',
       },
       {
         title: 'And one that was already there: the Gamma Chart rewinds by expiration',
