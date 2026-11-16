@@ -2,10 +2,11 @@
 
 import { forwardRef, useMemo } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
-import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { PIN_STRIKE_COLOR_HEX, pinDistance } from '@/core/pinStrike';
 import { readableLevelInk, toHex, type Rgb } from '@/core/levelInk';
 import { useMeasuredSize } from '@/components/useMeasuredWidth';
 import {
+  dailyExpectedMove,
   fmtNetGex,
   fmtPrice,
   fmtSignedPct,
@@ -588,7 +589,9 @@ function MapPanel({ model, C, accent }: { model: ReportModel; C: CardColors; acc
 // line while the rung stays at the true price. Spot is the pill on the left,
 // inside the shaded 1σ expected-range band.
 
-type Rung = { key: string; label: string; value: number; color: string };
+// `dimmed`: a far pin (core/pinStrike pinDistance), drawn faded with a muted
+// label so a shared card never presents a distant pin as a nearby target.
+type Rung = { key: string; label: string; value: number; color: string; dimmed?: boolean };
 
 const RAIL_X = 118; // the rail's x within the ladder
 const LABEL_X = RAIL_X + 30; // where the level labels start
@@ -604,10 +607,21 @@ function PositioningLadder({ model, C, accent }: { model: ReportModel; C: CardCo
   const W = Math.floor(size?.w ?? FALLBACK_SIZE.w);
   const H = Math.floor(size?.h ?? FALLBACK_SIZE.h);
 
+  // Far against the DAILY expected move whichever horizon the card's band
+  // shows (the same yardstick as the Gamma Terminal); a stock, whose band is
+  // never drawn, gets the percent fallback.
+  const pinFar =
+    pinDistance({
+      pinStrike: model.pinStrike,
+      spot: model.spot,
+      expectedMove: dailyExpectedMove(model.spot, model.expectedRange?.vix ?? null),
+      symbol: model.symbol,
+    })?.far === true;
+
   // Top-to-bottom in the usual order, so equal prices stack in this order too.
   const rungs: Rung[] = [
     { key: 'call', label: 'Call Wall', value: model.callWall, color: C.bear },
-    { key: 'pin', label: 'Pin Strike', value: model.pinStrike, color: C.pin },
+    { key: 'pin', label: pinFar ? 'Pin · Far' : 'Pin Strike', value: model.pinStrike, color: C.pin, dimmed: pinFar },
     { key: 'pain', label: 'Max Pain', value: model.maxPain, color: C.maxpain },
     { key: 'flip', label: 'Flip', value: model.gammaFlip, color: C.flip },
     { key: 'put', label: 'Put Wall', value: model.putWall, color: C.bull },
@@ -734,10 +748,10 @@ function PositioningLadder({ model, C, accent }: { model: ReportModel; C: CardCo
               <polyline
                 points={`${RAIL_X + 9},${ry} ${RAIL_X + 15},${ry} ${LABEL_X - 8},${ly} ${LABEL_X - 3},${ly}`}
                 fill="none"
-                stroke={hexAlpha(r.color, 0.6)}
+                stroke={hexAlpha(r.color, r.dimmed ? 0.3 : 0.6)}
                 strokeWidth={1.25}
               />
-              <line x1={RAIL_X - 8} x2={RAIL_X + 9} y1={ry} y2={ry} stroke={r.color} strokeWidth={2.75} strokeLinecap="round" />
+              <line x1={RAIL_X - 8} x2={RAIL_X + 9} y1={ry} y2={ry} stroke={r.dimmed ? hexAlpha(r.color, 0.4) : r.color} strokeWidth={2.75} strokeLinecap="round" />
             </g>
           );
         })}
@@ -775,7 +789,7 @@ function PositioningLadder({ model, C, accent }: { model: ReportModel; C: CardCo
               fontWeight: 800,
               letterSpacing: 0.8,
               textTransform: 'uppercase',
-              color: r.color,
+              color: r.dimmed ? C.textSecondary : r.color,
             }}
           >
             {r.label}

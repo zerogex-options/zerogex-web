@@ -31,7 +31,7 @@ import {
   sharesToSegments,
   type ExpirationSegment,
 } from '@/core/expirationGradient';
-import { pinLineLabel, PIN_STRIKE_COLOR_VAR } from '@/core/pinStrike';
+import { pinDistance, pinLineLabel, PIN_FAR_LINE_OPACITY, PIN_STRIKE_COLOR_VAR } from '@/core/pinStrike';
 import { isZoomGesture } from '@/core/wheelZoom';
 import FuturesLevelsChip from '@/components/FuturesLevelsChip';
 import {
@@ -1716,7 +1716,13 @@ function ReplayOverlayChart({
   // instead of drawing a bare, unqualified line. With no pin there is nothing
   // to qualify and the label is just "Pin"; the level is then absent anyway and
   // the status row below says so.
-  const pinLabel = pinLineLabel(pinStrike, pinConfidence);
+  //
+  // A pin far from the price at the playhead reads "Pin · Far" and draws faded
+  // (core/pinStrike pinDistance). A replay carries no vol reading, so the
+  // percent fallback decides, the same call the snapshot permalink and the
+  // live chart's rewind make for the same minute.
+  const pinDist = pinDistance({ pinStrike, spot: currentBar?.close ?? null, symbol });
+  const pinLabel = pinLineLabel(pinStrike, pinConfidence, pinDist);
   // `key` is the identity the marker and status nodes are keyed on, separate
   // from `label` precisely because the Pin's label now changes with its
   // strength as you scrub — keying on the text would remount that level's
@@ -1727,12 +1733,14 @@ function ReplayOverlayChart({
     label: string;
     color: string;
     dash: string;
+    /** Drawn faded: a far pin, kept on the plot as context, not a target. */
+    dimmed?: boolean;
   }> = [
     { key: 'call-wall', value: callWall, label: 'Call Wall', color: 'var(--color-bear)', dash: '5 3' },
     { key: 'flip', value: gammaFlip, label: 'Flip', color: 'var(--color-warning)', dash: '4 3' },
     { key: 'max-pain', value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
     { key: 'put-wall', value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
-    { key: 'pin', value: pinStrike, label: pinLabel, color: PIN_STRIKE_COLOR_VAR, dash: '2 3' },
+    { key: 'pin', value: pinStrike, label: pinLabel, color: PIN_STRIKE_COLOR_VAR, dash: '2 3', dimmed: pinDist?.far === true },
     { key: 'gex-king', value: gexKing, label: 'GEX King', color: 'var(--color-king)', dash: '5 3' },
   ];
 
@@ -1762,6 +1770,7 @@ function ReplayOverlayChart({
                 label: d.label,
                 color: d.color,
                 dash: d.dash,
+                dimmed: d.dimmed ?? false,
                 value: d.value,
                 lineY: yForPrice(d.value),
               },
@@ -2359,7 +2368,7 @@ function ReplayOverlayChart({
                   y2={lvl.lineY}
                   stroke={lvl.color}
                   strokeDasharray={lvl.dash}
-                  opacity={0.85}
+                  opacity={lvl.dimmed ? PIN_FAR_LINE_OPACITY : 0.85}
                 />
                 {nudged && (
                   <line
@@ -2381,7 +2390,9 @@ function ReplayOverlayChart({
                   fill={lvl.color}
                 >
                   {compact
-                    ? `${COMPACT_LEVEL_LABEL[lvl.key] ?? lvl.label} ${formatLevelShort(lvl.value)}`
+                    ? // A far pin keeps its full "Pin · Far": the compact
+                      // board drops the strength word, but not that one.
+                      `${lvl.dimmed ? lvl.label : COMPACT_LEVEL_LABEL[lvl.key] ?? lvl.label} ${formatLevelShort(lvl.value)}`
                     : `${lvl.label} ${lvl.value.toFixed(2)}`}
                 </text>
               </g>

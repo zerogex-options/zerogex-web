@@ -36,7 +36,7 @@ Die Leiste ganz oben zeigt die sechs Levels, die der Chart einzeichnet, für das
 
 - **Spot** - der aktuelle Kurs und seine Veränderung gegenüber dem vorherigen Schlusskurs.
 - **Gamma Flip** - der Kurs, an dem das modellierte Netto-Dealer-Gamma das Vorzeichen wechselt.
-- **Pin Strike** - der nahe gelegene Strike mit Verfall am selben Tag (0DTE), an den das Dealer-Gamma den Kurs laut Modell in den Schluss hinein am stärksten heranzieht, mit einem Label für die Stärke.
+- **Pin Strike** - der nahe gelegene Strike mit Verfall am selben Tag (0DTE), an den das Dealer-Gamma den Kurs laut Modell in den Schluss hinein am stärksten heranzieht, mit einem Label für die Stärke oder mit **Far**, wenn er weit vom Kurs entfernt liegt.
 - **Call Wall** - der Strike auf oder über dem Kurs mit dem größten Call-Gamma.
 - **Put Wall** - der Strike auf oder unter dem Kurs mit dem größten Put-Gamma.
 - **Max Pain** - der Strike, an dem Optionsinhaber bei Verfall am wenigsten ausgezahlt bekämen.
@@ -48,6 +48,8 @@ Zeigt eine Karte einen Strich statt einer Zahl, sagt der Hinweis darunter, warum
 - **Unresolved this snapshot** - das Modell hat diesmal kein Level geliefert, meist weil die Optionskette dünn war. Fahre mit der Maus über das bernsteinfarbene **?**, um Details zu sehen. In der Regel ist es bei einer späteren Aktualisierung wieder da.
 - **No flip in selected expiries** - die von dir gewählten Verfälle wechseln nie das Vorzeichen. Siehe [Der Expiry-Filter](/help/platform/gamma-terminal#der-expiry-filter).
 - **No active pin** - kein nahe gelegener Strike mit Verfall am selben Tag kommt gerade als Pin infrage.
+
+Steht auf der Pin-Strike-Karte **Far · no nearby pin**, zeigt sie den Strike und seinen Abstand weiterhin an, nur in gedämpfter Schrift. Der Pin des Modells liegt weit vom Kurs entfernt, es gibt also keinen nahen Pin. Fahr mit der Maus über die Karte, um zu sehen, wie weit. Siehe [Pin Strike](/help/platform/gamma-terminal#pin-strike).
 
 Mitglieder bekommen hier drei weitere Funktionen. Am Computer fährst du mit der Maus über die Leiste, um Pfeile einzublenden, mit denen du durch die Symbole blätterst; auf dem Smartphone wischst du darüber. Die ganze Seite zieht mit. Mit der Glocke auf den Karten Call Wall und Put Wall richtest du einen [Alarm](/help/platform/alerts) ein, der meldet, wenn der Kurs diese Wall erreicht. Und die Karte Pin Strike vermerkt, wie lange der aktuelle Pin schon hält, etwa "Held since 09:41".
 
@@ -124,7 +126,7 @@ Jedes Overlay hat einen Schalter im Panel **Layers**, das sich über die Werkzeu
 | Ribbons | Das Gamma jedes Strikes über die Zeit, hinter den Kerzen | Ja | Live |
 | VWAP | Der volumengewichtete Durchschnittskurs der Sitzung | Ja | Überall |
 | Max Pain | Der Max-Pain-Strike | Ja | Überall |
-| Pin Strike | Der heutige Pin Strike und seine Stärke | Ja | Live |
+| Pin Strike | Der heutige Pin Strike und seine Stärke oder Far | Ja | Live |
 | GEX King | Der Strike mit dem meisten Gamma in der gesamten Chain | Nein | Live |
 | PD/PM Levels | Hoch, Tief und Schluss des Vortags; vorbörsliches Hoch und Tief | Nein | Live: SPY, QQQ, NVDA |
 | Expected Range | Die ±1σ-Bewegung, die die implizite Volatilität einpreist | Nein | Live, außer NVDA |
@@ -208,11 +210,11 @@ Ohne Flip kann der Chart auch die Regime-Schattierung nicht zeichnen.
 
 ### Pin Strike
 
-**Was du siehst.** Der nahe gelegene Strike mit Verfall am selben Tag (0DTE), an dem positives Dealer-Gamma und die Wahrscheinlichkeit, dass der Kurs ihn vor Handelsschluss erreicht, am stärksten zusammenkommen (petrol, beschriftet mit `PIN · STRONG`, `PIN · MODERATE` oder `PIN · WEAK`).
+**Was du siehst.** Der nahe gelegene Strike mit Verfall am selben Tag (0DTE), an dem positives Dealer-Gamma und die Wahrscheinlichkeit, dass der Kurs ihn vor Handelsschluss erreicht, am stärksten zusammenkommen (petrol, beschriftet mit `PIN · STRONG`, `PIN · MODERATE` oder `PIN · WEAK`). Ein Pin, der weit vom Kurs entfernt liegt, heißt stattdessen `PIN · FAR` und wird blass gezeichnet, mit einem nur umrandeten Preisschild.
 
-**So liest du ihn.** Die Stärkeangabe misst, wie deutlich sich der siegreiche Strike von seinen Nachbarn abhebt, nicht wie groß sein Gamma ist. **Weak** heißt, dass sich der Sog auf mehrere nahe Strikes verteilt, nicht dass das Level unwichtig ist. Das ist ein modelliertes Pinning-Level, kein Kursziel. [Pin Strike](/help/platform/pin-strike) erklärt, wie er gebildet wird.
+**So liest du ihn.** Die Stärkeangabe misst, wie deutlich sich der siegreiche Strike von seinen Nachbarn abhebt, nicht wie groß sein Gamma ist. **Weak** heißt, dass sich der Sog auf mehrere nahe Strikes verteilt, nicht dass das Level unwichtig ist. Das ist ein modelliertes Pinning-Level, kein Kursziel. **Far** heißt, dass der Pin mehr als drei Viertel des Wegs vom Kurs bis zum Rand des **Daily**-Bands von [Expected Range](/help/platform/gamma-terminal#expected-range) entfernt liegt (das Chart misst das auch, wenn das Overlay ausgeschaltet ist). Dann gibt es keinen nahen Pin, ganz gleich, was seine Stärke gesagt hätte. Bei Short Gamma heißt ein weit entfernter oder fehlender Pin, dass es in Kursnähe kein stabilisierendes Gamma gibt. [Pin Strike](/help/platform/pin-strike) erklärt, wie er gebildet wird und wie die Schwelle gewählt wurde.
 
-**Gut zu wissen.** Gibt es keinen aktiven Pin, wird keine Linie gezeichnet. Der Pin ist bewusst auf den Verfall am selben Tag ausgelegt und ignoriert deshalb den Expiry-Filter. In der kostenlosen Vorschau ist er nicht enthalten.
+**Gut zu wissen.** Gibt es keinen aktiven Pin, wird keine Linie gezeichnet. Ein weit entfernter Pin wird trotzdem gezeichnet, nur blass. Beim Rewind gibt es keinen Live-Wert für die Volatilität. Dann gilt ein Pin als weit, wenn er mehr als 1 % vom Kurs entfernt liegt (1,25 % bei NDX, QQQ und NQ), nach derselben Regel wie im Daily Replay. Details stehen unter [When the pin is far from price](/help/platform/pin-strike#when-the-pin-is-far-from-price). Der Pin ist bewusst auf den Verfall am selben Tag ausgelegt und ignoriert deshalb den Expiry-Filter. In der kostenlosen Vorschau ist er nicht enthalten.
 
 ### GEX King
 

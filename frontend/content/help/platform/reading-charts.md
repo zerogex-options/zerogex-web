@@ -85,7 +85,7 @@ The overlays are the ZeroGEX twist, each switched on or off in the **Layers** pa
 
 - **Gamma Levels** - the gamma flip line (long dashes, azure, tagged `FLIP` at the left edge) and the call wall and put wall lines.
 - **Gamma Rail** - dealer gamma by strike, drawn level with the prices on the tape, as a smoothed silhouette or as Net, Split, or Combined bars. On the Gamma Terminal it sits in the panel beside the chart, where you can swap it for two strike-aligned Net-GEX ladders.
-- **Max Pain** and **Pin Strike** - their own lines in gold and teal; the pin line carries its strength, as in `PIN · STRONG`.
+- **Max Pain** and **Pin Strike** - their own lines in gold and teal; the pin line carries its strength, as in `PIN · STRONG`, or reads `PIN · FAR`, faded, when the pin is far from price (see [Pin Strike](/help/platform/pin-strike#when-the-pin-is-far-from-price)).
 - **VWAP**, and **Regime** shading - the long-gamma and short-gamma zones on either side of the flip.
 - Off until you turn them on: **GEX King**, and on the live chart **Expected Range**, **Centroids** (where the session's call and put trading is centered), **EMAs** (up to three moving averages of the close, 13, 40 and 200 to start), and **Bar Timer**. **Ribbons** (per-strike gamma through time, behind the tape) are live-only too: off until you turn them on on the Main Dashboard, and on by default on the Gamma Terminal.
 

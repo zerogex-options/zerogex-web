@@ -47,7 +47,8 @@ import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes, omitOutOfHoursForSymbol } from "@/core/utils";
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import { visibleViewBoxRight } from '@/core/chartViewport';
-import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { PIN_FAR_LINE_OPACITY, PIN_STRIKE_COLOR_HEX, pinDistance } from '@/core/pinStrike';
+import { useDailyExpectedMove } from '@/hooks/useDailyExpectedMove';
 import { flipStatusChip } from '@/core/flipStatusChip';
 import { seriesRollNote, summarizeSeriesContracts } from '@/core/futuresContract';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
@@ -405,6 +406,7 @@ const NARROW_LEVEL_NAMES: Record<string, string> = {
   'Put Wall': 'Put Wall',
   Spot: 'Spot',
   'Pin Strike': 'Pin',
+  'Pin Strike · Far': 'Pin · Far',
   'PM High': 'PM Hi',
   'PM Low': 'PM Lo',
   'Prev High': 'Prev Hi',
@@ -1887,12 +1889,19 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // Pin Strike is a summary-only level (not carried on the strike-profile
   // timeseries buckets), so it reads straight from the served summary.
   const effPin = toNumber(gexSummary?.pin_strike);
+  // A pin far from price (core/pinStrike pinDistance, against the live daily
+  // expected move the Gamma Terminal uses) is drawn faded with an outlined
+  // pill reading "Pin Strike · Far", so it stays on the board as context.
+  const dailyMove = useDailyExpectedMove(symbol, chartSpot);
+  const pinFar =
+    pinDistance({ pinStrike: effPin, spot: chartSpot, expectedMove: dailyMove, symbol })?.far === true;
 
   const keyLevels = useMemo(() => {
-    if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }>;
+    if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string; dimmed?: boolean }>;
     const yFor = (price: number) =>
       PLOT_TOP + (1 - (price - yBounds.yMin) / Math.max(1e-9, yBounds.yMax - yBounds.yMin)) * PLOT_HEIGHT;
-    const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }> = [];
+    // `dimmed`: a far pin, drawn faded with an outlined pill.
+    const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string; dimmed?: boolean }> = [];
     if (effFlip != null && Number.isFinite(effFlip)) {
       items.push({ y: yFor(effFlip), price: effFlip, color: FLIP_LINE, label: 'Gamma Flip' });
     }
@@ -1906,7 +1915,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       items.push({ y: yFor(effPutWall), price: effPutWall, color: KEY_LEVEL, label: 'Put Wall' });
     }
     if (effPin != null && Number.isFinite(effPin)) {
-      items.push({ y: yFor(effPin), price: effPin, color: PIN_LINE, label: 'Pin Strike', dash: '2 3' });
+      items.push({ y: yFor(effPin), price: effPin, color: PIN_LINE, label: pinFar ? 'Pin Strike · Far' : 'Pin Strike', dash: '2 3', dimmed: pinFar });
     }
     // Session context levels — pre-market + previous-session high/low.
     // Non-index symbols only; each pushes independently so partial data
@@ -1930,7 +1939,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       }
     }
     return items;
-  }, [effFlip, effCallWall, effPutWall, effPin, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_TOP, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
+  }, [effFlip, effCallWall, effPutWall, effPin, pinFar, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_TOP, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
 
   // ── Hover tracking for tooltips/crosshair ──
   // (containerRef is declared with the board measurement at the top.)
@@ -3802,8 +3811,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 const strokeW = lvl.emphasized ? 1.4 : 1;
                 return (
                   <g key={`lvl-${i}-${lvl.price}`}>
-                    <line x1={chipX + chipW} x2={tagX} y1={lvl.y} y2={lvl.y} stroke={lvl.color} strokeDasharray={dash} strokeWidth={strokeW} opacity={0.85} />
-                    <line x1={tagX + tagW} x2={CW} y1={lvl.y} y2={lvl.y} stroke={lvl.color} strokeDasharray={dash} strokeWidth={strokeW} opacity={0.85} />
+                    <line x1={chipX + chipW} x2={tagX} y1={lvl.y} y2={lvl.y} stroke={lvl.color} strokeDasharray={dash} strokeWidth={strokeW} opacity={lvl.dimmed ? PIN_FAR_LINE_OPACITY : 0.85} />
+                    <line x1={tagX + tagW} x2={CW} y1={lvl.y} y2={lvl.y} stroke={lvl.color} strokeDasharray={dash} strokeWidth={strokeW} opacity={lvl.dimmed ? PIN_FAR_LINE_OPACITY : 0.85} />
                     {offset && (
                       <>
                         <line x1={chipX + chipW} x2={chipX + chipW + 5} y1={lvl.labelY} y2={lvl.y} stroke={lvl.color} strokeWidth={1} opacity={0.65} />
@@ -3837,7 +3846,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       width={tagW}
                       height={PILL_H}
                       rx={3}
-                      fill={lvl.color}
+                      fill={lvl.dimmed ? cardBg : lvl.color}
+                      stroke={lvl.dimmed ? lvl.color : undefined}
+                      strokeWidth={lvl.dimmed ? 1 : undefined}
                       opacity={lvl.emphasized ? 1 : 0.92}
                     />
                     <text
@@ -3846,7 +3857,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       fontSize={10}
                       fontWeight={700}
                       textAnchor="middle"
-                      fill="#0b1620"
+                      fill={lvl.dimmed ? textPrimary : '#0b1620'}
                       style={{ fontVariantNumeric: 'tabular-nums' }}
                     >
                       {levelTagText(lvl.price)}
@@ -3878,7 +3889,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     stroke={lvl.color}
                     strokeDasharray={lvl.dash ?? (lvl.emphasized ? '5 3' : '4 4')}
                     strokeWidth={lvl.emphasized ? 1.4 : 1}
-                    opacity={0.85}
+                    opacity={lvl.dimmed ? PIN_FAR_LINE_OPACITY : 0.85}
                   />
                   {offset && (
                     <line
@@ -3897,7 +3908,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     width={pillW}
                     height={PILL_H}
                     rx={3}
-                    fill={lvl.color}
+                    fill={lvl.dimmed ? cardBg : lvl.color}
+                    stroke={lvl.dimmed ? lvl.color : undefined}
+                    strokeWidth={lvl.dimmed ? 1 : undefined}
                     opacity={lvl.emphasized ? 1 : 0.92}
                   />
                   <text
@@ -3905,7 +3918,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     y={lvl.labelY + 3.5}
                     fontSize={10}
                     textAnchor="middle"
-                    fill="#0b1620"
+                    fill={lvl.dimmed ? textPrimary : '#0b1620'}
                     fontWeight={700}
                   >
                     {text}

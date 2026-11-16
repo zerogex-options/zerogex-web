@@ -11,7 +11,7 @@ import {
   type ExpirationCell,
   type ExpirationSegment,
 } from '@/core/expirationGradient';
-import { pinLineLabel } from '@/core/pinStrike';
+import { pinLineLabel, PIN_FAR_LINE_OPACITY, type PinDistance } from '@/core/pinStrike';
 import { useMeasuredWidth } from '@/components/useMeasuredWidth';
 
 // The desktop board is 720 wide and used to hold a 520px minimum inside a
@@ -55,6 +55,12 @@ interface StrikeProfileSnapshotProps {
   maxPain?: number | null;
   pinStrike?: number | null;
   pinConfidence?: number | null;
+  /**
+   * The pin's distance from spot, as the page measured it for its pin card
+   * (core/pinStrike pinDistance), so the line and the card can't disagree. A
+   * far pin's line is labeled "Pin · Far" and drawn faded.
+   */
+  pinDist?: PinDistance | null;
   gexKing?: number | null;
 }
 
@@ -120,6 +126,7 @@ export default function StrikeProfileSnapshot({
   maxPain,
   pinStrike,
   pinConfidence,
+  pinDist = null,
   gexKing,
 }: StrikeProfileSnapshotProps) {
   const clipId = `snap-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
@@ -297,7 +304,9 @@ export default function StrikeProfileSnapshot({
 
   const barH = Math.max(2, Math.min(12, (PLOT_HEIGHT / Math.max(1, rows.length)) * 0.6));
 
-  const refLines: Array<{ level: number; label: string; color: string }> = [];
+  // `dimmed`: drawn faded (a far pin), so it stays on the profile as context
+  // without reading as a target.
+  const refLines: Array<{ level: number; label: string; color: string; dimmed?: boolean }> = [];
   if (spot != null && Number.isFinite(spot))
     refLines.push({ level: spot, label: `Spot ${spot.toFixed(2)}`, color: 'var(--color-text-primary)' });
   if (gammaFlip != null && Number.isFinite(gammaFlip))
@@ -315,8 +324,14 @@ export default function StrikeProfileSnapshot({
   // pinLineLabel, so a shared snapshot says how much conviction the model had
   // in the pin rather than just where it sat — the same read the live chart
   // and the scrubber give. Falls back to plain "Pin" when confidence is absent.
+  // A pin far from spot reads "Pin · Far" instead, with its line faded.
   if (pinStrike != null && Number.isFinite(pinStrike))
-    refLines.push({ level: pinStrike, label: `${pinLineLabel(pinStrike, pinConfidence)} ${pinStrike.toFixed(2)}`, color: 'var(--color-pin)' });
+    refLines.push({
+      level: pinStrike,
+      label: `${pinLineLabel(pinStrike, pinConfidence, pinDist)} ${pinStrike.toFixed(2)}`,
+      color: 'var(--color-pin)',
+      dimmed: pinDist?.far === true,
+    });
   // GEX King — whole-chain heaviest-gamma strike, in the app-wide king hue
   // so the snapshot carries the same structural node as the live chart and
   // the scrubber rather than stopping at the same-day pin.
@@ -530,7 +545,7 @@ export default function StrikeProfileSnapshot({
                     y2={rl.lineY}
                     stroke={rl.color}
                     strokeDasharray="5 3"
-                    opacity={0.75}
+                    opacity={rl.dimmed ? PIN_FAR_LINE_OPACITY : 0.75}
                   />
                   {nudged && (
                     <line

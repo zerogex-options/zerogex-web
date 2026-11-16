@@ -36,7 +36,7 @@ La franja de la parte superior muestra los seis niveles que dibuja el gráfico, 
 
 - **Spot** - el precio actual y su variación respecto al cierre anterior.
 - **Gamma Flip** - el precio en el que el gamma neto modelado de los dealers cambia de signo.
-- **Pin Strike** - el strike cercano del mismo día (0DTE) hacia el que, según el modelo, el gamma de los dealers atrae el precio con más fuerza de cara al cierre, con una etiqueta de fuerza.
+- **Pin Strike** - el strike cercano del mismo día (0DTE) hacia el que, según el modelo, el gamma de los dealers atrae el precio con más fuerza de cara al cierre, con una etiqueta de fuerza, o **Far** cuando queda lejos del precio.
 - **Call Wall** - el strike con el mayor gamma de calls en el precio o por encima de él.
 - **Put Wall** - el strike con el mayor gamma de puts en el precio o por debajo de él.
 - **Max Pain** - el strike en el que los tenedores de opciones cobrarían menos al vencimiento.
@@ -48,6 +48,8 @@ Cuando una tarjeta muestra un guion en lugar de un número, la nota de debajo ex
 - **Unresolved this snapshot** - esta vez el modelo no devolvió ningún nivel, por lo general porque la cadena de opciones era fina. Pasa el cursor por el **?** ámbar para ver los detalles. Normalmente vuelve a aparecer en una actualización posterior.
 - **No flip in selected expiries** - los vencimientos que elegiste nunca cambian de signo. Consulta [El filtro Expiry](/help/platform/gamma-terminal#el-filtro-expiry).
 - **No active pin** - ahora mismo ningún strike cercano del mismo día cumple los requisitos para ser un pin.
+
+Una tarjeta de Pin Strike que dice **Far · no nearby pin** sigue mostrando el strike y su distancia, en un tono atenuado. El pin del modelo queda lejos del precio, así que no hay un pin cercano. Pasa el cursor por la tarjeta para ver a qué distancia está. Consulta [Pin Strike](/help/platform/gamma-terminal#pin-strike).
 
 Los miembros tienen aquí tres cosas más. En escritorio, pasa el cursor por la franja para ver unas flechas que recorren los símbolos; en el móvil, deslízala. Toda la página cambia con ella. La campana de las tarjetas Call Wall y Put Wall crea una [alerta](/help/platform/alerts) para cuando el precio llegue a ese wall. Y la tarjeta Pin Strike indica cuánto tiempo lleva vigente el pin actual, como en "Held since 09:41".
 
@@ -124,7 +126,7 @@ Cada superposición tiene un interruptor en el panel **Layers**, que se abre des
 | Ribbons | El gamma de cada strike a lo largo del tiempo, detrás de las velas | Sí | En vivo |
 | VWAP | El precio medio ponderado por volumen de la sesión | Sí | En todas partes |
 | Max Pain | El strike de max pain | Sí | En todas partes |
-| Pin Strike | El pin strike de hoy y su fuerza | Sí | En vivo |
+| Pin Strike | El pin strike de hoy y su fuerza, o Far | Sí | En vivo |
 | GEX King | El strike de mayor gamma de toda la cadena | No | En vivo |
 | PD/PM Levels | El máximo, el mínimo y el cierre del día anterior; el máximo y el mínimo del pre-market | No | En vivo: SPY, QQQ, NVDA |
 | Expected Range | El movimiento de ±1σ que descuenta la volatilidad implícita | No | En vivo, salvo NVDA |
@@ -208,11 +210,11 @@ Sin flip, el gráfico tampoco puede dibujar el sombreado Regime.
 
 ### Pin Strike
 
-**Qué muestra.** El strike cercano del mismo día (0DTE) donde el gamma positivo de los dealers y la probabilidad de que el precio llegue hasta él antes del cierre se combinan con más fuerza (verde azulado, con la etiqueta `PIN · STRONG`, `PIN · MODERATE` o `PIN · WEAK`).
+**Qué muestra.** El strike cercano del mismo día (0DTE) donde el gamma positivo de los dealers y la probabilidad de que el precio llegue hasta él antes del cierre se combinan con más fuerza (verde azulado, con la etiqueta `PIN · STRONG`, `PIN · MODERATE` o `PIN · WEAK`). Un pin lejos del precio lleva en su lugar la etiqueta `PIN · FAR` y se dibuja atenuado, con la etiqueta de precio solo contorneada.
 
-**Cómo leerlo.** La palabra de fuerza mide cuánto destaca el strike ganador frente a sus vecinos, no lo grande que es su gamma. **Weak** significa que la atracción se reparte entre varios strikes cercanos, no que el nivel carezca de importancia. Es un nivel de pinning modelado, no un objetivo de precio. [Pin Strike](/help/platform/pin-strike) explica cómo se construye.
+**Cómo leerlo.** La palabra de fuerza mide cuánto destaca el strike ganador frente a sus vecinos, no lo grande que es su gamma. **Weak** significa que la atracción se reparte entre varios strikes cercanos, no que el nivel carezca de importancia. Es un nivel de pinning modelado, no un objetivo de precio. **Far** significa que el pin está a más de tres cuartas partes del camino entre el precio y el borde de la banda **Daily** de [Expected Range](/help/platform/gamma-terminal#expected-range) (el gráfico lo mide aunque el overlay esté apagado), así que no hay un pin cercano, dijera lo que dijera su fuerza. En short gamma, un pin lejano o ausente significa que no hay gamma estabilizador cerca del precio. [Pin Strike](/help/platform/pin-strike) explica cómo se construye y cómo se eligió el umbral.
 
-**A tener en cuenta.** No se dibuja ninguna línea cuando no hay un pin activo. El pin es del mismo día por diseño, así que ignora el filtro Expiry. No forma parte de la vista previa gratuita.
+**A tener en cuenta.** No se dibuja ninguna línea cuando no hay un pin activo. Un pin lejano sí se dibuja, solo que atenuado. En Rewind no hay una lectura de volatilidad en vivo, así que un pin cuenta como lejano a más del 1 % del precio (1,25 % en NDX, QQQ y NQ), la misma regla que usa el Daily Replay. Los detalles están en [When the pin is far from price](/help/platform/pin-strike#when-the-pin-is-far-from-price). El pin es del mismo día por diseño, así que ignora el filtro Expiry. No forma parte de la vista previa gratuita.
 
 ### GEX King
 

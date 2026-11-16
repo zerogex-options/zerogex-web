@@ -474,6 +474,31 @@ export function buildExpectedRange(args: {
   };
 }
 
+/**
+ * The ±1σ move implied for one session, in price units: the half-width of the
+ * Daily Expected Range, read off {@link buildExpectedRange} so the two can
+ * never disagree. The far-pin rule (core/pinStrike pinDistance) measures in
+ * these units whichever horizon the overlay is showing.
+ *
+ * `volIndexLevel` is the VIX (or VXN) reading in points. Null when spot or the
+ * reading is missing or non-positive.
+ */
+export function dailyExpectedMove(
+  spot: number | null | undefined,
+  volIndexLevel: number | null | undefined,
+): number | null {
+  const range = buildExpectedRange({
+    spot: spot != null && Number.isFinite(spot) ? spot : null,
+    vix: volIndexLevel != null && Number.isFinite(volIndexLevel) ? volIndexLevel : null,
+    // Labels only; the move is the same whichever index it is named after.
+    volIndex: 'VIX',
+    horizon: 'daily',
+    callWall: null,
+    putWall: null,
+  });
+  return range ? range.moveAbs : null;
+}
+
 function buildBandContext(args: {
   low: number;
   high: number;

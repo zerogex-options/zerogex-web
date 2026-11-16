@@ -85,7 +85,7 @@ Die Overlays sind der ZeroGEX-Twist, jedes ein- und ausschaltbar im Panel **Laye
 
 - **Gamma Levels** - die Gamma-Flip-Linie (lange Striche, azurblau, am linken Rand mit `FLIP` beschriftet) sowie die Call-Wall- und Put-Wall-Linien.
 - **Gamma Rail** - Dealer-Gamma pro Strike, auf Höhe der Kurse im Chart gezeichnet, als geglättete Silhouette oder als Net-, Split- oder Combined-Balken. Im Gamma Terminal sitzt sie im Panel neben dem Chart, wo du sie gegen zwei strike-ausgerichtete Net-GEX-Leitern tauschen kannst.
-- **Max Pain** und **Pin Strike** - eigene Linien in Gold und Petrol; die Pin-Linie trägt ihre Stärke, etwa `PIN · STRONG`.
+- **Max Pain** und **Pin Strike** - eigene Linien in Gold und Petrol; die Pin-Linie trägt ihre Stärke, etwa `PIN · STRONG`, oder heißt blass `PIN · FAR`, wenn der Pin weit vom Kurs entfernt liegt (siehe [Pin Strike](/help/platform/pin-strike#when-the-pin-is-far-from-price)).
 - **VWAP** und **Regime**-Schattierung - die Long-Gamma- und Short-Gamma-Zonen beiderseits des Flips.
 - Aus, bis du sie einschaltest: **GEX King** und im Live-Chart **Expected Range**, **Centroids** (wo der Schwerpunkt des Call- und Put-Handels der Sitzung liegt), **EMAs** (bis zu drei gleitende Durchschnitte des Schlusskurses, ab Werk 13, 40 und 200) und **Bar Timer**. Auch **Ribbons** (Gamma pro Strike über die Zeit, hinter dem Kursverlauf) gibt es nur live: Auf dem Main Dashboard sind sie aus, bis du sie einschaltest, im Gamma Terminal standardmäßig an.
 

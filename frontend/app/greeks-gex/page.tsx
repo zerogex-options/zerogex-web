@@ -24,7 +24,8 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { GexUnit, GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { isIndexSymbol } from '@/core/utils';
 import { isFuturesSymbol } from '@/core/symbols';
-import { formatPinStrike, pinStrikeSubtitle, PIN_STRIKE_TOOLTIP } from '@/core/pinStrike';
+import { formatPinStrike, pinDistance, pinFarDetail, pinStrikeSubtitle, PIN_STRIKE_TOOLTIP } from '@/core/pinStrike';
+import { useDailyExpectedMove } from '@/hooks/useDailyExpectedMove';
 import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
 
 function formatGexValue(value: number): string {
@@ -74,6 +75,19 @@ export default function GreeksGEXPage() {
   // futures_close and is only read for the headline price below.
   const gexSpot = quoteData?.close ?? gexData?.spot_price ?? 0;
   const unitLabel = GEX_UNIT_LABEL[gexUnit];
+
+  // Pin Strike distance from price, measured on the same axis as the pin (the
+  // cash index for SPX / NDX, the future for ES / NQ) and against the live
+  // daily expected move, so this card calls a pin far exactly when the Key
+  // Levels strip and the chart's PIN · FAR line do (core/pinStrike).
+  const pinSpot = quoteData?.close ?? gexData?.spot_price ?? null;
+  const dailyMove = useDailyExpectedMove(symbol, pinSpot);
+  const pinDist = pinDistance({
+    pinStrike: gexData?.pin_strike,
+    spot: pinSpot,
+    expectedMove: dailyMove,
+    symbol,
+  });
 
   // Overnight index→future display swap for the headline price card only.
   const isFuturesQuote = quoteData?.display_source === 'futures';
@@ -205,8 +219,11 @@ export default function GreeksGEXPage() {
           <MetricCard
             title="Pin Strike"
             value={formatPinStrike(gexData?.pin_strike)}
-            subtitle={pinStrikeSubtitle(gexData?.pin_strike, gexData?.pin_confidence)}
-            tooltip={PIN_STRIKE_TOOLTIP}
+            // "Far: 1.19% above spot · no nearby pin" for a far pin, never a
+            // strength word; the tooltip then leads with why.
+            subtitle={pinStrikeSubtitle(gexData?.pin_strike, gexData?.pin_confidence, pinDist)}
+            subtitleColor={pinDist?.far ? 'var(--text-muted)' : undefined}
+            tooltip={pinDist?.far ? `${pinFarDetail(pinDist)} ${PIN_STRIKE_TOOLTIP}` : PIN_STRIKE_TOOLTIP}
             theme={theme}
           />
         </div>

@@ -85,7 +85,7 @@ Gli overlay sono il tocco distintivo di ZeroGEX, ciascuno con il proprio interru
 
 - **Gamma Levels** - la linea del gamma flip (tratteggio lungo, azzurra, con l'etichetta `FLIP` sul bordo sinistro) e le linee del call wall e del put wall.
 - **Gamma Rail** - il gamma dei dealer per strike, disegnato all'altezza dei prezzi del grafico, come silhouette smussata o come barre Net, Split o Combined. Sul Gamma Terminal si trova nel pannello accanto al grafico, dove puoi sostituirlo con due scale di Net GEX allineate per strike.
-- **Max Pain** e **Pin Strike** - linee proprie in oro e verde acqua; la linea del pin riporta la sua forza, come in `PIN · STRONG`.
+- **Max Pain** e **Pin Strike** - linee proprie in oro e verde acqua; la linea del pin riporta la sua forza, come in `PIN · STRONG`, oppure `PIN · FAR`, sbiadita, quando il pin è lontano dal prezzo (vedi [Pin Strike](/help/platform/pin-strike#when-the-pin-is-far-from-price)).
 - **VWAP** e l'ombreggiatura **Regime** - le zone di gamma long e gamma short ai due lati del flip.
 - Spenti finché non li attivi: **GEX King** e, nel grafico in tempo reale, **Expected Range**, **Centroids** (dove sono centrati gli scambi di call e put della sessione), **EMAs** (fino a tre medie mobili della chiusura: 13, 40 e 200 di serie) e **Bar Timer**. Anche l'overlay **Ribbons** (il gamma per strike nel tempo, dietro il prezzo) è disponibile solo nel grafico in tempo reale: spento finché non lo attivi sul Main Dashboard, e attivo di default sul Gamma Terminal.
 

@@ -72,7 +72,7 @@ import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { flipStatusChip } from "@/core/flipStatusChip";
 import { resolveRewindBucket } from "@/core/rewindBucket";
 import { useLinkedRewind, type SharedRewind } from "@/core/linkedRewind";
-import { pinLineLabel } from "@/core/pinStrike";
+import { PIN_FAR_LINE_OPACITY, pinDistance, pinLineLabel } from "@/core/pinStrike";
 import { barClock, formatBarDuration } from "@/core/barClock";
 import { candleGridOffsetMs, candleStartMs } from "@/core/candleGrid";
 import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
@@ -110,7 +110,7 @@ import {
 } from "@/core/strikePanelHover";
 import { strikeAxisLabels } from "@/core/strikeAxis";
 import { chartSessionLabel } from "@/core/chartSessionLabel";
-import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
+import { buildExpectedRange, dailyExpectedMove, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
 import { isFuturesSymbol, volIndexPricesSymbol, volatilityIndexFor } from '@/core/symbols';
 import { chartSessionLevels } from "@/core/sessionLevels";
 
@@ -2146,14 +2146,8 @@ export default function GammaTerminalChart({
   const pinConfidence = rewindActive
     ? rewindBucket ? levelOrNull(rewindBucket.pin_confidence) : null
     : levelOrNull(gexSummary?.pin_confidence);
-  // "PIN · STRONG" / "· MODERATE" / "· WEAK" — the Key Levels strength moved
-  // onto the chart, so the conviction travels with the level instead of living
-  // only in the tile strip. The wording is core/pinStrike's, shared with the
-  // Daily Replay chart's pin line and built on the same classifier the tile
-  // strip uses, so no two surfaces can disagree about the same pin. Upper-cased
-  // here because this chart's level tags are caps. With no active pin there is
-  // nothing to qualify and the chip reads "PIN", exactly as before.
-  const pinLabel = pinLineLabel(pinStrike, pinConfidence).toUpperCase();
+  // The pin's label ("PIN · STRONG", or "PIN · FAR") needs spot, so it is
+  // built beside the level definitions below.
   // GEX King — the whole-chain heaviest-|net-gamma| strike.
   //
   // rewindBucket, NOT levelBucket — exactly like the Pin above: levelBucket
@@ -3567,6 +3561,30 @@ export default function GammaTerminalChart({
       ? buildExpectedRange({ spot, vix, volIndex, horizon: erHorizon, callWall, putWall })
       : null;
 
+  // "PIN · STRONG" / "· MODERATE" / "· WEAK" — the Key Levels strength moved
+  // onto the chart, so the conviction travels with the level instead of living
+  // only in the tile strip. The wording is core/pinStrike's, shared with the
+  // Daily Replay chart's pin line and built on the same classifier the tile
+  // strip uses, so no two surfaces can disagree about the same pin. Upper-cased
+  // here because this chart's level tags are caps. With no active pin there is
+  // nothing to qualify and the chip reads "PIN", exactly as before.
+  //
+  // A pin far from spot reads "PIN · FAR" instead, whatever its strength, and
+  // draws dimmed (core/pinStrike pinDistance). Far is measured against the
+  // DAILY expected move whichever horizon the Expected Range overlay shows,
+  // and whether or not it is on: the vol index is fetched either way. Rewind
+  // gets the percent fallback, for the reason the band hides there (the index
+  // is a "now" read), which also reads a rewound minute exactly as the Daily
+  // Replay reads it.
+  const pinDist = pinDistance({
+    pinStrike,
+    spot,
+    expectedMove: rewindActive ? null : dailyExpectedMove(spot, vix),
+    symbol,
+  });
+  const pinFar = pinDist?.far === true;
+  const pinLabel = pinLineLabel(pinStrike, pinConfidence, pinDist).toUpperCase();
+
   const inDomain = (v: number | null): v is number => v != null && v >= layout.dMin && v <= layout.dMax;
   // At-spot dealer gamma for the badge (see the whole-chain note at
   // wholeChainGexAtSpot). Under a live Expiry filter it is the selected book's
@@ -3616,7 +3634,10 @@ export default function GammaTerminalChart({
 
   // Level definitions rendered as reference lines + right-axis tags.
   // `hollow`: an outlined price tag instead of a filled one (the PD / PM set).
-  type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean; hollow?: boolean };
+  // `dimmed`: a level drawn faded — a far pin (see pinDist above): a faint
+  // line, a dashed chip border and an outlined axis tag, so it stays on the
+  // chart as context without reading as a target.
+  type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean; hollow?: boolean; dimmed?: boolean };
   const levelDefs: LevelDef[] = [
     { key: "flip", label: "FLIP", value: flip, color: "var(--color-flip)", dash: "7 4", show: !hideStandardLevels && (splitGammaLevels ? overlays.flipLine : overlays.levels) },
     // Walls are colored by what the LEVEL does, not by the instrument behind
@@ -3631,7 +3652,7 @@ export default function GammaTerminalChart({
     { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bull)", dash: "3 4", show: !hideStandardLevels && (splitGammaLevels ? overlays.putWallLine : overlays.levels) },
     { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-maxpain)", dash: "1 5", show: !hideStandardLevels && overlays.maxPain },
     { key: "king", label: "GEX KING", value: gexKing, color: "var(--color-king)", dash: "5 3", show: overlays.king },
-    { key: "pin", label: pinLabel, value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: !hideStandardLevels && overlays.pin },
+    { key: "pin", label: pinLabel, value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: !hideStandardLevels && overlays.pin, dimmed: pinFar },
     { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: !hideStandardLevels && overlays.vwap },
     { key: "er-high", label: "ER HIGH", value: erModel?.high ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
     { key: "er-low", label: "ER LOW", value: erModel?.low ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
@@ -3697,9 +3718,9 @@ export default function GammaTerminalChart({
     const GAP = 10;
     const visible = levelDefs
       .filter((l): l is LevelDef & { value: number } => l.show && l.value != null && inDomain(l.value))
-      .map((l) => ({ key: l.key, label: l.label, color: l.color, y: clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1), w: labelWidth(l.label) }))
+      .map((l) => ({ key: l.key, label: l.label, color: l.color, dimmed: l.dimmed ?? false, y: clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1), w: labelWidth(l.label) }))
       .sort((a, b) => a.y - b.y);
-    const placed: Array<{ key: string; label: string; color: string; y: number; w: number; x: number }> = [];
+    const placed: Array<{ key: string; label: string; color: string; dimmed: boolean; y: number; w: number; x: number }> = [];
     for (const c of visible) {
       let x = PLOT_LEFT + 6;
       for (const p of placed) {
@@ -5147,7 +5168,7 @@ export default function GammaTerminalChart({
               const y = clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1);
               const emphasized = confluenceKey === l.key;
               return (
-                <line key={`levelline-${l.key}`} x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : l.hollow ? 1.1 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : 0.85} />
+                <line key={`levelline-${l.key}`} x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : l.hollow || l.dimmed ? 1.1 : 1.3} strokeDasharray={l.dash} opacity={l.dimmed ? PIN_FAR_LINE_OPACITY : emphasized ? 1 : 0.85} />
               );
             })}
 
@@ -5161,8 +5182,11 @@ export default function GammaTerminalChart({
                  keeps the color where it is readable and shades it, same
                  hue, where it is not (core/levelInk). */}
             {chipPlacements.map((c) => (
+              // A dimmed (far) level keeps a full-strength chip, so "PIN · FAR"
+              // reads as clearly as any name, but takes the dashed border the
+              // blank-flip chip uses for "present, not in play".
               <g key={`chip-${c.key}`} transform={`translate(${c.x}, ${c.y})`}>
-                <rect x={0} y={-8} width={c.w} height={16} rx={2} fill="var(--bg-card)" stroke={c.color} strokeWidth={1} opacity={0.95} />
+                <rect x={0} y={-8} width={c.w} height={16} rx={2} fill="var(--bg-card)" stroke={c.color} strokeWidth={1} strokeDasharray={c.dimmed ? "2 2" : undefined} opacity={0.95} />
                 <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={levelInk(c.color)} fontWeight={600}>
                   {c.label}
                 </text>
@@ -5225,7 +5249,9 @@ export default function GammaTerminalChart({
                     value: fmtPrice(l.value),
                     bg: l.color,
                     strong: false,
-                    hollow: l.hollow ?? false,
+                    // A dimmed (far) level's tag is outlined rather than filled,
+                    // so its price never shouts from the axis either.
+                    hollow: (l.hollow ?? false) || (l.dimmed ?? false),
                     arrow: (!inDomain(l.value) ? (l.value > layout.dMax ? "up" : "down") : null) as "up" | "down" | null,
                   })),
                 {

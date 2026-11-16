@@ -44,6 +44,7 @@ import DelayedLevelsTable from '@/components/DelayedLevelsTable';
 import LevelsEmailSignup from '@/components/LevelsEmailSignup';
 import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } from '@/core/gexSummary';
 import { expiredAtCloseNote, expiredExcludedDates, rolledExpiryNote } from '@/core/expiredAtClose';
+import { pinDistance, pinFarHint } from '@/core/pinStrike';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders four routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels,
@@ -649,12 +650,15 @@ function LevelRow({
   value,
   hint,
   badge,
+  muted = false,
 }: {
   label: string;
   value: string;
   hint?: string;
   /** A chip after the label: the CME contract on a futures card's spot row. */
   badge?: ReactNode;
+  /** Print the value in secondary ink: a level shown as context, such as a far pin. */
+  muted?: boolean;
 }) {
   return (
     <div
@@ -678,7 +682,7 @@ function LevelRow({
           </div>
         )}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
+      <div style={{ fontSize: 22, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: muted ? 'var(--color-text-secondary)' : 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
         {value}
       </div>
     </div>
@@ -796,6 +800,11 @@ function SymbolCard({
   // After the close Max Pain and the Pin describe the expiration that settles
   // next; the rows' hints say which.
   const rolledExpiry = rolledExpiryNote(data?.rolled_to_expiration);
+  // A pin far from the snapshot's spot (core/pinStrike; this delayed snapshot
+  // carries no vol reading, so the percent fallback decides) keeps its row but
+  // says it is far, with no nearby pin, rather than defining a target.
+  const pinDist = pinDistance({ pinStrike: data?.pin_strike, spot: data?.spot_price, symbol });
+  const pinFar = pinDist?.far === true;
   const body = (
     <>
       <header>
@@ -892,10 +901,15 @@ function SymbolCard({
         <LevelRow
           label="Pin strike"
           value={fmtPrice(data?.pin_strike)}
+          muted={pinFar}
           hint={
-            rolledExpiry
-              ? `${rolledExpiry}: the reachable strike with the strongest modeled positive dealer-gamma stabilization into expiration\u00a0- a modeled pinning level, not a target`
-              : 'Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration\u00a0- a modeled pinning level, not a target'
+            pinFar && pinDist
+              ? rolledExpiry
+                ? `${rolledExpiry}. ${pinFarHint(pinDist)}`
+                : pinFarHint(pinDist)
+              : rolledExpiry
+                ? `${rolledExpiry}: the reachable strike with the strongest modeled positive dealer-gamma stabilization into expiration\u00a0- a modeled pinning level, not a target`
+                : 'Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration\u00a0- a modeled pinning level, not a target'
           }
         />
         <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(netGexAtSpotOrNull(data?.net_gex_at_spot))} hint="Modeled (call-positive/put-negative convention); actual dealer inventory isn't directly observable" />

@@ -13,6 +13,8 @@ import { SITE_TWITTER_HANDLE } from '@/core/articleRegistry';
 import {
   classifyPinStrength,
   formatPinStrike,
+  pinDistance,
+  pinFarDetail,
   pinStrikeSubtitle,
   PIN_STRIKE_COLOR_VAR,
 } from '@/core/pinStrike';
@@ -199,6 +201,12 @@ export default async function ReplaySnapshotPage({
   // and core/pinStrike owns it: a null strike and a non-positive one are both
   // "no pin", so the card is never rendered around a "$0.00".
   const hasPin = classifyPinStrength(summary?.pin_strike, summary?.pin_confidence) !== 'none';
+  // How far that pin sat from the frame's spot. A replay frame carries no vol
+  // reading, so core/pinStrike's percent fallback decides: the same call chart
+  // rewind makes for the same minute. A far pin reads "Far" here, never the
+  // STRONG its confidence alone would print.
+  const pinDist = pinDistance({ pinStrike: summary?.pin_strike, spot: summary?.spot, symbol: sym });
+  const pinFar = hasPin && pinDist?.far === true;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -261,18 +269,25 @@ export default async function ReplaySnapshotPage({
             </div>
           )}
           {hasPin && (
+            // A far pin keeps its card (the level is still the model's answer)
+            // but in a dashed border and a muted value, with the subtitle
+            // saying how far and that there was no nearby pin.
             <div
-              className="min-w-[220px] flex-1 rounded-xl border-2 bg-[var(--color-surface)] px-5 py-4"
+              className={`min-w-[220px] flex-1 rounded-xl border-2 bg-[var(--color-surface)] px-5 py-4${pinFar ? ' border-dashed' : ''}`}
               style={{ borderColor: PIN_STRIKE_COLOR_VAR }}
+              title={pinFar && pinDist ? pinFarDetail(pinDist) : undefined}
             >
               <div className="flex items-baseline gap-2 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
                 <Pin size={11} /> Pin strike at this moment
               </div>
-              <div className="mt-1 text-3xl font-black tracking-tight">
+              <div
+                className="mt-1 text-3xl font-black tracking-tight"
+                style={pinFar ? { color: 'var(--color-text-secondary)' } : undefined}
+              >
                 {formatPinStrike(summary?.pin_strike)}
               </div>
               <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
-                {pinStrikeSubtitle(summary?.pin_strike, summary?.pin_confidence)}
+                {pinStrikeSubtitle(summary?.pin_strike, summary?.pin_confidence, pinDist)}
               </div>
             </div>
           )}
@@ -289,6 +304,7 @@ export default async function ReplaySnapshotPage({
           maxPain={summary?.max_pain ?? null}
           pinStrike={summary?.pin_strike ?? null}
           pinConfidence={summary?.pin_confidence ?? null}
+          pinDist={pinDist}
           gexKing={summary?.max_gamma_strike ?? null}
         />
       </section>

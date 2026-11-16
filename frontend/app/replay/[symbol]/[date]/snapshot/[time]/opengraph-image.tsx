@@ -6,7 +6,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { resolveSymbol } from '@/core/symbols';
 // PIN_STRIKE_COLOR_HEX, not the CSS var: satori resolves no custom properties,
 // so this card needs the literal the var is defined from (see core/pinStrike).
-import { formatPinStrike, PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { formatPinStrike, pinDistance, PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 import { SNAPSHOT_PROFILE_ROW_LIMIT, snapshotNetProfile } from '@/core/replaySnapshotProfile';
 
 export const runtime = 'nodejs';
@@ -241,11 +241,13 @@ export default async function Image({
                 { label: 'Put wall', value: fmtPrice(summary.put_wall), color: '#10B981' },
                 { label: 'Gamma flip', value: fmtPrice(summary.gamma_flip), color: '#FF8531' },
                 { label: 'Max pain', value: fmtPrice(summary.max_pain), color: '#FFD380' },
-                {
-                  label: 'Pin strike',
-                  value: formatPinStrike(summary.pin_strike),
-                  color: PIN_STRIKE_COLOR_HEX,
-                },
+                // A pin far from spot (core/pinStrike, percent fallback: a
+                // frame carries no vol reading) is named as far and drawn in
+                // the card's muted ink, so a shared preview never shows a
+                // distant pin in the same teal as a nearby one.
+                pinDistance({ pinStrike: summary.pin_strike, spot: summary.spot, symbol })?.far
+                  ? { label: 'Pin \u00b7 far', value: formatPinStrike(summary.pin_strike), color: '#7E96A0' }
+                  : { label: 'Pin strike', value: formatPinStrike(summary.pin_strike), color: PIN_STRIKE_COLOR_HEX },
               ].map((cell) => (
                 <div
                   key={cell.label}

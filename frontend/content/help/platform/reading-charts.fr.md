@@ -85,7 +85,7 @@ Les superpositions sont la touche ZeroGEX, chacune avec son interrupteur dans le
 
 - **Gamma Levels** - la ligne du gamma flip (tirets longs, azur, étiquetée `FLIP` sur le bord gauche) et les lignes du call wall et du put wall.
 - **Gamma Rail** - le gamma des dealers par strike, tracé à hauteur des prix du graphique, sous forme de silhouette lissée ou de barres Net, Split ou Combined. Sur le Gamma Terminal, il se trouve dans le panneau à côté du graphique, où vous pouvez le remplacer par deux échelles de Net GEX alignées par strike.
-- **Max Pain** et **Pin Strike** - leurs propres lignes en or et en turquoise ; la ligne du pin porte sa force, comme dans `PIN · STRONG`.
+- **Max Pain** et **Pin Strike** - leurs propres lignes en or et en turquoise ; la ligne du pin porte sa force, comme dans `PIN · STRONG`, ou affiche `PIN · FAR`, en pâle, quand le pin est loin du prix (voir [Pin Strike](/help/platform/pin-strike#when-the-pin-is-far-from-price)).
 - **VWAP**, et l'ombrage **Regime** - les zones de gamma long et de gamma short de part et d'autre du flip.
 - Désactivées tant que vous ne les activez pas : **GEX King** et, sur le graphique en direct, **Expected Range**, **Centroids** (là où est centré le trading de calls et de puts de la séance), **EMAs** (jusqu'à trois moyennes mobiles de la clôture : 13, 40 et 200 au départ) et **Bar Timer**. Les **Ribbons** (le gamma par strike dans le temps, derrière le prix) sont eux aussi réservés au graphique en direct : désactivés tant que vous ne les activez pas sur le Main Dashboard, et activés par défaut sur le Gamma Terminal.
 

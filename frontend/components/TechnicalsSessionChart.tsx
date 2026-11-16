@@ -15,6 +15,7 @@ import { useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactP
 import { useChipInk, useLevelInk } from '@/hooks/useChartTheme';
 import { useChartReadout } from '@/hooks/useChartReadout';
 import { ET_HM, etMinuteOfDay, generateNiceTicks, trimEdgeTicks } from '@/core/technicalsCharts';
+import { PIN_FAR_LINE_OPACITY } from '@/core/pinStrike';
 import {
   ORB_NEAR_FRACTION,
   fmtLevel,
@@ -45,6 +46,12 @@ export interface SessionChartLevels {
   callWall: number | null;
   putWall: number | null;
   pin: number | null;
+  /**
+   * True when the pin sits far from price (core/pinStrike pinDistance): its
+   * line draws faded, its name reads PIN · FAR and its tag is outlined, so a
+   * distant pin stays on the chart as context rather than a target.
+   */
+  pinFar?: boolean;
 }
 
 export interface SessionChartLayers {
@@ -182,7 +189,7 @@ export default function TechnicalsSessionChart({
     pushLevel('callWall', 'CALL WALL', levels.callWall, 'var(--color-bear)');
     pushLevel('putWall', 'PUT WALL', levels.putWall, 'var(--color-bull)');
     pushLevel('flip', 'FLIP', levels.flip, 'var(--color-flip)');
-    pushLevel('pin', 'PIN', levels.pin, 'var(--color-pin)');
+    pushLevel('pin', levels.pinFar ? 'PIN · FAR' : 'PIN', levels.pin, 'var(--color-pin)', levels.pinFar === true);
   }
   if (layers.orb && orb) {
     pushLevel('orbHigh', 'ORB HIGH', orb.high, 'var(--color-hazy)', true);
@@ -311,7 +318,7 @@ export default function TechnicalsSessionChart({
               <line x1={0} x2={plotW} y1={y(levels.callWall)} y2={y(levels.callWall)} stroke="var(--color-bear)" strokeWidth={1.2} strokeDasharray="6 4" />
             )}
             {levels.pin != null && inDomain(levels.pin) && (
-              <line x1={0} x2={plotW} y1={y(levels.pin)} y2={y(levels.pin)} stroke="var(--color-pin)" strokeWidth={1.2} strokeDasharray="2 3" />
+              <line x1={0} x2={plotW} y1={y(levels.pin)} y2={y(levels.pin)} stroke="var(--color-pin)" strokeWidth={1.2} strokeDasharray="2 3" opacity={levels.pinFar ? PIN_FAR_LINE_OPACITY : undefined} />
             )}
             {levels.flip != null && inDomain(levels.flip) && (
               <line x1={0} x2={plotW} y1={y(levels.flip)} y2={y(levels.flip)} stroke="var(--color-flip)" strokeWidth={1.4} strokeDasharray="8 4" />

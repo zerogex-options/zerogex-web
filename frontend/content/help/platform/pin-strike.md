@@ -1,6 +1,6 @@
 # Pin Strike
 
-*What the Pin Strike is, how the score and the Strong / Moderate / Weak strength label are computed, and the limitations worth knowing before you lean on it.*
+*What the Pin Strike is, how the score and the Strong / Moderate / Weak strength label are computed, when a pin is labeled Far instead, and the limitations worth knowing before you lean on it.*
 
 ---
 
@@ -98,15 +98,36 @@ The practical reading: a Weak label next to a visibly heavy strike is telling yo
 
 The candidate band is measured in vol·√time units, so as `τ → 0` into the close the band *narrows*. Fewer candidates, smaller denominator, higher confidence. **The same book will often read Weak at 10:00 and Moderate or Strong at 15:30** with nothing having changed structurally. Compare confidence readings at comparable times of day.
 
+## When the pin is far from price
+
+The candidates reach out to ±2.5 expected moves, and only positive (restoring) gamma counts. When dealers are short gamma around price, there is little of that nearby, so the strike that wins can be a distant pocket. And because the strength label measures share of the field, not distance, a lone distant candidate can even read **Strong**. On Nov 16, 2026 at 12:00, ES traded at 7,493 and falling, and the pin sat at 7,582, 89 points overhead, labeled Strong at 60%. Drawn as a teal `PIN · STRONG` line, it looked like a target. It wasn't one.
+
+So when the pin is far from price, every surface labels it **Far** in place of Strong, Moderate or Weak, and draws it dimmed:
+
+- The Gamma Terminal chart draws a faded line labeled `PIN · FAR`, with an outlined price tag.
+- The Key Levels card keeps the strike and its distance from price, in muted ink, and adds **Far · no nearby pin**. Hover it for the details.
+- The GEX Summary card and the replay snapshot read, for example, "Far: 1.19% above spot · no nearby pin". The confidence percent is dropped, because a lone distant candidate scores a high share of the field by default.
+- The Daily Replay chart, the snapshot's strike profile, the GEX Strike Profile and Technicals charts, and the free gamma-levels pages mark it the same way.
+
+The level is never hidden for being far. It is still the model's answer, and it is only hidden when the model returns no pin at all (see [When there is no pin](/help/platform/pin-strike#when-there-is-no-pin)).
+
+**What counts as far.** More than three-quarters of the daily expected move from price. The daily expected move is the ±1σ move implied volatility prices for one session: the half-width of the band the chart's [Expected Range](/help/platform/gamma-terminal#expected-range) overlay draws with **Daily** picked, built from VIX for SPX, SPY and ES and from VXN for NDX, QQQ and NQ. Put visually: a pin is far once it sits more than three-quarters of the way from price to the edge of that band. The chart measures against it whether or not the overlay is on. Measured in expected moves rather than points, one rule works on every symbol, and it allows more room on a volatile day than on a quiet one. At a VIX of 20 it comes to about 71 ES points, or about $6.40 on SPY at 680.
+
+Where there is no live volatility reading, a percent of price stands in: more than 1% from price for SPX, SPY and ES, 1.25% for NDX, QQQ and NQ, and 2% for a single stock. That applies on the Daily Replay and replay snapshots, while rewinding the chart, on the free gamma-levels pages, and on single stocks such as NVDA, whose own implied volatility VIX and VXN do not measure. Those cutoffs sit a little wider than the expected-move cutoff on a normal-volatility day, so without a vol reading the label errs toward not calling a pin far.
+
+**How we picked the cutoff.** From the Daily Replay. On the November 2026 ES sessions, three-quarters of a move marked half of Nov 13 and all of Nov 16 as far, the sessions where the pin sat 89 to 150 points above a falling market, and 0 to 9% of the ordinary sessions, where it sat a typical 10 to 60 points away. Every Strong or Moderate label on Nov 16 was on a pin this rule calls far. Half a move would have marked two-thirds of an ordinary session as far. A full move would have missed the Nov 16 noon pin above.
+
+**How to read it.** A far pin means there is no nearby pin. In short gamma, a distant or missing pin means there's no nearby stabilizing gamma: nothing close to price is positioned to slow a move, which fits the trending behavior short gamma tends to bring. Treat the far level as context, not a target.
+
 ## Where to see the numbers
 
-- **Key Levels strip, the Gamma Terminal chart, and GEX Summary** - the Pin Strike tile and line. The chart labels the line with its strength bucket (`PIN · STRONG`); the GEX Summary card, and the Key Levels tile on hover, add the confidence percent.
+- **Key Levels strip, the Gamma Terminal chart, and GEX Summary** - the Pin Strike tile and line. The chart labels the line with its strength bucket (`PIN · STRONG`), or `PIN · FAR` for a pin far from price; the GEX Summary card, and the Key Levels tile on hover, add the confidence percent, except on a far pin.
 - **Replay snapshot permalinks** - `/replay/{symbol}/{date}/snapshot/{HHMM}` (time in ET) renders any historical moment with its stored confidence.
 - **API** - `GET /api/v1/levels/{symbol}` returns `pin_strike` inside its `levels` object, with `pin_score`, `pin_confidence` (0-1) and `pin_strike_reason` as top-level fields. `GET /api/gex/summary` carries all four as top-level fields.
 
 ## When there is no pin
 
-Pin Strike is nullable by design - we hide it rather than showing a misleading zero. When there is no active pin, `pin_strike_reason` says why:
+Pin Strike is nullable by design - we hide it rather than showing a misleading zero. In short gamma, a missing pin means the same as a far one: there's no nearby stabilizing gamma. When there is no active pin, `pin_strike_reason` says why:
 
 | Reason | Meaning |
 | --- | --- |
@@ -134,6 +155,7 @@ The same-day options stop trading at the 4:00 PM ET close (1:00 PM on an early-c
 Stated plainly, because they affect how you should read the number:
 
 - **Strength is dominance, not magnitude.** See above. This is the single most common misreading.
+- **Far is measured against a whole day's move.** The cutoff does not shrink into the close, so late in the session a pin can be out of reach in the time left without being labeled Far. Near a pin, also weigh how much of the session is left.
 - **No time smoothing.** The label is per-snapshot and can flicker on a near-tie.
 - **Confidence is time-of-day sensitive.** The candidate band narrows into the close, mechanically raising confidence.
 - **Strikes at the edge of the listed range are not explicitly flagged.** A candidate with no listed strikes on one side collects a one-sided kernel sum and so scores lower than a comparable interior strike. That is directionally sensible but it is a side effect of the kernel, not a designed low-confidence rule, and it is not surfaced to you.

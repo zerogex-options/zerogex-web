@@ -312,6 +312,18 @@ test('a missing pin strike reads as normal, with its reason', () => {
   assert.match(text, /normal when/);
 });
 
+test('a pin far from spot is called far, never presented as the nearby pin', () => {
+  // 1.25% above an SPX spot of 6400: past the 1% the site calls far without a
+  // live vol reading (core/pinStrike), so the text says so in words.
+  const far = formatSnapshot('SPX', snapshotAt(60, { pin_strike: 6480 }));
+  assert.match(far, /Pin strike \(same-day\): 6480\.00 \(1\.25% above spot\) - FAR from spot, so there is no nearby pin/);
+  assert.match(far, /Context, not a target\./);
+  // A pin at spot reads as before.
+  const near = formatSnapshot('SPX', snapshotAt(60));
+  assert.match(near, /Pin strike \(same-day\): 6400\.00 \(0\.00% above spot\)$/m);
+  assert.doesNotMatch(near, /FAR from spot/);
+});
+
 test('futures levels disclose that they are carried onto the futures axis', () => {
   // ES has no options book; saying "the ES chain" would be false, and a reader
   // who applies a basis offset to an already-projected level gets it wrong.

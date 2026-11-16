@@ -37,6 +37,7 @@ import TooltipWrapper from './TooltipWrapper';
 import FuturesLevelsChip from './FuturesLevelsChip';
 import { useGammaPlaybook, type GammaPlaybookRead } from '@/hooks/useGammaPlaybook';
 import { usePinStability } from '@/hooks/useApiData';
+import { useDailyExpectedMove } from '@/hooks/useDailyExpectedMove';
 import { rolledExpiryNote } from '@/core/expiredAtClose';
 import { useHasTierAccess } from '@/hooks/useAuthSession';
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
@@ -50,8 +51,11 @@ import {
   type KeyLevelId,
 } from '@/core/keyLevels';
 import {
+  PIN_FAR_NOTE,
   PIN_STRIKE_TOOLTIP,
   classifyPinStrength,
+  pinDistance,
+  pinFarDetail,
   pinStrengthLabel,
   pinStrikeSubtitle,
   pinStabilityNote,
@@ -106,6 +110,10 @@ function KeyLevelCard({
   // A level that hasn't landed yet reads as an instrument warming up; one that
   // landed as "unresolved" reads as the book being degraded, and says which.
   const pending = loading && !resolved;
+  // A pin far from spot (core/pinStrike pinDistance). Its value and distance
+  // stay on the card, muted rather than in the bright/bull/bear inks every
+  // level a trader acts on uses, and a line under them says why.
+  const far = level.farNote != null;
 
   return (
     <div className="zg-panel min-w-0 px-3 py-2.5" title={cardTitle(level)}>
@@ -133,7 +141,7 @@ function KeyLevelCard({
       ) : (
         <div
           className="zg-metric mt-1 flex min-w-0 items-center gap-1.5"
-          style={{ fontSize: 17, color: resolved ? 'var(--text-primary)' : 'var(--text-muted)' }}
+          style={{ fontSize: 17, color: resolved && !far ? 'var(--text-primary)' : 'var(--text-muted)' }}
         >
           <span className="truncate">{level.valueLabel}</span>
           {level.unresolved && (
@@ -174,7 +182,11 @@ function KeyLevelCard({
           className="mt-0.5 flex items-start gap-1 font-semibold leading-tight"
           style={{
             fontSize: 10.5,
-            color: level.distance.isAbove ? 'var(--color-bull)' : 'var(--color-bear)',
+            color: far
+              ? 'var(--text-muted)'
+              : level.distance.isAbove
+                ? 'var(--color-bull)'
+                : 'var(--color-bear)',
           }}
         >
           {level.distance.isAbove ? (
@@ -190,6 +202,18 @@ function KeyLevelCard({
           style={{ fontSize: 10.5, color: 'var(--text-muted)' }}
         >
           {level.emptyNote}
+        </div>
+      )}
+      {/* A far pin's reason, on the card itself: the distance above says how
+          far, this says what that means. Wraps rather than truncates, like
+          the distance line, since a clipped "Far · no ne…" says neither. The
+          full explanation rides the card's title. */}
+      {!pending && level.farNote && (
+        <div
+          className="mt-0.5 font-semibold leading-tight"
+          style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}
+        >
+          {level.farNote}
         </div>
       )}
       {/* The Pin's session path. Rendered rather than tucked into the card
@@ -350,6 +374,18 @@ export function KeyLevelsBoard({
   // core/pinStrike; composing them here is what keeps the level model itself
   // free of runtime imports (and unit-testable under the Node runner).
   const pinStrength = classifyPinStrength(read.pinStrike, read.pinConfidence);
+  // Far is decided against the same daily expected move the chart's Expected
+  // Range overlay draws (live VIX / VXN), so the strip and the PIN · FAR line
+  // under it agree; with no reading the percent fallback decides. Never on the
+  // delayed snapshot, which carries no pin.
+  const dailyMove = useDailyExpectedMove(read.symbol, read.spot, !read.delayed);
+  const pinDist = pinDistance({
+    pinStrike: read.pinStrike,
+    spot: read.spot,
+    expectedMove: dailyMove,
+    symbol: read.symbol,
+  });
+  const pinFar = pinStrength !== 'none' && pinDist?.far === true;
   // Polls on its own slow cadence: a whole-session reduction can only change
   // when the analytics cycle writes a frame. Skipped on the delayed public
   // snapshot, which is a frozen moment with no session path behind it.
@@ -380,7 +416,16 @@ export function KeyLevelsBoard({
       // "Weak · 32%" makes it legible as a score near a threshold rather than a
       // dismissal, and stops the live strip being less informative than a
       // replay permalink of the same moment.
-      note: pinStrength === 'none' ? null : pinStrikeSubtitle(read.pinStrike, read.pinConfidence),
+      //
+      // A far pin carries no strength at all: its title explains the distance
+      // instead, and the card says "Far · no nearby pin" where it can be seen.
+      note:
+        pinStrength === 'none'
+          ? null
+          : pinFar && pinDist
+            ? pinFarDetail(pinDist)
+            : pinStrikeSubtitle(read.pinStrike, read.pinConfidence, pinDist),
+      farNote: pinFar ? PIN_FAR_NOTE : null,
       // After the close the stability read is gone (it belongs to the expired
       // pin) and the pin has rolled to the next expiration: say which.
       subnote: pinStabilityNote(pinStability) ?? rolledExpiryNote(read.rolledExpiration),

@@ -72,6 +72,13 @@ export interface KeyLevel {
   note: string | null;
   /** Optional third line rendered on the card (Pin Strike's session path). */
   subnote: string | null;
+  /**
+   * Set only on a Pin that sits far from spot (core/pinStrike pinDistance):
+   * the line the card renders in place of any strength, "Far · no nearby pin".
+   * The card dims the level and its distance when this is set, so a distant
+   * pin cannot read as a nearby target. Null on every other level.
+   */
+  farNote: string | null;
   tooltip: string;
 }
 
@@ -206,8 +213,19 @@ export function computeMaxPainFromStrikes(
  */
 export interface KeyLevelPinInput {
   strike: number | null | undefined;
-  /** "Pin strength: Strong · 62%" for an active pin; null when there is none. */
+  /**
+   * "Pin strength: Strong · 62%" for an active pin; null when there is none.
+   * For a far pin, the far explanation instead (core/pinStrike pinFarDetail):
+   * a far pin carries no strength word anywhere.
+   */
   note: string | null;
+  /**
+   * "Far · no nearby pin" when the pin sits far from spot (core/pinStrike
+   * PIN_FAR_NOTE); null or absent otherwise. Rendered on the card, unlike
+   * `note`: a far pin is exactly the case where the hover-only copy went
+   * unread and the line was taken for a target.
+   */
+  farNote?: string | null;
   /** Shown when there is no pin at all — pinStrengthLabel('none'). */
   absentLabel: string;
   /**
@@ -455,6 +473,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       unresolved: hasSpot && level == null,
       note: null,
       subnote: level == null ? null : subnote,
+      farNote: null,
       // A card with no level to define is better served by an explanation of
       // WHY there is none: the definition is what the trader already knows,
       // and "unresolved" on its own reads as a broken feed.
@@ -487,6 +506,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       unresolved: false,
       note: null,
       subnote: null,
+      farNote: null,
       tooltip: TOOLTIPS.spot,
     },
     priced('flip', 'Gamma Flip', input.flip),
@@ -506,6 +526,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       // so the compact strip can put it in the title without a second line.
       note: pin == null ? null : input.pin.note,
       subnote: pin == null ? null : input.pin.subnote ?? null,
+      farNote: pin == null ? null : input.pin.farNote ?? null,
       tooltip: input.pin.tooltip,
     },
     priced('callWall', 'Call Wall', input.callWall),

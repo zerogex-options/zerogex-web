@@ -30,9 +30,12 @@ import {
   type KeyLevel,
 } from '../core/keyLevels.ts';
 import {
+  PIN_FAR_NOTE,
   PIN_STRIKE_EMPTY,
   PIN_STRIKE_TOOLTIP,
   classifyPinStrength,
+  pinDistance,
+  pinFarDetail,
   pinStrengthLabel,
   pinStrikeSubtitle,
 } from '../core/pinStrike.ts';
@@ -216,6 +219,55 @@ test('a resolved pin with no spot must not claim there is no pin', () => {
   assert.equal(pin.valueLabel, '$609.00');
   assert.equal(pin.emptyNote, 'Awaiting price');
   assert.equal(pin.note, 'Pin strength: Strong · 62%');
+});
+
+test('a pin with no far note carries none, and no other level ever does', () => {
+  for (const level of buildKeyLevels(RESOLVED)) {
+    assert.equal(level.farNote, null, `${level.id} should carry no far note`);
+  }
+});
+
+// The Nov 16 12:00 ES minute: a lone pin 89 points over a falling tape at 60%
+// confidence. Composed the way KeyLevelsStrip composes it, so this locks the
+// contract the strip relies on: the card says FAR where it can be seen, keeps
+// the level and its distance, and never prints a strength.
+test('a far pin keeps its level and distance, says so on the card, and drops its strength', () => {
+  const spot = 7493.25;
+  const strike = 7582.25;
+  const confidence = 0.604;
+  const distance = pinDistance({ pinStrike: strike, spot, expectedMove: 94.78, symbol: 'ES' });
+  assert.ok(distance?.far);
+  const pin = byId(
+    buildKeyLevels({
+      ...RESOLVED,
+      spot,
+      pin: {
+        strike,
+        note: pinFarDetail(distance),
+        farNote: PIN_FAR_NOTE,
+        absentLabel: pinStrengthLabel('none'),
+        tooltip: PIN_STRIKE_TOOLTIP,
+      },
+    }),
+    'pin',
+  );
+  // Still shown: the level is the model's answer, only its reading changes.
+  assert.equal(pin.valueLabel, '$7582.25');
+  assert.equal(pin.distance?.label, '+$89.00 / +1.19% above spot');
+  assert.equal(pin.farNote, 'Far · no nearby pin');
+  assert.match(pin.note ?? '', /^Far from spot: 1\.19% above spot, 0\.94 of the daily expected move\./);
+  assert.doesNotMatch(pin.note ?? '', /Strong|Moderate|Weak/);
+  // The strength a near pin would have shown, for contrast.
+  assert.equal(classifyPinStrength(strike, confidence), 'strong');
+});
+
+test('a far note is dropped along with the pin when there is no strike', () => {
+  const pin = byId(
+    buildKeyLevels({ ...RESOLVED, pin: { ...pinInput(null, null), farNote: PIN_FAR_NOTE } }),
+    'pin',
+  );
+  assert.equal(pin.farNote, null);
+  assert.equal(pin.emptyNote, 'No active pin');
 });
 
 // ── Max Pain from a filtered book ───────────────────────────────────────────

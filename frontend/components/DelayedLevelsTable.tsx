@@ -2,6 +2,7 @@ import type { GexSummary } from '@/core/gexSummary';
 import { fmtNetGex, fmtPrice, fmtTimestampET } from '@/core/gexSummary';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { futuresContractCaption } from '@/core/futuresContract';
+import { pinDistance, pinFarHint } from '@/core/pinStrike';
 
 type Props = {
   symbol: string;
@@ -61,10 +62,16 @@ export default function DelayedLevelsTable({ symbol, data, chainSymbol }: Props)
     },
   ];
   if (data.pin_strike != null) {
+    // Same far call as the card above it (core/pinStrike, percent fallback:
+    // the delayed snapshot has no vol reading), so a quoted table never
+    // presents a distant pin as the level price is pinning to.
+    const pinDist = pinDistance({ pinStrike: data.pin_strike, spot: data.spot_price, symbol });
     rows.push({
       label: 'Pin strike',
       value: fmtPrice(data.pin_strike),
-      note: 'Reachable 0DTE strike with the strongest modeled restoring dealer gamma into expiration',
+      note: pinDist?.far
+        ? pinFarHint(pinDist)
+        : 'Reachable 0DTE strike with the strongest modeled restoring dealer gamma into expiration',
     });
   }
 

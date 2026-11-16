@@ -16,6 +16,7 @@
 // alias to resolve. All three imports are alias-free leaf modules for the same
 // reason.
 import { FREE_DELAY_SECONDS } from '../freeDelay.ts';
+import { pinDistance } from '../pinStrike.ts';
 import { formatGexCompact } from '../signalHelpers.ts';
 import type { PickerSymbol } from '../symbols.ts';
 
@@ -195,7 +196,18 @@ export function formatSnapshot(symbol: PickerSymbol, snapshot: GexSnapshot): str
   lines.push(priceLine('Max pain', snapshot.max_pain, spot));
 
   if (snapshot.pin_strike != null && Number.isFinite(snapshot.pin_strike)) {
-    lines.push(priceLine('Pin strike (same-day)', snapshot.pin_strike, spot));
+    const pinLine = priceLine('Pin strike (same-day)', snapshot.pin_strike, spot);
+    // A model handed a pin 1.2% away will call it the level price is pinning
+    // to. The site labels such a pin FAR (core/pinStrike; this delayed read has
+    // no vol reading, so the percent fallback decides), and the text says the
+    // same, in words a model will repeat rather than a flag it may ignore.
+    const far = pinDistance({ pinStrike: snapshot.pin_strike, spot, symbol })?.far === true;
+    lines.push(
+      far
+        ? `${pinLine} - FAR from spot, so there is no nearby pin: little positive dealer ` +
+            'gamma sits near price, and the best candidate is a distant strike. Context, not a target.'
+        : pinLine,
+    );
   } else {
     // The reason code is the difference between "no pin today" and "something
     // is broken", and only one of those is worth mentioning to a user.

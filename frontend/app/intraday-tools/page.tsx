@@ -27,6 +27,8 @@ import TechnicalsSessionChart, {
 import { useTechnicals } from '@/hooks/useTechnicals';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useGammaPlaybook } from '@/hooks/useGammaPlaybook';
+import { useDailyExpectedMove } from '@/hooks/useDailyExpectedMove';
+import { pinDistance } from '@/core/pinStrike';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -144,6 +146,9 @@ export default function TechnicalsPage() {
   const isMobile = useIsMobile();
   const { bars, latest, sessionStartEt, sessionEndEt, fetchedAt, loading, error } = useTechnicals(symbol);
   const read = useGammaPlaybook();
+  // The yardstick for a far pin: the live daily expected move, the same one
+  // the Key Levels strip and the Gamma Terminal measure the pin against.
+  const dailyMove = useDailyExpectedMove(symbol, read.spot);
   const { rows: candleRows } = useMarketHistorical(symbol, '5min', !isIndexSymbol(symbol), true);
 
   const [showAllEvents, setShowAllEvents] = useState(false);
@@ -245,6 +250,9 @@ export default function TechnicalsPage() {
 
   // ── The read ─────────────────────────────────────────────────────────────
   const last = read.spot ?? safeNum(latest?.close) ?? (candles.length ? candles[candles.length - 1].close : null);
+  // A pin far from price draws faded and reads PIN · FAR (core/pinStrike).
+  const pinFar =
+    pinDistance({ pinStrike: read.pinStrike, spot: last, expectedMove: dailyMove, symbol })?.far === true;
   const vwapNow = safeNum(latest?.vwap_deviation?.vwap);
   const vwapGap = last != null && vwapNow != null ? last - vwapNow : null;
   const zone = orb ? orbZone(last, orb.high, orb.low) : null;
@@ -400,7 +408,7 @@ export default function TechnicalsPage() {
                 vwap={vwapPoints}
                 volume={volumeBars}
                 orb={orb}
-                levels={{ flip, callWall, putWall, pin: read.pinStrike }}
+                levels={{ flip, callWall, putWall, pin: read.pinStrike, pinFar }}
                 last={last}
                 sessionStartMs={sessionStartMs}
                 sessionEndMs={sessionEndMs}

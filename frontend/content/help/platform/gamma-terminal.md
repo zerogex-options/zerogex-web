@@ -36,7 +36,7 @@ The strip across the top shows the six levels the chart draws, for the chart's s
 
 - **Spot** - the current price and its change from the previous close.
 - **Gamma Flip** - the price where modeled net dealer gamma changes sign.
-- **Pin Strike** - the nearby same-day (0DTE) strike where dealer gamma is modeled to pull price in hardest into the close, with a strength label.
+- **Pin Strike** - the nearby same-day (0DTE) strike where dealer gamma is modeled to pull price in hardest into the close, with a strength label, or **Far** when it sits far from price.
 - **Call Wall** - the strike at or above price with the largest call gamma.
 - **Put Wall** - the strike at or below price with the largest put gamma.
 - **Max Pain** - the strike where options holders would collect the least at expiration.
@@ -48,6 +48,8 @@ When a card shows a dash instead of a number, the note under it says why:
 - **Unresolved this snapshot** - the model returned no level this time, usually because the option chain was thin. Hover the amber **?** for details. It normally comes back on a later update.
 - **No flip in selected expiries** - the expirations you picked never change sign. See [The Expiry filter](/help/platform/gamma-terminal#the-expiry-filter).
 - **No active pin** - no nearby same-day strike qualifies as a pin right now.
+
+A Pin Strike card that reads **Far · no nearby pin** still shows the strike and its distance, in muted ink. The model's pin is far from price, so there is no nearby pin; hover the card for how far. See [Pin Strike](/help/platform/gamma-terminal#pin-strike).
 
 Members get three more things here. On a computer, hover the strip for arrows that step through the symbols; on a phone, swipe it. The whole page follows. The bell on the Call Wall and Put Wall cards sets up an [alert](/help/platform/alerts) for when price reaches that wall. And the Pin Strike card notes how long the current pin has held, as in "Held since 09:41".
 
@@ -144,7 +146,7 @@ Each overlay has a switch in the **Layers** panel, which opens from the toolbar.
 | Ribbons | Each strike's gamma through time, behind the candles | Yes | Live |
 | VWAP | The session's volume-weighted average price | Yes | Everywhere |
 | Max Pain | The max pain strike | Yes | Everywhere |
-| Pin Strike | Today's pin strike and its strength | Yes | Live |
+| Pin Strike | Today's pin strike and its strength, or Far | Yes | Live |
 | GEX King | The heaviest gamma strike in the whole chain | No | Live |
 | PD/PM Levels | The prior day's high, low and close; the pre-market high and low | No | Live: SPY, QQQ, single stocks |
 | Expected Range | The ±1σ move implied volatility is pricing | No | Live, except single stocks |
@@ -228,11 +230,11 @@ Without a flip, the chart can't draw the Regime shading either.
 
 ### Pin Strike
 
-**What it shows.** The nearby same-day (0DTE) strike where positive dealer gamma and the odds of price reaching it before the close combine most strongly (teal, labeled `PIN · STRONG`, `PIN · MODERATE` or `PIN · WEAK`).
+**What it shows.** The nearby same-day (0DTE) strike where positive dealer gamma and the odds of price reaching it before the close combine most strongly (teal, labeled `PIN · STRONG`, `PIN · MODERATE` or `PIN · WEAK`). A pin far from price is labeled `PIN · FAR` instead and drawn faded, with an outlined price tag.
 
-**How to read it.** The strength word measures how much the winning strike stands out from its neighbors, not how big its gamma is. **Weak** means the pull is spread across several nearby strikes, not that the level is unimportant. It's a modeled pinning level, not a price target. [Pin Strike](/help/platform/pin-strike) explains how it's built.
+**How to read it.** The strength word measures how much the winning strike stands out from its neighbors, not how big its gamma is. **Weak** means the pull is spread across several nearby strikes, not that the level is unimportant. It's a modeled pinning level, not a price target. **Far** means the pin sits more than three-quarters of the way from price to the edge of the **Daily** [Expected Range](/help/platform/gamma-terminal#expected-range) band (the chart measures this whether or not the overlay is on), so there is no nearby pin, whatever its strength would have said. In short gamma, a distant or missing pin means there's no nearby stabilizing gamma. [Pin Strike](/help/platform/pin-strike) explains how it's built and how the cutoff was chosen.
 
-**Keep in mind.** No line is drawn when there's no active pin. The pin is same-day by design, so it ignores the Expiry filter. After the close it moves to the next session's expiration (see [After the close](/help/platform/gamma-terminal#after-the-close)). It isn't part of the free preview.
+**Keep in mind.** No line is drawn when there's no active pin. A far pin is still drawn, just faded. While rewinding there's no live volatility reading, so far means more than 1% from price (1.25% on NDX, QQQ and NQ), the same rule the Daily Replay uses; [When the pin is far from price](/help/platform/pin-strike#when-the-pin-is-far-from-price) has the details. The pin is same-day by design, so it ignores the Expiry filter. After the close it moves to the next session's expiration (see [After the close](/help/platform/gamma-terminal#after-the-close)). It isn't part of the free preview.
 
 ### GEX King
 
