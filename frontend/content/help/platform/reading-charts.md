@@ -65,7 +65,7 @@ GEX Heatmap · Strike × DTE, on the Dealer Positioning page.
 - **Rows** - the strikes carrying the most gamma over the next week, highest strike on top.
 - **Columns** - days to expiration, out to 7DTE.
 - **Cell color** - net dealer gamma at that strike/expiry combo: green positive, red negative, deeper for larger.
-- **Crown** - the GEX king, the strike with the largest net dealer gamma across those expirations.
+- **Crown** - the Near-term King, the strike with the largest net dealer gamma across those expirations. It isn't the Gamma Terminal's [GEX King](/help/platform/gamma-terminal#gex-king), which covers the whole chain.
 
 Hottest cells are the strikes that matter for the nearest expiries. Watch the heatmap migrate intraday - if the brightest cell jumps strikes, the wall is moving.
 

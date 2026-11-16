@@ -71,7 +71,7 @@ Die Kontrakte hinter dem Gamma: das Open Interest an jedem Strike, Calls über d
 Zwei Heatmaps zeigen, wie sich das Gamma über die Zeit und über die Verfälle verteilt:
 
 - **GEX Heatmap Timeseries** - Netto-Dealer-Gamma pro Strike im Sitzungsverlauf, orange für positiv und violett für negativ (blau auf hellen Themes), mit den Kerzen und dem Gamma Flip darüber. Es ist dasselbe Chart wie auf der eigenständigen GEX-Heatmap-Seite.
-- **GEX Heatmap · Strike × DTE** - Netto-Dealer-Gamma für die Strikes mit dem meisten Gamma in der kommenden Woche (Zeilen, höchster Strike oben) gegen die Tage bis zum Verfall (Spalten, bis 7DTE). Grün ist positiv, rot negativ, und je kräftiger, desto größer. Eine Krone markiert den **GEX King** - den Strike mit dem größten Netto-Dealer-Gamma über diese kurzfristigen Verfälle.
+- **GEX Heatmap · Strike × DTE** - Netto-Dealer-Gamma für die Strikes mit dem meisten Gamma in der kommenden Woche (Zeilen, höchster Strike oben) gegen die Tage bis zum Verfall (Spalten, bis 7DTE). Grün ist positiv, rot negativ, und je kräftiger, desto größer. Eine Krone markiert den **Near-term King** - den Strike mit dem größten Netto-Dealer-Gamma über diese kurzfristigen Verfälle (0-7 DTE). Das ist nicht der [GEX King](/help/platform/gamma-terminal#gex-king) des Gamma Terminals; der umfasst die gesamte Chain, daher können die beiden auf verschiedene Strikes zeigen.
 
 Nützlich für:
 

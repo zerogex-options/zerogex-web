@@ -71,7 +71,7 @@ The contracts behind the gamma: open interest at each strike, calls above the ax
 Two heatmaps show how gamma is spread across time and across expirations:
 
 - **GEX Heatmap Timeseries** - net dealer gamma by strike through the session, orange for positive and violet for negative (blue on light themes), with the price candles and the gamma flip drawn on top. It's the same chart as the standalone GEX Heatmap page.
-- **GEX Heatmap · Strike × DTE** - net dealer gamma for the strikes carrying the most gamma over the next week (rows, highest strike on top) against days to expiration (columns, out to 7DTE). Green is positive, red negative, and deeper is larger. A crown marks the **GEX King** - the strike with the largest net dealer gamma across those near-term expirations.
+- **GEX Heatmap · Strike × DTE** - net dealer gamma for the strikes carrying the most gamma over the next week (rows, highest strike on top) against days to expiration (columns, out to 7DTE). Green is positive, red negative, and deeper is larger. A crown marks the **Near-term King** - the strike with the largest net dealer gamma across those near-term (0-7 DTE) expirations. It isn't the Gamma Terminal's [GEX King](/help/platform/gamma-terminal#gex-king), which covers the whole chain, so the two can point to different strikes.
 
 Useful for:
 

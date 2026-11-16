@@ -1079,8 +1079,9 @@ export default function ReplayScrubber({
         {scope !== 'all' && !scopeHasNoContracts && !strikesAgedOut && (
           <div className="mt-3 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
             Bars, call wall, put wall, gamma flip and max pain are the {scopeExpiry} expiry alone.
-            Pin strike and GEX King stay whole-chain&nbsp;- same as the live charts, where neither
-            follows the Expiry selector. Snapshot cards render the whole chain.
+            The pin strike is always same-day and the GEX King is always the whole chain&nbsp;- same
+            as the live charts, where neither follows the Expiry selector. Snapshot cards render the
+            whole chain.
           </div>
         )}
       </div>
