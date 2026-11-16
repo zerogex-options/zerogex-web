@@ -17,11 +17,17 @@
 
 - [x] ~~Step 1. Renewal stopped before 2026-11-15 17:27 UTC~~ Missed: the renewal charged
   $44.25 at 2026-11-15 18:28 UTC (`in_1Uc7DU4AOiqteMYYuSr66Ygp`). See Step 1 for the fix.
-- [ ] Step 1 fix. Renewal refunded in full in Stripe
-- [ ] Step 1 fix. Evidence pulled (Step 3 commands), before the cancel revokes the API key
-- [ ] Step 1 fix. Subscription canceled immediately (`cancel-subscription FORCE=1`)
+- [ ] Step 1 fix. **Renewal refunded in full in Stripe. Not done yet, and it now comes
+  first:** the subscription is already canceled, so until the refund goes through the
+  customer has paid $44.25 for a month they can't use.
+- [x] Step 1 fix. Evidence pulled (Step 3 commands) on 2026-11-16 UTC, before the cancel.
+- [x] Step 1 fix. Subscription canceled immediately (`cancel-subscription FORCE=1`) on
+  2026-11-16 UTC: tier `public`, 1 API key revoked. This ran before the refund, so the
+  daily orphan-payment alert may name this customer until the refund is in. **Don't act
+  on the command that alert suggests** (applied, it would restore their access); refund
+  instead.
 - [ ] Step 2. Support inbox checked for anything from the customer
-- [ ] Step 3. Evidence pulled and checked
+- [x] Step 3. Evidence checked: all four checks pass (see Step 3)
 - [ ] Step 4. Evidence filed in Stripe (date: ____)
 - [ ] Outcome: ____
 
@@ -33,10 +39,11 @@ customer used Pro for the whole month, and our records show it:
 
 - **Bought Pro themselves** on 2026-10-15, from inside their account, through a
   confirmation screen that stated the amount and the money-back guarantee.
-- **Generated Pro API keys on their account page again and again**, 2026-10-16 to
-  2026-10-23. Only a signed-in member on an active Pro plan can do that, so every one
-  of those rows is proof that Pro access was working.
-- **Kept signing in** through 2026-11-13.
+- **Opened 539 pages of the service on 29 different days** after paying, about 26 hours
+  of on-screen time, mostly the charts page and their dashboards.
+- **Created 23 Pro API keys and used 17 of them** to make requests to our API, the last
+  on 2026-10-26. Only a signed-in member on an active Pro plan can create one.
+- **Kept signing in** through 2026-11-13, the week the dispute was filed.
 - **On 2026-11-07, three weeks after the charge, opened the cancellation screen and
   chose "Keep my access & apply 25% off"** instead of canceling.
 - **Never used the one-click refund** their account page offered for the first 7 days,
@@ -53,13 +60,12 @@ by hand adds the $15 dispute-countered fee, which Stripe returns if we win.
 
 ### Weak points, stated plainly
 
-- **22 API keys in about a week is unusual.** Each new key revokes the one before it
-  (`core/apiKeyAdmin.ts`, `provisionApiKey`, `revoke_existing: true`), so this is one
-  key being regenerated over and over. It might mean they were wiring the key into
-  several tools, or that the API wasn't working for them. The key-service lookup in
-  Step 3 shows whether any key was ever used. The evidence text below claims only that
-  keys were generated, which is true either way. Do not add a claim of API usage unless
-  `last_used_at` shows it.
+- ~~**23 API keys in about a week is unusual.**~~ Resolved by the key-service lookup.
+  Each new key revokes the one before it (`core/apiKeyAdmin.ts`, `provisionApiKey`,
+  `revoke_existing: true`), and every revocation lands on the exact microsecond the next
+  key was created, so all 23 were the customer regenerating. The worry was that the API
+  wasn't working for them. It was: 17 of the 23 keys were used to make requests, several
+  within minutes of being created, and the last key was used on 2026-10-26.
 - **Chase debit again**, the same issuer and card type as the August loss. Debit issuers
   lean toward the cardholder, which is exactly why the usage record matters here.
 - **We charged them again after the dispute opened** (the Nov 15 renewal). Refunding it
@@ -78,6 +84,9 @@ one charge will very likely dispute the next, which means another fee and a seco
 dispute on the account's record. Refunding closes that door, and it has to come first:
 Stripe won't refund a charge once it's disputed. The customer loses nothing they paid
 for: the disputed $59.00 bought Oct 15 to Nov 15, and they had all of it.
+
+**Where it stands (2026-11-16):** parts 2 and 3 below are done. Part 1, the refund, is
+not, and it's the only thing left before filing.
 
 Do it in this order.
 
@@ -115,6 +124,12 @@ the daily orphan-payment sweep (06:40) looks for, and it would email you a false
 it ran in between. With the refund already in place, it skips the payment
 (`core/orphanPayment.ts` stops on a refunded amount).
 
+That order slipped: the cancel ran first. So until the refund is in, the sweep may email
+an alert naming this customer, most likely as "Paid, then lost access before the period
+they bought was over", with a suggested command (a preview by default). **Don't act on
+it**: applied, it would give the customer their access back. The refund is the fix, and
+once it's in, the sweep stops reporting them.
+
 ## Step 2: check the support inbox
 
 Search for `annhuphamdinh@gmail.com`, `nhu` and `pham`. If the customer ever wrote in,
@@ -137,24 +152,25 @@ with its created and last-used times, and adds the answer to the same file:
 cd ~/zerogex-web/frontend && source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && node --env-file=.env.local -e 'const e=process.env; const base=(e.ZEROGEX_API_BASE_URL||"http://127.0.0.1:8000").replace(/\/+$/,""); fetch(base+"/api/admin/api-keys?user_id="+encodeURIComponent("annhuphamdinh@gmail.com"),{headers:{Authorization:"Bearer "+(e.ZEROGEX_API_TOKEN||e.ZEROGEX_API_KEY),"X-Admin-Token":e.ZEROGEX_ADMIN_TOKEN||""}}).then(async r=>{const t=await r.text(); let out=t; try{out=JSON.stringify(JSON.parse(t),null,2)}catch{} console.log("== API KEYS from the key service (HTTP "+r.status+") ==\n"+out)}).catch(err=>console.log("== API KEYS: could not reach the key service: "+err.message))' >> ~/dispute-du_1UbptR4A.txt
 ```
 
-Both commands only read. `getActiveApiKey` asks the same endpoint with
-`active_only=true`, so leaving that off should list revoked keys too.
+Both commands only read. Without `active_only=true` (which `getActiveApiKey` sends), the
+endpoint lists revoked keys too, which the run confirmed.
 
-The easy path: paste the whole of `~/dispute-du_1UbptR4A.txt` to Claude and get the final
-text back. To finish it yourself, check four things:
+**Run on 2026-11-16 UTC. All four checks pass**, and the final text below is built from
+that output:
 
-1. **Summary, "Purchase" lines.** There should be a Purchase line at about 2026-10-15
-   17:27, and "Purchase record as logged" should begin `Trial ended for paid switch` and
-   include `money-back guarantee`. If there is no Purchase line, stop: item 2 of A is
-   wrong. If it says `no guarantee — refund already used`, take out every sentence about
-   the guarantee and the refund button, in A and C below.
-2. **Summary, "Money-back refund requests on file"** should be `0`. If it isn't, stop:
-   item 6 of A is wrong.
-3. **Page views.** If the page-view sections are empty, delete the clause in item 4 of A
-   that begins "and our page-view records".
-4. **API keys.** If any `last_used_at` is after 2026-10-15 17:27 UTC, add this sentence
-   to the end of item 4 of A, with the latest date: "Their API keys were used to request
-   data from our API, most recently on [date]." If every one is empty, add nothing.
+1. **Purchase.** `2026-10-15 17:27:28 from IP 2607:9540:40:a081:b0ef:5e4e:ac8:3b5c`,
+   logged as `Trial ended for paid switch basic/monthly → pro/monthly on sub
+   sub_1UQZhy4AOiqteMYYrRN4GDUT (charged $59.00 today as quoted, money-back guarantee;
+   discounts unchanged)`. So the confirmation screen did show the guarantee line.
+2. **Money-back refund requests on file: 0.**
+3. **Page views after the charge:** 539 pages on 29 different days, about 1,569 minutes
+   on screen, the last at 2026-11-13 02:50 UTC. Every day from Oct 15 to Nov 13 has
+   views except Nov 8.
+4. **API keys:** 23 created (the first at 2026-10-15 18:17, 50 minutes after the
+   purchase), 17 used, the last use 2026-10-26 23:30:29 UTC on `annhuphamdinh-22`.
+
+Also from the run: 9 sign-ins (2026-10-14 to 2026-11-13), and every row in the access
+log, purchase included, comes from inside `2607:9540:40::/48`.
 
 ## Step 4: file it in Stripe
 
@@ -175,8 +191,8 @@ Submit a few days before the deadline (2026-11-30, 6:59:59 PM EST), not on the d
 
 ## Step 5 (optional): email the customer
 
-This costs nothing and sometimes gets a dispute withdrawn. Send it after Step 1 has taken
-effect. If they reply that they'll withdraw it, still file the evidence and attach their
+This costs nothing and sometimes gets a dispute withdrawn. Send it only after the $44.25
+refund has gone through, because the email says it has. If they reply that they'll withdraw it, still file the evidence and attach their
 reply as customer communication; a promise to withdraw is not a withdrawal.
 
 > Subject: Your ZeroGEX Pro payment
@@ -199,21 +215,26 @@ reply as customer communication; a promise to withdraw is not a withdrawal.
 
 ## The evidence
 
-All of it is drafted from facts already confirmed by `make diagnose-user` (2026-11-15)
-and the code that was live at the time (see the last section). Do the Step 3 checks
-before pasting.
+**Final text.** Every number comes from the evidence pull on 2026-11-16
+(`~/dispute-du_1UbptR4A.txt`, Step 3), and every quote from the code that was live at
+the time (see "What the customer saw"). Two sentences are only true once two things are
+done, so don't paste until both are:
+
+- the $44.25 refund (the last paragraph of A says it happened);
+- the inbox search coming up empty (item 6 of A says they never contacted us).
 
 ### A. Main explanation (`uncategorized_text`)
 
-> The customer received the service and used it throughout the month they paid for.
+> The customer received the service and used it heavily throughout the month they paid
+> for.
 >
 > ZeroGEX Pro is an online subscription to an options-analytics website (zerogex.io) and
 > its API. Nothing is shipped: the customer receives the service by signing in to their
-> account. Our records show this customer bought Pro themselves, used it for the whole
-> paid period, and chose to keep it three weeks after the charge.
+> account. Our records show this customer bought Pro themselves, used it on nearly every
+> day of the paid period, and chose to keep it three weeks after the charge.
 >
-> 1. The customer created their account on October 14, 2026, verified their email
-> address, and accepted our Terms of Service.
+> 1. The customer created their account on October 14, 2026, checking the box to agree to
+> our Terms of Service, and verified their email address.
 >
 > 2. On October 15, 2026, the customer upgraded to Pro from inside their signed-in
 > account. Before taking payment, our confirmation screen told them: "Your free trial
@@ -225,14 +246,15 @@ before pasting.
 > entire period the charge paid for (October 15 to November 15, 2026). We never
 > suspended, limited or withheld it.
 >
-> 4. The customer used it. They acknowledged the Pro welcome screen on October 16,
-> generated new Pro API keys on their account page again and again between October 16
-> and October 23, and kept signing in afterward, including on October 25, October 30,
-> October 31, November 7 and November 13. An API key can only be created by a signed-in
-> member with active Pro access, so each of those keys shows the service working for
-> them. The attached activity log lists every sign-in and action with its time and IP
-> address, and our page-view records show which pages of the service they opened, day
-> by day.
+> 4. The customer used it. After the purchase they opened 539 pages of the service on 29
+> different days, from October 15 through November 13, most often the charts page and
+> their dashboards, with about 26 hours of on-screen time. They created 23 Pro API keys
+> on their account page and used 17 of them to make requests to our API, most recently
+> on October 26. They kept signing in through November 13, the same week this dispute
+> was filed. An API key can only be created by a signed-in member with active Pro
+> access, so every one of those keys also shows Pro access working for them. The
+> attached log lists every sign-in and account action with its time and IP address,
+> every day's page views, and every API key with the last time it was used.
 >
 > 5. On November 7, 2026, three weeks after the charge, the customer opened our
 > cancellation screen. We offered them 25% off to stay. They clicked "Keep my access &
@@ -241,8 +263,11 @@ before pasting.
 >
 > 6. For 7 days after the payment, the customer's account page offered a full refund at
 > the click of a button ("Request a full refund"). They were on that page during that
-> week, generating API keys, and never asked for the refund. They have never contacted
-> us to report a problem with the service.
+> week, creating API keys, and never asked for the refund. They have never contacted us
+> to report a problem with the service.
+>
+> Every action in the attached log, from creating the account through the purchase to
+> the last sign-in, came from the same network (IPv6 2607:9540:40::/48).
 >
 > After this dispute was filed, the subscription renewed automatically on November 15,
 > 2026, charging $44.25. We have since refunded that renewal in full and ended the
@@ -252,18 +277,138 @@ before pasting.
 
 ### B. Access activity log (`access_activity_log`)
 
-Paste the **ACCESS ACTIVITY LOG** section of `~/dispute-du_1UbptR4A.txt` exactly as
-printed, then the **PAGES VIEWED PER DAY** section if it has rows, then this paragraph:
+Paste everything in the box below, as is: the Step 3 output, with the key service's
+answer turned into a table (straight from `created_at`, `last_used_at` and
+`revoked_at`) and a closing paragraph. It's about 8,300 characters, under Stripe's
+20,000 per field. If the form's box won't take it, print it to PDF and upload it instead.
 
-> ZeroGEX Pro was provisioned at the moment of purchase on October 15, 2026 and stayed
-> live and unrestricted for the entire period covered by the disputed charge (October 15
-> to November 15, 2026). Every action listed above was taken while signed in to the
-> customer's own account. API keys can only be created on the account page, by a
-> signed-in member with active Pro access.
+Do not trim rows. A log with gaps reads as edited. The SQL already leaves out rows the
+system wrote rather than the customer (webhook syncs, emails, scripts).
 
-Do not trim rows from the log. A log with gaps reads as edited. The SQL already leaves
-out rows the system wrote rather than the customer (webhook syncs, emails, scripts),
-which carry a label instead of an IP.
+```text
+ACCESS ACTIVITY LOG: account annhuphamdinh@gmail.com (user_60079f16044a7a158bd72190), all times UTC
+2026-10-14 21:24:36 - Account created - 2607:9540:40:a081:acf6:20d9:d4b6:cafb
+2026-10-14 21:24:36 - Email verification requested - 2607:9540:40:a081:acf6:20d9:d4b6:cafb
+2026-10-14 21:24:57 - Email address verified - 2607:9540:40:a081:acf6:20d9:d4b6:cafb
+2026-10-14 21:25:24 - Signed in - 2607:9540:40:a081:acf6:20d9:d4b6:cafb
+2026-10-14 21:25:29 - Started checkout - 2607:9540:40:a081:acf6:20d9:d4b6:cafb
+2026-10-14 21:26:29 - Started checkout - 2607:9540:40:a081:acf6:20d9:d4b6:cafb
+2026-10-14 21:27:43 - Acknowledged the platform disclaimer - 2607:9540:40:a081:acf6:20d9:d4b6:cafb
+2026-10-14 21:27:47 - Acknowledged the Basic welcome screen - 2607:9540:40:a081:acf6:20d9:d4b6:cafb
+2026-10-14 21:39:04 - Signed in - 2607:9540:40:a081:b0ef:5e4e:ac8:3b5c
+2026-10-15 04:06:18 - Signed in - 2607:9540:40:a00b:3021:d485:f3af:c1bf
+2026-10-15 12:35:59 - Signed in - 2607:9540:40:a081:b0a7:f1f0:57d2:6b6f
+2026-10-15 17:27:28 - Upgraded to Pro from inside the account and confirmed the charge of $59.00 ("Confirm and pay"). This is the disputed payment. - 2607:9540:40:a081:b0ef:5e4e:ac8:3b5c
+2026-10-15 18:17:36 - Generated a Pro API key on the account page - 2607:9540:40:a081:b0ef:5e4e:ac8:3b5c
+2026-10-15 18:36:54 - Generated a Pro API key on the account page - 2607:9540:40:a081:b0ef:5e4e:ac8:3b5c
+2026-10-15 19:05:02 - Generated a Pro API key on the account page - 2607:9540:40:a081:b0ef:5e4e:ac8:3b5c
+2026-10-15 22:22:12 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-15 22:34:51 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-15 22:51:16 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-15 22:54:41 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-15 23:15:56 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-16 00:19:30 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-16 00:24:31 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-16 01:10:44 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-16 01:29:21 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-16 02:00:57 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-16 02:19:08 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-16 03:25:41 - Acknowledged the Pro welcome screen - 2607:9540:40:a081:5592:780a:fe23:facd
+2026-10-16 14:32:18 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-16 18:42:08 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-16 19:34:30 - Generated a Pro API key on the account page - 2607:9540:40:a081:fd97:f085:dcb5:5e6
+2026-10-17 15:40:54 - Generated a Pro API key on the account page - 2607:9540:40:a081:7c45:fddb:449f:c0e8
+2026-10-18 01:56:51 - Generated a Pro API key on the account page - 2607:9540:40:a081:81c5:9b8d:a02b:e8dd
+2026-10-18 02:41:48 - Generated a Pro API key on the account page - 2607:9540:40:a081:81c5:9b8d:a02b:e8dd
+2026-10-22 21:37:00 - Generated a Pro API key on the account page - 2607:9540:40:a00a:4e4:3828:52a6:60bb
+2026-10-23 17:04:24 - Generated a Pro API key on the account page - 2607:9540:40:a00a:ddac:6448:589b:a681
+2026-10-23 19:08:06 - Generated a Pro API key on the account page - 2607:9540:40:a00a:ddac:6448:589b:a681
+2026-10-25 19:26:07 - Signed in - 2607:9540:40:a00a:a87c:92ad:d48b:f256
+2026-10-30 17:54:12 - Signed in - 2607:9540:40:a00a:124b:76ad:8844:b03b
+2026-10-31 21:22:14 - Signed in - 2607:9540:40:a00a:124b:76ad:8844:b03b
+2026-11-07 22:45:43 - Signed in - 2607:9540:40:a00a:b990:7da:8bb7:5e23
+2026-11-07 22:47:41 - Opened the cancellation screen and chose "Keep my access & apply 25% off" - 2607:9540:40:a00a:b990:7da:8bb7:5e23
+2026-11-13 02:32:34 - Signed in - 2607:9540:40:a00a:124b:76ad:8844:b03b
+
+PAGES VIEWED PER DAY while signed in to this account, all times UTC. The purchase was 2026-10-15 17:27; 539 of these pages, on 29 different days, came after it.
+day | pages_viewed | minutes_on_screen
+2026-10-14 | 44 | 72
+2026-10-15 | 69 | 203
+2026-10-16 | 69 | 297
+2026-10-17 | 20 | 29
+2026-10-18 | 21 | 36
+2026-10-19 | 48 | 75
+2026-10-20 | 28 | 168
+2026-10-21 | 22 | 20
+2026-10-22 | 72 | 111
+2026-10-23 | 88 | 153
+2026-10-24 | 2 | 0
+2026-10-25 | 2 | 60
+2026-10-26 | 4 | 30
+2026-10-27 | 10 | 41
+2026-10-28 | 12 | 58
+2026-10-29 | 8 | 35
+2026-10-30 | 5 | 5
+2026-10-31 | 4 | 9
+2026-11-01 | 9 | 1
+2026-11-02 | 2 | 60
+2026-11-03 | 8 | 43
+2026-11-04 | 11 | 23
+2026-11-05 | 5 | 43
+2026-11-06 | 6 | 11
+2026-11-07 | 11 | 3
+2026-11-09 | 4 | 6
+2026-11-10 | 5 | 60
+2026-11-11 | 7 | 28
+2026-11-12 | 2 | 1
+2026-11-13 | 6 | 3
+
+MOST-VIEWED PAGES, whole account, 2026-10-14 to 2026-11-13
+path | views
+/chart | 140
+/dashboard | 93
+/my-dashboard | 91
+/ | 26
+/account | 25
+/basic-signals | 11
+/greeks-gex | 10
+/tape-flow-bias | 10
+/trade-bias | 10
+/signal-score | 9
+/gex-gradient | 8
+/live-bulletin | 8
+/skew-delta | 8
+/options-calculator | 7
+/pricing | 7
+
+API KEYS issued to this account, from our API key service, all times UTC. Each new key replaces the one before it. "Last used" is the last time our API received a request made with that key.
+key | created | last used for an API request | replaced by the next key
+annhuphamdinh | 2026-10-15 18:17:36 | 2026-10-15 18:21:24 | 2026-10-15 18:36:54
+annhuphamdinh-1 | 2026-10-15 18:36:54 | 2026-10-15 18:40:57 | 2026-10-15 19:05:02
+annhuphamdinh-2 | 2026-10-15 19:05:02 | 2026-10-15 19:06:11 | 2026-10-15 22:22:12
+annhuphamdinh-3 | 2026-10-15 22:22:12 | 2026-10-15 22:22:16 | 2026-10-15 22:34:50
+annhuphamdinh-4 | 2026-10-15 22:34:50 | 2026-10-15 22:34:55 | 2026-10-15 22:51:16
+annhuphamdinh-5 | 2026-10-15 22:51:16 | never used | 2026-10-15 22:54:41
+annhuphamdinh-6 | 2026-10-15 22:54:41 | 2026-10-15 23:09:55 | 2026-10-15 23:15:56
+annhuphamdinh-7 | 2026-10-15 23:15:56 | 2026-10-16 00:16:43 | 2026-10-16 00:19:30
+annhuphamdinh-8 | 2026-10-16 00:19:30 | 2026-10-16 00:19:57 | 2026-10-16 00:24:31
+annhuphamdinh-9 | 2026-10-16 00:24:31 | 2026-10-16 01:02:03 | 2026-10-16 01:10:44
+annhuphamdinh-10 | 2026-10-16 01:10:44 | never used | 2026-10-16 01:29:21
+annhuphamdinh-11 | 2026-10-16 01:29:21 | never used | 2026-10-16 02:00:57
+annhuphamdinh-12 | 2026-10-16 02:00:57 | never used | 2026-10-16 02:19:08
+annhuphamdinh-13 | 2026-10-16 02:19:08 | 2026-10-16 12:46:19 | 2026-10-16 14:32:18
+annhuphamdinh-14 | 2026-10-16 14:32:18 | 2026-10-16 17:55:34 | 2026-10-16 18:42:08
+annhuphamdinh-15 | 2026-10-16 18:42:08 | 2026-10-16 18:58:08 | 2026-10-16 19:34:30
+annhuphamdinh-16 | 2026-10-16 19:34:30 | 2026-10-16 20:50:54 | 2026-10-17 15:40:54
+annhuphamdinh-17 | 2026-10-17 15:40:54 | never used | 2026-10-18 01:56:51
+annhuphamdinh-18 | 2026-10-18 01:56:51 | never used | 2026-10-18 02:41:48
+annhuphamdinh-19 | 2026-10-18 02:41:48 | 2026-10-20 15:54:46 | 2026-10-22 21:37:00
+annhuphamdinh-20 | 2026-10-22 21:37:00 | 2026-10-23 16:26:39 | 2026-10-23 17:04:24
+annhuphamdinh-21 | 2026-10-23 17:04:24 | 2026-10-23 18:21:56 | 2026-10-23 19:08:06
+annhuphamdinh-22 | 2026-10-23 19:08:06 | 2026-10-26 23:30:29 | still active until the subscription ended
+
+ZeroGEX Pro was provisioned at the moment of purchase on October 15, 2026 and stayed live and unrestricted for the entire period covered by the disputed charge (October 15 to November 15, 2026). Every action listed above was taken while signed in to the customer's own account. Members stay signed in between visits, which is why there are far fewer sign-ins than days of use. API keys can only be created on the account page, by a signed-in member with active Pro access. Page time counts only time the page was visible on the customer's screen, capped at 30 minutes per page. The customer agreed to our Terms of Service when creating the account: the sign-up form cannot be submitted without checking that box, and the acceptance is recorded with the account's creation time (2026-10-14 21:24:36 UTC).
+```
 
 ### C. Refund policy disclosure (`refund_policy_disclosure`)
 
@@ -291,7 +436,7 @@ which carry a label instead of an IP.
 | --- | --- |
 | `customer_name` | nhu pham |
 | `customer_email_address` | annhuphamdinh@gmail.com |
-| `customer_purchase_ip` | the IP on the summary's "Purchase" line in `~/dispute-du_1UbptR4A.txt` |
+| `customer_purchase_ip` | `2607:9540:40:a081:b0ef:5e4e:ac8:3b5c` (the in-app upgrade, 2026-10-15 17:27:28 UTC) |
 | `product_description` | ZeroGEX Pro, a $59.00/month subscription to ZeroGEX (zerogex.io), an online options-analytics service: live gamma-exposure (GEX) dashboards, dealer-positioning and options-flow metrics, trade signals and backtesting tools, plus API access. Delivered online through the customer's account; nothing is shipped. |
 | `service_date` | 2026-10-15 (service period 2026-10-15 to 2026-11-15) |
 
@@ -320,34 +465,36 @@ deploy running a little behind `release` would have shown the same words.
 | Event | Commit | Where |
 | --- | --- | --- |
 | Oct 14 signup: Terms Section 4 with the guarantee and the non-refundable clause | `d4559078` | `frontend/app/terms/Client.i18n.ts` (`s4GuaranteeBody`, `s4RefundsBody`) |
+| Oct 14 signup: the account can't be created without checking the Terms box (required since `91638b24`, 2026-08-21); the acceptance is stored with the account's creation time | `d4559078` | `frontend/app/api/auth/register/route.ts` (`isAcceptedTermsVersionCurrent`), `frontend/core/serverAuth.ts` (`terms_accepted_at` = `created_at`) |
+| Page time: counted only while the page is visible, capped at 30 minutes per view | current | `frontend/components/PageAnalytics.tsx` (`isVisible`), `frontend/core/pageAnalytics.ts` (`MAX_VISIT_MS`) |
 | Oct 15 purchase: "Your free trial ends today, and {amount} is charged to your card on file now." / "Covered by our {days}-day money-back guarantee - limit one refund per customer." / "Confirm and pay" | `0aef29de` | `frontend/app/pricing/Client.i18n.ts` (`confirmSwitchBody`, `confirmSwitchGuarantee`, `confirmSwitchCta`); the amount is `Intl.NumberFormat` en-US currency, so `$59.00` |
 | Oct 15 to 22: refund panel with "Request a full refund", shown only while the member is eligible | `0aef29de` | `frontend/components/MoneyBackGuaranteePanel.i18n.ts`, rendered on `frontend/app/account/page.tsx` |
 | Oct 16 to 23: API keys, created only from the account page, by a signed-in member with an API-eligible (Pro) tier | `0aef29de` | `frontend/components/AccountApiKeys.tsx` (the only caller), `frontend/app/api/account/api-keys/route.ts` |
 | Nov 7 cancellation screen: "Keep my access & apply {pct}% off" / "No thanks, continue to cancel" | `b24dc54a` | `frontend/components/CancelRetentionModal.i18n.ts` (`applyDiscount`, `declineToCancel`); the `discount` action in `frontend/app/api/billing/cancel-flow/route.ts` writes `billing_retention_offer_accepted` |
 
-## Timeline (UTC, from `make diagnose-user` on 2026-11-15)
+## Timeline (UTC, from the evidence pull and `make diagnose-user`)
 
 | When | What |
 | --- | --- |
-| 2026-10-14 21:24:36 | Account created; Terms accepted |
+| 2026-10-14 21:24:36 | Account created (Terms box checked at sign-up) |
 | 2026-10-14 21:24:57 | Email verified |
 | 2026-10-14 21:27:34 | Basic trial starts ($0.00 invoice `in_1UQZhz4AOiqteMYYcbBso8IN`) |
-| **2026-10-15 17:27:25** | **Trial ended early by the in-app switch to Pro; $59.00 charged and paid (`in_1UQsR74AOiqteMYY7F1VyxqS`). The disputed charge.** Subscription stamped `money_back=1`. |
-| 2026-10-16 02:00 to 2026-10-23 19:08 | API keys `annhuphamdinh-12` through `-22` generated (earlier ones fall outside the diagnose output's last 20 events; the full log has them) |
+| **2026-10-15 17:27:28** | **In-app switch to Pro: trial ended early, $59.00 charged and paid (`in_1UQsR74AOiqteMYY7F1VyxqS`, Stripe time 17:27:25). The disputed charge.** Subscription stamped `money_back=1`. |
+| 2026-10-15 18:17 to 2026-10-23 19:08 | 23 API keys created, each replacing the last; 17 used |
 | 2026-10-16 03:25:41 | Pro welcome screen acknowledged |
 | 2026-10-22 17:27:25 | 7-day refund window closes, unused |
 | 2026-10-25, 10-30, 10-31 | Sign-ins |
+| 2026-10-26 23:30:29 | Last API request (key `annhuphamdinh-22`) |
 | 2026-11-07 22:45:43 | Sign-in |
 | **2026-11-07 22:47:41** | **Cancellation screen: chose "Keep my access & apply 25% off"** |
-| 2026-11-13 02:32:34 | Sign-in (last seen 02:49:19) |
-| by 2026-11-15 | Dispute opened (exact date in the Stripe dashboard) |
+| 2026-11-13 02:32:34 | Last sign-in; last page view 02:50 |
+| **2026-11-14 22:57** | **Dispute opened** (Stripe: "Payment disputed Nov 14, 5:57 PM" ET) |
 | 2026-11-15 17:27:25 | End of the period the disputed charge paid for |
 | 2026-11-15 17:27:48 | Renewal invoice `in_1Uc7DU4AOiqteMYYuSr66Ygp` created (`subscription_cycle`); paid $44.25 at 18:28:00. Step 1 hadn't run yet. |
-| 2026-11-16 | Renewal refunded in full; subscription canceled (Step 1 fix) |
+| 2026-11-16 | Evidence pulled, then subscription canceled immediately (1 API key revoked) |
+| pending | $44.25 renewal refunded in full |
 
-All sign-ins and API-key rows in the diagnose output come from IPv6 addresses inside
-`2607:9540:40::/48`. That isn't claimed in the evidence, because the earlier rows haven't
-been checked yet; if every row in the full log fits, it can go in as one more sentence.
+From 2026-10-15 to 2026-11-13, there are page views on every day except 2026-11-08.
 
 ## Follow-ups (none urgent)
 
