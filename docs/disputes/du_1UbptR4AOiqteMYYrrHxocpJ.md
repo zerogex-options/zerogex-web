@@ -15,7 +15,11 @@
 
 ## Status
 
-- [ ] Step 1. Renewal stopped before 2026-11-15 17:27 UTC (`set-cancellation ON=1`)
+- [x] ~~Step 1. Renewal stopped before 2026-11-15 17:27 UTC~~ Missed: the renewal charged
+  $44.25 at 2026-11-15 18:28 UTC (`in_1Uc7DU4AOiqteMYYuSr66Ygp`). See Step 1 for the fix.
+- [ ] Step 1 fix. Renewal refunded in full in Stripe
+- [ ] Step 1 fix. Evidence pulled (Step 3 commands), before the cancel revokes the API key
+- [ ] Step 1 fix. Subscription canceled immediately (`cancel-subscription FORCE=1`)
 - [ ] Step 2. Support inbox checked for anything from the customer
 - [ ] Step 3. Evidence pulled and checked
 - [ ] Step 4. Evidence filed in Stripe (date: ____)
@@ -58,40 +62,58 @@ by hand adds the $15 dispute-countered fee, which Stripe returns if we win.
   `last_used_at` shows it.
 - **Chase debit again**, the same issuer and card type as the August loss. Debit issuers
   lean toward the cardholder, which is exactly why the usage record matters here.
+- **We charged them again after the dispute opened** (the Nov 15 renewal). Refunding it
+  in full and saying so plainly in the evidence (last paragraph of A) is the honest
+  version, and it reads as good faith rather than a merchant that kept billing.
 
-## Step 1: today, before 12:27 PM Eastern (2026-11-15 17:27 UTC), stop the renewal
+## Step 1: refund the renewal, then end the subscription
 
-The subscription renews today at 17:27:25 UTC for $44.25 (the Nov 7 discount applied).
-A customer with an open dispute who gets charged again will very likely dispute that
-charge too, which means another fee and another dispute on the account's record.
+**What happened.** The plan was to stop the renewal before 2026-11-15 17:27 UTC with
+`set-cancellation ON=1`. That didn't happen in time: Stripe created the renewal invoice
+`in_1Uc7DU4AOiqteMYYuSr66Ygp` at 17:27:48 UTC and charged $44.25 (the Nov 7 discount
+applied) at 18:28 UTC. The subscription is now active through 2026-12-15.
 
-```bash
-make set-cancellation EMAIL=annhuphamdinh@gmail.com ON=1 DRY_RUN=1
-```
+**The fix: give the $44.25 back and end the subscription now.** A customer who disputed
+one charge will very likely dispute the next, which means another fee and a second
+dispute on the account's record. Refunding closes that door, and it has to come first:
+Stripe won't refund a charge once it's disputed. The customer loses nothing they paid
+for: the disputed $59.00 bought Oct 15 to Nov 15, and they had all of it.
 
-```bash
-make set-cancellation EMAIL=annhuphamdinh@gmail.com ON=1 YES=1
-```
+Do it in this order.
 
-The subscription stays active until 17:27 UTC today, then ends with no renewal charge.
-It sends the customer no email. When it ends, the webhook drops the account to the free
-tier and revokes the API key, as for any ended subscription.
+1. **Refund the renewal in Stripe**: the customer's page → the $44.25 payment from
+   Nov 15 → Refund → the full $44.25. If Stripe says the charge is already disputed,
+   stop and tell me: that's a second dispute, and it's handled differently.
 
-Unlike August, this goes before filing. There, the rebuttal's central claim was "the
-subscription is still active and was never canceled", so filing had to come first. Here
-nothing in the rebuttal depends on the subscription staying active, and the renewal falls
-inside the evidence window. Ending it at the close of the period the customer paid for
-keeps "access stayed on for the whole paid period" true.
+   Do not use `make money-back-refund` for this. The guarantee only ever covers the
+   first payment on a subscription (`core/moneyBackGuarantee.ts`), so it would go after
+   the disputed $59.00, which Stripe won't refund, and leave the $44.25 alone.
 
-Do **not** use `make cancel-subscription`: it ends access immediately, which would cut
-the paid period short by a few hours and make that sentence false.
+2. **Pull the evidence (both Step 3 commands)** before the next part. Ending the
+   subscription revokes the customer's API key, and the key service may stop listing a
+   key once it's revoked.
 
-**If you get to this after 17:27 UTC**, don't run the command above. The period will
-already have rolled over, so it would only schedule a cancel for Dec 15 while the $44.25
-renewal invoice still goes through. Tell me instead: the fix is to delete the draft
-renewal invoice in Stripe (or refund it, if it has already charged; that charge is not
-disputed, so Stripe allows a refund) and end the subscription, and the last paragraph of
-the evidence changes.
+3. **End the subscription now.** Preview first:
+
+   ```bash
+   make cancel-subscription EMAIL=annhuphamdinh@gmail.com FORCE=1 DRY_RUN=1
+   ```
+
+   ```bash
+   make cancel-subscription EMAIL=annhuphamdinh@gmail.com FORCE=1 YES=1
+   ```
+
+   It cancels with no proration credit and no final invoice (`core/pastDueCancel.ts`),
+   drops the account to `public`, revokes the API key, and sends the customer nothing;
+   the webhook's subscription-deleted path sends nothing either. `FORCE=1` is needed
+   because the subscription is `active`, and ending access now is the point: the period
+   it's in has just been refunded. `set-cancellation ON=1` is the wrong tool now, since
+   it would keep the customer on Pro until Dec 15 without paying.
+
+Refund before canceling, not after. A paid invoice on a canceled subscription is what
+the daily orphan-payment sweep (06:40) looks for, and it would email you a false alarm if
+it ran in between. With the refund already in place, it skips the payment
+(`core/orphanPayment.ts` stops on a refunded amount).
 
 ## Step 2: check the support inbox
 
@@ -101,9 +123,8 @@ before filing. The evidence says they never contacted us, and that has to be tru
 
 ## Step 3: pull the evidence (read-only)
 
-Merge this branch on the host first. It only adds two files under `docs/disputes/`; it
-changes nothing in the app, so there's nothing to rebuild or restart. Then, from the
-repo root:
+Run these before the cancel in Step 1. The two files they use are on the host (merged
+2026-11-15). From the repo root:
 
 ```bash
 sqlite3 -readonly /var/lib/zerogex/auth.db < docs/disputes/du_1UbptR4AOiqteMYYrrHxocpJ-evidence.sql > ~/dispute-du_1UbptR4A.txt
@@ -169,8 +190,9 @@ reply as customer communication; a promise to withdraw is not a withdrawal.
 > Pro through November 13, and on November 7 you chose to keep your subscription. If
 > something wasn't working for you, reply and tell me what happened.
 >
-> Either way, your subscription has been canceled and you won't be charged again. If the
-> dispute was a mistake, you can ask your bank to withdraw it.
+> Either way, I've refunded the $44.25 renewal that went through on November 15 and
+> canceled your subscription, so you won't be charged again. If the dispute was a
+> mistake, you can ask your bank to withdraw it.
 >
 > Michael
 > ZeroGEX
@@ -222,9 +244,11 @@ before pasting.
 > week, generating API keys, and never asked for the refund. They have never contacted
 > us to report a problem with the service.
 >
-> After this dispute was filed, we ended the subscription at the close of the paid
-> period, so the customer will not be charged again. The service the disputed charge
-> paid for had already been delivered in full.
+> After this dispute was filed, the subscription renewed automatically on November 15,
+> 2026, charging $44.25. We have since refunded that renewal in full and ended the
+> subscription, so the customer has paid nothing beyond the disputed charge and will not
+> be charged again. The service the disputed charge paid for had already been delivered
+> in full.
 
 ### B. Access activity log (`access_activity_log`)
 
@@ -275,7 +299,10 @@ which carry a label instead of an IP.
 
 - **Receipt** (`receipt`): the hosted invoice for `in_1UQsR74AOiqteMYY7F1VyxqS`, printed
   to PDF:
-  `https://invoice.stripe.com/i/acct_1TOi5O4AOiqteMYY/live_YWNjdF8xVE9pNU80QU9pcXRlTVlZLF9WUmx6UDFGc0ZTR3RDc2tySWJiSENUa1hBeUZTbGZULDE4NTI5OTg0OQ0200s5CQjlkX?s=ap`
+  `https://invoice.stripe.com/i/acct_1TOi5O4AOiqteMYY/live_YWNjdF8xVE9pNU80QU9pcXRlTVlZLF9WUmx6UDFGc0ZTR3RDc2tySWJiSENUa1hBeUZTbGZULDE4NTMzNDEwNA0200WprzbHEX?s=ap`
+  (from `make diagnose-user` on 2026-11-15; if the link no longer opens, run it again
+  for a fresh one). Upload only this invoice. The Nov 15 renewal invoice is not part of
+  the dispute.
 - **Terms of Service** (`refund_policy`): `zerogex.io/terms`, printed to PDF. The refund
   and money-back wording in Section 4 is unchanged since the customer accepted it on
   2026-10-14. The only change to the Terms since then is the free-trial card sentence,
@@ -314,7 +341,9 @@ deploy running a little behind `release` would have shown the same words.
 | **2026-11-07 22:47:41** | **Cancellation screen: chose "Keep my access & apply 25% off"** |
 | 2026-11-13 02:32:34 | Sign-in (last seen 02:49:19) |
 | by 2026-11-15 | Dispute opened (exact date in the Stripe dashboard) |
-| 2026-11-15 17:27:25 | End of the paid period; the subscription ends here once Step 1 is done |
+| 2026-11-15 17:27:25 | End of the period the disputed charge paid for |
+| 2026-11-15 17:27:48 | Renewal invoice `in_1Uc7DU4AOiqteMYYuSr66Ygp` created (`subscription_cycle`); paid $44.25 at 18:28:00. Step 1 hadn't run yet. |
+| 2026-11-16 | Renewal refunded in full; subscription canceled (Step 1 fix) |
 
 All sign-ins and API-key rows in the diagnose output come from IPv6 addresses inside
 `2607:9540:40::/48`. That isn't claimed in the evidence, because the earlier rows haven't
