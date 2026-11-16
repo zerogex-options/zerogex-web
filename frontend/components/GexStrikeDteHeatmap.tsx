@@ -70,9 +70,9 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
   // DTE counts from New York's date, not the viewer's (see daysToExpiry).
   const todayKey = etTodayDateKey();
 
-  const { strikes, grid, maxAbs, dteColumns, kingStrike } = useMemo(() => {
+  const { strikes, grid, maxAbs, dteColumns, kingStrike, kingLong } = useMemo(() => {
     const rows = byStrikeData || [];
-    if (rows.length === 0) return { strikes: [] as number[], grid: new Map<string, number>(), maxAbs: 0, dteColumns: [] as number[], kingStrike: null as number | null };
+    if (rows.length === 0) return { strikes: [] as number[], grid: new Map<string, number>(), maxAbs: 0, dteColumns: [] as number[], kingStrike: null as number | null, kingLong: false };
 
     // Aggregate by (strike, DTE exact)
     const agg = new Map<string, number>();
@@ -135,9 +135,23 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       }
     }
     if (kingMag <= 0) kingStrike = null;
+    // The crown is picked on |net|, so it can sit on a short-gamma strike, and
+    // the sign decides what hedging there does (see kingTooltip below).
+    const kingLong = kingStrike != null && (strikeNet.get(kingStrike) || 0) > 0;
 
-    return { strikes: sortedStrikes, grid: agg, maxAbs: maxAbsVal, dteColumns: nonEmptyDtes, kingStrike };
+    return { strikes: sortedStrikes, grid: agg, maxAbs: maxAbsVal, dteColumns: nonEmptyDtes, kingStrike, kingLong };
   }, [byStrikeData, todayKey]);
+
+  // Says which way the crowned strike leans instead of claiming price is drawn
+  // to every crown: long gamma leans against moves, short gamma chases them
+  // (the same read the Gamma Terminal guide gives for the regime). Only shown
+  // with a crown, so kingLong is always that strike's own sign.
+  const kingTooltip =
+    'Near-term King\u00a0- the strike with the largest net dealer gamma, long or short, across the 0-7 DTE expirations shown here. ' +
+    (kingLong
+      ? 'It is net long gamma, so modeled dealer hedging there leans against moves and tends to slow price near this strike.'
+      : 'It is net short gamma, so modeled dealer hedging there chases moves and tends to speed price up near this strike rather than hold it.') +
+    " Not the Gamma Terminal's GEX King, which covers the whole chain.";
 
   if (strikes.length === 0 || dteColumns.length === 0) {
     return (
@@ -211,7 +225,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
                 >
                   <span className="inline-flex items-center gap-1">
                     {isKing && (
-                      <TooltipWrapper inlineInExpanded={false} text="Near-term King&nbsp;- the strike with the largest net dealer gamma across the 0-7 DTE expirations shown here; the dominant node price tends to gravitate toward. Not the Gamma Terminal's GEX King, which covers the whole chain.">
+                      <TooltipWrapper inlineInExpanded={false} text={kingTooltip}>
                         <Crown
                           size={13}
                           strokeWidth={2.25}
