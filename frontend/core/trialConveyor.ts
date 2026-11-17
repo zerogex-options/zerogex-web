@@ -13,10 +13,15 @@
 //                       ▼                            ▼
 //                   rolls off                    stalled (grace retry)
 //
-// Every rider is in exactly one of three live states (ConveyorState) and has a
+// Every rider is in exactly one of four live states (ConveyorState) and has a
 // hard deadline — the instant the belt delivers them to the charge. That
 // deadline is what the tab counts down to, so "when do I get paid, and by
 // whom" is answerable at a glance instead of inferred from aggregate charts.
+//
+// A trial that started WITHOUT a card (core/noCardTrial.ts) rides the same belt
+// but has no charge waiting at the end of it: unless the member adds a card
+// first, Stripe cancels the subscription the moment the trial ends. Those riders
+// get a lane of their own (`noCard`) so the belt never promises money from them.
 
 // Nominal free-trial length, mirroring TRIAL_PERIOD_DAYS in
 // app/api/billing/checkout/route.ts. Used ONLY as the belt's fallback scale
@@ -29,8 +34,13 @@ export const NOMINAL_TRIAL_DAYS = 7;
 const DAY_MS = 86_400_000;
 
 // Where a rider currently sits on the belt:
-//   running    — trialing, no cancellation scheduled. Still heading for the
-//                charge; this is the cohort that converts.
+//   running    — trialing, no cancellation scheduled, and a card to charge.
+//                Still heading for the charge; this is the cohort that converts.
+//   noCard     — trialing on a trial that started without a card, and no card
+//                has been added. Not heading for a charge: at the trial's end
+//                Stripe cancels it (trial_settings.end_behavior
+//                .missing_payment_method 'cancel'). Adding a card before then
+//                moves the rider to `running`.
 //   rollingOff — trialing but cancel_at_period_end is set. The member clicked
 //                Cancel: they keep access until the trial ends, then leave
 //                WITHOUT ever being charged. Already off the conveyor in every
@@ -39,11 +49,12 @@ const DAY_MS = 86_400_000;
 //                (subscription past_due with payment_grace_reason='trial').
 //                Not yet lost: Stripe's retries run inside the bounded
 //                payment-recovery window, so these can still convert.
-export type ConveyorState = 'running' | 'rollingOff' | 'stalled';
+export type ConveyorState = 'running' | 'noCard' | 'rollingOff' | 'stalled';
 
 // One trial in flight. `convertsAt` is the deadline the belt is counting down
-// to: the first-charge instant for running/rollingOff riders, and the grace
-// deadline (last retry) for a stalled one.
+// to: the trial's end for running/noCard/rollingOff riders (the first charge for
+// a running one, the cancellation for the other two), and the grace deadline
+// (last retry) for a stalled one.
 export type ConveyorRider = {
   userId: string;
   email: string | null;
@@ -66,13 +77,22 @@ export type ConveyorRider = {
 // still running, and a `past_due` row is only a TRIAL stall when the grace
 // window was opened by a trial-conversion failure — an established payer's
 // failed renewal is ordinary dunning, not a conveyor event.
+//
+// A clicked Cancel outranks a missing card: either way the trial ends without a
+// charge, and the Cancel is the member's own decision, so it is the one to show.
 export function classifyRider(row: {
   subscriptionStatus: string | null;
   cancelAtPeriodEnd: boolean;
   paymentGraceReason: string | null;
+  // The trial started without a card and none has been added since
+  // (core/noCardTrial.ts needsCard). REQUIRED, with no default: a caller that
+  // was never taught about the no-card trial must not compile, or every one of
+  // those trials reads as heading for a charge it will never reach.
+  needsCard: boolean;
 }): ConveyorState | null {
   if (row.subscriptionStatus === 'trialing') {
-    return row.cancelAtPeriodEnd ? 'rollingOff' : 'running';
+    if (row.cancelAtPeriodEnd) return 'rollingOff';
+    return row.needsCard ? 'noCard' : 'running';
   }
   if (row.subscriptionStatus === 'past_due' && row.paymentGraceReason === 'trial') {
     return 'stalled';
@@ -383,24 +403,33 @@ export function summarizeTrialOutcomes(
 
 export type ConveyorTotals = {
   running: number;
+  // Trials with no card to charge (`noCard`). Kept out of everything that
+  // promises money below: Stripe cancels them at the trial's end unless a card
+  // is added first.
+  noCard: number;
   rollingOff: number;
   stalled: number;
   // $/month riding the belt that is still heading for a charge (`running`).
   beltValue: number;
+  // $/month the `noCard` riders would add if every one of them added a card in
+  // time. An upside, not a commitment, so it is never folded into beltValue.
+  noCardValue: number;
   // $/month already lost (rollingOff) or at risk of being lost (stalled).
   atRiskValue: number;
   // Deadline of the next rider due to be charged, ISO — the "next payday".
   // Only `running` riders count: a rolling-off rider's deadline is a departure,
-  // not a charge.
+  // not a charge, and a no-card rider's is a cancellation unless they act.
   nextConversionAt: string | null;
 };
 
 export function summarizeRiders(riders: ConveyorRider[]): ConveyorTotals {
   const totals: ConveyorTotals = {
     running: 0,
+    noCard: 0,
     rollingOff: 0,
     stalled: 0,
     beltValue: 0,
+    noCardValue: 0,
     atRiskValue: 0,
     nextConversionAt: null,
   };
@@ -414,6 +443,9 @@ export function summarizeRiders(riders: ConveyorRider[]): ConveyorTotals {
         nextMs = at;
         totals.nextConversionAt = r.convertsAt;
       }
+    } else if (r.state === 'noCard') {
+      totals.noCard += 1;
+      totals.noCardValue += r.monthlyValue;
     } else if (r.state === 'rollingOff') {
       totals.rollingOff += 1;
       totals.atRiskValue += r.monthlyValue;
@@ -452,6 +484,9 @@ export function sortRidersByDeadline(riders: ConveyorRider[]): ConveyorRider[] {
 // Deliberately NOT counted:
 //   • rolling-off trials — a trialer who canceled never enters Full
 //     Subscriber at all, so their departure moves this line by nothing.
+//   • no-card trials — nothing is scheduled to be charged. Stripe cancels them
+//     at the trial's end unless a card is added first, and a card added later
+//     turns the rider `running`, which puts its charge on the line by itself.
 //   • stalled trials (Trial Grace) — genuinely undecided. Counting them as
 //     conversions would inflate the line with charges that already failed once;
 //     counting them as losses would write them off while Stripe is still
@@ -530,7 +565,8 @@ export function projectFullSubscribers(input: {
 //
 // A trialer clicking Cancel is not a special case here. That trial flips to
 // `rollingOff`, which this never counts, so its +1 is simply absent from the
-// next render — the step disappears on its own.
+// next render — the step disappears on its own. A no-card trial works the same
+// way in reverse: it carries no +1 until a card is added and it turns `running`.
 
 export type UpcomingChangeKind = 'conversion' | 'departure';
 
@@ -580,8 +616,9 @@ export function emptyUpcomingChanges(startsAt = '', endsAt = ''): UpcomingChange
  * Turn the live conveyor into the list of changes it has already committed to.
  *
  * Only `running` trials are conversions: a rolling-off trial never joins the
- * paid line at all, and a stalled one's first charge has already been declined,
- * which makes it undecided rather than scheduled. Departures are the paying
+ * paid line at all, a no-card trial has nothing to charge and is canceled at its
+ * end unless a card is added, and a stalled one's first charge has already been
+ * declined, which makes it undecided rather than scheduled. Departures are the paying
  * members who have clicked Cancel — the caller decides who qualifies as paying.
  */
 export function upcomingChangesFromConveyor(input: {

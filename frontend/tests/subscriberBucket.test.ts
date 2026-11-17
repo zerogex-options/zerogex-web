@@ -1263,3 +1263,102 @@ test('an in-app switch off the trial reads as a switch whatever Stripe calls its
   assert.deepEqual(rows.map((r) => r.kind), ['converted', 'trialStarted']);
   assert.equal(rows[0].detail, 'Ended the free trial early by switching to a paid plan, and paid at once');
 });
+
+// ── The free trial without a card ──────────────────────────────────────────
+// A no-card trial (core/noCardTrial.ts) that reaches its end with no card on
+// file is canceled by Stripe, which arrives as a bare deletion. Without the
+// evidence below the ledger could only say "Subscription ended", which left the
+// operator watching a trial count down to a conversion and then vanish with no
+// explanation. Its contract: say so when that is what happened, and only then.
+
+const NO_CARD_START = '2026-11-10T15:00:00Z';
+// Stripe ends the trial seven days after it started and cancels it seconds later.
+const NO_CARD_END = '2026-11-17T15:00:04Z';
+
+function noCardEnding(evidence: { cardAddedAt: string | null } | null, endedAt = NO_CARD_END) {
+  return buildSubscriberLedger(
+    [sync({ at: NO_CARD_START, status: 'trialing', tier: 'basic' })],
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: endedAt }],
+    [],
+    [],
+    Date.parse('2026-11-18T00:00:00Z'),
+    { noCardTrials: evidence ? [{ subId: 'sub_1', ...evidence }] : [] },
+  );
+}
+
+test('a no-card trial starts without claiming a card is on file', () => {
+  const rows = noCardEnding({ cardAddedAt: null });
+  const started = rows.find((r) => r.kind === 'trialStarted')!;
+  assert.equal(
+    started.detail,
+    'Free trial began without a card — nothing is charged unless they add one before it ends',
+  );
+  // A trial that asked for a card still says so.
+  assert.equal(
+    noCardEnding(null).find((r) => r.kind === 'trialStarted')!.detail,
+    'Free trial began — card on file, no charge yet',
+  );
+});
+
+test('a no-card trial that runs out without a card says Stripe canceled it', () => {
+  const rows = noCardEnding({ cardAddedAt: null });
+  assert.deepEqual(rows.map((r) => r.kind), ['accessEnded', 'trialStarted']);
+  assert.equal(
+    rows[0].detail,
+    'The free trial ended with no card on file, so Stripe canceled it — nothing was charged',
+  );
+  assert.equal(rows[0].freeTrialDelta, -1);
+  assert.equal(rows[0].fullSubscriberDelta, 0, 'never paid, so the paying line never moved');
+  assert.equal(rows[0].paymentFailure, false, 'no charge was ever attempted');
+});
+
+test('the same ending reads the same when Stripe reports it as a canceled sync', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: NO_CARD_START, status: 'trialing', tier: 'basic' }),
+      sync({ at: NO_CARD_END, status: 'canceled', tier: 'public' }),
+    ],
+    [],
+    [],
+    [],
+    Date.parse('2026-11-18T00:00:00Z'),
+    { noCardTrials: [{ subId: 'sub_1', cardAddedAt: null }] },
+  );
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.match(rows[0].detail, /no card on file, so Stripe canceled it/);
+  assert.equal(rows[0].paymentFailure, false);
+});
+
+test('a no-card trial cut short before its end keeps the plain wording', () => {
+  // An account deletion on day three ends the trial, but not for want of a card.
+  const rows = noCardEnding({ cardAddedAt: null }, '2026-11-13T09:00:00Z');
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.equal(rows[0].detail, 'Subscription ended');
+});
+
+test('a no-card trial that had a card added is not blamed on a missing card', () => {
+  const rows = noCardEnding({ cardAddedAt: '2026-11-12T10:00:00Z' });
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.equal(rows[0].detail, 'Subscription ended');
+});
+
+test('a trial that asked for a card is never described as a no-card ending', () => {
+  const rows = noCardEnding(null);
+  assert.equal(rows[0].detail, 'Subscription ended');
+});
+
+test('a Cancel clicked during a no-card trial is still reported as the Cancel', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: NO_CARD_START, status: 'trialing', tier: 'basic' }),
+      sync({ at: '2026-11-12T10:00:00Z', status: 'trialing', tier: 'basic', cancelAtPeriodEnd: true }),
+    ],
+    [{ subId: 'sub_1', userId: 'u1', email: 'a@example.com', at: NO_CARD_END }],
+    [],
+    [],
+    Date.parse('2026-11-18T00:00:00Z'),
+    { noCardTrials: [{ subId: 'sub_1', cardAddedAt: null }] },
+  );
+  assert.equal(rows[0].kind, 'accessEnded');
+  assert.match(rows[0].detail, /^Scheduled cancellation took effect/);
+});

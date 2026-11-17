@@ -16,6 +16,7 @@ import {
   buildSubscriberLedger,
   type LedgerDeclineEvent,
   type LedgerDeleteEvent,
+  type LedgerNoCardTrial,
   type LedgerPaymentEvent,
   type LedgerRecoveryEvent,
   type LedgerRefundEvent,
@@ -285,5 +286,38 @@ export function readSubscriberLedgerRows(
     if (subId) trialSwitches.push({ subId, at: toIsoInstant(row.created_at) });
   }
 
-  return buildSubscriberLedger(syncs, deletes, payments, recoveries, nowMs, { declines, refunds, trialSwitches });
+  const noCardTrials = readNoCardTrials(db);
+
+  return buildSubscriberLedger(syncs, deletes, payments, recoveries, nowMs, {
+    declines,
+    refunds,
+    trialSwitches,
+    noCardTrials,
+  });
+}
+
+// Every subscription that started as a free trial without a card, and whether a
+// card was added to it, so the ledger can say why such a trial ended. Read off
+// the users row (deleted accounts included: the ending still happened), where
+// the webhook stamps the pair and nothing ever clears it. A member only ever gets
+// one no-card trial, so one row per member loses nothing.
+//
+// The columns arrive with the migration the app runs at startup (core/db.ts). A
+// script that opens the database itself can meet a file the app has not migrated
+// yet; nobody can be on a no-card trial before then, so that reads as none.
+function readNoCardTrials(db: DatabaseSync): LedgerNoCardTrial[] {
+  const columns = new Set(
+    (db.prepare('PRAGMA table_info(users)').all() as Array<{ name: string }>).map((c) => c.name),
+  );
+  if (!columns.has('no_card_trial_subscription_id') || !columns.has('no_card_trial_card_added_at')) {
+    return [];
+  }
+  const rows = db
+    .prepare(
+      `SELECT no_card_trial_subscription_id AS subId, no_card_trial_card_added_at AS cardAddedAt
+         FROM users
+        WHERE no_card_trial_subscription_id IS NOT NULL`,
+    )
+    .all() as Array<{ subId: string; cardAddedAt: string | null }>;
+  return rows.map((row) => ({ subId: row.subId, cardAddedAt: row.cardAddedAt }));
 }

@@ -239,6 +239,7 @@ type TrialConveyor = {
 type UpcomingChangesSnapshot = UpcomingChanges & {
   horizonDays: number;
   undecidedStalled: number;
+  undecidedNoCard: number;
   dayMarks: Array<{ at: string; day: string }>;
 };
 
@@ -265,6 +266,7 @@ type SubscriberProjection = {
   points: SubscriberProjectionPoint[];
   undecidedStalled: number;
   undecidedConverting: number;
+  undecidedNoCard: number;
 };
 
 type Snapshot = {
@@ -887,10 +889,13 @@ function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColo
 // ── Conversion Conveyor ────────────────────────────────────────────────────
 // The trial→paying pipeline as an assembly line: every free trial in flight is
 // a package riding a belt toward its first charge, counting down live. Cancels
-// fall off the belt; a declined first charge jams at the end of it.
+// fall off the belt; a declined first charge jams at the end of it. A trial that
+// started without a card has no charge waiting at the end: unless a card is
+// added first, Stripe cancels it there.
 
 const CONVEYOR_COLORS = {
   running: ROW_COLORS.mrr, //      heading for the charge — money on its way
+  noCard: '#7d8fa6', //            no card to charge — canceled at the end unless one is added
   rollingOff: '#c1435b', //        canceled mid-trial — off the belt
   stalled: ROW_COLORS.topIps, //   first charge declined — recoverable, not lost
   belt: ROW_COLORS.webhookHealth,
@@ -898,15 +903,18 @@ const CONVEYOR_COLORS = {
 
 const CONVEYOR_STATE_LABEL: Record<ConveyorState, string> = {
   running: 'On the belt',
+  noCard: 'No card yet',
   rollingOff: 'Rolling off',
   stalled: 'Charge declined',
 };
 
 // What each lane's countdown is actually counting down TO. A running trial is
-// counting to money; a rolling-off one to a departure; a stalled one to the
-// last retry Stripe will attempt before access is revoked.
+// counting to money; a no-card one to the last moment a card can still be
+// added; a rolling-off one to a departure; a stalled one to the last retry
+// Stripe will attempt before access is revoked.
 const CONVEYOR_DEADLINE_LABEL: Record<ConveyorState, string> = {
   running: 'until first charge',
+  noCard: 'left to add a card',
   rollingOff: 'until they leave',
   stalled: 'until last retry',
 };
@@ -999,7 +1007,14 @@ function ConveyorLane({
 
       {/* The belt itself: slatted track, a filled run showing distance already
           traveled, and the package sitting at this rider's position. */}
-      <div className="relative h-7" title={`${Math.round(pct)}% of the way to the charge`}>
+      <div
+        className="relative h-7"
+        title={
+          rider.state === 'noCard'
+            ? `${Math.round(pct)}% of the way to the trial's end — no card to charge yet`
+            : `${Math.round(pct)}% of the way to the charge`
+        }
+      >
         <div
           className="absolute inset-x-0 top-1/2 h-3 rounded-sm -translate-y-1/2 overflow-hidden"
           style={{
@@ -1068,7 +1083,17 @@ function ConveyorPipelineDiagram({
   // the audit stream), so a signup just outside the registration window must
   // not render as negative.
   const neverStarted = Math.max(0, registrations - conveyor.outcomes.boarded - paidUpFront);
-  const stages: Array<{ label: string; value: string; caption: string; color: string; drop?: string; note?: string }> = [
+  const stages: Array<{
+    label: string;
+    value: string;
+    caption: string;
+    color: string;
+    drop?: string;
+    note?: string;
+    // Riders still in this stage who will leave it without paying unless they
+    // act: the no-card trials.
+    caution?: string;
+  }> = [
     {
       label: 'Signs up',
       value: String(registrations),
@@ -1085,9 +1110,12 @@ function ConveyorPipelineDiagram({
     },
     {
       label: 'Free trial',
-      value: String(conveyor.totals.running),
+      // Every trial still riding, card or not; the caution line says how many of
+      // them have nothing to charge at the end.
+      value: String(conveyor.totals.running + conveyor.totals.noCard),
       caption: 'riding the belt now',
       color: CONVEYOR_COLORS.running,
+      caution: conveyor.totals.noCard > 0 ? `${conveyor.totals.noCard} with no card yet` : undefined,
       drop: conveyor.totals.rollingOff > 0 ? `${conveyor.totals.rollingOff} canceled — rolling off` : undefined,
     },
     {
@@ -1123,6 +1151,11 @@ function ConveyorPipelineDiagram({
             {stage.note && (
               <div className="text-[11px] mt-1" style={{ color: CONVEYOR_COLORS.running }}>
                 ↳ {stage.note}
+              </div>
+            )}
+            {stage.caution && (
+              <div className="text-[11px] mt-1" style={{ color: CONVEYOR_COLORS.noCard }}>
+                ↳ {stage.caution}
               </div>
             )}
             {stage.drop && (
@@ -1689,9 +1722,11 @@ function UpcomingChangesCard({
       <p className="text-xs mt-2" style={{ color: mutedText }}>
         {quiet
           ? `Nothing is scheduled to land in the next ${upcoming.horizonDays} days — no trial reaches its first charge and no cancellation takes effect.`
-          : 'The line is the running net against today, stepping at the instant each charge or cancellation lands. A trialer who clicks Cancel stops heading for a charge, so their step simply leaves the chart.'}
+          : 'The line is the running net against today, stepping at the instant each charge or cancellation lands. A trialer who clicks Cancel stops heading for a charge, so their step simply leaves the chart; one who adds a card to a no-card trial joins it.'}
         {upcoming.undecidedStalled > 0 &&
           ` ${upcoming.undecidedStalled} trial${upcoming.undecidedStalled === 1 ? '' : 's'} retrying a declined charge ${upcoming.undecidedStalled === 1 ? 'is' : 'are'} left off — genuinely undecided until the retry lands.`}
+        {upcoming.undecidedNoCard > 0 &&
+          ` ${upcoming.undecidedNoCard} trial${upcoming.undecidedNoCard === 1 ? '' : 's'} with no card on file ${upcoming.undecidedNoCard === 1 ? 'is' : 'are'} left off — nothing is charged, and Stripe cancels ${upcoming.undecidedNoCard === 1 ? 'it' : 'them'} at the trial's end unless a card is added first.`}
       </p>
     </div>
   );
@@ -1766,7 +1801,8 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
     return () => clearInterval(id);
   }, []);
 
-  const onBelt = conveyor.totals.running + conveyor.totals.rollingOff + conveyor.totals.stalled;
+  const onBelt =
+    conveyor.totals.running + conveyor.totals.noCard + conveyor.totals.rollingOff + conveyor.totals.stalled;
   // New accounts over the same trailing window the outcomes use, so the first
   // two stages of the diagram are directly comparable. signupFlow is the
   // authoritative one-row-per-account registration count (see core/monitoring).
@@ -1789,8 +1825,9 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
         <span className="text-xs" style={{ color: mutedText }}>
           Every free trial is a package on a belt. It boards when the trial starts, rides for the trial length, and
           comes off the end as a paying subscriber — unless the member cancels (falls off) or the first charge is
-          declined (jams at the gate). Plans paid up front at checkout skip the belt and count straight into Paying.
-          Timers are live.
+          declined (jams at the gate). A trial started without a card reaches the charge only if a card is added;
+          otherwise Stripe cancels it at the end. Plans paid up front at checkout skip the belt and count straight
+          into Paying. Timers are live.
         </span>
       </div>
 
@@ -1807,8 +1844,13 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
             {conveyor.totals.running}
           </div>
           <div className="text-xs mt-1" style={{ color: mutedText }}>
-            trials still heading for a charge
+            trials with a card, heading for a charge
           </div>
+          {conveyor.totals.noCard > 0 && (
+            <div className="text-xs mt-1" style={{ color: CONVEYOR_COLORS.noCard }}>
+              + {conveyor.totals.noCard} with no card yet — canceled at trial end unless they add one
+            </div>
+          )}
         </div>
 
         <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
@@ -1834,8 +1876,13 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
             {formatUsd(conveyor.totals.beltValue)}
           </div>
           <div className="text-xs mt-1" style={{ color: mutedText }}>
-            new MRR if every running trial converts
+            new MRR if every trial with a card converts
           </div>
+          {conveyor.totals.noCardValue > 0 && (
+            <div className="text-xs mt-1" style={{ color: CONVEYOR_COLORS.noCard }}>
+              + {formatUsd(conveyor.totals.noCardValue)}/mo more if every no-card trial adds one
+            </div>
+          )}
         </div>
 
         <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
@@ -1894,13 +1941,14 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
         <h2 className="text-lg font-semibold" style={{ color: textColor }}>Trials In Flight</h2>
         <span className="text-xs" style={{ color: mutedText }}>
           Soonest charge first. Each lane is one trial&apos;s own run — left edge is the day it started, right edge is
-          its first charge — so a {conveyor.trialDays}-day trial and a longer reactivation trial compare directly.
+          its first charge — so a {conveyor.trialDays}-day trial and a longer reactivation trial compare directly. A
+          trial with no card yet is canceled at its right edge instead, unless a card is added before then.
         </span>
       </div>
 
       <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
         <div className="flex items-center gap-4 flex-wrap text-xs mb-1" style={{ color: mutedText }}>
-          {(['running', 'rollingOff', 'stalled'] as const).map((state) => (
+          {(['running', 'noCard', 'rollingOff', 'stalled'] as const).map((state) => (
             <span key={state} className="inline-flex items-center gap-1.5">
               <span
                 className="h-3 w-3 rounded-sm"
@@ -2208,7 +2256,7 @@ function IncomeReplacementCard({
         <StatTile
           label="Trials"
           value={mrr.trialingSubscribers.toLocaleString()}
-          sub="card on file, not yet charged"
+          sub="on a free trial, not yet charged"
           borderColor={borderColor}
           mutedText={mutedText}
           textColor={textColor}
@@ -3507,6 +3555,11 @@ function projectionTitle(projection: SubscriberProjection): string {
   if (projection.undecidedConverting > 0) {
     undecided.push(
       `${projection.undecidedConverting} whose first charge is in flight right now`,
+    );
+  }
+  if (projection.undecidedNoCard > 0) {
+    undecided.push(
+      `${projection.undecidedNoCard} on a trial with no card on file yet`,
     );
   }
   return undecided.length > 0

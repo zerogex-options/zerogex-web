@@ -100,6 +100,8 @@ make no-card-trials SINCE=2026-10-08
 
 The admin Growth page's trial-to-paid rate mixes both kinds of trial, so it will drop when this is on. That is expected; the report splits them.
 
+**On the admin Conveyor tab**, a trial with no card yet is shown apart from the trials heading for a charge: grey lanes marked "No card yet", counted on their own line under **On the belt**, and kept out of **Next conversion in**, **Coming off the belt** and the **Next 7 Days** chart, because nothing is going to be charged. Once the member adds a card, the trial moves onto the belt with everyone else. When one ends without a card, its **Subscriber Ledger** row reads "The free trial ended with no card on file, so Stripe canceled it — nothing was charged".
+
 ## 8. Edge cases
 
 - **A member adds a card and it is declined at the end of the trial.** The ordinary trial-conversion dunning runs, exactly as for a card-first trial.

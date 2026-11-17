@@ -238,6 +238,18 @@ const CHARGED_AT_ONCE_MS = 10 * 60_000;
 // ledger and the Growth tab attribute an ending to nonpayment by one rule.
 const DECLINE_EVIDENCE_DAYS = 35;
 
+// Length of the free trial that starts without a card, in days. Only the
+// standard trial is offered without one (qualifiesForNoCardTrial in
+// core/noCardTrial.ts), so this mirrors TRIAL_PERIOD_DAYS in
+// app/api/billing/checkout/route.ts.
+const NO_CARD_TRIAL_DAYS = 7;
+
+// How early before that length an ending still counts as the trial's own end.
+// The trial is measured from its first `trialing` sync, which lands seconds
+// after Stripe starts the clock, so an hour is generous; anything earlier was
+// ended for another reason (an account deletion, an operator's cancel).
+const NO_CARD_TRIAL_END_SLACK_MS = 60 * 60_000;
+
 const DAY_MS = 86_400_000;
 
 export type LedgerEventKind =
@@ -391,12 +403,29 @@ export type LedgerTrialSwitchEvent = {
   at: string;
 };
 
+// A subscription that started as a free trial WITHOUT a card (core/noCardTrial.ts),
+// from the users row's no_card_trial_subscription_id / no_card_trial_card_added_at
+// pair. Evidence only, read as set membership like a refund: it explains the
+// ending Stripe gives such a trial when it reaches its end with no card on file,
+// which is a cancellation (trial_settings.end_behavior.missing_payment_method
+// 'cancel') arriving as an ordinary deletion with nothing else to say why.
+export type LedgerNoCardTrial = {
+  subId: string;
+  // When a card was added during the trial, or null if none ever was.
+  cardAddedAt: string | null;
+};
+
 // The streams that never make a row of their own and only explain one.
 export type LedgerEvidence = {
   declines?: LedgerDeclineEvent[];
   refunds?: LedgerRefundEvent[];
   trialSwitches?: LedgerTrialSwitchEvent[];
+  noCardTrials?: LedgerNoCardTrial[];
 };
+
+// The ending of a no-card trial that reached its end without a card.
+const NO_CARD_TRIAL_ENDED_DETAIL =
+  'The free trial ended with no card on file, so Stripe canceled it — nothing was charged';
 
 const KIND_LABELS: Record<LedgerEventKind, string> = {
   trialStarted: 'Trial started',
@@ -459,6 +488,10 @@ type SubState = {
   // is a refused switch to paid, and the trial carries on untouched.
   declinedAtMs: number | null;
   sawTrial: boolean;
+  // Timestamp (ms) of the first `trialing` sync: when the trial started, as far
+  // as the stream can tell. Used to recognize a no-card trial's ending as the
+  // trial running out rather than something cutting it short.
+  trialStartedMs: number | null;
   // Timestamp (ms) of the first `active` sync, used to tell a trial still at its
   // first charge from an established payer whose renewal failed.
   firstActiveMs: number | null;
@@ -546,7 +579,8 @@ function isPaidSubscription(s: SubState): boolean {
  *
  * `evidence` never makes a row either. Declines decide whether an ending was a
  * payment failure (see LedgerRow.paymentFailure); refunds say an ending was a
- * money-back refund.
+ * money-back refund; no-card trials say an ending was Stripe canceling a trial
+ * that reached its end with no card to charge.
  */
 export function buildSubscriberLedger(
   syncs: LedgerSyncEvent[],
@@ -561,6 +595,22 @@ export function buildSubscriberLedger(
   const declines = evidence.declines ?? [];
   const refundedSubs = new Set((evidence.refunds ?? []).map((ev) => ev.subId));
   const switchedSubs = new Set((evidence.trialSwitches ?? []).map((ev) => ev.subId));
+  const noCardTrials = new Map<string, LedgerNoCardTrial>();
+  for (const trial of evidence.noCardTrials ?? []) {
+    if (trial.subId) noCardTrials.set(trial.subId, trial);
+  }
+
+  // A no-card trial leaving the chart because it ran out with no card on file:
+  // Stripe cancels it rather than charging anything. Only when no card was ever
+  // added, and only when the ending lands at the trial's end; one cut short
+  // earlier (an account deletion, an operator's cancel) ended for some other
+  // reason and keeps the plain wording.
+  const endedForWantOfCard = (s: SubState, atMs: number): boolean => {
+    const trial = noCardTrials.get(s.subId);
+    if (!trial || trial.cardAddedAt != null) return false;
+    if (s.bucket !== 'freeTrial' || s.trialStartedMs == null) return false;
+    return atMs >= s.trialStartedMs + NO_CARD_TRIAL_DAYS * DAY_MS - NO_CARD_TRIAL_END_SLACK_MS;
+  };
 
   const recoveredSubs = new Map<string, LedgerRecoveryEvent>();
   for (const ev of recoveries) {
@@ -613,6 +663,7 @@ export function buildSubscriberLedger(
         status: null,
         declinedAtMs: null,
         sawTrial: false,
+        trialStartedMs: null,
         firstActiveMs: null,
         // A recovered subscription arrives already paid for. Seeding this from
         // the outset — rather than on reaching the recovery's own timestamp — is
@@ -780,6 +831,7 @@ export function buildSubscriberLedger(
       else if (failed && trialPhase) detail = 'Trial ended, the first charge failed and Stripe canceled the subscription';
       else if (failed) detail = 'The first charge failed and Stripe canceled the subscription';
       else if (open) detail = 'Stripe canceled the subscription before the declined charge was paid';
+      else if (endedForWantOfCard(s, step.at)) detail = NO_CARD_TRIAL_ENDED_DETAIL;
       rows.push({
         at: ev.at,
         email: ev.email,
@@ -806,7 +858,10 @@ export function buildSubscriberLedger(
     }
     s.status = ev.status;
 
-    if (ev.status === 'trialing') s.sawTrial = true;
+    if (ev.status === 'trialing') {
+      s.sawTrial = true;
+      if (s.trialStartedMs == null) s.trialStartedMs = atMs;
+    }
     const trialPhase = isTrialPhase(s, atMs);
     if (ev.status === 'active' && s.firstActiveMs == null) s.firstActiveMs = atMs;
 
@@ -846,7 +901,17 @@ export function buildSubscriberLedger(
       if (s.bucket === null && next === 'notCounted') {
         s.bucket = next;
       } else if (next === 'freeTrial') {
-        push(ev, s, 'trialStarted', next, 'Free trial began — card on file, no charge yet');
+        push(
+          ev,
+          s,
+          'trialStarted',
+          next,
+          // A no-card trial has nothing on file to charge: saying "card on file"
+          // promised a conversion Stripe was never going to attempt.
+          noCardTrials.has(ev.subId)
+            ? 'Free trial began without a card — nothing is charged unless they add one before it ends'
+            : 'Free trial began — card on file, no charge yet',
+        );
       } else if (next === 'converting') {
         const first = firstPayment.get(ev.subId);
         if (first && first.atMs >= atMs && first.atMs - atMs <= CHARGED_AT_ONCE_MS) {
@@ -922,6 +987,7 @@ export function buildSubscriberLedger(
         else if (failed && s.paidAt) detail = 'A charge was declined — access removed';
         else if (failed) detail = 'The first charge was declined — access removed';
         else if (open) detail = 'The declined charge was not paid in time — access removed';
+        else if (endedForWantOfCard(s, atMs)) detail = NO_CARD_TRIAL_ENDED_DETAIL;
         else if (s.bucket === 'freeTrial' && trialPhase) detail = 'Trial ended without a successful charge — access removed';
         else if (s.bucket === 'freeTrial') detail = 'Trial ended — access removed';
         push(ev, s, 'accessEnded', next, detail, failed);

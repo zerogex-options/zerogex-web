@@ -60,31 +60,62 @@ function totals(map: Map<string, ConveyorDayDelta>): ConveyorDayDelta {
 
 test('classifyRider: a running trial is heading for the charge', () => {
   assert.equal(
-    classifyRider({ subscriptionStatus: 'trialing', cancelAtPeriodEnd: false, paymentGraceReason: null }),
+    classifyRider({ subscriptionStatus: 'trialing', cancelAtPeriodEnd: false, paymentGraceReason: null, needsCard: false }),
     'running',
   );
 });
 
 test('classifyRider: a trial with a scheduled cancel is already rolling off', () => {
   assert.equal(
-    classifyRider({ subscriptionStatus: 'trialing', cancelAtPeriodEnd: true, paymentGraceReason: null }),
+    classifyRider({ subscriptionStatus: 'trialing', cancelAtPeriodEnd: true, paymentGraceReason: null, needsCard: false }),
     'rollingOff',
   );
 });
 
 test('classifyRider: past_due counts as a stall ONLY when the trial opened the grace window', () => {
   assert.equal(
-    classifyRider({ subscriptionStatus: 'past_due', cancelAtPeriodEnd: false, paymentGraceReason: 'trial' }),
+    classifyRider({ subscriptionStatus: 'past_due', cancelAtPeriodEnd: false, paymentGraceReason: 'trial', needsCard: false }),
     'stalled',
   );
   // An established payer's failed renewal is ordinary dunning, not a trial.
   assert.equal(
-    classifyRider({ subscriptionStatus: 'past_due', cancelAtPeriodEnd: false, paymentGraceReason: 'renewal' }),
+    classifyRider({ subscriptionStatus: 'past_due', cancelAtPeriodEnd: false, paymentGraceReason: 'renewal', needsCard: false }),
     null,
   );
   // Pre-split rows carry no reason and must not be guessed onto the belt.
   assert.equal(
-    classifyRider({ subscriptionStatus: 'past_due', cancelAtPeriodEnd: false, paymentGraceReason: null }),
+    classifyRider({ subscriptionStatus: 'past_due', cancelAtPeriodEnd: false, paymentGraceReason: null, needsCard: false }),
+    null,
+  );
+});
+
+// The free trial without a card (core/noCardTrial.ts). Stripe cancels it at the
+// trial's end unless a card was added, so it must never read as heading for a
+// charge: that is what had the belt counting down to "conversions" that then
+// silently ended as cancellations.
+test('classifyRider: a trial with no card on file is not heading for a charge', () => {
+  assert.equal(
+    classifyRider({ subscriptionStatus: 'trialing', cancelAtPeriodEnd: false, paymentGraceReason: null, needsCard: true }),
+    'noCard',
+  );
+});
+
+test('classifyRider: a clicked Cancel outranks a missing card', () => {
+  assert.equal(
+    classifyRider({ subscriptionStatus: 'trialing', cancelAtPeriodEnd: true, paymentGraceReason: null, needsCard: true }),
+    'rollingOff',
+  );
+});
+
+test('classifyRider: the card flag only ever applies to a running trial', () => {
+  // needsCard is false outside `trialing` in practice (core/noCardTrial
+  // needsCard reads the status), but the classifier must not depend on that.
+  assert.equal(
+    classifyRider({ subscriptionStatus: 'past_due', cancelAtPeriodEnd: false, paymentGraceReason: 'trial', needsCard: true }),
+    'stalled',
+  );
+  assert.equal(
+    classifyRider({ subscriptionStatus: 'active', cancelAtPeriodEnd: false, paymentGraceReason: null, needsCard: true }),
     null,
   );
 });
@@ -92,7 +123,7 @@ test('classifyRider: past_due counts as a stall ONLY when the trial opened the g
 test('classifyRider: paying and lapsed members are not on the belt', () => {
   for (const status of ['active', 'canceled', 'incomplete_expired', null]) {
     assert.equal(
-      classifyRider({ subscriptionStatus: status, cancelAtPeriodEnd: false, paymentGraceReason: null }),
+      classifyRider({ subscriptionStatus: status, cancelAtPeriodEnd: false, paymentGraceReason: null, needsCard: false }),
       null,
       `status=${status}`,
     );
@@ -364,12 +395,43 @@ test('summarizeRiders: an empty belt reports zeros and no next conversion', () =
   const t = summarizeRiders([]);
   assert.deepEqual(t, {
     running: 0,
+    noCard: 0,
     rollingOff: 0,
     stalled: 0,
     beltValue: 0,
+    noCardValue: 0,
     atRiskValue: 0,
     nextConversionAt: null,
   });
+});
+
+test('summarizeRiders: a no-card trial adds no belt value and is never the next conversion', () => {
+  const t = summarizeRiders([
+    // Due first, but there is nothing to charge.
+    rider({ userId: 'u1', state: 'noCard', convertsAt: '2026-08-25T00:00:00.000Z', monthlyValue: 39 }),
+    rider({ userId: 'u2', state: 'noCard', convertsAt: '2026-08-26T00:00:00.000Z', monthlyValue: 39 }),
+    rider({ userId: 'u3', state: 'running', convertsAt: '2026-08-28T00:00:00.000Z', monthlyValue: 59 }),
+  ]);
+  assert.equal(t.running, 1);
+  assert.equal(t.noCard, 2);
+  assert.equal(t.beltValue, 59);
+  assert.equal(t.noCardValue, 78);
+  assert.equal(t.atRiskValue, 0, 'not canceled or declined: they can still add a card');
+  assert.equal(t.nextConversionAt, '2026-08-28T00:00:00.000Z');
+});
+
+test('upcomingChangesFromConveyor: a no-card trial schedules no conversion', () => {
+  const changes = upcomingChangesFromConveyor({
+    riders: [
+      rider({ userId: 'with-card', state: 'running' }),
+      rider({ userId: 'no-card', state: 'noCard' }),
+    ],
+    departures: [],
+  });
+  assert.deepEqual(
+    changes.map((c) => [c.kind, c.userId]),
+    [['conversion', 'with-card']],
+  );
 });
 
 test('sortRidersByDeadline: soonest first, deadline-less riders last', () => {

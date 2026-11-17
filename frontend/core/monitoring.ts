@@ -48,6 +48,7 @@ import {
   readSubscriptionPayments,
 } from '@/core/subscriberLedgerSource';
 import { isPaidUpFrontSignup } from '@/core/subscriptionPayments';
+import { needsCard } from '@/core/noCardTrial';
 import {
   accumulateTrialOutcomes,
   buildUpcomingSteps,
@@ -268,6 +269,10 @@ export type UpcomingChangesSnapshot = UpcomingChanges & {
   // undecided — Stripe is still retrying — so they are kept off the line and
   // reported here instead of being guessed either way.
   undecidedStalled: number;
+  // Trials that started without a card and still have none. Nothing is
+  // scheduled to be charged — Stripe cancels them at the trial's end unless a
+  // card is added — so they are kept off the line too, and counted here.
+  undecidedNoCard: number;
   // Where each ET day begins inside the window, for the chart's time axis.
   // Resolved here because the ET calendar lives on this side; the client only
   // has the instants and the day names to hang off them.
@@ -343,6 +348,10 @@ export type SubscriberProjection = {
   // hour — and reported for the same reason: they are the other slice of the
   // picture this line deliberately does not draw.
   undecidedConverting: number;
+  // Trials with no card on file (the conveyor's `noCard` lane). Off the line
+  // because nothing is scheduled to be charged; reported so the projection says
+  // how many it is leaving out.
+  undecidedNoCard: number;
 };
 
 export type MonitoringSnapshot = {
@@ -714,7 +723,10 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 //                line tick up at every trial end and back down an hour later on
 //                each decline — a real subscriber and a card about to be refused
 //                are not the same thing.
-//   trialing   — card on file, free-trial window still running.
+//   trialing   — free-trial window still running. Usually with a card on file,
+//                but not for a trial that started without one
+//                (core/noCardTrial.ts), which Stripe cancels at its end unless
+//                a card is added first.
 //   graceTrial — the trial lapsed, the first conversion charge was DECLINED, and
 //                the member is inside the same bounded grace window
 //                (payment_grace_reason='trial'). Broken out of `active` because
@@ -1447,7 +1459,8 @@ function buildSubscriberProjection(
       startCount: anchorPaying,
       days,
       // Only trials still heading for a charge become paying subscribers; a
-      // rolling-off trialer never joins this line, so they move it by nothing.
+      // rolling-off trialer never joins this line, so they move it by nothing,
+      // and neither does a no-card trial with nothing to charge.
       conversionDays: conveyor.riders
         .filter((r) => r.state === 'running')
         .map((r) => dayOf(r.convertsAt)),
@@ -1455,6 +1468,7 @@ function buildSubscriberProjection(
     }),
     undecidedStalled: conveyor.totals.stalled,
     undecidedConverting: last?.converting ?? 0,
+    undecidedNoCard: conveyor.totals.noCard,
   };
 }
 
@@ -1508,6 +1522,7 @@ function buildUpcomingChanges(now: Date, conveyor: ConveyorParts): UpcomingChang
     ),
     horizonDays: UPCOMING_HORIZON_DAYS,
     undecidedStalled: conveyor.totals.stalled,
+    undecidedNoCard: conveyor.totals.noCard,
     dayMarks: etDayBoundaries(startMs, endMs),
   };
 }
@@ -1600,6 +1615,10 @@ type ConveyorUserRow = {
   graceStartedAt: string | null;
   graceReason: string | null;
   founding: number;
+  // The no-card trial marker pair (core/noCardTrial.ts): which subscription
+  // started without a card, and when a card was added to it, if one was.
+  noCardSubId: string | null;
+  noCardCardAddedAt: string | null;
 };
 
 // One conveyor read, UNTRUNCATED, as everything downstream needs it.
@@ -1659,7 +1678,9 @@ function readConveyorParts(now: Date): ConveyorParts {
                 payment_grace_reason AS graceReason,
                 CASE WHEN founding_member_started_at IS NOT NULL
                        AND founding_lifetime_applied_at IS NULL
-                     THEN 1 ELSE 0 END AS founding
+                     THEN 1 ELSE 0 END AS founding,
+                no_card_trial_subscription_id AS noCardSubId,
+                no_card_trial_card_added_at AS noCardCardAddedAt
            FROM users
           WHERE deleted_at IS NULL
             AND (subscription_status = 'trialing'
@@ -1738,6 +1759,15 @@ function readConveyorParts(now: Date): ConveyorParts {
         subscriptionStatus: row.status,
         cancelAtPeriodEnd: cancelScheduled,
         paymentGraceReason: row.graceReason,
+        // The same reading the dashboard banner, the Account page and the
+        // trial-end email use to ask this member for a card.
+        needsCard: needsCard({
+          stripe_subscription_id: row.subId,
+          subscription_status: row.status,
+          current_period_end: row.periodEnd,
+          no_card_trial_subscription_id: row.noCardSubId,
+          no_card_trial_card_added_at: row.noCardCardAddedAt,
+        }),
       });
       // A PAYING subscriber with a scheduled cancel isn't on the belt — they
       // already converted — but they are the other thing an operator must not be
