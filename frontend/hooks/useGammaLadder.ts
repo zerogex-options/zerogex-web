@@ -33,6 +33,8 @@ import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { bucketAtOrNearest, latestBookBucket, rewoundChangePercent } from "@/core/strikeHistory";
 import { expiredExcludedDates } from "@/core/expiredAtClose";
 import { volumeGammaUrl, volumeLadderCells, type LadderBasis, type VolumeGammaResponse } from "@/core/ladderBasis";
+import { ladderExpiryScope } from "@/core/crownScope";
+import { etTodayDateKey } from "@/core/utils";
 
 /** Everything a ladder column renders except the header control, which the
  *  surface injects (a symbol dropdown on Pair Comparison, a plain label in a
@@ -182,6 +184,10 @@ export function useGammaLadderColumn(
   const selection = options?.expirations ?? [];
   const expParam = selection.length === 0 ? "all" : [...selection].sort().join(",");
   const filtered = expParam !== "all";
+  // What the rows cover, for the crown's color (core/crownScope): today's
+  // expiration alone, all of them, or a selection. Read off the canonical
+  // param, not the caller's per-render array, so the memo keys off a string.
+  const expiryScope = ladderExpiryScope(filtered ? expParam.split(",") : [], etTodayDateKey());
 
   const { data: summary } = useGEXSummary(symbol, SUMMARY_REFRESH_MS, enabled);
   const { data: tip, loading, error } = useApiData<TipBucket[]>(tipUrl(symbol, expParam), {
@@ -275,6 +281,7 @@ export function useGammaLadderColumn(
         symbol,
         cells: bucketCells(bucket),
         basis: "oi" as const,
+        expiryScope,
         positioningAsOf: bucket?.timestamp ?? null,
         positioningKind: "rewind" as const,
         expiredExcluded: expiredExcludedDates(bucket),
@@ -310,6 +317,7 @@ export function useGammaLadderColumn(
       symbol,
       cells: volumeMode ? volumeLadderCells(volumeData) : bucketCells(liveBucket),
       basis: volumeMode ? ("volume" as const) : ("oi" as const),
+      expiryScope,
       positioningAsOf: !reachedBack
         ? null
         : volumeMode && volumeData?.timestamp
@@ -335,5 +343,5 @@ export function useGammaLadderColumn(
       loading: volumeMode ? volumeLoading : loading,
       error: volumeMode ? volumeError : error,
     };
-  }, [symbol, tipBucket, historyBucket, liveBucket, rewinding, rewindBucket, historyLoading, summary, quote, closes, filtered, sessionBaseline, loading, error, volumeMode, volumeData, volumeLoading, volumeError]);
+  }, [symbol, tipBucket, historyBucket, liveBucket, rewinding, rewindBucket, historyLoading, summary, quote, closes, filtered, expiryScope, sessionBaseline, loading, error, volumeMode, volumeData, volumeLoading, volumeError]);
 }

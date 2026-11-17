@@ -64,7 +64,7 @@ Zwei Leitern nebeneinander. Jede Zeile ist ein Strike, der höchste oben, und ih
 - **Orange Zeilen** sind Long Gamma (positiv), **marineblaue Zeilen** Short Gamma (negativ). Je satter die Farbe, desto größer die Zahl.
 - Die Zeile, deren Strike in einer hervorgehobenen Pille steht, ist der Strike, der dem Kurs am nächsten liegt. Auf breiten Bildschirmen liegt sie auf gleicher Höhe wie der Kurs im Chart.
 - Die Kürzel `GF`, `CW`, `PW` und `MP` markieren Gamma Flip, Call Wall, Put Wall und Max Pain an der jeweils nächstgelegenen Zeile. Die Kopfzeile nennt ihre Werte oder `NA`, wenn ein Level nicht verfügbar ist.
-- Die **Krone** markiert den Strike mit dem meisten Gamma, der in dieser Leiter sichtbar ist. Das ist nicht der GEX King des Charts; der ist der Strike mit dem meisten Gamma in der gesamten Chain.
+- Die **Krone** markiert den Strike mit dem meisten Gamma, der in dieser Leiter sichtbar ist, und ihre Farbe zeigt, welche Verfälle die Leiter abbildet: **petrol** nur für den heutigen Verfall (0DTE), die Farbe des Pin Strike, und **violett** für alle Verfälle oder eine im Menü **Expiry** gewählte Auswahl, die Farbe des GEX King. Der letzte Eintrag der Kopfzeile nennt sie: `0DTE`, `All exp.` oder `Selected`. Die Krone ist nicht der GEX King des Charts; der ist der Strike mit dem meisten Gamma in der gesamten Chain.
 - Der Chip **LONG Γ** / **SHORT Γ** in jeder Kopfzeile vergleicht den Kurs mit dem Flip dieses Symbols.
 
 Die erste Leiter zeigt das Symbol des Charts. Die zweite vergleicht ein beliebiges anderes Symbol und startet mit dem passenden Buch: SPY mit SPX, QQQ mit NDX, ES mit SPX, NQ mit NDX und NVDA mit QQQ. [SPY- vs. SPX-Gamma-Levels](/education/spy-vs-spx-gamma-levels) erklärt, warum sich zwei Bücher auf denselben Index unterschiedlich lesen.
@@ -222,7 +222,7 @@ Ohne Flip kann der Chart auch die Regime-Schattierung nicht zeichnen.
 
 **So liest du ihn.** Der King ist das träge, strukturelle Gegenstück zum Pin des laufenden Tages: der Strike, an dem das meiste Hedging hängt, egal mit welchem Verfall. Er kann ein Short-Gamma-Strike sein.
 
-**Gut zu wissen.** Er ignoriert den Expiry-Filter, denn eingegrenzt wäre er ein anderes Maß. Die Krone auf den Leitern markiert den Strike mit dem meisten Gamma im Ausschnitt dieser Leiter, und das ist nicht immer der King. In der kostenlosen Vorschau ist er nicht enthalten.
+**Gut zu wissen.** Er ignoriert den Expiry-Filter, denn eingegrenzt wäre er ein anderes Maß. Die Krone auf den Leitern markiert den Strike mit dem meisten Gamma im Ausschnitt dieser Leiter, und das ist nicht immer der King, auch wenn die Krone violett ist. In der kostenlosen Vorschau ist er nicht enthalten.
 
 ### PD/PM Levels
 

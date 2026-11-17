@@ -64,7 +64,7 @@ Dos escaleras, una al lado de la otra. Cada fila es un strike, con el más alto 
 - Las **filas naranjas** son long gamma (positivo) y las **filas azul marino** son short gamma (negativo). Cuanto más intenso es el color, mayor es el número.
 - La fila cuyo strike aparece en una píldora resaltada es el strike más cercano al precio. En pantallas anchas queda a la misma altura que el precio en el gráfico.
 - Las etiquetas `GF`, `CW`, `PW` y `MP` marcan el Gamma Flip, el Call Wall, el Put Wall y el Max Pain en la fila más cercana. El encabezado lista sus valores, o `NA` cuando un nivel no está disponible.
-- La **corona** marca el strike de mayor peso visible en esa escalera. No es el GEX King del gráfico, que es el strike de mayor peso de toda la cadena.
+- La **corona** marca el strike de mayor peso visible en esa escalera, y su color indica qué vencimientos muestra la escalera: **verde azulado** solo para el vencimiento de hoy (0DTE), el color del Pin Strike, y **violeta** para todos los vencimientos o una selección hecha en el menú **Expiry**, el color del GEX King. La última entrada del encabezado lo indica: `0DTE`, `All exp.` o `Selected`. La corona no es el GEX King del gráfico, que es el strike de mayor peso de toda la cadena.
 - El chip **LONG Γ** / **SHORT Γ** de cada encabezado compara el precio con el flip de ese símbolo.
 
 La primera escalera es la del símbolo del gráfico. La segunda compara cualquier otro símbolo y empieza en el libro equivalente: SPY con SPX, QQQ con NDX, ES con SPX, NQ con NDX y NVDA con QQQ. [Niveles de gamma de SPY vs SPX](/education/spy-vs-spx-gamma-levels) explica por qué dos libros sobre el mismo índice se leen de forma distinta.
@@ -222,7 +222,7 @@ Sin flip, el gráfico tampoco puede dibujar el sombreado Regime.
 
 **Cómo leerlo.** El King es la contrapartida estructural, de movimiento lento, del Pin del mismo día: el strike con más hedging asociado, sea cual sea su vencimiento. Puede ser un strike de short gamma.
 
-**A tener en cuenta.** Ignora el filtro Expiry, porque acotarlo lo convertiría en otra medida. La corona de las escaleras marca el strike de mayor peso en la vista de esa escalera, que no siempre es el King. No forma parte de la vista previa gratuita.
+**A tener en cuenta.** Ignora el filtro Expiry, porque acotarlo lo convertiría en otra medida. La corona de las escaleras marca el strike de mayor peso en la vista de esa escalera, que no siempre es el King, aunque la corona sea violeta. No forma parte de la vista previa gratuita.
 
 ### PD/PM Levels
 

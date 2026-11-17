@@ -161,6 +161,8 @@ function replayColumn(
     maxPain: frame?.max_pain ?? null,
     changePercent,
     isPositive: changePercent != null ? changePercent >= 0 : undefined,
+    // Replay frames are always the whole chain (the Expiry selector rests).
+    expiryScope: "all" as const,
     loading: (sessions.loading || replay.loading) && !frame,
     error: replay.error || sessions.error,
   };

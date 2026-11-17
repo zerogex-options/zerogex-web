@@ -152,6 +152,8 @@ function snapshotColumn(snap: LadderSnapshot | null, symbol: string): Omit<Heatm
       callWall: null,
       putWall: null,
       maxPain: null,
+      // The delayed view has no Expiry control: every column is whole-chain.
+      expiryScope: "all" as const,
       loading: false,
       error: null,
     };
@@ -159,6 +161,8 @@ function snapshotColumn(snap: LadderSnapshot | null, symbol: string): Omit<Heatm
   return {
     ...snap,
     positioningKind: "reachback" as const,
+    // Whole-chain, like every delayed column (see LadderSnapshot).
+    expiryScope: "all" as const,
     // Δ-since-open needs a second per-symbol fetch the delayed view does not
     // make, so the triangles are simply absent rather than wrong.
     sessionBaseline: null,

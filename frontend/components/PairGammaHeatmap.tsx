@@ -20,8 +20,9 @@
  * listed strike near spot.
  *
  * The centered spot strike is highlighted as a pill; the heaviest-|GEX| strike
- * in view is starred; and the dealer-gamma levels (Gamma Flip, Call/Put Walls,
- * Max Pain) mark their rows with a colored inset rail + a one-letter tag, with
+ * in view is crowned, the crown filled teal or violet by the expirations the
+ * column covers (core/crownScope); and the dealer-gamma levels (Gamma Flip,
+ * Call/Put Walls, Max Pain) mark their rows with a colored inset rail + a one-letter tag, with
  * the live values echoed as chips in each column header. All chrome is bound to
  * theme tokens so it tracks light/dark and every palette; only the semantic
  * sign tint (orange/navy) is fixed, exactly like the Gamma Chart's heatmap.
@@ -41,6 +42,7 @@ import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitCont
 import { selectActiveCells } from "@/core/strikeFilter";
 import { sessionDeltaMark, sessionDeltaTitle } from "@/core/sessionDelta";
 import { expiredAtCloseNote } from "@/core/expiredAtClose";
+import { crownColor, crownKeyTitle, crownLabel, crownScopeShort, type LadderExpiryScope } from "@/core/crownScope";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 
@@ -97,6 +99,11 @@ export interface HeatmapColumnInput {
    *  "oi" is the open-interest book; "volume" is the session's traded volume,
    *  same units, which only relabels the value column and the crown. */
   basis?: "oi" | "volume";
+  /** Which expirations the rows cover (core/crownScope): today's alone, all,
+   *  or a selection. Fills the crown, teal for today's expiration only and
+   *  violet otherwise, and names the scope in the header's key. Required, so
+   *  a new source of rows has to say what it covers. */
+  expiryScope: LadderExpiryScope;
   loading: boolean;
   error: string | null;
   /** The symbol dropdown, injected by the page so the ladder stays presentational. */
@@ -359,6 +366,45 @@ function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value
   );
 }
 
+// The ladder's crown. The outline stays currentColor (the row's text color), so
+// it reads on any cell tint and in every palette, exactly as the plain crown
+// before it did; the fill carries the expiration scope (core/crownScope), teal
+// for today's expiration alone and violet otherwise. The fill goes through
+// style rather than the `fill` attribute: a CSS variable doesn't resolve in an
+// SVG presentation attribute.
+function ScopeCrown({ scope, label }: { scope: LadderExpiryScope; label: string }) {
+  const s = useLadderScale();
+  return (
+    <Crown
+      size={12 * s}
+      strokeWidth={2}
+      aria-label={label}
+      style={{ color: "currentColor", fill: crownColor(scope), flex: "0 0 auto" }}
+    />
+  );
+}
+
+// Header key entry for the crown, after the level chips: the crown as the rows
+// draw it, then its scope in a word ("0DTE", "All exp.", "Selected"). Always
+// rendered, like the level chips, so both columns' headers stay the same height
+// and their rows stay aligned. The crown sits in a slot as wide as a rail tag so
+// it lines up under the GF / PW codes.
+function CrownKey({ scope }: { scope: LadderExpiryScope }) {
+  const s = useLadderScale();
+  const short = crownScopeShort(scope);
+  return (
+    <span className="inline-flex items-center gap-1 font-mono" title={crownKeyTitle(scope)} style={{ whiteSpace: "nowrap" }}>
+      <span
+        className="inline-flex items-center justify-center"
+        style={{ minWidth: 15 * s, height: 12 * s, color: "var(--text-primary)", flex: "0 0 auto" }}
+      >
+        <ScopeCrown scope={scope} label={`Crown: ${short}`} />
+      </span>
+      <span style={{ fontSize: 10 * s, fontWeight: 600, color: "var(--text-primary)" }}>{short}</span>
+    </span>
+  );
+}
+
 // Two-letter rail tag drawn at the left edge of a level row.
 //
 // The glyph is --text-primary. A solid fill with --text-inverse came before it
@@ -578,16 +624,19 @@ function HeatmapColumn({
           </span>
           <ChangeBadge changePercent={input.changePercent} isPositive={input.isPositive} />
         </div>
-        {/* Live level legend — the key for the on-row rail tags (GF/CW/PW/MP).
-            All four always render (missing → "NA") so both columns stay the
-            same size. A fixed 2×2 grid, not flex-wrap: four chips don't fit a
-            ladder column on one line, and free wrapping broke them into a
-            ragged 3+1 (MP orphaned on its own line). Content-sized columns
-            keep the pairs compact and left-aligned at any tile width. */}
+        {/* Live level legend — the key for the on-row rail tags (GF/CW/PW/MP)
+            and the crown. All five always render (a missing level → "NA") so
+            both columns stay the same size. A fixed two-column grid, not
+            flex-wrap: four chips don't fit a ladder column on one line, and
+            free wrapping broke them into a ragged 3+1 (MP orphaned on its own
+            line). Content-sized columns keep the pairs compact and
+            left-aligned at any tile width; the crown's entry takes the third
+            row's first cell. */}
         <div className={`grid ${narrow ? "grid-cols-1" : "grid-cols-[auto_auto]"} justify-start gap-x-3 gap-y-1`}>
           {(["flip", "call", "put", "pain"] as LevelKey[]).map((k) => (
             <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k]} />
           ))}
+          <CrownKey scope={input.expiryScope} />
         </div>
       </div>
 
@@ -728,14 +777,15 @@ function HeatmapColumn({
                       </span>
                       <span className="whitespace-nowrap flex items-center gap-1">
                         {isPeak && (
-                          // King node — the heaviest dealer gamma in view. Crown
-                          // in currentColor so it stays readable on any cell tint.
-                          <Crown
-                            size={12 * s}
-                            strokeWidth={2.25}
-                            aria-label={input.basis === "volume" ? "Heaviest gamma traded this session" : "King node - heaviest dealer gamma"}
-                            style={{ color: "currentColor", flex: "0 0 auto" }}
-                          />
+                          // King node — the heaviest dealer gamma in view, filled
+                          // by the expirations this column covers (ScopeCrown).
+                          <span
+                            className="inline-flex items-center"
+                            title={crownLabel(input.expiryScope, input.basis)}
+                            style={{ flex: "0 0 auto" }}
+                          >
+                            <ScopeCrown scope={input.expiryScope} label={crownLabel(input.expiryScope, input.basis)} />
+                          </span>
                         )}
                         {baseline &&
                           (() => {
