@@ -8,9 +8,13 @@ fortunefuturestrading@gmail.com (`user_8432ffb04bcbd3eb77bc372f`) canceled
 Basic monthly in the app on Tue Nov 17 at 7:50 PM ET, 15 minutes after their
 free trial converted and $39 cleared. Survey reason "Other", nothing typed.
 
-> **Status:** draft, not sent. Access runs until Thu Dec 17, so nothing forces
-> a date, but today or tomorrow is best: if the charge surprised them, hearing
-> from you first heads off a bank dispute.
+> **Status:** sent Tue Nov 17, 10:56 PM ET, as "Hi Jose". **Jose replied Wed
+> Nov 18, 12:58 AM ET:** "I actually did mean to cancel and I didn't think I'd
+> have such spotty service on my trip. I apologize for the inconvenience I
+> wanted to mostly take the trial to se if I would pick up using it at the
+> beginning of next year. I don't trade November/December." That meets the
+> condition the email offered the refund on. **Next:** the three steps under
+> "Refund it", then the reply there. Not done yet.
 
 ## Their account (`make diagnose-user`, Nov 18)
 
@@ -117,15 +121,33 @@ The same steps as Lee's (`2026-10-30-lee-trial-charge-refund.md`).
    `refund_issued` (3900 of 3900) and `billing_subscription_canceled` in the
    recent events.
 
-**Reply** (in their thread):
+**Reply** (in his thread, after step 3):
 
-Hi,
+Hi Jose,
 
-Done. I've refunded the full $39 and closed your plan, so nothing more will be charged. Refunds usually show up within 5 to 10 business days, depending on your bank.
+No apology needed, and thanks for letting me know. I've refunded the full $39 and closed your plan, so nothing more will be charged. The refund usually shows up within 5 to 10 business days, depending on your bank.
 
-Thanks for giving ZeroGEX a try.
+Since your trial ran into a trip with spotty service, just reply to this email when you're ready in January, and I'll set you up with a fresh free week.
 
-Best,
+Enjoy the rest of your trip,
+
+### January: if Jose comes back for the free week
+
+`reactivate-member` re-creates Basic monthly on the Link account still on file
+(neither the cancel nor the refund removes it), with 7 free days, then $39 a
+month unless he cancels. Nothing for him to do: the "Welcome back" email goes
+out on its own, and both trial reminders are re-armed.
+
+```bash
+make reactivate-member EMAIL=fortunefuturestrading@gmail.com DAYS=7 DRY_RUN=1
+```
+
+```bash
+make reactivate-member EMAIL=fortunefuturestrading@gmail.com DAYS=7 YES=1
+```
+
+Then reply with the trial end date it prints. Add `TIER=pro` to both if he'd
+rather try Pro.
 
 ### "I wanted Pro"
 
@@ -185,6 +207,18 @@ Nothing to set up. Thank them, and if they point at a bug or a data problem,
 look before promising anything.
 
 ## Worth knowing (can wait)
+
+- **Jose lands in the win-back digest around Mon Dec 21**, 30 days after the
+  plan closes, with the 50%-off email. Approving that batch sends it to him
+  too. Either way is fine: it arrives just before he plans to look again. If
+  you'd rather he come back on the free week at the regular price, keep him out
+  of it any time before then. `send-winback.mts` skips anyone already stamped,
+  and so does the product-update email to canceled members, which carries the
+  same 50%:
+
+  ```bash
+  sqlite3 /var/lib/zerogex/auth.db "UPDATE users SET winback_email_sent_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE email = 'fortunefuturestrading@gmail.com';"
+  ```
 
 - **A no-card trial member who adds a card to switch plans is never brought
   back to finish the switch.** `frontend/app/api/billing/change-plan/route.ts`
