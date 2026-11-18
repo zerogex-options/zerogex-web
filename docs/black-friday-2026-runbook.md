@@ -1,6 +1,8 @@
 # Black Friday 2026 sale: operator runbook
 
-*Half off the first year of any plan, for first-time members who pay today. Friday, November 27 through Tuesday, December 1. It opens and closes by itself once configured.*
+*Half off the first year of any plan, for first-time members who pay today. From 12:00 AM ET Thursday, November 19 through Tuesday, December 1. It opens and closes by itself once configured.*
+
+The plan was to open on Black Friday, November 27. It opens early, at midnight on November 19, after a customer asked about it on the 18th.
 
 ## 1. The offer
 
@@ -21,31 +23,31 @@
 
 The rules live in `frontend/core/blackFridaySale.ts`. Stripe is the source of truth for what is charged, and `make setup-black-friday VERIFY=1` checks the coupon against what the page shows.
 
-## 2. Turning it on (any day before November 27)
+## 2. Turning it on (before 12:00 AM ET Thursday, November 19)
 
-Deploy the branch first. On its own the code changes nothing: the sale needs all three env lines below.
+Deploy the branch first. On its own the code changes nothing: the sale needs all three env lines below. Set up ahead of the start and the sale stays hidden until midnight, then appears on its own; no restart at midnight. Set up after midnight and it is open from the restart.
 
 ```bash
 make setup-black-friday              # dry run: shows the coupon it would create and the window
 make setup-black-friday YES=1        # creates the coupon, prints three .env.local lines
 # paste the three lines into frontend/.env.local, replacing any existing line for the same key
 make restart                         # env is read at start-up; no rebuild needed
-make setup-black-friday VERIFY=1     # must end "no problems" and say "Scheduled"
+make setup-black-friday VERIFY=1     # must end "no problems" and say "Scheduled" (or "Open now" after midnight)
 ```
 
 The three lines:
 
 ```
 STRIPE_COUPON_BLACK_FRIDAY=ZGX_BLACK_FRIDAY_2026_50_OFF_12M
-BLACK_FRIDAY_START_AT=2026-11-27T05:00:00Z
+BLACK_FRIDAY_START_AT=2026-11-19T05:00:00Z
 BLACK_FRIDAY_END_AT=2026-12-02T04:59:59Z
 ```
 
-That is 12:00 AM ET Friday, November 27 to 11:59:59 PM ET Tuesday, December 1. The setup script never edits `.env.local`, never changes an existing Stripe object, and never touches a customer. Re-running it reuses the coupon.
+That is 12:00 AM ET Thursday, November 19 to 11:59:59 PM ET Tuesday, December 1. The setup script never edits `.env.local`, never changes an existing Stripe object, and never touches a customer. Re-running it reuses the coupon.
 
 ## 3. What members see, and when
 
-- **Before November 27:** nothing changes. The pricing page and checkout are exactly what they are today.
+- **Before it opens:** nothing changes. The pricing page and checkout are exactly what they are today.
 - **During the sale**, to anyone who could buy it (logged out, or signed in and never subscribed):
   - a Black Friday banner above the plans, ending "Ends Tuesday, December 1";
   - the sale price on every card, with the regular price struck through;
@@ -60,7 +62,7 @@ If a page was loaded before the sale closed and the member clicks after, checkou
 
 | To… | Do |
 |---|---|
-| Open it now instead of Nov 27 | Blank out `BLACK_FRIDAY_START_AT=`, then `make restart` and `make setup-black-friday VERIFY=1` |
+| Open it right away, before the start time | Blank out `BLACK_FRIDAY_START_AT=`, then `make restart` and `make setup-black-friday VERIFY=1` |
 | Extend it | Set `BLACK_FRIDAY_END_AT` later (the end of a December day in New York is `T04:59:59Z` on the next date), restart, VERIFY |
 | End it early | Set `BLACK_FRIDAY_END_AT` to a past time, restart |
 | Change the 50% | A code change (`BLACK_FRIDAY_SALE` in `core/blackFridaySale.ts`) plus a new coupon (`COUPON_ID=...`). Ask for it; don't just make a different coupon, or checkout would charge a price the page doesn't show |
@@ -90,10 +92,11 @@ SELECT COUNT(DISTINCT a.user_id) AS started,
 
 - **The cancel flow's save offers stack on top of the sale**, as they already do on any discount. A sale member who opens the cancel flow can be offered 25% off (or 50% for "too expensive") on top of half off. Nobody can reach that until they've subscribed, so this can be decided in December.
 - **Plan switches keep the sale for the rest of the first 12 months**, on the new plan too, because Stripe carries the coupon. A monthly member who moves to annual in month 11 pays half for that annual payment. That's how the November ZGX40 code behaved too.
-- **Someone mid-trial on November 27** (a Basic trial started before the sale) can't buy the sale from the page, because they already have a subscription. If one asks, it's your call, by hand.
+- **Someone mid-trial when the sale opens** (a Basic trial started before it) can't buy the sale from the page, because they already have a subscription. If one asks, it's your call, by hand.
 
 ## 7. Decisions on record
 
 - **50%:** it has to beat November's 40% code, which came with a free trial. It also equals the business-card rate, so no card holder sees a better deal than the sale.
 - **Guarantee on the Basic monthly sale:** every plan sold paid up front carries it, and the copy can then say "every plan" without an exception.
 - **First-time only**, matching the trial and the November code.
+- **Opened early**, at midnight on November 19 rather than on Black Friday, so a customer who asked on the 18th could buy without waiting a week. The end date is unchanged.

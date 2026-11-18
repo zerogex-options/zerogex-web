@@ -23,7 +23,7 @@ import { BILLABLE_TIERS, BILLING_CADENCES, LIST_PRICE_USD, formatUsd } from '../
 import { LOCALES } from '../core/i18n/locales.ts';
 import { dict } from '../app/pricing/Client.i18n.ts';
 
-const START = '2026-11-27T05:00:00Z'; // 12:00 AM ET, Friday, November 27
+const START = '2026-11-19T05:00:00Z'; // 12:00 AM ET, Thursday, November 19
 const END = '2026-12-02T04:59:59Z'; // 11:59:59 PM ET, Tuesday, December 1
 
 test('the offer is half off the first year', () => {

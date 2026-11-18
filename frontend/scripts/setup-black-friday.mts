@@ -58,10 +58,11 @@ import {
 type Mode = 'dry-run' | 'yes' | 'verify';
 type Args = { mode: Mode; startAt: string; endAt: string; couponId: string; help: boolean };
 
-// 12:00 AM on Friday, November 27 in New York (EST is UTC-5), to the end of
-// Tuesday, December 1. The end is the last second of that day, so the page
-// reads "Ends Tuesday, December 1".
-const DEFAULT_START_AT = '2026-11-27T05:00:00Z';
+// 12:00 AM on Thursday, November 19 in New York (EST is UTC-5), to the end of
+// Tuesday, December 1. Opened early: the plan was Black Friday, November 27,
+// until a customer asked on the 18th. The end is the last second of December
+// 1, so the page reads "Ends Tuesday, December 1".
+const DEFAULT_START_AT = '2026-11-19T05:00:00Z';
 const DEFAULT_END_AT = '2026-12-02T04:59:59Z';
 
 // Fixed identifier: what makes --yes idempotent.
@@ -127,8 +128,8 @@ Creates the Black Friday coupon (${BLACK_FRIDAY_SALE.percentOff}% off, repeating
       --verify             Read-only check of the live configuration; exits 1 on
                            any problem.
       --start-at <ISO>     When the sale opens (default ${DEFAULT_START_AT}, 12:00 AM
-                           ET on Friday, November 27). "none" opens it as soon as
-                           the app restarts with the lines in place.
+                           ET on Thursday, November 19). "none" opens it as soon
+                           as the app restarts with the lines in place.
       --end-at <ISO>       When it closes (default ${DEFAULT_END_AT}, the end
                            of Tuesday, December 1 in New York).
       --coupon-id <id>     The coupon's id (default ${DEFAULT_COUPON_ID}).
