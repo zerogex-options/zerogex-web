@@ -15,13 +15,15 @@ free trial converted and $39 cleared. Survey reason "Other", nothing typed.
 > beginning of next year. I don't trade November/December." That meets the
 > condition the email offered the refund on.
 >
-> **Closed Wed Nov 18.** `make cancel-subscription ... FORCE=1 YES=1` ran
-> clean (tier `public`, no API keys were active, no open invoices), and the
-> reply under "Refund it" went out. The refund is a Stripe Dashboard step with
-> no terminal output: `make diagnose-user` showing `refund_issued` (3900 of
-> 3900) confirms it. If it's missing, the daily orphan-payment alert flags him,
-> because a paid, unrefunded invoice on a free account reads as an orphaned
-> payment. Still open: the January free week, if he writes back.
+> **Done, Wed Nov 18.** Refunded in full in the Stripe Dashboard at 10:47 AM
+> ET (`refund_issued`: charge `py_3UcwqF4AOiqteMYY1q1pbYrj`, 3900 of 3900,
+> invoice `in_1Ucvty4AOiqteMYYiq0l3npI`). Plan canceled 12 seconds later with
+> `make cancel-subscription ... FORCE=1 YES=1` (no API keys were active, no
+> open invoices), and the reply under "Refund it" went out. `make
+> diagnose-user` afterward: tier `public`, status `canceled`, not counted as a
+> subscriber. `MONEY EVER COLLECTED` still reads $39 because Stripe keeps a
+> refunded invoice marked paid; the `refund_issued` row is the record that it
+> went back. Still open: the January free week, if he writes back.
 
 ## Their account (`make diagnose-user`, Nov 18)
 
