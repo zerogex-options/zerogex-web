@@ -101,6 +101,7 @@ export const de: Dictionary = {
   'footer.tagline':
     'Echtzeit-Gamma-Exposure und Dealer-Positionierung für SPX-, SPY-, QQQ- und NDX-Trader.',
   'footer.founderBuilt': 'Vom Gründer Michael gebaut und betrieben',
+  'footer.location': 'Mit Sitz in Worthington, Ohio, USA',
   'footer.veteransBadge': '3 % für Veteranen',
   'footer.rights': '© 2026 ZeroGEX, alle Rechte vorbehalten.',
   'footer.disclaimer':

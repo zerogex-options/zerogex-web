@@ -113,6 +113,7 @@ export const en = {
   'footer.tagline':
     'Real-time gamma exposure and dealer positioning for SPX, SPY, QQQ and NDX traders.',
   'footer.founderBuilt': 'Founder-built and operated by Michael',
+  'footer.location': 'Based in Worthington, Ohio, USA',
   'footer.veteransBadge': '3% supports veterans',
   'footer.rights': '© 2026 ZeroGEX, All rights reserved.',
   'footer.disclaimer':

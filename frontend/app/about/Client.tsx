@@ -31,6 +31,7 @@ import {
   Globe,
   ChevronDown,
   ChevronUp,
+  MapPin,
 } from 'lucide-react';
 
 // ── Brand colors ──────────────────────────────────────────────────────────────
@@ -352,6 +353,23 @@ export default function AboutPage({ founderPhoto = null }: { founderPhoto?: stri
           </div>
           <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: 0 }}>
             {t('founderIntro')}
+          </p>
+          {/* Where ZeroGEX is based, in this panel because the founder card
+              above is switched off. Same place as the footer line and the
+              Organization structured data (SITE_ADDRESS). */}
+          <p
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              margin: '18px 0 0',
+              fontSize: 14,
+              fontWeight: 600,
+              color: subtext,
+            }}
+          >
+            <MapPin size={15} aria-hidden="true" style={{ color: C.amber, flexShrink: 0 }} />
+            {t('aboutLocation')}
           </p>
         </div>
       </section>

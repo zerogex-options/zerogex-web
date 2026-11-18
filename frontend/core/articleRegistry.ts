@@ -47,6 +47,19 @@ export const SITE_ORG_DESCRIPTION =
 // Support/contact address surfaced in Organization structured data.
 export const SITE_CONTACT_EMAIL = 'support@zerogex.io';
 
+// Where ZeroGEX is based, surfaced as the Organization JSON-LD `address` so
+// search engines and AI answer engines can say where the business is. City and
+// state only: no street address goes on the site. The visible "Based in" line
+// on /about and in the footer is translated copy (aboutLocation in
+// app/about/Client.i18n.ts, footer.location in core/i18n/dictionaries); keep
+// all three in step if this ever changes.
+export const SITE_ADDRESS = {
+  '@type': 'PostalAddress',
+  addressLocality: 'Worthington',
+  addressRegion: 'OH',
+  addressCountry: 'US',
+} as const;
+
 // Canonical brand profile URLs for schema.org `sameAs` — used for Organization
 // entity reconciliation (knowledge panel, brand SERP, answer engines). These
 // mirror the brand profiles linked in components/Footer.tsx; keep the two in

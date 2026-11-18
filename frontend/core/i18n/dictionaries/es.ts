@@ -101,6 +101,7 @@ export const es: Dictionary = {
   'footer.tagline':
     'Exposición gamma en tiempo real y posicionamiento de los dealers para operadores de SPX, SPY, QQQ y NDX.',
   'footer.founderBuilt': 'Construido y gestionado por su fundador, Michael',
+  'footer.location': 'Con sede en Worthington, Ohio, EE. UU.',
   'footer.veteransBadge': 'El 3 % apoya a los veteranos',
   'footer.rights': '© 2026 ZeroGEX, todos los derechos reservados.',
   'footer.disclaimer':
