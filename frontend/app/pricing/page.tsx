@@ -6,7 +6,9 @@ import {
   getActivePromoDeadlineLabel,
   getSellableCadences,
   getTrialPlans,
+  isSkuSellable,
   priceIdToSku,
+  skuHasFreeTrial,
   type BillingCadence,
   type Sku,
 } from '@/core/stripe';
@@ -18,7 +20,7 @@ import { REFERRAL_COOKIE_NAME, requireSession } from '@/core/serverAuth';
 import { PUBLISHER_REF, SITE_URL } from '@/core/articleRegistry';
 import { pricingJsonLd } from '@/core/pricingJsonLd';
 import { isTrialProUpgradeOpen } from '@/core/trialProUpgrade';
-import { isNoCardTrialEnabled } from '@/core/noCardTrial';
+import { finishSwitchTarget, isNoCardTrialEnabled } from '@/core/noCardTrial';
 import PricingClient from './Client';
 
 // The trial end, while a Basic monthly trialer is inside the two-day Pro upgrade
@@ -31,6 +33,25 @@ function trialProUpgradeUntilNow(
 ): string | null {
   const trialEndMs = periodEndIso ? Date.parse(periodEndIso) : null;
   return isTrialProUpgradeOpen({ status, current: currentPlan, trialEndMs, nowMs: Date.now() }) ? periodEndIso : null;
+}
+
+// The switch a member was making when they were sent to add a card, once they
+// are back from adding it (core/noCardTrial.ts finishSwitchPath), or null. The
+// plan in the URL counts only if we sell it and it is still a switch their
+// trial makes in-app. Outside the component so the render reads no clock.
+function finishSwitchNow(
+  searchParams: Record<string, string | string[] | undefined>,
+  status: string | null,
+  currentPlan: Sku | null,
+  periodEndIso: string | null,
+): Sku | null {
+  return finishSwitchTarget({
+    searchParams,
+    isSellable: isSkuSellable,
+    hasTrial: skuHasFreeTrial,
+    subscription: { status, current: currentPlan, trialEndMs: periodEndIso ? Date.parse(periodEndIso) : null },
+    nowMs: Date.now(),
+  });
 }
 
 // /pricing takes ~4,400 search impressions a quarter at position ~3 (it is a
@@ -55,7 +76,11 @@ export const metadata = {
 // The founding-member rate has its own page at /founding (server-gated by
 // FOUNDING_PROMO_CODE env) — we don't surface a "Founding member?" code
 // input here so the public pricing page reads clean.
-export default async function PricingPage() {
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   // A cadence's promo is live only when BOTH tiers carry the coupon — the page
   // shows one offer per cadence, never a half-configured one.
   const promoActiveByCadence = Object.fromEntries(
@@ -84,6 +109,8 @@ export default async function PricingPage() {
   // upgrade window (core/trialProUpgrade.ts): the Pro card then says the rest
   // of the trial stays free instead of promising the guarantee.
   let trialProUpgradeUntil: string | null = null;
+  // Back from adding a card in the middle of a switch: the plan to open.
+  let finishSwitch: Sku | null = null;
   let guaranteeUsed = false;
   const actor = await requireSession();
   if (actor) {
@@ -103,6 +130,7 @@ export default async function PricingPage() {
       currentPlan = row.stripe_price_id ? priceIdToSku(row.stripe_price_id) : null;
       subscriptionStatus = row.subscription_status;
       trialProUpgradeUntil = trialProUpgradeUntilNow(subscriptionStatus, currentPlan, row.current_period_end);
+      finishSwitch = finishSwitchNow(await searchParams, subscriptionStatus, currentPlan, row.current_period_end);
     }
     guaranteeUsed = hasPriorMoneyBackRefund({
       userId: actor.user.id,
@@ -143,6 +171,7 @@ export default async function PricingPage() {
         trialProUpgradeUntil={trialProUpgradeUntil}
         guaranteeUsed={guaranteeUsed}
         noCardTrial={isNoCardTrialEnabled()}
+        finishSwitch={finishSwitch}
       />
     </>
   );
