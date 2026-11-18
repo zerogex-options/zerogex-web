@@ -77,6 +77,17 @@
 // hides the code box. For the same reason the cohort leaves out members who
 // signed up through a referral, partner or campaign link.
 //
+// BLACK FRIDAY SALE (registrants, campaigns flagged blackFridaySale): the email
+// announces the site-wide sale (core/blackFridaySale.ts), which needs no code:
+// the pricing page shows the sale prices and checkout applies them. The rate,
+// the deadline and the four prices are filled from that module and the
+// configured window (core/blackFridayEmail.ts), never typed into the copy. A
+// real send is refused unless the sale is on now with at least two days to
+// run, so nobody clicks through to regular prices; a preview may go out before
+// it opens. The cohort is exactly who checkout sells the sale to: free members
+// who have never held a subscription. Referral, partner and campaign signups
+// stay in, because the sale replaces their discount at checkout.
+//
 // Idempotency: a `<campaign key>_sent` row is written to audit_events on each
 // successful send; already-stamped users are skipped on re-run.
 //
@@ -108,6 +119,12 @@ import {
   type OfferPlanProduct,
   type OfferPromotionCode,
 } from '../core/promoCodeOffer.ts';
+import { parseSaleWindow } from '../core/blackFridaySale.ts';
+import {
+  REQUIRED_SALE_PLACEHOLDERS,
+  buildSaleEmailPlaceholders,
+  saleEmailProblems,
+} from '../core/blackFridayEmail.ts';
 
 type Audience = 'subscribers' | 'registrants' | 'cancelled';
 
@@ -158,6 +175,13 @@ type CampaignSpec = {
   // No latch: the code is the entitlement, and Stripe's first-time-customer
   // restriction on it is what bounds who can redeem it.
   promoCodeOffer?: boolean;
+  // Whether this campaign's `registrants` email announces the Black Friday sale.
+  // The template carries {{SALE_PERCENT}} and the other sale placeholders, which
+  // the sender fills from core/blackFridayEmail.ts; the same two-way
+  // cross-check as promoCodeOffer applies. Also narrows the cohort to members
+  // who have never held a subscription, the only ones checkout sells it to.
+  // No latch: the sale is on the pricing page for anyone eligible.
+  blackFridaySale?: boolean;
   // Leave out registrants who signed up fewer than this many days ago. They are
   // still inside the onboarding emails at full price, and an offer aimed at the
   // members onboarding did not convert should not reach them first.
@@ -329,6 +353,27 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
         html: '2026-11-free-member-offer-last-call-registrants.html',
         text: '2026-11-free-member-offer-last-call-registrants.txt',
         subject: 'Ends {{OFFER_DEADLINE_SHORT}}: {{OFFER_HEADLINE}}',
+      },
+    },
+  },
+  // The Black Friday sale (core/blackFridaySale.ts), announced to free members
+  // who have never subscribed. No code: the sale prices are on /pricing. The
+  // rate, deadline and prices are filled from the sale module and the window,
+  // and a real send waits until the sale is on. The runbook's "Black Friday
+  // sale" section has the commands.
+  '2026-11-black-friday': {
+    key: 'offer_2026_11_black_friday',
+    excludeOnboardingNudged: false,
+    // A bare /pricing CTA; the sale is the offer, not the extended trial.
+    grantsExtendedTrial: false,
+    blackFridaySale: true,
+    // No minAccountAgeDays: the sale is on the pricing page for a new signup
+    // too, and an email telling them is better than a full-price trial.
+    content: {
+      registrants: {
+        html: '2026-11-black-friday-registrants.html',
+        text: '2026-11-black-friday-registrants.txt',
+        subject: 'Black Friday: {{SALE_PERCENT}} off your first year of ZeroGEX, through {{SALE_DEADLINE_SHORT}}',
       },
     },
   },
@@ -855,6 +900,54 @@ if (campaignSpec.promoCodeOffer) {
   process.exit(1);
 }
 
+// ---- Black Friday sale -----------------------------------------------------
+//
+// Checked before the cohort for the same reason as the code: a sale that is off,
+// over or not yet open stops a real send before anything else happens. A dry
+// run reports the problems and still counts the cohort; a preview may go out
+// before the sale opens, so the email can be checked ahead of time.
+let saleOffer: Record<string, string> | null = null;
+let saleStatus = '';
+if (campaignSpec.blackFridaySale) {
+  const saleWindow = parseSaleWindow(envValue('BLACK_FRIDAY_START_AT'), envValue('BLACK_FRIDAY_END_AT'));
+  const problems = saleEmailProblems({
+    couponConfigured: envValue('STRIPE_COUPON_BLACK_FRIDAY') !== '',
+    window: saleWindow,
+    nowMs: Date.now(),
+    requireOpen: cli.send,
+  });
+  if (problems.length > 0) {
+    const stop = cli.send || cli.previewTo;
+    const write = stop ? console.error : console.warn;
+    write(`\n${stop ? 'Error' : 'Warning'}: the Black Friday sale can't be announced ${stop ? 'now' : 'yet'}:`);
+    for (const p of problems) write(`  - ${p}`);
+    if (stop) {
+      write('  (docs/black-friday-2026-runbook.md has the setup; make setup-black-friday VERIFY=1 checks it)');
+      process.exit(1);
+    }
+  }
+  if (saleWindow) {
+    saleOffer = buildSaleEmailPlaceholders(saleWindow.endMs);
+    subject = fillPlaceholders(subject, saleOffer);
+    const now = Date.now();
+    const newYork = (ms: number) =>
+      `${new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(new Date(ms))} ET`;
+    saleStatus =
+      saleWindow.endMs <= now
+        ? 'over'
+        : saleWindow.startMs !== null && saleWindow.startMs > now
+          ? `not open yet: opens ${newYork(saleWindow.startMs)}. Preview now; send once it's on`
+          : `on now, ${((saleWindow.endMs - now) / 86_400_000).toFixed(1)} days left`;
+  }
+}
+
 // The cancelled variant promises a discount that only materializes if a
 // STRIPE_COUPON_WINBACK_* coupon exists for the plan the member picks — the
 // checkout route attaches it, this script only makes them eligible. Sending
@@ -896,6 +989,9 @@ let heldBackNew = 0;
 // Registrants a promo-code campaign leaves out because checkout would apply
 // their referral, partner or campaign discount and hide the code box.
 let heldBackReferred = 0;
+// Registrants the sale campaign leaves out because they have held a
+// subscription (a trial counts), so checkout would not sell them the sale.
+let heldBackHeldBefore = 0;
 // Accounts the cohort query matched but that are not customers. Only the
 // `cancelled` audience fills this; see below.
 const notCustomers: Array<{ row: Row; reason: ExclusionReason }> = [];
@@ -966,11 +1062,30 @@ if (audience === 'subscribers') {
         AND EXISTS (SELECT 1 FROM audit_events pa
                      WHERE pa.user_id = u.id AND pa.type = '${esc(campaignSpec.onlyRecipientsOf)}_sent')`
     : '';
+  // The Black Friday sale is only for members who have never held a
+  // subscription: checkout's hasHeldSubscriptionBefore is a stamped paid welcome
+  // or the churn flag. registrantCore already leaves out the churned; this
+  // leaves out the rest, so the email never promises a price checkout refuses.
+  const heldBeforeSql = `paid_welcome_email_sent_at IS NOT NULL`;
+  const firstTimeSql = campaignSpec.blackFridaySale
+    ? `
+        AND NOT (${heldBeforeSql})`
+    : '';
+  if (campaignSpec.blackFridaySale) {
+    heldBackHeldBefore =
+      querySqlite<{ n: number }>(
+        dbPath,
+        `SELECT COUNT(*) AS n
+           FROM users u
+          WHERE ${registrantCore}${priorCampaignSql}
+            AND ${heldBeforeSql};`,
+      )[0]?.n ?? 0;
+  }
   // Who the campaign is for, before the account-age ceiling below.
   const registrantFilters = campaignSpec.promoCodeOffer
-    ? `${registrantCore}
+    ? `${registrantCore}${firstTimeSql}
         AND NOT (${referredSql})${priorCampaignSql}`
-    : `${registrantCore}${priorCampaignSql}`;
+    : `${registrantCore}${firstTimeSql}${priorCampaignSql}`;
   const newestSignupIso = campaignSpec.minAccountAgeDays
     ? new Date(Date.now() - campaignSpec.minAccountAgeDays * 86_400_000).toISOString()
     : null;
@@ -1064,6 +1179,12 @@ if (audience === 'registrants') {
         '(checkout applies that discount and hides the code box)',
     );
   }
+  if (campaignSpec.blackFridaySale) {
+    console.log(
+      `Held back:      ${heldBackHeldBefore} have held a subscription or trial before ` +
+        '(the sale is for first-time subscribers)',
+    );
+  }
   if (campaignSpec.onlyRecipientsOf) {
     console.log(
       `Reminder of:    ${campaignSpec.onlyRecipientsOf} (only members it reached who still have no plan)`,
@@ -1084,6 +1205,19 @@ if (audience === 'registrants') {
       console.log(`  Plan terms:   ${p.PLAN_TERMS}`);
     } else {
       console.log('Offer:          promotion code, not checked (pass --promo-code to check it and fill the copy)');
+    }
+  } else if (campaignSpec.blackFridaySale) {
+    if (saleOffer) {
+      const p = saleOffer;
+      console.log(`Offer:          Black Friday sale, ${p.SALE_PERCENT} off the first year, no code`);
+      console.log(`  Status:       ${saleStatus}`);
+      console.log(`  Deadline:     ${p.SALE_DEADLINE}`);
+      console.log(`  Basic monthly ${p.SALE_BASIC_MONTHLY} ${p.SALE_BASIC_MONTHLY_THEN}`);
+      console.log(`  Pro monthly   ${p.SALE_PRO_MONTHLY} ${p.SALE_PRO_MONTHLY_THEN}`);
+      console.log(`  Basic annual  ${p.SALE_BASIC_ANNUAL} ${p.SALE_BASIC_ANNUAL_THEN}`);
+      console.log(`  Pro annual    ${p.SALE_PRO_ANNUAL} ${p.SALE_PRO_ANNUAL_THEN}`);
+    } else {
+      console.log('Offer:          Black Friday sale, not configured (see the warning above)');
     }
   } else {
     console.log(
@@ -1230,6 +1364,37 @@ if (audience === 'registrants') {
     );
     html = fillPlaceholders(html, escaped);
     text = fillPlaceholders(text, offer.placeholders);
+  }
+}
+
+// And for the Black Friday sale: a template that states the sale belongs to a
+// campaign that checks it, and a campaign that checks it has a template that
+// states the rate and until when.
+{
+  const statesSale = html.includes('{{SALE_PERCENT}}') || text.includes('{{SALE_PERCENT}}');
+  if (statesSale && !campaignSpec.blackFridaySale) {
+    console.error(
+      `\nError: ${content.html} / ${content.text} states the Black Friday sale, but campaign\n` +
+        `${cli.campaign} is not flagged blackFridaySale, so nothing would check the sale is on.`,
+    );
+    process.exit(1);
+  }
+  if (campaignSpec.blackFridaySale) {
+    const missing = REQUIRED_SALE_PLACEHOLDERS.filter(
+      (k) => !html.includes(`{{${k}}}`) || !text.includes(`{{${k}}}`),
+    );
+    if (missing.length > 0) {
+      console.error(
+        `\nError: campaign ${cli.campaign} announces the sale, but ${content.html} /\n` +
+          `${content.text} do not both carry ${missing.map((k) => `{{${k}}}`).join(', ')}.`,
+      );
+      process.exit(1);
+    }
+  }
+  if (saleOffer) {
+    const escaped = Object.fromEntries(Object.entries(saleOffer).map(([k, v]) => [k, escapeHtmlText(v)]));
+    html = fillPlaceholders(html, escaped);
+    text = fillPlaceholders(text, saleOffer);
   }
 }
 

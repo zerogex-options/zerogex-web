@@ -13,6 +13,94 @@ self-deleted (`users.deleted_at`) are excluded from every cohort.
 
 ---
 
+## Black Friday sale, November 2026 (`--campaign 2026-11-black-friday`)
+
+The sale announcement for free members. There is no code: the sale prices are
+on `/pricing` and checkout applies them (`docs/black-friday-2026-runbook.md`).
+
+| Campaign | Who | Files | Subject |
+|---|---|---|---|
+| `2026-11-black-friday` | Verified free members who have never held a subscription (a lapsed trial counts as one) and have opened a page while signed in | `2026-11-black-friday-registrants.html` / `.txt` | `Black Friday: {{SALE_PERCENT}} off your first year of ZeroGEX, through {{SALE_DEADLINE_SHORT}}`, i.e. "Black Friday: 50% off your first year of ZeroGEX, through December 1" |
+
+**Idempotency key:** `offer_2026_11_black_friday`.
+
+**The copy states nothing about the sale by itself.** The rate, the deadline and
+the four prices are filled from the sale module the pricing page and checkout
+read, and from `BLACK_FRIDAY_END_AT` (`core/blackFridayEmail.ts`). A real send
+is refused unless the sale is on right now with at least two days left, so
+nobody clicks through to regular prices. A preview can go out before the sale
+opens.
+
+**Who is in, and who is left out.**
+
+- Left out: anyone who has held a subscription, a lapsed trial included.
+  Checkout won't sell them the sale, so the email would promise a price they
+  can't get. The dry run prints how many.
+- Left out, as for every campaign: never verified, never signed in,
+  unsubscribed, deleted.
+- In, unlike the November code offer: members who signed up through a
+  referral, partner or campaign link. The sale replaces their discount at
+  checkout, so they get it too.
+- In: members who signed up in the last week. The sale is on the pricing page
+  for them anyway.
+
+### When to send
+
+After the sale is on, and at least a week after the last email to free
+members. The November offer's last call went out the day its code ended. Check
+the date:
+
+```
+sqlite3 /var/lib/zerogex/auth.db \
+  "SELECT type, substr(MAX(created_at), 1, 10) AS last_sent, COUNT(*) AS sent
+     FROM audit_events
+    WHERE type LIKE '%_sent' AND message = 'registrants product update sent'
+    GROUP BY type ORDER BY last_sent;"
+```
+
+Monday, November 23, in the morning is a good default: Thanksgiving week,
+a week clear of the November offer, and eight days left in the sale.
+
+### Send
+
+```
+cd frontend
+
+# 1. Cohort, held-back count, and the sale exactly as the email will state it
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
+  --campaign 2026-11-black-friday --audience registrants --since 2026-01-01 --dry-run
+
+# 2. One copy to yourself (works before the sale opens); open on desktop and phone
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
+  --campaign 2026-11-black-friday --audience registrants --since 2026-01-01 \
+  --preview-to Michael@zerogex.io
+
+# 3. First 5 real recipients, then everyone else
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
+  --campaign 2026-11-black-friday --audience registrants --since 2026-01-01 --send --yes --limit 5
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
+  --campaign 2026-11-black-friday --audience registrants --since 2026-01-01 --send --yes
+```
+
+### Results
+
+Recipients who started a checkout after the email, and recipients who now
+have a subscription:
+
+```
+sqlite3 /var/lib/zerogex/auth.db \
+  "SELECT COUNT(DISTINCT c.user_id) FROM audit_events c
+     JOIN audit_events s ON s.user_id = c.user_id AND s.type = 'offer_2026_11_black_friday_sent'
+    WHERE c.type = 'billing_checkout_started' AND c.created_at > s.created_at;"
+
+sqlite3 /var/lib/zerogex/auth.db \
+  "SELECT COUNT(*) FROM users u
+     JOIN audit_events s ON s.user_id = u.id AND s.type = 'offer_2026_11_black_friday_sent'
+    WHERE u.stripe_subscription_id IS NOT NULL;"
+```
+
+---
+
 ## Free-member offer, November 2026 (`--campaign 2026-11-free-member-offer`)
 
 A time-boxed discount for free members who never subscribed, carried by a

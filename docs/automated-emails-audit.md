@@ -662,6 +662,17 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   unsubscribe footer and header as the product update. See
   `docs/newsletters/SEND-RUNBOOK.md`, "Free-member offer".
 
+**Black Friday sale** — `send-product-update.mts --campaign 2026-11-black-friday` (copy in `docs/newsletters/2026-11-black-friday-registrants.{html,txt}`)
+- **Subject:** filled from the sale, e.g. `Black Friday: 50% off your first year of ZeroGEX, through December 1`
+- Sent by hand, never on a timer. Verified free members who have never held a
+  subscription (a lapsed trial counts), including referral, partner and
+  campaign signups, whose discount the sale replaces at checkout.
+- No code: the sale prices are on `/pricing`. The sender fills the rate,
+  deadline and prices from `core/blackFridaySale.ts` and the configured window
+  (`core/blackFridayEmail.ts`), and refuses a real send unless the sale is on
+  with two days left. No latch. Same unsubscribe footer and header as the
+  product update. See `docs/newsletters/SEND-RUNBOOK.md`, "Black Friday sale".
+
 **TradeWorkz bot alert** — `sendTradeworkzNotification(to, { botId, botDisplayName, eventType, payload, dashboardUrl? })`
 - **Subject:** dynamically built, e.g. `{Bot} closed LONG SPY +$1.20K (+8.3%)` /
   `{Bot} opened SHORT SPY · 5 contracts @ $4.20`

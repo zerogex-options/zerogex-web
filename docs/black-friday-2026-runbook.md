@@ -58,6 +58,10 @@ That is 12:00 AM ET Thursday, November 19 to 11:59:59 PM ET Tuesday, December 1.
 
 If a page was loaded before the sale closed and the member clicks after, checkout refuses with "The Black Friday sale isn't on right now" rather than charging a price they weren't shown.
 
+## 3a. Telling free members
+
+The announcement email to free members is ready: `--campaign 2026-11-black-friday` in `scripts/send-product-update.mts`. The send steps, who it reaches and when to send are in the "Black Friday sale" section of `docs/newsletters/SEND-RUNBOOK.md`. It fills its prices and deadline from the sale itself, and won't send until the sale is on.
+
 ## 4. Levers
 
 | To… | Do |

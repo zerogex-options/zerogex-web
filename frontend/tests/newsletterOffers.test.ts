@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { REQUIRED_OFFER_PLACEHOLDERS, buildOfferPlaceholders } from '../core/promoCodeOffer.ts';
+import { REQUIRED_SALE_PLACEHOLDERS, buildSaleEmailPlaceholders } from '../core/blackFridayEmail.ts';
 
 // Guards the two ways a newsletter can promise something the app will not
 // deliver. Both have already happened once, in the 2026-08 registrants send:
@@ -58,6 +59,7 @@ test('every newsletter href separates query parameters with &amp;, not a raw &',
 type CampaignFlags = {
   grantsExtendedTrial: boolean;
   promoCodeOffer: boolean;
+  blackFridaySale: boolean;
   hasRegistrants: boolean;
   registrantHtml: string | null;
   registrantText: string | null;
@@ -88,6 +90,7 @@ function campaignFlags(): Map<string, CampaignFlags> {
     found.set(starts[i].key, {
       grantsExtendedTrial: /grantsExtendedTrial:\s*true/.test(block),
       promoCodeOffer: /promoCodeOffer:\s*true/.test(block),
+      blackFridaySale: /blackFridaySale:\s*true/.test(block),
       hasRegistrants: /registrants:\s*\{/.test(block),
       registrantHtml: html,
       registrantText: text,
@@ -173,6 +176,37 @@ test('a registrants email offering a {{PROMO_CODE}} belongs to a promoCodeOffer 
   }
 });
 
+test('a registrants email stating the Black Friday sale belongs to a blackFridaySale campaign, and states the sale', () => {
+  // The sender checks the sale is on and fills its rate, deadline and prices
+  // only for a flagged campaign; an unflagged template would ship raw braces,
+  // and a flagged one that never states the rate and deadline promises nothing.
+  const flags = campaignFlags();
+  assert.equal(flags.get('2026-11-black-friday')?.blackFridaySale, true);
+  for (const [key, spec] of flags) {
+    if (!spec.registrantHtml || !spec.registrantText) continue;
+    const bodies = [spec.registrantHtml, spec.registrantText].map((f) =>
+      fs.readFileSync(path.join(NEWSLETTER_DIR, f), 'utf8'),
+    );
+    const statesSale = bodies.some((b) => b.includes('{{SALE_PERCENT}}'));
+    assert.equal(
+      statesSale,
+      spec.blackFridaySale,
+      statesSale
+        ? `${key}: the registrants email states {{SALE_PERCENT}} but the campaign is not flagged blackFridaySale`
+        : `${key}: flagged blackFridaySale but the registrants email never states {{SALE_PERCENT}}`,
+    );
+    if (!spec.blackFridaySale) continue;
+    for (const [i, body] of bodies.entries()) {
+      for (const placeholder of REQUIRED_SALE_PLACEHOLDERS) {
+        assert.ok(
+          body.includes(`{{${placeholder}}}`),
+          `${key}: ${[spec.registrantHtml, spec.registrantText][i]} is missing {{${placeholder}}}`,
+        );
+      }
+    }
+  }
+});
+
 test('every {{PLACEHOLDER}} in a newsletter is one the sender fills', () => {
   // A misspelled placeholder ships as literal braces. The sender refuses to send
   // one, but only once someone is about to send; this fails at test time.
@@ -210,7 +244,8 @@ test('every {{PLACEHOLDER}} in a newsletter is one the sender fills', () => {
       trialPlans: new Set(['basic:monthly']),
     }),
   );
-  const known = new Set(['UNSUB_URL', 'DISCOUNT_LABEL', 'DISCOUNT_SHORT', ...offerKeys]);
+  const saleKeys = Object.keys(buildSaleEmailPlaceholders(Date.parse('2026-12-02T04:59:59Z')));
+  const known = new Set(['UNSUB_URL', 'DISCOUNT_LABEL', 'DISCOUNT_SHORT', ...offerKeys, ...saleKeys]);
   const files = fs.readdirSync(NEWSLETTER_DIR).filter((f) => f.endsWith('.html') || f.endsWith('.txt'));
   for (const file of files) {
     const body = fs.readFileSync(path.join(NEWSLETTER_DIR, file), 'utf8');
