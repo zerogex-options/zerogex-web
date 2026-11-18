@@ -53,7 +53,7 @@ help:
 	@echo "  make foh-revenue [QUARTER=<label>] - Print a quarter's gross subscription revenue and the Folds of Honor donation it owes, straight from Stripe's invoice API (no Sigma needed). Defaults to the quarter that most recently closed. Read-only"
 	@echo "  make foh-donation-reminder - Send the quarterly FOH reminder email to the admin (fully self-contained instructions inside). Meant for cron on the 5th of Jan/Apr/Jul/Oct; TO=<addr> overrides the FOH_REMINDER_EMAIL env; QUARTER=<label> overrides the auto-detected closing quarter; DRY_RUN=1 to preview"
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
-	@echo "  make pause-subscription EMAIL=<email> MONTHS=1-3 - Pause one member's monthly subscription on their behalf, exactly as the Account page's Pause instead of canceling does: no access and no charge for MONTHS, then it resumes on its own. The preview lists the bills it skips and the next charge date, which is what to tell them. Refuses past-due, non-monthly and already-paused subs; FORCE=1 also clears a scheduled cancel. Sends no email. Dry run by default, YES=1 to apply"
+	@echo "  make pause-subscription EMAIL=<email> MONTHS=1-3 - Pause one member's monthly subscription on their behalf, exactly as the Account page's Pause instead of canceling does: no access and no charge for MONTHS, then it resumes on its own. The preview lists the bills it skips and the next charge date, which is what to tell them; on a Pro plan it also says their API key is revoked for good and where to make a new one. Refuses past-due, non-monthly and already-paused subs; FORCE=1 also clears a scheduled cancel. Sends no email. Dry run by default, YES=1 to apply"
 	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: apply a percent-off-for-one-year coupon alongside any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. Defaults to the standing STRIPE_COUPON_WINBACK_* coupon for the member's plan, i.e. the rate WINBACK_DISCOUNT_LABEL advertises. COUPON=<id> pins an exact coupon; PERCENT=N makes that rate BINDING (refuses rather than granting a different one); CREATE_COUPON=1 mints/reuses a coupon at PERCENT and is picked over the standing one; an EARLIER win-back coupon on the sub is superseded rather than stacked (STACK=1 keeps it, other discount families are always preserved); KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make scan-orphan-payments [SINCE_DAYS=120] [VERBOSE=1] - Sweep every paid Stripe invoice for members who paid in full and are still on a free tier (the ones who never wrote in). Read-only; prints the recover-orphan-payment command for each hit"
 	@echo "  make trace-payment-claim [EMAIL=<email>] [AMOUNT=29.50] [DATE=2026-09-13] [LAST4=3392] - Answer 'you charged me' with evidence. Sweeps the WHOLE Stripe account by CARD FINGERPRINT, not by customer, so a charge on a second customer, a guest charge with no customer, or an incomplete PaymentIntent cannot hide. Read-only. Run this BEFORE telling anyone they were not charged"
@@ -1376,8 +1376,11 @@ set-cancellation:
 # it resumes on its own; the webhook switches access off and back on. Stripe
 # voids every bill dated inside the pause, so a member who just renewed loses
 # nothing. The preview prints the bills skipped and the next charge date: put
-# those in your reply. Monthly plans only, active/trialing only; a sub with a
-# scheduled cancel needs FORCE=1 (the pause clears it). Sends NO email.
+# those in your reply. On a Pro plan the pause also revokes the member's API key
+# for good (the key service can't suspend one); the preview says so and gives
+# the link for a new key, which belongs in the reply too. Monthly plans only,
+# active/trialing only; a sub with a scheduled cancel needs FORCE=1 (the pause
+# clears it). Sends NO email.
 # Examples:
 #   make pause-subscription EMAIL=foo@example.com MONTHS=2
 #   make pause-subscription EMAIL=foo@example.com MONTHS=2 YES=1

@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   derivePauseState,
@@ -7,13 +7,17 @@ import {
   isPausableCadence,
   monthlyBillUnix,
   billsDuringPause,
+  pauseRevokesApiKeys,
 } from '../core/subscriptionPause.ts';
+import { createBusyDb, httpCalls } from './support/busyDb.ts';
 
 // core/stripe.ts builds its price table at module load, so the env goes first.
-// Every cadence is mapped for one tier, so priceIdToSku resolves the real thing.
+// Every cadence is mapped for one tier, so priceIdToSku resolves the real thing,
+// plus Pro monthly for the API-key rule.
 process.env.STRIPE_PRICE_BASIC_MONTHLY = 'price_basic_monthly';
 process.env.STRIPE_PRICE_BASIC_QUARTERLY = 'price_basic_quarterly';
 process.env.STRIPE_PRICE_BASIC_ANNUAL = 'price_basic_annual';
+process.env.STRIPE_PRICE_PRO_MONTHLY = 'price_pro_monthly';
 const { priceIdToSku } = await import('../core/stripe.ts');
 
 // Pause is the entitlement-critical retention lever: a paused sub must read as
@@ -177,4 +181,103 @@ test('billsDuringPause: bad input previews nothing', () => {
   assert.deepEqual(billsDuringPause(Number.NaN, now, now + 86_400), { skippedUnix: [], nextChargeUnix: null });
   assert.deepEqual(billsDuringPause(now, now, now), { skippedUnix: [], nextChargeUnix: null });
   assert.deepEqual(billsDuringPause(now, now, now - 1), { skippedUnix: [], nextChargeUnix: null });
+});
+
+// --- API keys: who is told the pause costs them their key -------------------
+// A pause drops the member to public, the webhook revokes every API key on a
+// drop out of Pro, and the key service can't suspend a key, so it never works
+// again. pauseRevokesApiKeys decides who is warned: the cancel flow before the
+// pause, the Account page's paused banner during it, and the operator preview.
+// tests/apiKeys.test.ts holds it to the revocation itself.
+
+test('pauseRevokesApiKeys: a Pro plan loses its key, a Basic plan has none to lose', () => {
+  assert.equal(pauseRevokesApiKeys('pro'), true);
+  assert.equal(pauseRevokesApiKeys('basic'), false);
+  // No plan we sell, or no plan at all: nothing to warn about.
+  assert.equal(pauseRevokesApiKeys(null), false);
+  assert.equal(pauseRevokesApiKeys(undefined), false);
+});
+
+test("pauseRevokesApiKeys: reads the plan's tier, since users.tier is already public while paused", () => {
+  // What users.tier says during a pause. A paused banner keyed off it would
+  // never show, which is why the Account page passes the plan's tier.
+  assert.equal(pauseRevokesApiKeys('public'), false);
+  // The plan, through priceIdToSku, as the Account page and the script read it.
+  const planTier = (priceId: string | null) => (priceId ? priceIdToSku(priceId) : null)?.tier;
+  assert.equal(pauseRevokesApiKeys(planTier('price_pro_monthly')), true);
+  assert.equal(pauseRevokesApiKeys(planTier('price_basic_monthly')), false);
+  assert.equal(pauseRevokesApiKeys(planTier('price_nobody_sells')), false);
+  assert.equal(pauseRevokesApiKeys(planTier(null)), false);
+});
+
+// --- Operator preview (make pause-subscription) ------------------------------
+// A real dry run of scripts/pause-subscription.mts against a copy of the auth
+// schema, with Stripe answered by tests/support/stub-http.mts. The operator
+// relays the preview to the member, so on a Pro plan it has to say the key goes
+// and where the new one comes from.
+
+const busy = await createBusyDb('pause-subscription');
+const nowUnix = Math.floor(Date.now() / 1000);
+
+// A live monthly subscription, renewed 20 days ago, on `priceId`.
+function monthlySubscription(id: string, priceId: string) {
+  const anchor = nowUnix - 20 * 86_400;
+  return {
+    id,
+    object: 'subscription',
+    status: 'active',
+    customer: `cus_${id}`,
+    cancel_at_period_end: false,
+    pause_collection: null,
+    billing_cycle_anchor: anchor,
+    items: {
+      object: 'list',
+      url: `/v1/subscription_items?subscription=${id}`,
+      has_more: false,
+      data: [
+        {
+          id: `si_${id}`,
+          object: 'subscription_item',
+          current_period_end: monthlyBillUnix(anchor, 1),
+          price: { id: priceId, object: 'price' },
+        },
+      ],
+    },
+  };
+}
+
+function dryRunPause(t: TestContext, email: string, tier: string, priceId: string) {
+  const f = busy.fixture(t, `pause-${tier}`);
+  const subId = `sub_${tier}`;
+  busy.member(f, email, { tier, subscription_status: 'active', stripe_subscription_id: subId });
+  const result = busy.run(f, 'pause-subscription.mts', ['--email', email, '--months', '2'], {
+    env: {
+      STRIPE_SECRET_KEY: 'sk_test_pause_preview',
+      STRIPE_PRICE_BASIC_MONTHLY: 'price_basic_monthly',
+      STRIPE_PRICE_PRO_MONTHLY: 'price_pro_monthly',
+    },
+    routes: { [`GET api.stripe.com/v1/subscriptions/${subId}`]: monthlySubscription(subId, priceId) },
+  });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /^Dry run: nothing changed\./m);
+  assert.deepEqual(
+    httpCalls(f).map((c) => `${c.method} ${new URL(c.url).pathname}`),
+    [`GET /v1/subscriptions/${subId}`],
+    'a dry run only reads the subscription',
+  );
+  return result.stdout;
+}
+
+test('pause-subscription preview: a Pro plan says the API key is revoked for good, and where to make a new one', (t) => {
+  const stdout = dryRunPause(t, 'pro-member@example.com', 'pro', 'price_pro_monthly');
+  assert.match(stdout, /^Plan:\s+pro monthly$/m);
+  assert.match(stdout, /^API keys:\s+REVOKED when access goes off, and they can't be turned back on\.$/m);
+  // The link to relay, from NEXT_PUBLIC_APP_URL (https://zerogex.test in the harness).
+  assert.match(stdout, /Tell the member to make a new one at https:\/\/zerogex\.test\/account#api-access$/m);
+});
+
+test('pause-subscription preview: a Basic plan has no API key to lose, so no key line', (t) => {
+  const stdout = dryRunPause(t, 'basic-member@example.com', 'basic', 'price_basic_monthly');
+  assert.match(stdout, /^Plan:\s+basic monthly$/m);
+  assert.doesNotMatch(stdout, /API key/);
 });

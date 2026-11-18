@@ -1,13 +1,34 @@
 # Chandra: renewed before the pause, pause it for them (2026-11-17)
 
-American English, and each paragraph in the draft is a single line with no hard
+American English, and each paragraph in the reply is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
 
 **Inbound.** On Fri Nov 13, 7:16 PM, you told Chandrashekar VM ("Chandra") how
 to pause for 2 months from the Account page. Chandra replied: "dang, i missed
 your email and it renewed already!"
 
-> **Status:** draft, not sent.
+> **Status:** done, Wed Nov 18. Paused at 12:46 AM ET with
+> `make pause-subscription` (2 months, no refund). The site picked it up at
+> once: tier `public`, paused until Mon Jan 18, 12:46 AM ET. The Dec 14 and
+> Jan 14 bills are skipped, and the next charge is Sun Feb 14, 8:43 PM ET. No
+> API key on the account, so the pause revoked nothing and the API paragraph
+> came out of the reply. Then the reply below went out.
+> **Follow-up Mon Jan 18:** check that Pro came back on its own (see below).
+
+## Chandra's account
+
+| | |
+|---|---|
+| Email | vmshekar@gmail.com |
+| User id | `user_7b1d84c4cfce66edcb7b9d1d` |
+| Plan | Pro monthly, bills on the 14th at 8:43 PM ET |
+| Renewed | Sat Nov 14, 8:43 PM ET, a day after your Nov 13 email |
+| Paused | Wed Nov 18, 12:46 AM ET, for 2 months |
+| Resumes | Mon Jan 18, 12:46 AM ET (`2027-01-18T05:46:23Z`) |
+| Bills skipped | Mon Dec 14 and Thu Jan 14 (voided) |
+| Next charge | Sun Feb 14, 8:43 PM ET |
+| API keys | none, so nothing was revoked |
+| Stripe | `sub_1UDE4S4AOiqteMYYxAP3oQP4` |
 
 ## The read
 
@@ -18,66 +39,81 @@ your email and it renewed already!"
   exactly two monthly bills. Started right after a renewal, those are the
   December and January bills, and the November payment covers the stretch from
   the end of the pause to the February bill.
-- **Example, renewed Nov 15:** paid Nov 15, paused Nov 17, Dec 15 and Jan 15
-  voided, access back Jan 17, next charge Feb 15. One payment, about one month
-  of access.
+- **Chandra's numbers:** paid Nov 14, paused Nov 18, the Dec 14 and Jan 14
+  bills voided, access back Jan 18, next charge Feb 14. One payment buys the
+  few days in November plus Jan 18 to Feb 14, about one month of access.
 - **A refund on top would be a free month.** The pause still voids the January
   bill, so Chandra would get from the January resume to the February bill for
   nothing.
 - **Pause it for them instead of asking again.** Chandra already missed one
-  email. If this one gets missed too, December bills and you're back here. It's
-  one command.
+  email. If this one got missed too, December would have billed. It's one
+  command.
 - **Use `make pause-subscription`, not the Stripe Dashboard.** It sets the same
   pause the Account page does, resuming at the same minute two months out, and
   prints the bills it skips and the next charge date. The Dashboard resumes on
   a calendar day, and if that day is the January billing day, the January bill
   can land after the resume and get charged.
 
-## Steps
+## Commands (as run)
 
-Both run in `~/zerogex-web` on the server. Swap in Chandra's address.
+All in `~/zerogex-web` on the server.
 
-1. **Preview**, no changes:
+1. **Preview:**
 
    ```bash
-   make pause-subscription EMAIL=chandras-address@example.com MONTHS=2
+   make pause-subscription EMAIL=vmshekar@gmail.com MONTHS=2
    ```
 
-   Check that `Auth DB:` shows `/var/lib/zerogex/auth.db`, `Plan:` ends in
-   `monthly`, `Scheduled cancel: no`, and `Bills skipped:` lists a December
-   and a January date. If it stops with "not monthly", stop too: this reply
-   doesn't fit. If it says "Already paused", Chandra did it after writing.
-   Skip step 2 and drop "I've paused it for you" from the reply.
+   Showed `Auth DB: /var/lib/zerogex/auth.db`, `Plan: pro monthly`,
+   `Scheduled cancel: no`, bills skipped Dec 14 and Jan 14, next charge Feb 14.
 2. **Pause:**
 
    ```bash
-   make pause-subscription EMAIL=chandras-address@example.com MONTHS=2 YES=1
+   make pause-subscription EMAIL=vmshekar@gmail.com MONTHS=2 YES=1
    ```
 
-   It should end with `Done. ... is paused for 2 months.` and `The site has it:
-   tier public, paused until ...`. If it says the site hasn't heard yet, run
-   `make diagnose-user` for Chandra a minute later.
-3. **Send the reply.** Fill in the two dates from the output: `Access: ... back
-   on its own` and `Next charge:`. Your Gmail signature goes under the
-   sign-off, as in your Nov 13 email.
+   Ended with `Done. vmshekar@gmail.com is paused for 2 months.` and `The site
+   has it: tier public, paused until 2027-01-18T05:46:23.000Z.`
+3. **API key check.** Pausing a Pro member revokes their API keys, and the
+   webhook logs it when it does:
 
-## Draft reply
+   ```bash
+   sqlite3 /var/lib/zerogex/auth.db "SELECT created_at, type, message FROM audit_events WHERE user_id = 'user_7b1d84c4cfce66edcb7b9d1d' AND type LIKE 'api_key%' ORDER BY created_at DESC LIMIT 3;"
+   ```
+
+   No rows: Chandra never had a key, so the API paragraph came out of the
+   reply.
+
+## Reply (sent)
 
 Hi Chandra,
 
 No worries at all, and you haven't lost anything. I've paused it for you, so there's nothing you need to do.
 
-The payment that just went through carries over to when you're back. The pause skips your December and January bills, so you won't be charged again until {{next charge date}}. Your access is off while it's paused and comes back on its own on {{back-on date}}.
+The payment that just went through carries over to when you're back. The pause skips your December and January bills, so you won't be charged again until February 14. Your access is off while it's paused and comes back on its own on January 18.
 
-If you're back sooner, click "Resume now" at https://zerogex.io/account.
+If you're back sooner, click "Resume now" at https://zerogex.io/account, and billing picks up again on your usual monthly date.
 
 Enjoy the trip,
 
+## Follow-up, Mon Jan 18
+
+```bash
+make diagnose-user EMAIL=vmshekar@gmail.com
+```
+
+Tier should read `pro`, and the recent events should include
+`billing_subscription_resumed`. If tier still reads `public`, the site never
+heard that the pause ended and Chandra is locked out. Fix that before anything
+else.
+
 ## Worth knowing (can wait)
 
-- **No pause has ended on its own yet.** The pause shipped Nov 6. The app turns
-  access back on only when Stripe reports the pause ended, and nothing
-  re-checks on its own. The first pauses (if anyone has taken one) end in early
-  December at the earliest. When one does, run `make diagnose-user` for that
-  member and look for `billing_subscription_resumed`. If it's missing, fix it
-  then, well before Chandra's January date.
+- **This may be the first pause to end on its own.** The pause shipped Nov 6.
+  The app turns access back on only when Stripe reports the pause ended, and
+  nothing re-checks on its own. A 1-month pause taken in early November would
+  end in early December. If one does, the same `diagnose-user` check on that
+  member answers the question before Chandra's date.
+- **Pausing a Pro member revokes their API keys for good**, and neither the
+  pause screen nor the paused banner says so. It didn't matter here, since
+  Chandra had no key. Suggested as a separate task.

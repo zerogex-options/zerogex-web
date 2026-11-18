@@ -79,6 +79,10 @@ type Props = {
   // Whether a pause can be offered (a live, unpaused subscription on a monthly
   // plan; see canPause in /api/billing/status).
   canPause: boolean;
+  // Whether a pause would revoke the member's API key (a Pro plan; see
+  // pauseRevokesApiKeys in core/subscriptionPause.ts). The pause step warns
+  // before a length is picked, and the confirmation repeats it.
+  pauseRevokesApiKeys: boolean;
 };
 
 const TIER_NAME: Record<BillableTier, string> = { basic: 'Basic', pro: 'Pro' };
@@ -112,6 +116,7 @@ export default function CancelRetentionModal({
   offerAvailable,
   planOffers,
   canPause,
+  pauseRevokesApiKeys,
 }: Props) {
   const t = usePageT(dict);
   // The offer step opens the flow whenever there is something to offer.
@@ -688,6 +693,7 @@ export default function CancelRetentionModal({
           <>
             <h2 style={headingStyle}>{t('pauseHeading')}</h2>
             <p style={bodyStyle}>{t('pauseBody')}</p>
+            {pauseRevokesApiKeys && <p style={noticeStyle}>{t('pauseApiKeyWarning')}</p>}
             <div style={{ display: 'flex', gap: 10, margin: '4px 0 18px' }}>
               {[1, 2, 3].map((m) => (
                 <button
@@ -731,6 +737,7 @@ export default function CancelRetentionModal({
             <p style={bodyStyle}>
               {resumeLabel ? t('pausedBody', { date: resumeLabel }) : t('pausedBodyNoDate')}
             </p>
+            {pauseRevokesApiKeys && <p style={bodyStyle}>{t('pausedApiKeyNote')}</p>}
             <div style={buttonColumn}>
               <button type="button" onClick={onClose} style={primaryButtonStyle(false)}>
                 {t('done')}
@@ -823,6 +830,17 @@ const bodyStyle: React.CSSProperties = {
   fontSize: 14.5,
   lineHeight: 1.6,
   color: 'var(--color-text-secondary)',
+};
+
+// Something the member must read before choosing (the pause step's API-key
+// warning): body text, boxed so it isn't skimmed past on the way to a button.
+const noticeStyle: React.CSSProperties = {
+  ...bodyStyle,
+  padding: '10px 12px',
+  borderRadius: 10,
+  border: '1px solid var(--color-border)',
+  background: 'var(--bg-active)',
+  color: 'var(--color-text-primary)',
 };
 
 const subheadingStyle: React.CSSProperties = {

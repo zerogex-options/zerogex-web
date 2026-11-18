@@ -59,15 +59,23 @@ He attached a picture. I couldn't see it; see "Decide before sending".
 
 ## Verify first
 
-- **His plan.** Dealer Positioning, the Expiry filter and the ladders' Basis
-  all need Basic. The screenshot doesn't show his address:
+- **His plan: done, Nov 18.** `y.patronski1819@gmail.com` is `basic`,
+  `active`, so the draft goes as written.
+- **He also has a free account, `ypatronski1819@gmail.com` (no dot).** Gmail
+  ignores dots, so both addresses reach one inbox. Sign-in matches the exact
+  address, though (`createOrLoginOAuthUser` in `core/serverAuth.ts`), so
+  ZeroGEX treats them as two accounts. If his Google sign-in is tied to the
+  free one, signing in with Google puts him where everything in the draft is
+  locked. To see which one he uses:
 
   ```bash
-  sudo sqlite3 -readonly /var/lib/zerogex/auth.db "SELECT email, tier, subscription_status FROM users WHERE email LIKE '%patronski%' OR email LIKE '%yordan%';"
+  sudo sqlite3 -readonly -header /var/lib/zerogex/auth.db "SELECT u.email, u.tier, u.created_at, u.last_seen_at, u.password_hash IS NOT NULL AS has_password, (SELECT group_concat(i.provider) FROM user_identities i WHERE i.user_id = u.id) AS linked FROM users u WHERE u.email IN ('y.patronski1819@gmail.com', 'ypatronski1819@gmail.com');"
   ```
 
-  `tier` should read `basic` or `pro`. If it reads `public`, or no row comes
-  back, the links stop at the paywall. Add a line saying they come with Basic.
+  If the free row's `last_seen_at` is empty or older than the paid row's, he
+  uses the paid account: send as written. If the free row is the more recent
+  one, he's been signing in to the free account, and the reply needs a line
+  about that first.
 
 ## Draft
 
@@ -103,3 +111,5 @@ I'm also going to add the heatmap: today's SPX open interest, strike by strike, 
   activity, not positioning.
 - **He asks about GLD or the MAG 7.** Same as Nov 5: the rest of the MAG 7,
   then GLD. No date.
+- **He says a page asks him to upgrade.** He's signed in to the free
+  `ypatronski1819@gmail.com` account. See "Verify first".
