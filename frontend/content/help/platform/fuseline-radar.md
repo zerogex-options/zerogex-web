@@ -39,9 +39,9 @@ The plan is remembered in this browser, so it is there when you come back.
 
 **Chart in** sets the instrument for the chart, its levels and the ladder. It is the same choice as the symbol picker in the site header: picking ES or SPX in either place moves both. Picking another symbol in the header (SPY, QQQ and so on) leaves the radar on its last ES or SPX choice, because the radar only reads those two.
 
-The gamma behind the ladder and the levels is **SPX-derived**. In ES, the candles, every strike and every level are carried onto the ES price axis at a **cost-of-carry ratio**: the futures fair value implied by SPX, interest rates and dividends. The line under the controls shows that ratio, labeled **theoretical carry, not measured** in amber.
+The gamma behind the ladder and the levels is **SPX-derived**. In ES, every strike and every level is carried onto the ES price axis at a **cost-of-carry ratio**: the futures fair value implied by SPX, interest rates and dividends. The candles are not carried: they are ES's own price, from the front contract (the feed moves to the next quarter about a week before expiry). The line under the controls shows the ratio, labeled **theoretical carry, not measured** in amber.
 
-Carry is not the live ES price. ES trades away from fair value, usually by a few points, and by more overnight or around news. So a level on this page can sit a few points from the same level on your own ES chart. Measuring the live ES/SPX gap takes licensed CME futures data, which ZeroGEX does not carry. If a few points matter, plan in SPX: with **Plan prices in** and **Chart in** both on SPX, nothing is converted.
+Carry is not the live ES/SPX gap. ES trades away from fair value, usually by a few points, and by more overnight or around news. So in ES a level can sit a few points from where it would be at the live gap, against candles that are real ES prices. Measuring the live ES/SPX gap takes licensed CME futures data, which ZeroGEX does not carry. If a few points matter, plan in SPX: with **Plan prices in** and **Chart in** both on SPX, nothing is converted.
 
 If the ratio is unavailable, the radar shows SPX rather than draw SPX numbers on an ES axis, and says so. Your plan is unchanged either way.
 
