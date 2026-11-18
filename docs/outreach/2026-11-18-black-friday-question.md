@@ -1,4 +1,4 @@
-# the_real_scientist_1: "will you be running any Black Friday specials?" (2026-11-18)
+# Jed (the_real_scientist_1): "will you be running any Black Friday specials?" (2026-11-18)
 
 American English, and each paragraph in the reply is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
@@ -14,8 +14,9 @@ No name given, so the draft opens "Hi there".
 
 > **Status:** account checked Wed Nov 18: `make diagnose-user` says "No user
 > found", so they have never subscribed and the sale applies to them. The sale
-> opens early, at 12:00 AM ET Thursday, Nov 19. Reply not sent yet: send it once
-> `make setup-black-friday VERIFY=1` passes on the server.
+> opens early, at 12:00 AM ET Thursday, Nov 19. The first reply went out. Jed
+> answered at 12:38 PM: he's buying Pro annual at the sale price. The second
+> reply is at the end of this note ("Follow-up").
 
 ## The read
 
@@ -74,3 +75,97 @@ If you'd like help picking the plan that fits how you trade, just reply. I read 
 Best,
 Michael
 Founder, ZeroGEX
+
+## Follow-up: Jed's reply (Wed Nov 18, 12:38 PM)
+
+> Thank you so much. I almost went with unusual whales then I been binge
+> reading all the articles. I need up to date info because I need it to plan
+> for collecting premium. Thats all I do is collect premium and maybe a
+> butterfly. credit spreads 90% of time and 10% butterflies or broken wing. Try
+> to collect 40 to 60% of premium and close trade. one and done as that is the
+> goal.
+>
+> Zerogex is what I feel will help me. It seems you made something nice. Now
+> what I did like at unusual whales was the periscope but I think you do have
+> something like that. Plus from reading how its calculated, not sure if it was
+> right.
+>
+> Anyway will be purchasing the pro yearly for $150 and I wont be refunding as
+> this seems like where I need to be.
+>
+> Have you considered a discord or a community chat within the website for
+> members and you to discuss strategies and issues?
+>
+> Thanks,
+>
+> Jed
+
+### The read
+
+- **Make sure he pays $149.50, not $299.** He has no account yet, and the sale
+  opens at midnight ET. Signing up now is fine (he has to verify his email
+  before checkout anyway), but a checkout before midnight charges the regular
+  price. The reply says so plainly.
+- **He sells premium**: credit spreads, sometimes butterflies and broken wings,
+  taking 40 to 60% and closing. Point him at the four things built for that,
+  each named the way the app names it:
+  - the walls and the gamma flip, and the Gamma Terminal's **Dealer Gamma @
+    Spot** box (long gamma: hedging modeled to lean against moves; short
+    gamma: to add to them), which is the help center's own wording;
+  - **Pin Strike** for butterflies (the reachable 0DTE strike with the
+    strongest restoring dealer gamma into the close);
+  - the **Strategy Builder**: verticals, iron condors and butterflies from
+    the live chain, with breakevens. There is no broken-wing preset, but
+    every leg's strike is adjustable, so the reply says that instead;
+  - the **Spread Monitor**, for when fills will cost him.
+  - Pro adds **Backtesting** with "defined-risk verticals and iron condors"
+    (the help page's words), tested against gamma conditions.
+- **Periscope.** Unusual Whales' GEX Periscope shows market-maker gamma per
+  strike and expiry. The closest view here is **GEX Heatmap · Strike × DTE**
+  on the Dealer Positioning page: net dealer gamma by strike for each
+  expiration out to 7DTE. His doubt about how it's calculated is the opening
+  for `/methodology`: nobody can see which side a dealer holds, so every tool
+  models it, and ZeroGEX says how. No claims about Unusual Whales beyond that.
+- **Discord: your call.** Nothing in the repo plans one, so the draft says
+  "not yet, noted" and invites him to email you directly. Change it if you
+  have plans.
+
+### Draft reply
+
+Same thread.
+
+Hi Jed,
+
+Thank you, that's great to hear, and welcome aboard. Selling premium is a good fit for what ZeroGEX does.
+
+One thing on timing so you get the $149.50: the sale starts at midnight Eastern tonight. You can create your account now at https://zerogex.io/register and verify your email, then after midnight go to https://zerogex.io/pricing, choose Annual, and click "Get Pro at 50% off". If you check out before midnight, it charges the regular $299.
+
+For credit spreads and butterflies, here's where I'd start:
+
+- The call and put walls and the gamma flip, on the Main Dashboard and in the Gamma Terminal. The Terminal's "Dealer Gamma @ Spot" box shows whether dealers are modeled long gamma, where their hedging tends to lean against moves, or short gamma, where it tends to add to them. That's useful context for where to put your short strikes and how much room to give them.
+- Pin Strike, for butterflies: the reachable same-day strike with the strongest modeled dealer gamma into the close.
+- The Strategy Builder has verticals, iron condors and butterflies built from the live chain, with breakevens and the P&L chart. Every leg's strike is adjustable, so you can skew a butterfly into a broken wing.
+- The Spread Monitor shows how wide the chain is quoted, so you can tell when fills are going to cost you.
+- With Pro you also get Backtesting, which tests defined-risk verticals and iron condors against the gamma conditions you choose.
+
+On Periscope: the closest thing here is the "GEX Heatmap · Strike × DTE" on the Dealer Positioning page. It shows net dealer gamma by strike for each expiration out to 7 days. You're right to look at how these are calculated: nobody can see which side dealers actually hold, so every tool is modeling it. Here's exactly how ZeroGEX does it: https://zerogex.io/methodology
+
+On a Discord or community chat: not yet, but it's a good idea and I've noted it. Until then, anything you send comes straight to me, and I'm happy to talk through how you're using the levels for your spreads.
+
+Thanks again for choosing ZeroGEX.
+
+Best,
+Michael
+Founder, ZeroGEX
+
+### Worth knowing
+
+- **A credit-spread community already uses ZeroGEX.** Brandon, a creator
+  partner, runs a Discord called The Credit Spread Club
+  (`docs/outreach/2026-10-19-brandon-credit-spread-club-creator-partner.md`).
+  If you want to give Jed somewhere to talk spreads now, that's an option,
+  but it's Brandon's room, not yours, so it's left out of the draft.
+- **He may be the sale's first real buyer.** After he buys, his subscription
+  in Stripe should show the coupon "Black Friday: 50% off your first year" and
+  the metadata `black_friday = 1`. That's the first live check that checkout
+  applied the sale.
