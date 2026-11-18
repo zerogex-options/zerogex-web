@@ -1,5 +1,6 @@
 import path from 'path';
 import { DatabaseSync } from 'node:sqlite';
+import { deriveMailboxKeys } from './mailboxKey.ts';
 
 const DB_PATH = process.env.AUTH_DB_PATH ?? path.join(process.cwd(), 'data', 'auth.db');
 
@@ -726,6 +727,23 @@ function initDb(): DatabaseSync {
   // longer log in (local or OAuth) and all live sessions are severed. Also
   // excluded from the win-back cohort and any other outbound email.
   ensureColumn('users', 'deleted_at', 'TEXT');
+
+  // The inbox an address delivers to, used only to match an address to an
+  // account: Gmail spellings that differ by dots, a +tag or googlemail.com
+  // share one key, and any other address is just its lower-cased self. Rules
+  // and reasons in core/mailboxKey.ts. users.email stays as entered; nothing
+  // sends to this column, it is only compared against.
+  //
+  // Indexed for the sign-in lookups, and deliberately NOT unique: accounts
+  // that already share an inbox exist, and nothing merges them (`make
+  // gmail-duplicates` lists them). Every INSERT in core/serverAuth.ts writes
+  // it. deriveMailboxKeys fills it in for existing rows the boot it is added
+  // and, on every boot after, repairs any row written without it. It runs
+  // every boot rather than behind ensureColumn's "just added" return because
+  // re-deriving a column computed from users.email can only correct it.
+  ensureColumn('users', 'mailbox_key', 'TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_users_mailbox_key ON users(mailbox_key);');
+  deriveMailboxKeys(db);
 
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification

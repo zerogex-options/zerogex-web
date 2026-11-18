@@ -113,3 +113,50 @@ I'm also going to add the heatmap: today's SPX open interest, strike by strike, 
   then GLD. No date.
 - **He says a page asks him to upgrade.** He's signed in to the free
   `ypatronski1819@gmail.com` account. See "Verify first".
+
+## If he asks to merge the two accounts
+
+Leave both alone unless he asks. Run this only once branch
+`claude/gmail-dot-variant-signin` is deployed: before it, Google sign-in
+refuses a deleted address before it looks at the Google link, so step 2 would
+lock him out of Sign in with Google.
+
+The sign-in fix doesn't move him by itself. Google sign-in now finds an
+account under another spelling of a Gmail address, but only when that Google
+account isn't linked yet, and his is already linked to the free account. The
+merge moves the link to the paid account and closes the free one.
+
+1. Run the read-only query under "Verify first". `linked` should be `google`
+   on the free row and empty on the paid row. If the paid row already shows
+   `google`, stop: step 2 would fail, and that's a different situation.
+2. Move the link and close the free account, all or nothing:
+
+   ```bash
+   sudo sqlite3 -bail -cmd ".timeout 5000" /var/lib/zerogex/auth.db <<'SQL'
+   BEGIN;
+   UPDATE user_identities
+      SET user_id = (SELECT id FROM users WHERE email = 'y.patronski1819@gmail.com'),
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    WHERE provider = 'google'
+      AND user_id = (SELECT id FROM users WHERE email = 'ypatronski1819@gmail.com');
+   DELETE FROM sessions
+    WHERE user_id = (SELECT id FROM users WHERE email = 'ypatronski1819@gmail.com');
+   UPDATE users
+      SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    WHERE email = 'ypatronski1819@gmail.com' AND deleted_at IS NULL;
+   INSERT INTO audit_events (id, type, user_id, email, message, created_at)
+   SELECT 'audit_' || lower(hex(randomblob(12))), 'account_merged', id, email,
+          'Duplicate Gmail spelling closed by hand; its Google sign-in moved to y.patronski1819@gmail.com',
+          strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+     FROM users WHERE email = 'ypatronski1819@gmail.com';
+   COMMIT;
+   SQL
+   ```
+
+3. Run the "Verify first" query again. `linked` now reads `google` on the paid
+   row and is empty on the free one.
+
+He's signed out wherever he was using the free account. From then on, Sign in
+with Google lands in the paid account, and so does typing the dotless spelling
+with his password or into "Forgot password".
