@@ -155,13 +155,14 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
 }
 
 // ── Founder card switch ───────────────────────────────────────────────────────
-// The "I'm Michael, and I built ZeroGEX." card near the top of the page is
-// hidden for now (November 2026). To bring it back, change false to true and
-// deploy. Nothing else was taken out: the card's copy is still in
-// Client.i18n.ts, page.tsx still finds the photo in public/, and the footer,
-// homepage hero and article bylines still link to /about#founder. While the
-// card is off, those links open this page at the top.
-const SHOW_FOUNDER_CARD = false;
+// The "I'm Michael, and I built ZeroGEX." card near the top of the page. It
+// was hidden for a week in November 2026 and is back on. To hide it again,
+// change true to false and deploy: the card's copy stays in Client.i18n.ts,
+// page.tsx still finds the photo in public/, and the footer, homepage hero and
+// article bylines keep linking to /about#founder (with the card off, those
+// links open this page at the top). The "Based in" line sits in the About
+// ZeroGEX panel below, not on this card, so it stays on the page either way.
+const SHOW_FOUNDER_CARD = true;
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AboutPage({ founderPhoto = null }: { founderPhoto?: string | null }) {
@@ -277,8 +278,8 @@ export default function AboutPage({ founderPhoto = null }: { founderPhoto?: stri
       {/* ── Founder Intro ────────────────────────────────────────────────────── */}
       {/* Who builds it, then what it is. The footer and the homepage hero both
           link to /about#founder, so the id sits on the card itself and the
-          scroll margin keeps it clear of the fixed LandingHeader. The card is
-          switched off for now; see SHOW_FOUNDER_CARD above. */}
+          scroll margin keeps it clear of the fixed LandingHeader. The card can
+          be switched off; see SHOW_FOUNDER_CARD above. */}
       <section style={{ padding: '40px 32px 0', maxWidth: 880, margin: '0 auto', display: 'grid', gap: 16 }}>
         {SHOW_FOUNDER_CARD && (
           <div
@@ -354,8 +355,9 @@ export default function AboutPage({ founderPhoto = null }: { founderPhoto?: stri
           <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: 0 }}>
             {t('founderIntro')}
           </p>
-          {/* Where ZeroGEX is based, in this panel because the founder card
-              above is switched off. Same place as the footer line and the
+          {/* Where ZeroGEX is based. In this always-visible panel rather than
+              on the founder card, so it stays on the page if the card is
+              switched off again. Same place as the footer line and the
               Organization structured data (SITE_ADDRESS). */}
           <p
             style={{
