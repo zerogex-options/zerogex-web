@@ -6,6 +6,7 @@ import type { PageDictionary } from '@/core/LanguageContext';
 export const dict: PageDictionary = {
   en: {
     aboutEyebrow: 'About ZeroGEX',
+    aboutLocation: 'Based in Worthington, Ohio, USA',
     heroTitle: 'Trade With Dealer Positioning\u00a0-',
     heroTitleHighlight: 'Not Guesswork',
     heroSub: 'Real-time gamma exposure, flow, and modeled market structure\u00a0- the context that tells you which regime you are trading in.',
@@ -124,6 +125,7 @@ export const dict: PageDictionary = {
   },
   it: {
     aboutEyebrow: 'Informazioni su ZeroGEX',
+    aboutLocation: 'Con sede a Worthington, Ohio, USA',
     heroTitle: 'Fai trading con il posizionamento dei dealer\u00a0-',
     heroTitleHighlight: 'Non a caso',
     heroSub: 'Esposizione gamma in tempo reale, flusso e struttura di mercato modellata\u00a0- il contesto che ti dice in quale regime stai operando.',
@@ -242,6 +244,7 @@ export const dict: PageDictionary = {
   },
   de: {
     aboutEyebrow: 'Über ZeroGEX',
+    aboutLocation: 'Mit Sitz in Worthington, Ohio, USA',
     heroTitle: 'Handeln Sie mit Dealer-Positionierung\u00a0-',
     heroTitleHighlight: 'Nicht auf Verdacht',
     heroSub: 'Echtzeit-Gamma-Exposure, Flow und modellierte Marktstruktur\u00a0- der Kontext, der dir sagt, in welchem Regime du handelst.',
@@ -360,6 +363,7 @@ export const dict: PageDictionary = {
   },
   es: {
     aboutEyebrow: 'Acerca de ZeroGEX',
+    aboutLocation: 'Con sede en Worthington, Ohio, EE. UU.',
     heroTitle: 'Opera con el posicionamiento de los dealers\u00a0-',
     heroTitleHighlight: 'No al azar',
     heroSub: 'Exposición gamma en tiempo real, flujo y estructura de mercado modelada\u00a0- el contexto que te dice en qué régimen estás operando.',
@@ -478,6 +482,7 @@ export const dict: PageDictionary = {
   },
   fr: {
     aboutEyebrow: 'À propos de ZeroGEX',
+    aboutLocation: 'Basé à Worthington, Ohio, États-Unis',
     heroTitle: 'Tradez avec le positionnement des dealers\u00a0-',
     heroTitleHighlight: 'Pas au hasard',
     heroSub: "Exposition gamma en temps réel, flux et structure de marché modélisée\u00a0- le contexte qui vous dit dans quel régime vous opérez.",

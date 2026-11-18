@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Mail, Youtube } from 'lucide-react';
+import { ArrowRight, Mail, MapPin, Youtube } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { brandLogo } from '@/core/brand';
 import { INTEGRATIONS_HUB } from '@/core/integrations';
@@ -238,20 +238,32 @@ export default function Footer({ theme }: FooterProps) {
             <p className="zg-small" style={{ margin: 0, maxWidth: 300 }}>
               {t('footer.tagline')}
             </p>
-            {/* Who builds it, on every page. Points at the founder note on
-                /about, which also says how AI fits into the development work. */}
-            <Link
-              href="/about#founder"
-              className="zg-footer-link"
-              style={{ fontWeight: 600, maxWidth: 300 }}
-            >
-              {t('footer.founderBuilt')}
-              <ArrowRight
-                size={13}
-                aria-hidden="true"
-                style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 6 }}
-              />
-            </Link>
+            {/* Who builds it and where, on every page. The link points at the
+                founder note on /about, which also says how AI fits into the
+                development work. The location is city and state only;
+                SITE_ADDRESS in core/articleRegistry.ts carries the same place
+                into the structured data. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+              <Link
+                href="/about#founder"
+                className="zg-footer-link"
+                style={{ fontWeight: 600, maxWidth: 300 }}
+              >
+                {t('footer.founderBuilt')}
+                <ArrowRight
+                  size={13}
+                  aria-hidden="true"
+                  style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: 6 }}
+                />
+              </Link>
+              <p
+                className="zg-small"
+                style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6, maxWidth: 300 }}
+              >
+                <MapPin size={13} aria-hidden="true" style={{ flexShrink: 0 }} />
+                {t('footer.location')}
+              </p>
+            </div>
             <SocialLinks />
             <Link
               href="/giving"
