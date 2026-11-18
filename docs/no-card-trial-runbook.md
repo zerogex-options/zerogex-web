@@ -34,7 +34,7 @@ Only a **first-time 7-day Basic trial**. These keep the card-first trial, as tod
 | Dashboard, every visit | A banner with the trial end date and an **Add a card** button, until a card is added. |
 | Account page | An **Add a card** panel. Coming back from the portal shows "Card added". |
 | Trial-end email (48h before) | "Your ZeroGEX trial ends in 2 days - add a card to keep it", with the price and one button. No Pro offer. |
-| Switching plans during the trial | Asked to add a card first. Nothing changes until they do. |
+| Switching plans during the trial | Asked to add a card first, with an **Add a card now** link. Once the card is saved, Stripe sends them back to the Pricing page with the plan they picked and its price on screen to confirm, as with any switch. Nothing is charged until they confirm. (The Account page's own **Add a card** still comes back to the Account page.) |
 | ~2h signup note and verify reminder | Describe the trial as needing no card. |
 
 The Terms (section 4), the help article on billing (all five languages) and two comparison articles were reworded so they are true with the flag on **or** off. Please read the Terms sentence: it is the one legal text this touched. The Terms version and effective date were left alone (bumping the version makes every member re-accept).

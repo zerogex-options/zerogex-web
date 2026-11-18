@@ -105,6 +105,12 @@ type Props = {
   // "your card is collected at signup". Not for a ?reactivate=1 visitor, whose
   // extended trial still takes a card.
   noCardTrial: boolean;
+  // Back from adding a card in the middle of a switch (core/noCardTrial.ts
+  // finishSwitchPath): the plan they were switching to, already checked
+  // server-side (one we sell, and a switch their trial makes in-app), or null.
+  // The page opens that switch's confirm step, priced; nothing is charged until
+  // they confirm the amount.
+  finishSwitch: { tier: BillableTier; cadence: Cadence } | null;
 };
 
 // What the promo is worth over its whole run: $10 off × 12 months = $120.
@@ -120,6 +126,18 @@ const SWITCH_SOURCE_BY_FROM: Record<string, string> = {
   pro_interest: 'pro_interest_email',
   locked_page: 'locked_page',
 };
+
+// The billing-portal link a failed switch comes back with, if any: where the
+// bank confirms a payment (3-D Secure), or, for a trial with no card yet,
+// Stripe's add-a-card screen (it returns here with the switch open).
+type PortalLink = { url: string; addCard: boolean };
+
+function portalLinkOf(err: unknown): PortalLink | null {
+  const e = err as { portalUrl?: unknown; code?: unknown } | null | undefined;
+  return typeof e?.portalUrl === 'string' && e.portalUrl
+    ? { url: e.portalUrl, addCard: e.code === 'NEEDS_CARD' }
+    : null;
+}
 
 type TierAction =
   | { kind: 'link'; href: string; label: string }
@@ -841,6 +859,7 @@ function PricingClientInner({
   trialProUpgradeUntil,
   guaranteeUsed,
   noCardTrial,
+  finishSwitch,
 }: Props) {
   const t = usePageT(dict);
   const { locale } = useLanguage();
@@ -913,9 +932,10 @@ function PricingClientInner({
     chargeAt?: string;
     resumesCanceled?: boolean;
   } | null>(null);
-  // A switch the bank must approve (3-D Secure) cannot be finished here; the
-  // server hands back a billing-portal link that can.
-  const [errorPortalUrl, setErrorPortalUrl] = useState<string | null>(null);
+  // A switch the bank must approve (3-D Secure) cannot be finished here, and
+  // one on a trial with no card yet needs a card first; either way the server
+  // hands back a billing-portal link that can take the next step.
+  const [errorPortal, setErrorPortal] = useState<PortalLink | null>(null);
   const trialPlans = useMemo(() => new Set(trialPlanKeys), [trialPlanKeys]);
   // A referred visitor carries the zgx_ref cookie set when they landed on the
   // ?ref= link; surface a reminder that their discount applies at checkout.
@@ -1114,7 +1134,7 @@ function PricingClientInner({
         return;
       }
       setError(null);
-      setErrorPortalUrl(null);
+      setErrorPortal(null);
       setBusyTier(tier);
       try {
         if (hasActiveSubscription) {
@@ -1190,6 +1210,8 @@ function PricingClientInner({
         url?: string;
         error?: string;
         portalUrl?: string;
+        // 'NEEDS_CARD': a trial with no card yet; portalUrl is the add-a-card screen.
+        code?: string;
         confirm?: {
           amountDue?: number;
           amountFormatted?: string;
@@ -1224,6 +1246,7 @@ function PricingClientInner({
       if (!response.ok) {
         const thrown = new Error(payload.error ?? t('errorBillingFailed'));
         if (payload.portalUrl) (thrown as Error & { portalUrl?: string }).portalUrl = payload.portalUrl;
+        if (payload.code) (thrown as Error & { code?: string }).code = payload.code;
         throw thrown;
       }
       if (!payload.url) throw new Error(t('errorBillingFailed'));
@@ -1232,33 +1255,43 @@ function PricingClientInner({
     [switchSource, t],
   );
 
-  const handleChangePlan = useCallback(
-    async (tier: BillableTier) => {
+  // The first step of a switch: price it and open the confirm step (or follow
+  // the URL the server hands back). From a plan card, a "switch to Pro" link,
+  // and the return from adding a card. A failure keeps the server's portal
+  // link, so a trial with no card yet is offered the add-a-card screen.
+  const startPlanChange = useCallback(
+    async (tier: BillableTier, planCadence: Cadence) => {
       setError(null);
-      setErrorPortalUrl(null);
+      setErrorPortal(null);
       setBusyTier(tier);
       try {
-        await requestPlanChange(tier, cadence, null);
+        await requestPlanChange(tier, planCadence, null);
       } catch (err) {
         setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
+        setErrorPortal(portalLinkOf(err));
         setBusyTier(null);
       }
     },
-    [cadence, requestPlanChange, t],
+    [requestPlanChange, t],
+  );
+
+  const handleChangePlan = useCallback(
+    (tier: BillableTier) => startPlanChange(tier, cadence),
+    [cadence, startPlanChange],
   );
 
   const handleConfirmSwitch = useCallback(async () => {
     if (!confirmSwitch) return;
     const { tier, cadence: planCadence, amountDue, prorationDate } = confirmSwitch;
     setError(null);
-    setErrorPortalUrl(null);
+    setErrorPortal(null);
     setBusyTier(tier);
     setConfirmSwitch(null);
     try {
       await requestPlanChange(tier, planCadence, { amountDue, prorationDate });
     } catch (err) {
       setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
-      setErrorPortalUrl((err as Error & { portalUrl?: string })?.portalUrl ?? null);
+      setErrorPortal(portalLinkOf(err));
       setBusyTier(null);
     }
   }, [confirmSwitch, requestPlanChange, t]);
@@ -1275,12 +1308,18 @@ function PricingClientInner({
     if (!isAuthed || !hasActiveSubscription || subscriptionStatus !== 'trialing') return;
     if (currentPlan?.tier !== 'basic') return;
     autoSwitchStarted.current = true;
-    setBusyTier('pro');
-    requestPlanChange('pro', 'monthly', null).catch((err) => {
-      setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
-      setBusyTier(null);
-    });
-  }, [authLoading, currentPlan, hasActiveSubscription, isAuthed, requestPlanChange, searchParams, subscriptionStatus, t]);
+    void startPlanChange('pro', 'monthly');
+  }, [authLoading, currentPlan, hasActiveSubscription, isAuthed, searchParams, startPlanChange, subscriptionStatus]);
+
+  // Back from adding a card in the middle of a switch (finishSwitch, checked
+  // server-side): open that switch's confirm step, priced, just as a click on
+  // its card does. Nothing is charged until they confirm the amount shown. One
+  // guard with the link above, so a page opens at most one switch.
+  useEffect(() => {
+    if (!finishSwitch || autoSwitchStarted.current || authLoading || !isAuthed) return;
+    autoSwitchStarted.current = true;
+    void startPlanChange(finishSwitch.tier, finishSwitch.cadence);
+  }, [authLoading, finishSwitch, isAuthed, startPlanChange]);
 
   const planName = useCallback(
     (tier: BillableTier, planCadence: Cadence) =>
@@ -1597,6 +1636,43 @@ function PricingClientInner({
             <VerifyEmailBanner email={authSession.user.email} />
           )}
 
+          {/* Back from adding a card mid-switch. The confirm step opens on its
+              own; this stays for a member who closes it, so finishing is one
+              click away rather than a card they have to find again. */}
+          {finishSwitch && (
+            <div
+              role="status"
+              style={{
+                maxWidth: 720,
+                margin: '0 auto 24px',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-panel)',
+                border: '1px solid var(--color-bull)',
+                color: 'var(--color-bull)',
+                background: 'var(--color-bull-soft)',
+                fontSize: 14,
+                fontWeight: 600,
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <span style={{ flex: '1 1 260px' }}>
+                {t('cardAddedFinishSwitch', { plan: planName(finishSwitch.tier, finishSwitch.cadence) })}
+              </span>
+              <button
+                type="button"
+                className="zg-btn zg-btn--primary"
+                style={{ padding: '8px 16px', fontSize: 14 }}
+                disabled={busyTier !== null}
+                onClick={() => void startPlanChange(finishSwitch.tier, finishSwitch.cadence)}
+              >
+                {t('cardAddedFinishSwitchCta')}
+              </button>
+            </div>
+          )}
+
           {error && (
             <div
               role="alert"
@@ -1613,11 +1689,11 @@ function PricingClientInner({
               }}
             >
               {error}
-              {errorPortalUrl && (
+              {errorPortal && (
                 <>
                   {' '}
-                  <a href={errorPortalUrl} style={{ color: 'inherit', textDecoration: 'underline' }}>
-                    {t('errorOpenPortal')}
+                  <a href={errorPortal.url} style={{ color: 'inherit', textDecoration: 'underline' }}>
+                    {t(errorPortal.addCard ? 'errorAddCard' : 'errorOpenPortal')}
                   </a>
                 </>
               )}

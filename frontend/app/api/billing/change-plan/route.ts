@@ -17,7 +17,7 @@ import { decidePlanSwitch } from '@/core/planSwitch';
 import { planSwitchDiscounts } from '@/core/switchDiscounts';
 import { previewNextInvoice } from '@/core/stripeInvoicePreview';
 import { hasPriorMoneyBackRefund } from '@/core/moneyBackServer';
-import { hasPaymentMethodOnFile, startedWithoutCard } from '@/core/noCardTrial';
+import { finishSwitchPath, hasPaymentMethodOnFile, startedWithoutCard } from '@/core/noCardTrial';
 import {
   attachedCouponIds,
   describeDiscountsParam,
@@ -278,7 +278,10 @@ export async function POST(request: NextRequest) {
   // Stripe ("no payment method"), and keeping the trial on another plan would
   // promise a first charge that cannot happen. Send the member to add a card
   // first, with the reason, instead of a generic failure. Read live, so a card
-  // added a moment ago (before its webhook landed) counts.
+  // added a moment ago (before its webhook landed) counts. Stripe's add-a-card
+  // screen then returns them to the Pricing page with this same switch open,
+  // priced, for them to confirm (core/noCardTrial.ts finishSwitchPath). The
+  // tier and cadence were checked against the plans on sale above.
   if (subscription.status === 'trialing' && startedWithoutCard(subscription.metadata)) {
     const hasCard = await hasPaymentMethodOnFile(stripe, subscription, row.stripe_customer_id).catch(() => false);
     if (!hasCard) {
@@ -292,7 +295,7 @@ export async function POST(request: NextRequest) {
       let portalUrl: string | undefined;
       try {
         const session = await createBillingPortalSession(row.stripe_customer_id, `${appUrl}/account`, {
-          afterAddCardUrl: `${appUrl}/account?card_added=1`,
+          afterAddCardUrl: `${appUrl}${finishSwitchPath({ tier, cadence })}`,
         });
         portalUrl = session.url;
       } catch {
@@ -302,6 +305,8 @@ export async function POST(request: NextRequest) {
         {
           error:
             "There's no card on your account yet, so the switch can't go through. Nothing changed - you're still on your free trial. Add a card, then switch.",
+          // Lets the page label the link "Add a card now", not "Open the billing portal".
+          code: 'NEEDS_CARD',
           ...(portalUrl ? { portalUrl } : {}),
         },
         { status: 402 },

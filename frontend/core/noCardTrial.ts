@@ -35,7 +35,9 @@
 // the caller passes in. No DB, no clock. tests/noCardTrial.test.ts.
 
 import type Stripe from 'stripe';
+import { isBillableTier, isBillingCadence, type Sku } from './billingPlans.ts';
 import { canonicalEmail } from './moneyBackGuarantee.ts';
+import { decidePlanSwitch } from './planSwitch.ts';
 
 /** Subscription metadata key checkout stamps on a trial that started without a card. */
 export const NO_CARD_TRIAL_METADATA_KEY = 'no_card_trial';
@@ -178,4 +180,77 @@ export async function hasPaymentMethodOnFile(
   }
   const methods = await stripe.customers.listPaymentMethods(customerId, { limit: 1 });
   return methods.data.length > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Finishing a switch after adding a card
+// ---------------------------------------------------------------------------
+//
+// A member on a no-card trial who picks another plan is told to add a card
+// first (app/api/billing/change-plan). Stripe's add-a-card screen used to send
+// them back to the Account page, which said "Card added" and nothing about the
+// switch, so finishing it meant remembering to go back to Pricing and click
+// again. In November 2026 a member tried Basic to Pro four times, added the
+// card, never went back, and canceled minutes after Basic's first charge.
+//
+// So that screen now returns to the Pricing page with the plan they picked, and
+// the page opens the switch's confirm step, priced exactly as a click on the
+// plan's card would. Nothing is charged until they confirm the amount shown.
+// The Account page's own Add a card button still returns to the Account page.
+
+/** Where Stripe's add-a-card screen returns a member who was switching to `target`. */
+export function finishSwitchPath(target: Sku): string {
+  const params = new URLSearchParams({ plan: target.tier, cadence: target.cadence, card_added: '1' });
+  return `/pricing?${params.toString()}`;
+}
+
+export type FinishSwitchInput = {
+  // The Pricing page's query string, as Next hands it to the page.
+  searchParams: Record<string, string | string[] | undefined>;
+  // core/stripe.ts isSkuSellable and skuHasFreeTrial.
+  isSellable: (sku: Sku) => boolean;
+  hasTrial: (sku: Sku) => boolean;
+  // The member's subscription, from their users row (null without one): its
+  // status, the plan its price maps to (null when we do not sell that price),
+  // and when its trial ends.
+  subscription: { status: string | null; current: Sku | null; trialEndMs: number | null } | null;
+  nowMs: number;
+};
+
+/**
+ * The switch to open for a member back from adding a card, or null. The plan
+ * comes from the URL, so it counts only after the checks the switch itself
+ * makes: a tier and billing period we sell, on sale right now. And only while
+ * the member is still on their trial and the switch is one the Pricing page
+ * prices and confirms in-app (core/planSwitch.ts): never the plan they are
+ * already on, never a hand-off to the billing portal.
+ */
+export function finishSwitchTarget(input: FinishSwitchInput): Sku | null {
+  // A repeated parameter arrives as an array: not something we wrote.
+  const param = (key: string): string | null => {
+    const value = input.searchParams[key];
+    return typeof value === 'string' ? value : null;
+  };
+  if (param('card_added') !== '1') return null;
+  const tier = param('plan');
+  const cadence = param('cadence');
+  if (!isBillableTier(tier) || !isBillingCadence(cadence)) return null;
+  const target: Sku = { tier, cadence };
+  if (!input.isSellable(target)) return null;
+
+  const sub = input.subscription;
+  if (!sub?.current || sub.status !== 'trialing') return null;
+  const decision = decidePlanSwitch({
+    currentTier: sub.current.tier,
+    currentCadence: sub.current.cadence,
+    targetTier: tier,
+    targetCadence: cadence,
+    targetHasTrial: input.hasTrial(target),
+    status: sub.status,
+    // Only a paying plan can be paused, and this one is still a trial.
+    paused: false,
+    trialEndMs: sub.trialEndMs,
+    nowMs: input.nowMs,
+  });
+  return decision.kind === 'in_app_start_paid' || decision.kind === 'in_app_upgrade' ? target : null;
 }
