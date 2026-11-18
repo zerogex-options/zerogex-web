@@ -13,8 +13,10 @@ a month earlier.
 > is that possible or it is all manual? any help on this will be highly
 > appreciated. thank you
 
-> **Status:** sent Wed Nov 18, in the same thread. Nothing to do unless he
-> replies; the likely follow-ups are answered at the end.
+> **Status:** sent Wed Nov 18, in the same thread. He wrote back at 1:08 AM
+> to say thanks and that he's told friends to try ZeroGEX; see "Follow-up" at
+> the end. No reply needed. An optional short one, with his referral link, is
+> drafted there.
 
 ## The read
 
@@ -33,11 +35,13 @@ a month earlier.
   list (`levels_subscribers`), not his account, so his lapsed account doesn't
   matter and signing up doesn't start any other email.
 - **The reply says "match by name", not "same order", on purpose.** The email
-  calls its block the "paste order" and lists Gamma Flip first. The
+  called its block the "paste order" but listed Gamma Flip first, while the
   indicator's settings list Call Wall first (`callWall` is the first
   `input.float` in `frontend/public/tradingview/zerogex-daily-gamma-levels.pine`).
   Every number in the email is labeled, so matching by name avoids typing a
-  call wall into the flip field. Queued as a separate fix.
+  call wall into the flip field. Fixed the same night: the email now lists
+  Call Wall first (`claude/paste-order-matches-indicator`, merged Wed Nov 18),
+  so the advice holds either way.
 - **The lines don't move during the day, so the reply says so.** The email is
   a before-the-open snapshot, and the TradingView lines stay wherever he typed
   them. He was a paying member, so he's used to levels that update.
@@ -112,3 +116,41 @@ Michael
   the free, delayed snapshot from before the open. Before the open, the SPX,
   NDX, ES and NQ rows still carry the previous close, because index options
   don't trade pre-market. The paid site is live and moves through the day.
+
+## Follow-up: his thank-you (Wed Nov 18, 1:08 AM)
+
+> Thank you for the fast reply. Looking forward to using this and i have told
+> my friends to give it a try and we are getting an understanding of it slowly
+> but surely. Looking forward To ending the year strong and a proper 2027.
+> Thank you once more
+
+- **Nothing in it needs an answer.** It closes the thread. He doesn't say
+  whether "using this" means the free indicator and morning email or coming
+  back on a paid plan.
+- **He's already telling friends, so his referral link is worth handing
+  him.** The program is on (`REFERRAL_PROGRAM_ENABLED=1`, checked Nov 9 in
+  `2026-11-09-bryan-pro-upgrade-why-not-promoted.md`). The Account page's
+  Refer a friend panel shows for any signed-in account, lapsed included: the
+  page is open to every tier (`core/auth.ts`), and the panel depends only on
+  the program being on (`app/api/account/referrals/route.ts`). A friend who
+  signs up through his link gets a month free on a monthly or quarterly plan,
+  or 10% off the first year on annual. Because he isn't subscribed, each
+  friend who subscribes banks him a free month (`referral_credit_months`),
+  paid out as account credit when he next subscribes
+  (`redeemBankedReferralCredit` in `core/referrals.ts`). That credit is
+  separate from his win-back discount.
+
+### Optional reply
+
+Same thread. Skip it if you'd rather let the thread end on his thanks.
+
+Hi Gregory,
+
+Thank you, and thanks for telling your friends about ZeroGEX. Word of mouth means a lot to a small business like mine.
+
+If they'd like to sign up, your Account page has a Refer a friend panel with your own link. Anyone who signs up through it gets a month free on a monthly or quarterly plan, and each time one of them subscribes, you earn a free month. While you're not subscribed, we hold those months for you and apply them if you come back.
+
+Here's to ending the year strong and a great 2027.
+
+Best,
+Michael
