@@ -8,9 +8,9 @@
 // owns the lookups and the identity link.
 //
 // The order is the whole policy:
-//   1. An identity already linked to a live account signs in there.
-//   2. Otherwise an address that belongs to a soft-deleted account is refused,
-//      so signing in again cannot revive it.
+//   1. An address that belongs to a soft-deleted account is refused, so signing
+//      in again cannot revive it.
+//   2. An identity already linked to a live account signs in there.
 //   3. Otherwise the live account with exactly this address is adopted.
 //   4. Otherwise the ONE live account on another spelling of the same Gmail
 //      inbox is adopted (core/mailboxKey.ts). This is as safe as step 3: the
@@ -22,7 +22,7 @@
 //      and picking one would be a guess, so this keeps the old behavior and
 //      reports them for a person to merge.
 // Steps 3 to 5 link the identity to the account they settle on, so the next
-// sign-in is step 1.
+// sign-in is step 2.
 
 import { randomBytes } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
@@ -50,6 +50,17 @@ export function resolveOAuthAccount(
 ): OAuthAccountResolution {
   const normalizedEmail = input.email.trim().toLowerCase();
 
+  // A soft-deleted account must not be revived by signing in with the provider
+  // again. Refuse up front (before identity/email resolution) with a clear
+  // message rather than letting the flow fall through to a fresh-signup INSERT
+  // that would collide on the still-present email row.
+  const deletedRow = db
+    .prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NOT NULL')
+    .get(normalizedEmail) as { id: string } | undefined;
+  if (deletedRow) {
+    throw new Error(DELETED_ACCOUNT_MESSAGE);
+  }
+
   const identityRow = db
     .prepare(
       `SELECT u.* FROM users u
@@ -58,23 +69,6 @@ export function resolveOAuthAccount(
     )
     .get(input.provider, input.providerId) as UserRow | undefined;
   if (identityRow) return { via: 'identity', row: identityRow };
-
-  // A soft-deleted account must not be revived by signing in with the provider
-  // again. Refuse before anything resolves by address, with a clear message,
-  // rather than letting the flow fall through to a fresh-signup INSERT that
-  // would collide on the still-present email row.
-  //
-  // Checked AFTER the linked identity above, which only ever finds a live
-  // account and so cannot revive this one. Merging a duplicate by hand means
-  // moving its Google link onto the account it merges into and soft-deleting
-  // it, while Google keeps reporting the duplicate's spelling. Checking the
-  // address first refused that member's every Google sign-in.
-  const deletedRow = db
-    .prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NOT NULL')
-    .get(normalizedEmail) as { id: string } | undefined;
-  if (deletedRow) {
-    throw new Error(DELETED_ACCOUNT_MESSAGE);
-  }
 
   db.exec('BEGIN');
   try {

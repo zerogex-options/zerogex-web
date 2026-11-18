@@ -273,7 +273,7 @@ test('a deleted account is never adopted by another spelling, and its exact addr
   assert.equal(identityOwner('google', 'google-sub-ij'), undefined);
 });
 
-test('after a hand merge (link moved, duplicate soft-deleted) Google sign-in lands in the merged-into account', () => {
+test('a member stranded before the fix: once the free duplicate is deleted, Google sign-in finds the paid account', () => {
   // The 2026-10-21 shape: the paid account under one spelling, and the free one
   // Google sign-in made under the other, holding the Google link.
   const paid = member('y.p@gmail.com', { tier: 'basic' });
@@ -284,27 +284,27 @@ test('after a hand merge (link moved, duplicate soft-deleted) Google sign-in lan
   ).run(free, AT, AT);
   const input = { provider: 'google' as const, providerId: 'google-sub-yp', email: 'yp@gmail.com' };
 
-  // The fix alone does not move this member: the link wins, by design.
+  // The fix alone does not move this member: the existing link wins, by design.
   assert.equal(resolveOAuthAccount(db, input, createFromOAuth).row.id, free);
 
-  // The merge, as the outreach doc's commands do it.
+  // What `make delete-user` does to the free account: the row and everything
+  // hanging off it go, Google link included.
   db.exec('BEGIN');
-  db.prepare(
-    `UPDATE user_identities SET user_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-      WHERE provider = 'google' AND user_id = ?`,
-  ).run(paid, free);
-  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(free);
-  db.prepare(`UPDATE users SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`).run(free);
+  for (const table of ['sessions', 'user_identities', 'password_reset_tokens']) {
+    db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(free);
+  }
+  db.prepare('DELETE FROM users WHERE id = ?').run(free);
   db.exec('COMMIT');
 
-  // Google still reports the deleted spelling. The link is checked first, so
-  // this is a sign-in to the paid account, not "This account has been deleted".
+  // His next Google sign-in, still reporting the dotless spelling, lands in the
+  // paid account and links Google to it. No second free account, and no need
+  // for him to connect Google from Account first.
+  const accountsBefore = userCount();
   const after = resolveOAuthAccount(db, input, createFromOAuth);
-  assert.equal(after.via, 'identity');
+  assert.equal(after.via, 'mailbox');
   assert.equal(after.row.id, paid);
-  // And the dotless spelling now reaches the paid account for a password
-  // sign-in or a reset as well.
-  assert.deepEqual(signInFor('yp@gmail.com'), { id: paid, via: 'mailbox' });
+  assert.equal(identityOwner('google', 'google-sub-yp'), paid);
+  assert.equal(userCount(), accountsBefore);
 });
 
 test('any other domain is matched exactly, as before', () => {

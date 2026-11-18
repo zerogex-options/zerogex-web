@@ -1096,10 +1096,10 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
 
   // Which account this sign-in lands in, and the identity link to it, are
   // decided in core/oauthAccount.ts (the order of the checks is documented and
-  // tested there): a linked identity signs in, a soft-deleted address is
-  // refused, then the account with exactly this address, then the ONE live
-  // account on another spelling of the same Gmail inbox, else a new account.
-  // What a new account looks like, the session and the audit trail stay here.
+  // tested there): a soft-deleted address is refused, a linked identity signs
+  // in, then the account with exactly this address, then the ONE live account
+  // on another spelling of the same Gmail inbox, else a new account. What a
+  // new account looks like, the session and the audit trail stay here.
   const resolution = resolveOAuthAccount(db, input, (normalizedEmail) => {
     const oauthNow = nowIso();
     const id = createId('user');
