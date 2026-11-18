@@ -19,6 +19,13 @@
 // bills that will be skipped and the next charge date, which is what to tell
 // the member.
 //
+// On a Pro plan the member also loses their API key, for good. Access drops
+// out of Pro, the webhook revokes every key on that drop, and the key service
+// can revoke a key but not suspend one, so the old key never works again
+// (core/subscriptionPause.ts pauseRevokesApiKeys). The preview says so, with the
+// link where they make a new key once Pro is back. Put that in your reply too:
+// anything still using the old key fails after the pause until it's replaced.
+//
 // Why not the Stripe Dashboard: its pause resumes on a calendar DAY. Pick the
 // member's billing day and that bill can land just after the resume and be
 // charged. Resuming at the same minute N months out, as the app does, can't.
@@ -54,9 +61,14 @@ import {
   computeResumesAtUnix,
   derivePauseState,
   isPausableCadence,
+  pauseRevokesApiKeys,
 } from '../core/subscriptionPause.ts';
 
 loadEnvLocal();
+
+// Where a member makes a new API key, for the note to them (as
+// quarterly-receipt.mts builds its links).
+const API_KEY_URL = `${(process.env.NEXT_PUBLIC_APP_URL || 'https://zerogex.io').replace(/\/+$/, '')}/account#api-access`;
 
 // The type the Account page's pause writes, so an operator pause reads the same
 // in diagnose-user and anywhere pause requests are counted.
@@ -99,7 +111,8 @@ function usage() {
 Pauses one member's monthly subscription on their behalf, exactly as the
 Account page's "Pause instead of canceling" does: no access and no charge for
 the chosen months, then it resumes on its own. The preview lists the bills the
-pause skips and the date of the next charge.
+pause skips and the date of the next charge. On a Pro plan it also says the
+member's API key is revoked for good, and where they make a new one.
 
 Options:
       --email     Member's email address (required).
@@ -237,6 +250,8 @@ try {
 const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
 const sku = priceId ? priceIdToSku(priceId) : null;
 const planLabel = sku ? `${sku.tier} ${sku.cadence}` : `unknown (price ${priceId ?? 'none'} maps to no plan)`;
+// Pro: the pause revokes the member's API key, and it can't come back.
+const revokesApiKey = pauseRevokesApiKeys(sku?.tier);
 const periodEnd = currentPeriodEndUnix(subscription);
 const existingPause = derivePauseState(
   subscription.pause_collection
@@ -303,6 +318,11 @@ console.log('');
 console.log(`Pause:             ${months} month${months === 1 ? '' : 's'}, from now until ${when(resumesAt)}`);
 console.log(`                   (resumes_at ${isoOf(resumesAt)})`);
 console.log(`Access:            off from now, back on its own ${when(resumesAt)}`);
+if (revokesApiKey) {
+  console.log(`API keys:          REVOKED when access goes off, and they can't be turned back on.`);
+  console.log(`                   Tell the member to make a new one at ${API_KEY_URL}`);
+  console.log(`                   once Pro is back, and swap it in wherever the old key is used.`);
+}
 console.log(
   `Bills skipped:     ${bills.skippedUnix.length ? bills.skippedUnix.map(when).join('; ') : 'none'}`,
 );
@@ -372,10 +392,17 @@ console.log(`Done. ${user.email} is paused for ${months} month${months === 1 ? '
 console.log(`  Access:         off now, back on its own ${when(resumesAt)}`);
 console.log(`  Bills skipped:  ${bills.skippedUnix.length ? bills.skippedUnix.map(when).join('; ') : 'none'}`);
 console.log(`  Next charge:    ${when(bills.nextChargeUnix)}${datesLineUp ? '' : '  (check in Stripe, see above)'}`);
+if (revokesApiKey) {
+  console.log(`  API keys:       revoked by the pause, for good. New one at ${API_KEY_URL} once Pro is back`);
+}
 if (synced) {
   console.log(`  The site has it: tier ${synced.tier ?? 'public'}, paused until ${synced.paused_until}.`);
 } else {
   console.log(`  The site hasn't heard yet, so access is still on until the webhook lands. Check in a`);
   console.log(`  minute with: make diagnose-user EMAIL=${user.email}`);
 }
-console.log('No email was sent. Tell the member.');
+console.log(
+  revokesApiKey
+    ? 'No email was sent. Tell the member, including that their API key is gone and how to make a new one.'
+    : 'No email was sent. Tell the member.',
+);

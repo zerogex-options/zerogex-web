@@ -13,7 +13,9 @@ import AccountApiKeys from '@/components/AccountApiKeys';
 import CancelRetentionModal from '@/components/CancelRetentionModal';
 import MoneyBackGuaranteePanel from '@/components/MoneyBackGuaranteePanel';
 import { usePageT } from '@/core/LanguageContext';
+import type { Sku } from '@/core/billingPlans';
 import type { LengthenOffer } from '@/core/planSwitch';
+import { pauseRevokesApiKeys } from '@/core/subscriptionPause';
 import { dict } from './page.i18n';
 
 type DonationPayload = {
@@ -57,6 +59,9 @@ type BillingStatusPayload = {
   retentionOfferClaimed?: boolean;
   // ISO auto-resume instant when the subscription is paused, else null.
   pausedUntil?: string | null;
+  // The plan the subscription's price maps to, else null. Unlike the session's
+  // tier, it stays Pro through a pause, which is what the API-key notes need.
+  currentPlan?: Sku | null;
   // Longer billing periods the cancel flow can offer, and whether it can offer
   // a pause.
   planOffers?: LengthenOffer[];
@@ -402,6 +407,11 @@ function AccountPageContent() {
   // customer id.
   const canManageBilling =
     tier !== 'admin' && (tier !== 'public' || hasBillingAccount || hasActiveSubscription);
+
+  // A pause on this plan revokes the member's API key for good, so the cancel
+  // flow warns before one and the paused banner says it again. Read from the
+  // plan, not `tier`: a paused member's tier is already public.
+  const pauseEndsApiKey = pauseRevokesApiKeys(billing?.currentPlan?.tier);
 
   // The portal home, or with { flow: 'add_card' } straight to its add-a-card
   // screen (the no-card trial's way to keep the plan; it comes back with
@@ -929,6 +939,15 @@ function AccountPageContent() {
                   ? t('subscriptionPaused', { date: formatBillingDate(billing.pausedUntil) })
                   : t('subscriptionPausedNoDate')}
               </p>
+              {pauseEndsApiKey && (
+                <p style={{ margin: '0 0 10px', color: C.muted, fontSize: 13 }}>
+                  {t('pausedApiKeyBefore')}{' '}
+                  <a href="#api-access" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
+                    {t('pausedApiKeyLink')}
+                  </a>{' '}
+                  {t('pausedApiKeyAfter')}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleResume}
@@ -1005,6 +1024,7 @@ function AccountPageContent() {
           }
           planOffers={billing?.planOffers ?? []}
           canPause={billing?.canPause ?? false}
+          pauseRevokesApiKeys={pauseEndsApiKey}
         />
 
         <AccountApiKeys />
