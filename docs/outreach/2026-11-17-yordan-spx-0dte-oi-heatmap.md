@@ -25,11 +25,16 @@ He attached a picture. I couldn't see it; see "Decide before sending".
 - **Every heatmap on the site is gamma, not open interest.** The GEX Heatmap
   (strike × time) and the Strike × DTE heatmap on Dealer Positioning both shade
   net GEX.
-- **Not pointed to: the GEX Heatmap's Expiry menu. It doesn't filter.**
-  Picking a date relabels the chart ("Expiry 2026-11-18", "0d"), but the cells
-  still cover every expiration. The page sends `&expiration=`, and zerogex-oa
-  `/api/gex/heatmap` doesn't accept it (`src/api/main.py`, `get_gex_heatmap`).
-  Its query sums each strike across all expirations. Queued as a separate task.
+- **The GEX Heatmap's Expiry menu: fixed, but not live yet.** It used to
+  relabel the chart without filtering it. The fix comes in two halves. The
+  web half is on `release` (`cc30afa`). The backend half is on zerogex-oa
+  `claude/gex-heatmap-expiry-filter` (`864cea5`), not merged yet; it's one
+  commit on top of `release`, with no schema change. The web half also makes
+  the heatmap follow the expiry picked anywhere in the tab. So if it ships
+  before the backend half, the draft's 0DTE step labels the heatmap card on
+  the same page "0DTE" while it still sums every expiration. Deploy the
+  backend half first. Once both are live, the optional paragraph after the
+  draft points him to it.
 - **The once-a-day point is the useful one for a 0DTE trader.** 0DTE open
   interest is only the positions carried in from earlier days, and it doesn't
   change during the session. The Gamma Terminal's Volume basis does follow the
@@ -96,9 +101,16 @@ paragraph with:**
 
 I'm also going to add the heatmap: today's SPX open interest, strike by strike, shaded so the biggest strikes stand out at a glance. I'll write to you when it's live.
 
+**Once both halves of the heatmap fix are live, add this after the "Open
+Interest by Strike" paragraph.** Check it on the site first: pick 0DTE on the
+open interest chart, scroll down to the GEX Heatmap, and confirm its Expiry
+menu reads 0DTE and the cells change when you switch back to All.
+
+Further down the same page, the GEX Heatmap follows the same 0DTE setting, so it shows today's expiration as an actual heatmap: strikes up the side, time along the bottom, with the price candles on top. It's shaded by dealer gamma rather than by the number of contracts. That's the same open interest, weighted toward the strikes near price, where hedging matters most.
+
 ## If he replies
 
-- **"The bar chart does it."** Done. Nothing to build.
+- **"The bar chart (or the GEX Heatmap) does it."** Done. Nothing to build.
 - **"I want the heatmap."** Build the shape his picture shows (see "Decide
   before sending"). No date until it's deployed, then write to him.
 - **He wants open interest that updates during the day.** The clearinghouse
