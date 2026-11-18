@@ -18,7 +18,9 @@ import { useInDashboardWidget } from '@/core/dashboardWidget';
 import { lockPageScroll } from '@/core/scrollLock';
 import { useCoarsePointer, useIsMobile } from '@/hooks/useIsMobile';
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { useApiData, useGEXByStrike, useMarketQuote } from '@/hooks/useApiData';
+import { useApiData, useMarketQuote } from '@/hooks/useApiData';
+import { useChartExpirations } from '@/hooks/useChartExpirations';
+import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
@@ -41,6 +43,8 @@ import {
   type DotStrikeCount,
   type HeatmapView,
 } from '@/core/heatmapDots';
+import { heatmapDteLabel, heatmapFlipRows, heatmapRequestPath } from '@/core/heatmapExpirations';
+import { LEVEL_NO_FLIP_IN_SCOPE_NOTE, noFlipInScopeTooltip } from '@/core/keyLevels';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import {
@@ -57,7 +61,8 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import ChartCaption from './ChartCaption';
-import { isWithinTradingHoursForSymbol, getMarketSession, isSessionLive } from '@/core/utils';
+import ExpirationMultiSelect from './ExpirationMultiSelect';
+import { etTodayDateKey, isWithinTradingHoursForSymbol, getMarketSession, isSessionLive } from '@/core/utils';
 
 interface HeatmapCell { strike: number; net_gex: number; }
 interface GammaBucket {
@@ -101,21 +106,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-// Compute days-to-expiry from a YYYY-MM-DD expiration string against today in
-// ET, anchoring both at UTC noon so timezone offsets can't round tomorrow down
-// to 0DTE.
-function computeDte(expiryStr: string | null | undefined): number | null {
-  if (!expiryStr) return null;
-  const m = expiryStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  const expUtcNoon = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
-  const tm = todayStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!tm) return null;
-  const todayUtcNoon = Date.UTC(Number(tm[1]), Number(tm[2]) - 1, Number(tm[3]), 12);
-  return Math.max(0, Math.round((expUtcNoon - todayUtcNoon) / 86400000));
-}
-
 const TIMEFRAME_OPTIONS = ['1m', '5m', '15m'] as const;
 type ChartTf = (typeof TIMEFRAME_OPTIONS)[number];
 
@@ -130,7 +120,6 @@ const ZOOM_STEP = 1.43;
 const DEFAULTS = {
   tf: '5m' as ChartTf,
   withPrev: false,
-  selectedExpiry: 'all',
   zoomMul: 1.0,
   paused: false,
   showGrid: true,
@@ -142,9 +131,9 @@ const DEFAULTS = {
 // ── Saved chart settings ──
 // Durable display *preferences* a user can save so they auto-load on every
 // visit to the gamma heatmap (/gex-heatmap). A subset of DEFAULTS: transient
-// view state (paused / zoom) is never persisted, and `selectedExpiry` is
-// excluded because it holds a concrete expiry date that rolls off and would
-// restore stale.
+// view state (paused / zoom) is never persisted. The Expiry filter is not
+// one of them either: it is the tab-wide selection every expiration-filtering
+// chart shares (hooks/useChartExpirations), which persists itself.
 const CHART_SETTINGS_ID = 'gamma-heatmap';
 
 type PersistedSettings = {
@@ -222,7 +211,6 @@ export default function GammaHeatmapCanvas() {
   // ── User-controlled view state ──
   const [tf, setTf] = useState<ChartTf>(savedSettings.tf);
   const [withPrev, setWithPrev] = useState<boolean>(savedSettings.withPrev);
-  const [selectedExpiry, setSelectedExpiry] = useState<string>(DEFAULTS.selectedExpiry);
   const [zoomMul, setZoomMul] = useState<number>(DEFAULTS.zoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
   const [showGrid, setShowGrid] = useState<boolean>(savedSettings.showGrid);
@@ -242,7 +230,6 @@ export default function GammaHeatmapCanvas() {
   const [fullscreen, setFullscreen] = useState<boolean>(false);
   // No fullscreen control inside a "My Dashboard" tile — see core/dashboardWidget.
   const inWidget = useInDashboardWidget();
-  const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   // Which edge of the settings button the popover hangs from; see its button.
   const [settingsAlign, setSettingsAlign] = useState<'left' | 'right'>('right');
@@ -250,7 +237,8 @@ export default function GammaHeatmapCanvas() {
   const resetAll = () => {
     setTf(DEFAULTS.tf);
     setWithPrev(DEFAULTS.withPrev);
-    setSelectedExpiry(DEFAULTS.selectedExpiry);
+    // The Expiry filter stays as it is: it is shared with every other
+    // expiration-filtering chart in the tab, not one of this chart's settings.
     setZoomMul(DEFAULTS.zoomMul);
     setPaused(DEFAULTS.paused);
     setShowGrid(DEFAULTS.showGrid);
@@ -281,20 +269,17 @@ export default function GammaHeatmapCanvas() {
     });
   }, [tf, withPrev, showGrid, priceScale, view, dotStrikes]);
 
-  const expiryRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!expiryOpen && !settingsOpen) return;
+    if (!settingsOpen) return;
     const handler = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (expiryOpen && !expiryRef.current?.contains(target)) setExpiryOpen(false);
-      if (settingsOpen && !settingsRef.current?.contains(target)) setSettingsOpen(false);
+      if (!settingsRef.current?.contains(event.target as Node)) setSettingsOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [expiryOpen, settingsOpen]);
+  }, [settingsOpen]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -318,7 +303,6 @@ export default function GammaHeatmapCanvas() {
   // ── Pause-aware polling intervals — 1s on every hook so the heatmap stays live. ──
   const heatmapInterval = paused ? 0 : 1000;
   const historicalInterval = paused ? 0 : 1000;
-  const byStrikeInterval = paused ? 0 : 10000; // only used to source expiration list
   const quoteInterval = paused ? 0 : 1000;
 
   const baseMaxPoints = getMaxDataPoints();
@@ -331,13 +315,36 @@ export default function GammaHeatmapCanvas() {
   const fetchUnits = Math.min(300, maxPoints * 3);
 
   const symParam = `symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`;
-  const expiryParam = selectedExpiry !== 'all' ? `&expiration=${encodeURIComponent(selectedExpiry)}` : '';
   const apiTf = tfToApi(tf);
 
+  // ── Expiry filter ──
+  // The tab-wide selection every expiration-filtering chart shares (GEX
+  // Profile, OI by Strike, the Gamma Chart, …), reconciled against the
+  // expirations this symbol lists, so a pick on any of them scopes this
+  // heatmap too, and a rolling "0DTE" pick follows today's expiry. `param` is
+  // 'all' or the sorted, comma-joined set /api/gex/heatmap sums over. Polled
+  // even while paused: an empty list would read as "All" and unscope the chart.
+  const todayKey = etTodayDateKey();
+  const {
+    available: availableExpirations,
+    selection: expirySelection,
+    setSelection: setExpirySelection,
+    param: expirationsParam,
+    filtered: expiryFiltered,
+  } = useChartExpirations(symbol, true);
+  const zeroDte = useZeroDteOption(availableExpirations, todayKey);
+
   const { data: gexData, loading, error } = useApiData<GammaBucket[]>(
-    `/api/gex/heatmap?${symParam}&timeframe=${apiTf}&window_units=${fetchUnits}${expiryParam}`,
+    heatmapRequestPath({ symbol, timeframe: apiTf, windowUnits: fetchUnits, expirationsParam }),
     { refreshInterval: heatmapInterval },
   );
+  // The full-card spinner is for the first answer only. After that, a refetch
+  // for a new Expiry pick, timeframe or window keeps the toolbar mounted, so
+  // an open Expiry menu stays open while a set is built, and the plot says
+  // "Loading…" until the new answer lands. Set during render, the way
+  // useApiData resets its own state on a new endpoint.
+  const [hasLoaded, setHasLoaded] = useState(false);
+  if (gexData && !hasLoaded) setHasLoaded(true);
   const { rows: priceRowsAll } = useMarketHistorical(symbol, apiTf);
   // Live quote for the tip-candle close merge.  Mirrors the Strike
   // Profile chart's behavior: while the session is live (cash for
@@ -371,20 +378,13 @@ export default function GammaHeatmapCanvas() {
   // below using that row's own close.
   const gexSpotRef = quote?.close ?? priceData[priceData.length - 1]?.close ?? null;
   const legendGexFactor = gexScaleFactor(gexUnit, gexSpotRef);
+  // Whole-chain flips on their own window, the fallback when the heatmap's
+  // buckets carry none. Only the All view may use it (core/heatmapExpirations),
+  // so it is not polled while a filter is on.
   const { data: gexHistoricalData } = useApiData<GexHistoricalPoint[]>(
     `/api/gex/historical?${symParam}&timeframe=${apiTf}&window_units=${maxPoints}`,
-    { refreshInterval: historicalInterval },
+    { refreshInterval: historicalInterval, enabled: !expiryFiltered },
   );
-  const { data: gexByStrike } = useGEXByStrike(symbol, 200, byStrikeInterval, 'impact');
-
-  const availableExpirations = useMemo(() => {
-    const exps = new Set<string>();
-    (gexByStrike || []).forEach((row) => {
-      const exp = String(row.expiration || '').trim();
-      if (exp) exps.add(exp);
-    });
-    return Array.from(exps).sort();
-  }, [gexByStrike]);
 
   // Build the dense (time × strike) matrix on a REGULAR session-hour grid.
   //
@@ -530,30 +530,21 @@ export default function GammaHeatmapCanvas() {
     const cadenceMs = tf === '1m' ? 60_000 : tf === '5m' ? 300_000 : 900_000;
     const bucketOf = (ms: number) => Math.floor(ms / cadenceMs) * cadenceMs;
     const result = new Map<number, { value: number; expanded: boolean }>();
-    (gexData || []).forEach((b) => {
-      if (b.gamma_flip == null || !Number.isFinite(Number(b.gamma_flip))) return;
-      const ms = bucketOf(new Date(b.timestamp).getTime());
+    // The heatmap's own buckets, else (All only) /api/gex/historical's flat
+    // GEXSummary rows, one whole-chain flip per timestamp. Under an Expiry
+    // filter the buckets carry the selected expirations' own flip, null where
+    // they have none, and nothing whole-chain is drawn in its place.
+    heatmapFlipRows<GexHistoricalPoint>(gexData, gexHistoricalData, expiryFiltered).forEach((row) => {
+      if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
+      const ms = bucketOf(new Date(row.timestamp).getTime());
       if (!Number.isFinite(ms)) return;
-      const span = b.gamma_flip_span_used != null && Number.isFinite(Number(b.gamma_flip_span_used))
-        ? Number(b.gamma_flip_span_used)
+      const span = row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))
+        ? Number(row.gamma_flip_span_used)
         : 0;
-      result.set(ms, { value: Number(b.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
+      result.set(ms, { value: Number(row.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
     });
-    if (result.size === 0) {
-      // Fallback to /api/gex/historical (flat GEXSummary rows, one flip per
-      // timestamp) when the heatmap window carries no resolved flip.
-      (gexHistoricalData || []).forEach((row) => {
-        if (row.gamma_flip == null || !Number.isFinite(Number(row.gamma_flip))) return;
-        const ms = bucketOf(new Date(row.timestamp).getTime());
-        if (!Number.isFinite(ms)) return;
-        const span = row.gamma_flip_span_used != null && Number.isFinite(Number(row.gamma_flip_span_used))
-          ? Number(row.gamma_flip_span_used)
-          : 0;
-        result.set(ms, { value: Number(row.gamma_flip), expanded: span > FLIP_DEFAULT_RUNG_MAX });
-      });
-    }
     return result;
-  }, [gexData, gexHistoricalData, tf]);
+  }, [gexData, gexHistoricalData, expiryFiltered, tf]);
 
   // Crop the y-axis to ±2% of the underlying price range so the chart reads
   // less flattened. Falls back to the full strike range when price data is missing.
@@ -1271,12 +1262,9 @@ export default function GammaHeatmapCanvas() {
   }, [hover, viewGrid, plotBounds, drawDots, dotLayout, priceData, gammaFlipByMs, size, tf, pads]);
 
   // ── Toolbar derived labels ──
-  const expiryDisplay = selectedExpiry === 'all' ? 'All' : selectedExpiry;
-  const dteSourceExpiry = selectedExpiry !== 'all' ? selectedExpiry : availableExpirations[0];
-  const dteValue = computeDte(dteSourceExpiry);
-  // With all expirations selected there's no single DTE to show, so mirror the
-  // expiry chip and display "All" instead of the front-month's days-to-expiry.
-  const dteLabel = selectedExpiry === 'all' ? 'All' : dteValue != null ? `${dteValue}d` : '—';
+  // "All" with every expiration in, else the selected expirations' DTE ("0d",
+  // or a range such as "0–3d" for several).
+  const dteLabel = heatmapDteLabel(expirySelection, todayKey);
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const latestTs = grid?.timestamps?.[grid.timestamps.length - 1];
   const updatedLabel = latestTs ? new Date(latestTs).toLocaleTimeString() : '—';
@@ -1459,7 +1447,7 @@ export default function GammaHeatmapCanvas() {
     touchClaimedRef.current = false;
   };
 
-  if (loading && !gexData) return <LoadingSpinner size="lg" />;
+  if (loading && !gexData && !hasLoaded) return <LoadingSpinner size="lg" />;
   if (error) return <ErrorMessage message={error} />;
 
   const toolbarBtnClass = 'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors';
@@ -1502,68 +1490,36 @@ export default function GammaHeatmapCanvas() {
     </div>
   );
 
-  const expiryRowClass = narrow
-    ? 'w-full text-left px-3 py-2.5 text-sm hover:bg-[color:var(--color-info-soft)]'
-    : 'w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)]';
+  // The shared Expiry multi-select, the same control and the same tab-wide
+  // selection as the other expiration filters (GexWallsChart, GexProfileChart):
+  // All, the rolling 0DTE pick, or any set of dates.
   const expiryControl = (
-    <div ref={expiryRef} className="relative">
-      <button
-        type="button"
-        onClick={() => {
-          setExpiryOpen((v) => !v);
-          setSettingsOpen(false);
-        }}
-        className={toolbarBtnClass}
-        style={toolbarBtnStyle(selectedExpiry !== 'all')}
-        title="Filter by expiration (best-effort&nbsp;- depends on /api/gex/heatmap supporting the param)"
+    <div className="flex flex-wrap items-center gap-2">
+      <ExpirationMultiSelect
+        label="Expiry"
+        options={availableExpirations}
+        selected={expirySelection}
+        onChange={setExpirySelection}
+        zeroDte={zeroDte}
         disabled={availableExpirations.length === 0}
-      >
-        <span>Expiry {expiryDisplay}</span>
-        <ChevronDown size={12} />
-      </button>
-      {expiryOpen && (
-        <div
-          className="absolute top-full left-0 mt-1 rounded-md py-1 z-30"
-          style={{ ...popoverStyle, minWidth: narrow ? 200 : 160, maxHeight: narrow ? 320 : 260, overflowY: 'auto' }}
+      />
+      {/* A 0DTE pick with no same-day expiry resolves to nothing, and nothing
+          means All: the surface is the whole chain while the control says
+          0DTE. Say so beside the control, as the Gamma Chart does. */}
+      {zeroDte.widenedToAll && (
+        <span
+          className="zg-chip"
+          style={{ ['--chip-color' as string]: 'var(--color-warning)' }}
+          title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The heatmap and its flip are summed across ALL expirations, not today's book."
         >
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedExpiry('all');
-              setExpiryOpen(false);
-            }}
-            className={expiryRowClass}
-            style={{
-              color: selectedExpiry === 'all' ? textPrimary : subtle,
-              fontWeight: selectedExpiry === 'all' ? 600 : 400,
-            }}
-          >
-            All expirations
-          </button>
-          {availableExpirations.map((exp) => (
-            <button
-              key={exp}
-              type="button"
-              onClick={() => {
-                setSelectedExpiry(exp);
-                setExpiryOpen(false);
-              }}
-              className={expiryRowClass}
-              style={{
-                color: selectedExpiry === exp ? textPrimary : subtle,
-                fontWeight: selectedExpiry === exp ? 600 : 400,
-              }}
-            >
-              {exp}
-            </button>
-          ))}
-        </div>
+          No 0DTE today · showing all expiries
+        </span>
       )}
     </div>
   );
 
   const dteChipEl = (
-    <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry for the selected expiration (All when no single expiry is selected)">
+    <div className={toolbarBtnClass} style={toolbarBtnStyle()} title="Days to expiry of the selected expirations (All when every expiration is included)">
       <span>DTE {dteLabel}</span>
     </div>
   );
@@ -1767,7 +1723,6 @@ export default function GammaHeatmapCanvas() {
             setSettingsAlign(roomLeft >= settingsPopoverW || roomLeft >= roomRight ? 'right' : 'left');
           }
           setSettingsOpen((v) => !v);
-          setExpiryOpen(false);
         }}
         title="Display settings"
         className={toolbarBtnClass}
@@ -1860,7 +1815,7 @@ export default function GammaHeatmapCanvas() {
       >
         <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
           <span>{symbol} GEX Heatmap Timeseries</span>
-          <TooltipWrapper text="Net dealer GEX by strike through the session, in two views. Surface: a smoothed heatmap, its color scale clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain; the y-axis is cropped to ±2% of the underlying price range (scaled by the zoom buttons) and candlesticks show the underlying OHLC. Dots: one dot per strike per interval, its area the size of the GEX there and its color the sign, for a chosen number of strikes around price, with price as candlesticks in one contrasting color, hollow when up and filled when down. In both, the blue line marks the gamma flip.">
+          <TooltipWrapper text="Net dealer GEX by strike through the session, in two views. Surface: a smoothed heatmap, its color scale clipped at the 98th percentile of |GEX| with a signed-sqrt mapping so the ATM peak doesn't wash out the rest of the chain; the y-axis is cropped to ±2% of the underlying price range (scaled by the zoom buttons) and candlesticks show the underlying OHLC. Dots: one dot per strike per interval, its area the size of the GEX there and its color the sign, for a chosen number of strikes around price, with price as candlesticks in one contrasting color, hollow when up and filled when down. In both, the blue line marks the gamma flip. Expiry sums only the expirations you pick, and it is the same selection as the other charts' Expiry filters, so a pick on one moves them all. With a subset picked, the flip line is that subset's own flip and breaks where it has none.">
             <Info size={14} />
           </TooltipWrapper>
         </div>
@@ -1891,10 +1846,7 @@ export default function GammaHeatmapCanvas() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                setOptionsOpen((v) => !v);
-                setExpiryOpen(false);
-              }}
+              onClick={() => setOptionsOpen((v) => !v)}
               aria-expanded={optionsOpen}
               aria-controls={optionsPanelId}
               className={toolbarBtnClass}
@@ -1973,7 +1925,7 @@ export default function GammaHeatmapCanvas() {
           so nothing scrolls sideways; see NARROW_PADS for the phone layout. */}
       {!grid ? (
         <div className="px-5 py-12 text-center" style={{ color: subtle }}>
-          No heatmap data available
+          {loading && !gexData ? 'Loading…' : 'No heatmap data available'}
         </div>
       ) : (
         <>
@@ -2034,7 +1986,7 @@ export default function GammaHeatmapCanvas() {
                 )}
                 {tooltip.gammaFlip != null && Number.isFinite(tooltip.gammaFlip.value) && (
                   <div>
-                    Gamma Flip: ${tooltip.gammaFlip.value.toFixed(2)}
+                    Gamma Flip{expiryFiltered ? ' (selected expiries)' : ''}: ${tooltip.gammaFlip.value.toFixed(2)}
                     {tooltip.gammaFlip.expanded && (
                       <span style={{ opacity: 0.7 }}> (expanded scan)</span>
                     )}
@@ -2081,24 +2033,55 @@ export default function GammaHeatmapCanvas() {
               </span>
             </>
           )}
-          <span
-            className="flex items-center gap-1.5"
-            title="Price where dealer net gamma flips sign&nbsp;- above it dealers dampen volatility, below it they amplify it"
-          >
-            <svg width="22" height="6" aria-hidden="true">
-              <line x1="0" x2="22" y1="3" y2="3" stroke="var(--color-flip)" strokeWidth="2.25" />
-            </svg>
-            <span style={{ color: textPrimary }}>Gamma Flip</span>
-          </span>
-          <span
-            className="flex items-center gap-1.5"
-            title="Dashed segments mark cycles where the default resolver scan (±20% of spot) found no near-spot regime boundary and the search expanded to ±35% / ±50%. Those expansion-rung flips are geometrically valid but live far from spot; treat them as marginal, not as the live regime level."
-          >
-            <svg width="22" height="6" aria-hidden="true">
-              <line x1="0" x2="22" y1="3" y2="3" stroke="var(--color-flip)" strokeWidth="2" strokeDasharray="6,4" opacity="0.55" />
-            </svg>
-            <span style={{ color: textPrimary }}>Gamma Flip (expanded scan)</span>
-          </span>
+          {!expiryFiltered ? (
+            <>
+              <span
+                className="flex items-center gap-1.5"
+                title="Price where dealer net gamma flips sign&nbsp;- above it dealers dampen volatility, below it they amplify it"
+              >
+                <svg width="22" height="6" aria-hidden="true">
+                  <line x1="0" x2="22" y1="3" y2="3" stroke="var(--color-flip)" strokeWidth="2.25" />
+                </svg>
+                <span style={{ color: textPrimary }}>Gamma Flip</span>
+              </span>
+              <span
+                className="flex items-center gap-1.5"
+                title="Dashed segments mark cycles where the default resolver scan (±20% of spot) found no near-spot regime boundary and the search expanded to ±35% / ±50%. Those expansion-rung flips are geometrically valid but live far from spot; treat them as marginal, not as the live regime level."
+              >
+                <svg width="22" height="6" aria-hidden="true">
+                  <line x1="0" x2="22" y1="3" y2="3" stroke="var(--color-flip)" strokeWidth="2" strokeDasharray="6,4" opacity="0.55" />
+                </svg>
+                <span style={{ color: textPrimary }}>Gamma Flip (expanded scan)</span>
+              </span>
+            </>
+          ) : gammaFlipByMs.size > 0 ? (
+            // Under a filter the line is the selected expirations' own flip,
+            // recomputed by the API for each interval, and it breaks where
+            // they have none. Never the whole-chain flip.
+            <span
+              className="flex items-center gap-1.5"
+              title="The flip of the selected expirations alone: where their cumulative dealer gamma changes sign at each interval, the same level the Gamma Chart and the GEX Profile draw for this Expiry filter. The line breaks where they have no flip. Set Expiry to All for the whole-chain flip."
+            >
+              <svg width="22" height="6" aria-hidden="true">
+                <line x1="0" x2="22" y1="3" y2="3" stroke="var(--color-flip)" strokeWidth="2.25" />
+              </svg>
+              <span style={{ color: textPrimary }}>Gamma Flip (selected expiries)</span>
+            </span>
+          ) : (
+            // A filtered book is often one-signed and has no flip at all. Say
+            // so in the shared words (core/keyLevels), as the GEX Profile does,
+            // rather than leave a missing line to read as a broken chart.
+            <span
+              className="flex items-center gap-1.5"
+              style={{ color: 'var(--color-warning)' }}
+              title={noFlipInScopeTooltip('Gamma Flip')}
+            >
+              <svg width="22" height="6" aria-hidden="true">
+                <line x1="0" x2="22" y1="3" y2="3" stroke="var(--color-warning)" strokeWidth="2" strokeDasharray="4,4" />
+              </svg>
+              {LEVEL_NO_FLIP_IN_SCOPE_NOTE}
+            </span>
+          )}
         </div>
         </>
       )}
