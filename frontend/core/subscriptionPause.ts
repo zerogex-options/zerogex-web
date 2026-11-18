@@ -8,7 +8,9 @@
 // entitlement from derivePauseState(subscription.pause_collection); the
 // cancel-flow route uses clampPauseMonths + computeResumesAtUnix to set a bounded
 // pause_collection, and it and the billing status route only offer a pause where
-// isPausableCadence allows one. Locked down in tests/subscriptionPause.test.ts.
+// isPausableCadence allows one. scripts/pause-subscription.mts sets the same
+// pause for a member who asks by email, and previews it with billsDuringPause.
+// Locked down in tests/subscriptionPause.test.ts.
 
 export const PAUSE_MONTH_OPTIONS = [1, 2, 3] as const;
 const MIN_PAUSE_MONTHS = 1;
@@ -75,4 +77,59 @@ export function computeResumesAtUnix(nowMs: number, months: number): number {
   const d = new Date(nowMs);
   d.setMonth(d.getMonth() + months);
   return Math.floor(d.getTime() / 1000);
+}
+
+// A monthly bill `months` after the billing-cycle anchor, the way Stripe dates
+// them: same UTC day and time each month, on the month's last day when the
+// anchor's day doesn't exist (an anchor on the 31st bills Nov 30, then Dec 31).
+// Always counted from the anchor itself, never chained, so a short month
+// doesn't drag every later bill earlier.
+export function monthlyBillUnix(anchorUnix: number, months: number): number {
+  const a = new Date(anchorUnix * 1000);
+  const year = a.getUTCFullYear();
+  const month = a.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const day = Math.min(a.getUTCDate(), lastDay);
+  return Math.floor(
+    Date.UTC(year, month, day, a.getUTCHours(), a.getUTCMinutes(), a.getUTCSeconds()) / 1000,
+  );
+}
+
+export type PauseBills = {
+  // Bills that come due while paused. With behavior 'void' each one is voided:
+  // the member is never charged for those periods.
+  skippedUnix: number[];
+  // The first bill after the pause ends: the member's next real charge.
+  nextChargeUnix: number | null;
+};
+
+// A century of months: an anchor this old is bad data, not a member.
+const MAX_BILLS_SCANNED = 1200;
+
+// What a pause from nowUnix to resumesAtUnix does to a monthly plan's bills.
+// Stripe keeps billing on schedule through a pause, so every bill dated inside
+// the window is skipped and the first one after it is charged as usual. This is
+// what makes a monthly pause fair: N months paused skips exactly N bills, and a
+// period paid just before the pause is not lost, it covers the stretch from the
+// resume to the next charge. Preview only; Stripe does the actual voiding.
+export function billsDuringPause(anchorUnix: number, nowUnix: number, resumesAtUnix: number): PauseBills {
+  if (
+    !Number.isFinite(anchorUnix) ||
+    !Number.isFinite(nowUnix) ||
+    !Number.isFinite(resumesAtUnix) ||
+    resumesAtUnix <= nowUnix
+  ) {
+    return { skippedUnix: [], nextChargeUnix: null };
+  }
+  const skippedUnix: number[] = [];
+  for (let k = 0; k < MAX_BILLS_SCANNED; k++) {
+    const bill = monthlyBillUnix(anchorUnix, k);
+    if (bill <= nowUnix) continue;
+    if (bill < resumesAtUnix) {
+      skippedUnix.push(bill);
+      continue;
+    }
+    return { skippedUnix, nextChargeUnix: bill };
+  }
+  return { skippedUnix, nextChargeUnix: null };
 }

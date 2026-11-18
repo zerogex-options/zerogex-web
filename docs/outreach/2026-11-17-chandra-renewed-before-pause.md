@@ -26,41 +26,40 @@ your email and it renewed already!"
   nothing.
 - **Pause it for them instead of asking again.** Chandra already missed one
   email. If this one gets missed too, December bills and you're back here. It's
-  two minutes in the Stripe Dashboard.
-- **In the Dashboard, set the resume date two days after the January bill**, not
-  just "two months from today". The in-app pause resumes at the same minute two
-  months out, which here lands after the January bill. The Dashboard takes a
-  calendar day, and if that day is the January billing day itself, the January
-  bill can land after the resume and get charged. Two days of margin covers any
-  time zone.
+  one command.
+- **Use `make pause-subscription`, not the Stripe Dashboard.** It sets the same
+  pause the Account page does, resuming at the same minute two months out, and
+  prints the bills it skips and the next charge date. The Dashboard resumes on
+  a calendar day, and if that day is the January billing day, the January bill
+  can land after the resume and get charged.
 
 ## Steps
 
-1. **Stripe Dashboard.** Open Chandra's customer, then the subscription. Check
-   three things:
-   - **It bills monthly.** If it's quarterly or annual, stop: a 2-month pause
-     right after that renewal voids nothing and just takes away two months
-     Chandra paid for (the reason the app only offers pauses on monthly), so
-     this reply doesn't fit.
-   - **It isn't already paused.** If it already shows payment collection
-     paused, Chandra did it after writing. Check the resume date and drop "I've
-     paused it for you" from the reply.
-   - **The next invoice date**, e.g. Dec 15. Call that day of the month D.
-2. **Pause.** Overflow menu (⋯) → **Pause payment collection** → **Until a
-   custom date**, January D+2 (Dec 15 → Jan 17) → **Void invoices** →
-   **Pause**. Not "Keep invoices as drafts", which collects them later, and not
-   "Mark invoices uncollectible".
-3. **Optional check**, in `~/zerogex-web` on the server (swap in Chandra's
-   address):
+Both run in `~/zerogex-web` on the server. Swap in Chandra's address.
+
+1. **Preview**, no changes:
 
    ```bash
-   make diagnose-user EMAIL=chandras-address@example.com
+   make pause-subscription EMAIL=chandras-address@example.com MONTHS=2
    ```
 
-   Tier reads `public`, and the recent events include
-   `billing_subscription_paused` with "paused until" your January date.
-4. **Send the reply.** Fill in the two dates: January D+2 and February D. Your
-   Gmail signature goes under the sign-off, as in your Nov 13 email.
+   Check that `Auth DB:` shows `/var/lib/zerogex/auth.db`, `Plan:` ends in
+   `monthly`, `Scheduled cancel: no`, and `Bills skipped:` lists a December
+   and a January date. If it stops with "not monthly", stop too: this reply
+   doesn't fit. If it says "Already paused", Chandra did it after writing.
+   Skip step 2 and drop "I've paused it for you" from the reply.
+2. **Pause:**
+
+   ```bash
+   make pause-subscription EMAIL=chandras-address@example.com MONTHS=2 YES=1
+   ```
+
+   It should end with `Done. ... is paused for 2 months.` and `The site has it:
+   tier public, paused until ...`. If it says the site hasn't heard yet, run
+   `make diagnose-user` for Chandra a minute later.
+3. **Send the reply.** Fill in the two dates from the output: `Access: ... back
+   on its own` and `Next charge:`. Your Gmail signature goes under the
+   sign-off, as in your Nov 13 email.
 
 ## Draft reply
 
@@ -68,7 +67,7 @@ Hi Chandra,
 
 No worries at all, and you haven't lost anything. I've paused it for you, so there's nothing you need to do.
 
-The payment that just went through carries over to when you're back. The pause skips your December and January bills, so you won't be charged again until {{February D}}. Your access is off while it's paused and comes back on its own on {{January D+2}}.
+The payment that just went through carries over to when you're back. The pause skips your December and January bills, so you won't be charged again until {{next charge date}}. Your access is off while it's paused and comes back on its own on {{back-on date}}.
 
 If you're back sooner, click "Resume now" at https://zerogex.io/account.
 
