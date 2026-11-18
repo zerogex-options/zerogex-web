@@ -99,6 +99,11 @@ export const dict: PageDictionary = {
     pauseHeading: 'Would a break help?',
     pauseBody:
       "Pause your subscription instead\u00a0- no charge and no access while it's paused, and it picks back up automatically. How long would you like?",
+    // Pro plans only (core/subscriptionPause.ts pauseRevokesApiKeys): the pause
+    // revokes the member's API key, and a revoked key can't be switched back on.
+    // Shown above the month buttons, since picking a length is the confirmation.
+    pauseApiKeyWarning:
+      "If you use the API: pausing switches off your API key, and it can't be turned back on. When Pro comes back, generate a new key under API Access on your Account page and put it in any script, spreadsheet, or NinjaTrader chart that used the old one.",
     pauseMonth: '{n} month',
     pauseMonths: '{n} months',
     pauseBack: 'Back',
@@ -107,6 +112,9 @@ export const dict: PageDictionary = {
       "You won't be charged, and your access resumes automatically on {date}. Come back before then and I'll switch it right back on\u00a0- nothing to re-set up.",
     pausedBodyNoDate:
       "You won't be charged while paused, and it resumes automatically. Come back anytime.",
+    // Pro plans only, after pausedBody / pausedBodyNoDate.
+    pausedApiKeyNote:
+      "The one exception is your API key: it switches off with the pause and can't be turned back on, so generate a new one under API Access on your Account page once Pro is back.",
 
     genericError: 'Something went wrong. Please try again in a minute.',
   },

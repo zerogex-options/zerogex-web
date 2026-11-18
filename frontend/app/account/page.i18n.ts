@@ -34,6 +34,12 @@ export const dict: PageDictionary = {
     subscriptionPaused:
       'Your subscription is paused\u00a0- it resumes automatically on {date}, and you won’t be charged until then.',
     subscriptionPausedNoDate: 'Your subscription is paused. You won’t be charged until it resumes.',
+    // Pro plans only, under the paused line. Rendered as Before + a link to the
+    // API Access section (#api-access) + After.
+    pausedApiKeyBefore:
+      'If you had an API key, it stopped working when your subscription paused, and it can’t be turned back on. Once Pro is back, generate a new one in',
+    pausedApiKeyLink: 'API Access',
+    pausedApiKeyAfter: 'and swap it into anything that used the old key.',
     resumeSubscription: 'Resume now',
     resuming: 'Resuming…',
     subscriptionEndsOn: 'Your plan is set to cancel on {date}. You’ll keep full access until then.',

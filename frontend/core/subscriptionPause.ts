@@ -4,13 +4,17 @@
 // access, so it is NOT churn: the member takes a bounded break and comes back
 // instead of canceling outright.
 //
-// Kept PURE (no imports) so it's unit-tested without Stripe. The webhook derives
+// Kept PURE (no Stripe, no database; its one import, core/auth.ts, has no
+// imports of its own) so it's unit-tested without Stripe. The webhook derives
 // entitlement from derivePauseState(subscription.pause_collection); the
 // cancel-flow route uses clampPauseMonths + computeResumesAtUnix to set a bounded
 // pause_collection, and it and the billing status route only offer a pause where
 // isPausableCadence allows one. scripts/pause-subscription.mts sets the same
 // pause for a member who asks by email, and previews it with billsDuringPause.
-// Locked down in tests/subscriptionPause.test.ts.
+// pauseRevokesApiKeys decides who is told that the pause costs them their API
+// key. Locked down in tests/subscriptionPause.test.ts.
+
+import { isApiKeyEligibleTier, type TierId } from './auth.ts';
 
 export const PAUSE_MONTH_OPTIONS = [1, 2, 3] as const;
 const MIN_PAUSE_MONTHS = 1;
@@ -45,6 +49,28 @@ export type PauseState = {
 // cadence (a price that maps to no SKU) is not pausable either.
 export function isPausableCadence(cadence: string | null | undefined): boolean {
   return cadence === 'monthly';
+}
+
+// The tier a member holds while paused. The webhook grants nothing during a
+// pause (syncSubscriptionToUser in app/api/webhooks/stripe/route.ts).
+const PAUSED_TIER: TierId = 'public';
+
+// Whether pausing a plan on `planTier` switches off the member's API key for
+// good. The pause drops the member to PAUSED_TIER, and the webhook revokes every
+// key on a drop out of API-key eligibility (revokeApiKeysIfTierDropped in
+// core/apiKeyAdmin.ts, the same test as below). The key service can revoke a
+// key but not suspend one, so the old key never works again: once the plan
+// resumes, the member generates a new one at /account#api-access. The cancel
+// flow says so before the member picks a pause length, the Account page's
+// paused banner says it again, and scripts/pause-subscription.mts prints it in
+// its preview.
+//
+// Pass the tier of the subscription's price (priceIdToSku), not users.tier: the
+// pause itself sets users.tier to PAUSED_TIER, so only the plan still says Pro
+// while the member is paused.
+export function pauseRevokesApiKeys(planTier: TierId | null | undefined): boolean {
+  if (!planTier) return false;
+  return isApiKeyEligibleTier(planTier) && !isApiKeyEligibleTier(PAUSED_TIER);
 }
 
 export function derivePauseState(input: PauseCollectionInput): PauseState {
