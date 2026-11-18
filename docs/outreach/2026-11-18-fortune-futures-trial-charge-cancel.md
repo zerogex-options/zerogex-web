@@ -13,8 +13,15 @@ free trial converted and $39 cleared. Survey reason "Other", nothing typed.
 > have such spotty service on my trip. I apologize for the inconvenience I
 > wanted to mostly take the trial to se if I would pick up using it at the
 > beginning of next year. I don't trade November/December." That meets the
-> condition the email offered the refund on. **Next:** the three steps under
-> "Refund it", then the reply there. Not done yet.
+> condition the email offered the refund on.
+>
+> **Closed Wed Nov 18.** `make cancel-subscription ... FORCE=1 YES=1` ran
+> clean (tier `public`, no API keys were active, no open invoices), and the
+> reply under "Refund it" went out. The refund is a Stripe Dashboard step with
+> no terminal output: `make diagnose-user` showing `refund_issued` (3900 of
+> 3900) confirms it. If it's missing, the daily orphan-payment alert flags him,
+> because a paid, unrefunded invoice on a free account reads as an orphaned
+> payment. Still open: the January free week, if he writes back.
 
 ## Their account (`make diagnose-user`, Nov 18)
 
