@@ -59,6 +59,7 @@ help:
 	@echo "  make trace-payment-claim [EMAIL=<email>] [AMOUNT=29.50] [DATE=2026-09-13] [LAST4=3392] - Answer 'you charged me' with evidence. Sweeps the WHOLE Stripe account by CARD FINGERPRINT, not by customer, so a charge on a second customer, a guest charge with no customer, or an incomplete PaymentIntent cannot hide. Read-only. Run this BEFORE telling anyone they were not charged"
 	@echo "  make void-stale-invoices [SINCE_DAYS=365] [EMAIL=<email>] [VERBOSE=1] - Void open invoices that can no longer buy the access they bill for (subscription gone, period already elapsed) — paying one takes money and grants nothing. Dry-run by default, YES=1 to apply; voiding is final"
 	@echo "  make duplicate-accounts [MAX_PER_IP=20] [SHAPE=trial_recycled] [EXCLUDE_IP=<ip>] [SINCE_DAYS=N] [VERBOSE=1] - Find members holding more than one account, grouped by shared IP from the audit log. Ranks clusters by what they would cost if real (two paying accounts first, then a recycled trial) and prints the HANDOFF: how long after one account went quiet the next was created. Read-only; a shared address is a pointer, not proof"
+	@echo "  make gmail-duplicates - List Gmail inboxes that hold more than one account (spellings that differ only by dots, a +tag or googlemail.com), with tier, subscription status, last seen and how each signs in. For deciding by hand what to merge; merges nothing. Read-only"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make signup-alarm  - Check the trailing registration rate and email the operator if signups have flatlined. Runs hourly via systemd (step 096); FORCE=1 bypasses the active-hours/cooldown gates, DRY_RUN=1 previews without sending, WINDOW=<h>/MIN=<n> override thresholds"
@@ -1128,6 +1129,22 @@ trace-payment-claim:
 #   make duplicate-accounts EXCLUDE_IP=203.0.113.7 VERBOSE=1
 duplicate-accounts:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-duplicate-accounts.mts $(if $(MAX_PER_IP),--max-per-ip $(MAX_PER_IP),) $(if $(MIN_ACCOUNTS),--min-accounts $(MIN_ACCOUNTS),) $(if $(SHAPE),--shape $(SHAPE),) $(if $(EXCLUDE_IP),--exclude-ip $(EXCLUDE_IP),) $(if $(SINCE_DAYS),--since-days $(SINCE_DAYS),) $(if $(VERBOSE),--verbose,)'
+
+# Gmail inboxes that hold more than one account.
+#
+# Gmail ignores dots and anything after a "+", so first.last@gmail.com and
+# firstlast@gmail.com are one inbox. Sign-in used to match addresses exactly,
+# which let one member end up with a paid account under one spelling and a free
+# one that Google sign-in created under the other. Sign-in now matches across
+# spellings (frontend/core/mailboxKey.ts), but only onto the one live account
+# on an inbox, so pairs made before the fix stay as they are. This lists them,
+# paid accounts' inboxes first, with tier, subscription status, last seen and
+# how each account signs in. Merges nothing. STRICTLY READ-ONLY (opens the DB
+# readOnly), safe to run against production at any time.
+# Usage: make gmail-duplicates
+.PHONY: gmail-duplicates
+gmail-duplicates:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/gmail-duplicates.mts'
 
 # Void the open invoices that can no longer buy the access they bill for.
 #

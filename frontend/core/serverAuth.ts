@@ -28,6 +28,8 @@ import { normalizeCampaignCode } from '@/core/campaigns';
 import { sanitizeUtmSource } from '@/core/utils';
 import { isAcceptedTermsVersionCurrent } from '@/core/legalTerms';
 import { isUnstartedSubscriptionStatus } from '@/core/billingUser';
+import { accountOnMailbox, findAccountForSignIn, isGmailAddress, mailboxKey } from '@/core/mailboxKey';
+import { DELETED_ACCOUNT_MESSAGE, isReturningOAuthSignIn, resolveOAuthAccount } from '@/core/oauthAccount';
 
 // First-party cookie that carries an inbound ?ref= code from the landing page
 // through to account creation (incl. the OAuth round-trip).
@@ -127,6 +129,13 @@ export function selfSignupTier(): TierId {
   const configured = normalizeTier(process.env.SELF_SIGNUP_DEFAULT_TIER);
   return configured === 'basic' ? 'basic' : 'public';
 }
+
+// Shown on /register when the address is another spelling of a Gmail inbox
+// that already has an account (see registerUser). Names neither the other
+// spelling nor the account, the same as the exact-address refusal.
+const SAME_INBOX_REGISTERED_MESSAGE =
+  'This Gmail inbox already has an account under another spelling of the address ' +
+  '(Gmail ignores dots and anything after a +). Sign in instead, or reset your password.';
 
 const SESSION_TTL_SECONDS = readPositiveInt('AUTH_SESSION_TTL_SECONDS', 60 * 60 * 24 * 14);
 const SESSION_ROTATE_AFTER_SECONDS = readPositiveInt('AUTH_SESSION_ROTATE_AFTER_SECONDS', 60 * 60 * 24);
@@ -252,9 +261,9 @@ function ensureBootstrapAdmin() {
   if (!existing) {
     const now = nowIso();
     db.prepare(
-      `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
-       VALUES (?, ?, ?, 'admin', ?, ?)`
-    ).run(createId('user'), email, hashPassword(password), now, now);
+      `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, mailbox_key)
+       VALUES (?, ?, ?, 'admin', ?, ?, ?)`
+    ).run(createId('user'), email, hashPassword(password), now, now, mailboxKey(email));
   }
 
   process.env[BOOTSTRAP_ADMIN_FLAG] = '1';
@@ -270,6 +279,25 @@ function getUserByEmail(email: string) {
     .prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL')
     .get(email) as Record<string, unknown> | undefined;
   return row ? rowToUser(row) : null;
+}
+
+// The account a TYPED address signs in to, for password login and password
+// reset: the account with exactly this address, else the one live account on
+// another spelling of the same Gmail inbox (core/mailboxKey.ts). Neither grants
+// anything on the match alone; see findAccountForSignIn. Everything else that
+// resolves a user by email (registration's duplicate check, admin tier
+// changes) stays exact on purpose.
+function getUserForSignIn(email: string): { user: AuthUser; via: 'email' | 'mailbox' } | null {
+  ensureBootstrapAdmin();
+  const match = findAccountForSignIn(getDb(), email);
+  return match ? { user: rowToUser(match.row), via: match.via } : null;
+}
+
+// Appended to an audit message when the account was found under another
+// spelling of the address the member used, so a support lookup by either
+// spelling makes sense of the row.
+function otherSpellingNote(used: string, via: 'email' | 'mailbox'): string {
+  return via === 'mailbox' ? ` (as ${used}, another spelling of this Gmail address)` : '';
 }
 
 function getSessionByToken(token: string): SessionWithUser | null {
@@ -569,8 +597,25 @@ export async function registerUser(
     .prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NOT NULL')
     .get(normalizedEmail) as { id: string } | undefined;
   if (deletedExisting) {
-    throw new Error('This account has been deleted. Contact support if you want it restored.');
+    throw new Error(DELETED_ACCOUNT_MESSAGE);
   }
+
+  // One inbox, one account. Gmail delivers first.last@, firstlast@ and
+  // firstlast+tag@ to the same inbox (core/mailboxKey.ts), so a new account on
+  // another spelling of an inbox that already has one would be the same person
+  // twice: the next Google sign-in would find two accounts and could pick
+  // neither, and a +tag would be a fresh free trial on demand. Refused the way
+  // the exact address is. A deleted account on the inbox refuses too, as the
+  // exact address does, or deleting an account and re-registering a spelling
+  // of it would be the same trial loop. Sign-in and password reset accept the
+  // other spelling (getUserForSignIn), so "sign in instead" works as written.
+  // (For any other domain the key is the lower-cased address, so this only
+  // catches an older row stored with capitals, which the exact check misses.)
+  const sameInbox = accountOnMailbox(db, normalizedEmail);
+  if (sameInbox === 'live') {
+    throw new Error(isGmailAddress(normalizedEmail) ? SAME_INBOX_REGISTERED_MESSAGE : 'Email already registered');
+  }
+  if (sameInbox === 'deleted') throw new Error(DELETED_ACCOUNT_MESSAGE);
 
   // Bound here rather than read back off `user` below. AuthUser.passwordHash is
   // OPTIONAL — an OAuth account has none — so reading it back widens to
@@ -592,8 +637,8 @@ export async function registerUser(
   // that says so exactly is easier to stand behind than one off by a few ms.
   db.prepare(
     `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, signup_utm_source,
-                        terms_accepted_at, terms_version_accepted)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                        terms_accepted_at, terms_version_accepted, mailbox_key)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     user.id,
     user.email,
@@ -604,6 +649,7 @@ export async function registerUser(
     sanitizeUtmSource(signupSource),
     user.createdAt,
     acceptedTermsVersion,
+    mailboxKey(user.email),
   );
 
   // Best-effort referral attribution — an invalid/absent code just leaves the
@@ -671,15 +717,23 @@ export async function createSessionForUserCredentials(request: NextRequest, emai
   const limit = enforceLoginRateLimit(ip);
   if (!limit.allowed) throw new Error(`Too many login attempts. Retry in ${limit.retryAfterSeconds}s.`);
 
-  const user = getUserByEmail(email.trim().toLowerCase());
-  if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
-    appendAuditEvent({ type: 'login_failure', email: email.trim().toLowerCase(), ip, message: 'Failed login attempt' });
+  const typedEmail = email.trim().toLowerCase();
+  const match = getUserForSignIn(typedEmail);
+  if (!match || !match.user.passwordHash || !verifyPassword(password, match.user.passwordHash)) {
+    appendAuditEvent({ type: 'login_failure', email: typedEmail, ip, message: 'Failed login attempt' });
     throw new Error('Invalid credentials');
   }
 
+  const { user, via } = match;
   clearLoginRateLimit(ip);
   const session = createSessionForUser(user);
-  appendAuditEvent({ type: 'login_success', userId: user.id, email: user.email, ip, message: 'Login successful' });
+  appendAuditEvent({
+    type: 'login_success',
+    userId: user.id,
+    email: user.email,
+    ip,
+    message: `Login successful${otherSpellingNote(typedEmail, via)}`,
+  });
   return session;
 }
 
@@ -700,9 +754,9 @@ export async function requestPasswordReset(request: NextRequest, email: string):
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const user = getUserByEmail(normalizedEmail);
+  const match = getUserForSignIn(normalizedEmail);
 
-  if (!user) {
+  if (!match) {
     appendAuditEvent({
       type: 'password_reset_request',
       email: normalizedEmail,
@@ -712,13 +766,16 @@ export async function requestPasswordReset(request: NextRequest, email: string):
     return { status: 'no_user' };
   }
 
+  // The link goes to the address on the account (result.email below), not the
+  // one typed. For another spelling of a Gmail address that is the same inbox.
+  const { user, via } = match;
   if (!user.passwordHash) {
     appendAuditEvent({
       type: 'password_reset_request',
       userId: user.id,
       email: user.email,
       ip,
-      message: 'Password reset requested for OAuth-only account; no email sent',
+      message: `Password reset requested for OAuth-only account; no email sent${otherSpellingNote(normalizedEmail, via)}`,
     });
     return { status: 'no_local_password' };
   }
@@ -739,7 +796,7 @@ export async function requestPasswordReset(request: NextRequest, email: string):
     userId: user.id,
     email: user.email,
     ip,
-    message: 'Password reset link issued',
+    message: `Password reset link issued${otherSpellingNote(normalizedEmail, via)}`,
   });
 
   return { status: 'issued', token, userId: user.id, email: user.email, expiresAt };
@@ -1019,139 +1076,84 @@ export async function consumeEmailVerification(
  * mint a fresh account. Used by the callback routes to skip the signup rate
  * limit on returning logins — that bucket is per-IP, so a shared NAT / VPN
  * exit / mobile carrier could otherwise lock out everyone behind it after
- * five Google or Apple sign-ins in an hour. A user is "returning" if either
- * the (provider, providerId) identity already exists, OR a local user with
- * this email exists (createOrLoginOAuthUser will adopt that account on first
- * OAuth sign-in — also a returning login, not a new signup).
+ * five Google or Apple sign-ins in an hour. A user is "returning" if the
+ * (provider, providerId) identity already exists, OR a local user with this
+ * email exists, OR exactly one live account sits on another spelling of the
+ * same Gmail inbox (createOrLoginOAuthUser adopts either of the last two on
+ * first OAuth sign-in — also a returning login, not a new signup).
  */
 export function isOAuthReturningUser(
   provider: 'google' | 'apple',
   providerId: string,
   email: string,
 ): boolean {
-  const db = getDb();
-  const identityRow = db
-    .prepare(`SELECT 1 FROM user_identities WHERE provider = ? AND provider_id = ?`)
-    .get(provider, providerId);
-  if (identityRow) return true;
-  const emailRow = db
-    .prepare('SELECT 1 FROM users WHERE email = ?')
-    .get(email.trim().toLowerCase());
-  return !!emailRow;
+  return isReturningOAuthSignIn(getDb(), provider, providerId, email);
 }
 
 export async function createOrLoginOAuthUser(request: NextRequest, input: { provider: 'google' | 'apple'; providerId: string; email: string; }) {
   const db = getDb();
-  const normalizedEmail = input.email.trim().toLowerCase();
+  const reportedEmail = input.email.trim().toLowerCase();
 
-  // A soft-deleted account must not be revived by signing in with the provider
-  // again. Refuse up front (before identity/email resolution) with a clear
-  // message rather than letting the flow fall through to a fresh-signup INSERT
-  // that would collide on the still-present email row.
-  const deletedRow = db
-    .prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NOT NULL')
-    .get(normalizedEmail) as { id: string } | undefined;
-  if (deletedRow) {
-    throw new Error('This account has been deleted. Contact support if you want it restored.');
-  }
+  // Which account this sign-in lands in, and the identity link to it, are
+  // decided in core/oauthAccount.ts (the order of the checks is documented and
+  // tested there): a soft-deleted address is refused, a linked identity signs
+  // in, then the account with exactly this address, then the ONE live account
+  // on another spelling of the same Gmail inbox, else a new account. What a
+  // new account looks like, the session and the audit trail stay here.
+  const resolution = resolveOAuthAccount(db, input, (normalizedEmail) => {
+    const oauthNow = nowIso();
+    const id = createId('user');
+    // Tier on fresh OAuth signup must mirror the local-password
+    // registration default: selfSignupTier() (public unless an operator
+    // has explicitly set SELF_SIGNUP_DEFAULT_TIER=basic for the
+    // pre-Stripe beta phase). Hardcoding 'basic' here was a paywall
+    // bypass — Google sign-ins were granted Basic for free while
+    // local-password signups correctly defaulted to public.
+    //
+    // OAuth providers already attested this email address (Google/Apple
+    // won't issue an id_token for a mailbox the user can't read), so
+    // stamp email_verified_at immediately and skip the verification
+    // round-trip the local-password flow goes through.
+    db.prepare(
+      `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, email_verified_at, signup_utm_source,
+                          mailbox_key)
+       VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      normalizedEmail,
+      selfSignupTier(),
+      oauthNow,
+      oauthNow,
+      oauthNow,
+      sanitizeUtmSource(request.cookies.get(SOURCE_COOKIE_NAME)?.value),
+      mailboxKey(normalizedEmail),
+    );
 
-  const identityRow = db
-    .prepare(
-      `SELECT u.* FROM users u
-       JOIN user_identities i ON i.user_id = u.id
-       WHERE i.provider = ? AND i.provider_id = ? AND u.deleted_at IS NULL`
-    )
-    .get(input.provider, input.providerId) as Record<string, unknown> | undefined;
-  let user = identityRow ? rowToUser(identityRow) : null;
-
-  // True only when this callback is creating a brand-new account. Used
-  // below to discriminate "OAuth signup" (write `oauth_login` once for
-  // provider-tagged funnel analysis, no login_success) from "returning
-  // OAuth login" (write `login_success`, mirroring the local-password
-  // convention where /register skips the audit and /login owns it). The
-  // existing-local-user-adopting-OAuth branch (emailRow set) counts as
-  // a returning login, not a signup — the account predates this callback.
-  let isFreshSignup = false;
-
-  if (!user) {
-    db.exec('BEGIN');
-    try {
-      // Drop any orphaned identity row whose owning user no longer exists. This
-      // can happen if a previous delete ran with foreign_keys disabled and the
-      // ON DELETE CASCADE never fired, which would otherwise collide with the
-      // UNIQUE(provider, provider_id) constraint when we insert below.
-      db.prepare(
-        `DELETE FROM user_identities
-         WHERE provider = ? AND provider_id = ?
-           AND user_id NOT IN (SELECT id FROM users)`
-      ).run(input.provider, input.providerId);
-
-      const emailRow = db.prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL').get(normalizedEmail) as Record<string, unknown> | undefined;
-      if (emailRow) {
-        user = rowToUser(emailRow);
-      } else {
-        isFreshSignup = true;
-        const oauthNow = nowIso();
-        // Tier on fresh OAuth signup must mirror the local-password
-        // registration default: selfSignupTier() (public unless an operator
-        // has explicitly set SELF_SIGNUP_DEFAULT_TIER=basic for the
-        // pre-Stripe beta phase). Hardcoding 'basic' here was a paywall
-        // bypass — Google sign-ins were granted Basic for free while
-        // local-password signups correctly defaulted to public.
-        user = {
-          id: createId('user'),
-          email: normalizedEmail,
-          tier: selfSignupTier(),
-          createdAt: oauthNow,
-          updatedAt: oauthNow,
-        };
-        // OAuth providers already attested this email address (Google/Apple
-        // won't issue an id_token for a mailbox the user can't read), so
-        // stamp email_verified_at immediately and skip the verification
-        // round-trip the local-password flow goes through.
-        db.prepare(
-          `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, email_verified_at, signup_utm_source)
-           VALUES (?, ?, NULL, ?, ?, ?, ?, ?)`
-        ).run(
-          user.id,
-          user.email,
-          user.tier,
-          user.createdAt,
-          user.updatedAt,
-          oauthNow,
-          sanitizeUtmSource(request.cookies.get(SOURCE_COOKIE_NAME)?.value),
-        );
-
-        // Attribute the OAuth signup to any inbound referral the user carried
-        // through the provider round-trip in the zgx_ref cookie. Best-effort:
-        // a bad/absent code leaves the signup organic.
-        const refCode = request.cookies.get(REFERRAL_COOKIE_NAME)?.value;
-        if (refCode) {
-          try {
-            recordReferralSignup(user.id, refCode);
-          } catch (err) {
-            console.error('[oauth] referral attribution failed:', err);
-          }
-          attributeCampaignSignup(user.id, refCode);
-        }
+    // Attribute the OAuth signup to any inbound referral the user carried
+    // through the provider round-trip in the zgx_ref cookie. Best-effort:
+    // a bad/absent code leaves the signup organic.
+    const refCode = request.cookies.get(REFERRAL_COOKIE_NAME)?.value;
+    if (refCode) {
+      try {
+        recordReferralSignup(id, refCode);
+      } catch (err) {
+        console.error('[oauth] referral attribution failed:', err);
       }
-
-      const now = nowIso();
-      db.prepare(
-        `INSERT INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(user_id, provider) DO UPDATE SET provider_id = excluded.provider_id, updated_at = excluded.updated_at`
-      ).run(createId('ident'), user.id, input.provider, input.providerId, now, now);
-      db.exec('COMMIT');
-    } catch (err) {
-      db.exec('ROLLBACK');
-      throw err;
+      attributeCampaignSignup(id, refCode);
     }
-  }
+    return id;
+  });
+  const user = rowToUser(resolution.row);
 
   const session = createSessionForUser(user);
   const ip = getClientIp(request);
-  if (isFreshSignup) {
+  // Only a brand-new account is an "OAuth signup" (write `oauth_login` once
+  // for provider-tagged funnel analysis, no login_success). Everything else is
+  // a returning login (write `login_success`, mirroring the local-password
+  // convention where /register skips the audit and /login owns it), including
+  // adopting an existing account by its address or by another spelling of its
+  // Gmail inbox — those accounts predate this callback.
+  if (resolution.via === 'created') {
     // Signup-only audit. Kept as `oauth_login` for backward-compat with any
     // operator alerting on the type; the meaning narrows from "any OAuth
     // callback" to "OAuth signup" now that returning visits emit
@@ -1163,17 +1165,43 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
       ip,
       message: `${input.provider} signup successful`,
     });
+    // Several live accounts already share this inbox under other spellings.
+    // They are existing duplicates, so none was guessed at and this new
+    // account was made, as before. Recorded so they can be merged by hand.
+    const others = resolution.sameInboxAccountIds;
+    if (others.length > 0) {
+      console.warn(
+        `[oauth] ${input.provider} sign-in matched ${others.length} live accounts on one Gmail inbox ` +
+          `(${others.join(', ')}); created ${user.id} rather than pick one. See make gmail-duplicates.`,
+      );
+      appendAuditEvent({
+        type: 'oauth_mailbox_ambiguous',
+        userId: user.id,
+        email: user.email,
+        ip,
+        message:
+          `${input.provider} reported ${reportedEmail}; ${others.length} live accounts use other spellings ` +
+          `of this Gmail inbox (${others.join(', ')}), so none was picked and this new account was created, ` +
+          `as before. Merge by hand if they are one member (make gmail-duplicates).`,
+      });
+    }
   } else {
     // Returning login. Same `login_success` type the local-password /login
-    // path writes (line 452 above) so scripts/list-auth-users.mjs and
-    // scripts/list-public-cohort.mjs see OAuth returnees as active users
-    // instead of mis-bucketing them as never-logged-in.
+    // path writes (createSessionForUserCredentials above) so
+    // scripts/list-auth-users.mjs and scripts/list-public-cohort.mjs see
+    // OAuth returnees as active users instead of mis-bucketing them as
+    // never-logged-in.
     appendAuditEvent({
       type: 'login_success',
       userId: user.id,
       email: user.email,
       ip,
-      message: `Login successful via ${input.provider}`,
+      message:
+        `Login successful via ${input.provider}` +
+        (resolution.via === 'mailbox'
+          ? `; ${input.provider} reported ${reportedEmail}, another spelling of this Gmail address, ` +
+            `and is now linked to this account`
+          : ''),
     });
   }
   return session;
