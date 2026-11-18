@@ -10,13 +10,31 @@ reply to "Thank you for subscribing to ZeroGEX!":
 > not cover. Is that a fair assumption? I apologize for not looking over the
 > site to the degree necessary before I purchased…
 
-That subject is the paid-up-front welcome (`core/mailer.ts`). A Basic monthly
-trial gets "Your ZeroGEX trial is active" instead. So he most likely paid on
-day one, on a plan the 7-day money-back guarantee covers, and that welcome
-email named his refund deadline. `make diagnose-user` confirms it (see "Verify
-first").
+That subject is the paid-up-front welcome (`core/mailer.ts`), which also named
+his refund deadline. His account confirms it: Pro monthly, paid on day one,
+under the 7-day money-back guarantee.
 
-> **Status:** drafted Nov 18, not sent.
+> **Status:** drafted and checked Nov 18 (`make diagnose-user`, below). Ready
+> to send as written.
+
+## His account (`make diagnose-user`, Nov 18)
+
+Times are ET.
+
+| | |
+|---|---|
+| Plan | **Pro monthly, $59**, paid up front, no trial, no discounts. A money-back plan (`money_back=1`) |
+| Signed up | Wed Nov 18, 9:53 AM. Paid at 9:55 AM, two minutes later |
+| Refund window | 7 days from the payment: closes about **9:55 AM on Wed Nov 25** |
+| Last seen | 11:07 AM, about 70 minutes after paying |
+| Next bill | $59 on Fri Dec 18 |
+| Paying with | Link (`pm_1UdAG94AOiqteMYYsid0qUXr`), no card |
+| Stripe | `cus_VeTCDr6hnUdZxm`, `sub_1UdAGA4AOiqteMYYyacOdIk1`, invoice `in_1UdAGA4AOiqteMYYyW8Aj66z` |
+| User id | `user_17cf27166355b05f5a170556` |
+
+Ignore two lines in that output. "DORMANT" appears on any account under a day
+old. "MONEY EVER COLLECTED: 0 cleared invoice(s)" lags because the invoice table
+refreshes on a timer; Stripe shows the $59 paid.
 
 ## The read
 
@@ -70,23 +88,14 @@ first").
 
 ## Verify first
 
-- **His plan, payment date and refund window,** on the server in
-  `~/zerogex-web`:
-
-  ```bash
-  make diagnose-user EMAIL=jpshepherd@mac.com
-  ```
-
-  You want his plan and cadence, what he paid and when, and whether he's still
-  inside the 7 days. If he's on a **quarterly or annual** plan, change "I'll
-  make your next month free" to "I'll take a month off your next bill".
-  `gift-month` credits a month's worth of his plan (a third of the quarterly
-  price, a twelfth of the annual) against his next bill.
-- **Whether he's already gone.** If the output shows a `refund_issued` row or
-  tier `public`, he used the money-back button himself. Then replace the third
-  paragraph with "I see your refund has already gone through. When GLD is
-  ready, I'd like you to be one of the first to try it. I'll write to you then,
-  and your first two weeks will be on me." and delete the fourth.
+- **His plan and refund window: done, Nov 18.** Pro monthly, inside the
+  window, no discounts (table above), so the draft goes as written.
+- **If you send it after today, re-run `make diagnose-user` first.** He can
+  take the money-back refund himself from the Account page. A `refund_issued`
+  row or tier `public` means he has. Then replace the third paragraph with "I
+  see your refund has already gone through. When GLD is ready, I'd like you to
+  be one of the first to try it. I'll write to you then, and your first two
+  weeks will be on me." and delete the fourth.
 
 ## Draft
 
@@ -98,7 +107,7 @@ No apology needed, and thanks for asking. You're right: we don't cover gold toda
 
 Gold is on the list, through GLD, the gold ETF, rather than GC options themselves. It's queued behind a few stocks I'm adding now, and I can't give you a date yet.
 
-I don't want you paying for something you can't use, so just reply "refund" and I'll refund your payment in full. When GLD is ready, I'd like you to be one of the first to try it. I'll write to you then, and your first two weeks will be on me.
+I don't want you paying for something you can't use, so just reply "refund" and I'll refund your $59 in full. When GLD is ready, I'd like you to be one of the first to try it. I'll write to you then, and your first two weeks will be on me.
 
 If you also trade the S&P 500 or the Nasdaq (ES, NQ, SPX or SPY) and would rather keep your plan in the meantime, that works too, and I'll make your next month free.
 
@@ -128,19 +137,17 @@ The rest runs in `~/zerogex-web` on the server.
    That's the Account page's own path: a full refund, the plan canceled on the
    spot, any API key revoked, the refund confirmation email sent, and the
    refund recorded as his one guarantee refund.
-   - **Window closed:** add `FORCE=1` to both commands. It honors the refund as
-     goodwill and bypasses nothing else.
-   - **It says `not_covered`** (a Basic monthly plan): `FORCE=1` doesn't lift
-     that. Refund in the Stripe Dashboard (reason "Requested by customer"),
-     then run `make cancel-subscription EMAIL=jpshepherd@mac.com FORCE=1
-     DRY_RUN=1`, and the same with `YES=1` in place of `DRY_RUN=1`. Those are
-     Jose's steps (`2026-11-18-fortune-futures-trial-charge-cancel.md`).
+   - **After about 9:55 AM on Wed Nov 25** the window has closed: add
+     `FORCE=1` to both commands. It honors the refund as goodwill and bypasses
+     nothing else.
+   - **Any other reason it isn't eligible:** stop there and send me the
+     output.
 
 **Reply:**
 
 Hi John,
 
-Done. I've refunded your payment in full and closed your plan, so nothing more will be charged. The refund usually shows up within 5 to 10 business days, depending on your bank.
+Done. I've refunded the full $59 and closed your plan, so nothing more will be charged. The refund usually shows up within 5 to 10 business days, depending on your bank.
 
 I'll write to you when gold is live.
 
@@ -159,11 +166,19 @@ make gift-month EMAIL=jpshepherd@mac.com NOTE="waiting for gold" DRY_RUN=1
 make gift-month EMAIL=jpshepherd@mac.com NOTE="waiting for gold" YES=1
 ```
 
-It credits a month's worth of his own plan to his Stripe balance, so his next
-bill is that much less ($0 on a monthly plan). His plan and billing date don't
-change. No apostrophes in `NOTE`. Afterward, `make diagnose-user` shows the
-credit under Balance and the reduced charge under Upcoming invoice. Then reply
-with the date of that next bill.
+It credits $59, one month of his plan, to his Stripe balance, so his Dec 18
+bill is $0 and billing carries on at $59 after that. His plan and billing date
+don't change. No apostrophes in `NOTE`. Afterward, `make diagnose-user` shows
+the credit under Balance and $0.00 under Upcoming invoice.
+
+**Reply:**
+
+Hi John,
+
+Done. Your next month is on me, so your December 18 bill will be $0, and it's $59 a month after that. I'll write to you when gold is live.
+
+Best,
+Michael
 
 ### What his answer to the GC question tells you
 
@@ -201,6 +216,7 @@ make reactivate-member EMAIL=jpshepherd@mac.com DAYS=14 YES=1
 
 It re-creates his last plan on the card still on file, with 14 free days, then
 bills at his plan's price unless he cancels. The "Welcome back" email goes out
-on its own, and both trial reminders are re-armed. The dry run refuses if no
-usable card is left. Reply with the trial end date it prints, and say it bills
-after that unless he cancels.
+on its own, and both trial reminders are re-armed. He pays through Link rather
+than a card, which the script accepts: the dry run should print
+`Card: link (pm_1UdAG94AOiqteMYYsid0qUXr)`. Reply with the trial end date it
+prints, and say it bills after that unless he cancels.
