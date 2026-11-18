@@ -61,21 +61,17 @@ He attached a picture. I couldn't see it; see "Decide before sending".
 
 - **His plan: done, Nov 18.** `y.patronski1819@gmail.com` is `basic`,
   `active`, so the draft goes as written.
-- **He also has a free account, `ypatronski1819@gmail.com` (no dot).** Gmail
-  ignores dots, so both addresses reach one inbox. Sign-in matches the exact
-  address, though (`createOrLoginOAuthUser` in `core/serverAuth.ts`), so
-  ZeroGEX treats them as two accounts. If his Google sign-in is tied to the
-  free one, signing in with Google puts him where everything in the draft is
-  locked. To see which one he uses:
+- **His second account: done, Nov 18. Leave it.** `ypatronski1819@gmail.com`
+  (no dot) is a free account that Sign in with Google created on Oct 21, two
+  days after he registered the paid one with a password. Gmail ignores dots,
+  but sign-in matches the exact address (`createOrLoginOAuthUser` in
+  `core/serverAuth.ts`), so it made a new account instead of signing him in.
+  He used it for about 35 minutes that day and never again. The paid account
+  has a password, no Google link, and was last used Nov 18. The check:
 
   ```bash
   sudo sqlite3 -readonly -header /var/lib/zerogex/auth.db "SELECT u.email, u.tier, u.created_at, u.last_seen_at, u.password_hash IS NOT NULL AS has_password, (SELECT group_concat(i.provider) FROM user_identities i WHERE i.user_id = u.id) AS linked FROM users u WHERE u.email IN ('y.patronski1819@gmail.com', 'ypatronski1819@gmail.com');"
   ```
-
-  If the free row's `last_seen_at` is empty or older than the paid row's, he
-  uses the paid account: send as written. If the free row is the more recent
-  one, he's been signing in to the free account, and the reply needs a line
-  about that first.
 
 ## Draft
 
@@ -111,5 +107,20 @@ I'm also going to add the heatmap: today's SPX open interest, strike by strike, 
   activity, not positioning.
 - **He asks about GLD or the MAG 7.** Same as Nov 5: the rest of the MAG 7,
   then GLD. No date.
-- **He says a page asks him to upgrade.** He's signed in to the free
-  `ypatronski1819@gmail.com` account. See "Verify first".
+- **He says a page asks him to upgrade, or Google sign-in shows the wrong
+  account.** He signed in with Google and landed on the free account.
+  Deleting it alone won't help, because his next Google sign-in would just
+  make another one. Do both steps:
+  1. Delete the free account. It has no plan and no password, and the delete
+     is permanent, which frees his Google sign-in. The script falls back to
+     the local `frontend/data/auth.db` unless told otherwise, so name the
+     production path. Dry run first; it must find only the no-dot address:
+
+     ```bash
+     cd ~/zerogex-web && AUTH_DB_PATH=/var/lib/zerogex/auth.db make delete-user EMAIL=ypatronski1819@gmail.com DRY_RUN=1
+     ```
+
+     Then run the same command with `YES=1` in place of `DRY_RUN=1`.
+  2. Ask him to sign in with his email and password, open Account, and click
+     Connect next to Google. After that, Sign in with Google opens his paid
+     account.
