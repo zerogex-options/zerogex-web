@@ -16,7 +16,9 @@ No name given, so the draft opens "Hi there".
 > found", so they have never subscribed and the sale applies to them. The sale
 > opens early, at 12:00 AM ET Thursday, Nov 19. The first reply went out. Jed
 > answered at 12:38 PM: he's buying Pro annual at the sale price. The second
-> reply is at the end of this note ("Follow-up").
+> reply (end of this note, "Follow-up") was sent Wed Nov 18 afternoon, as
+> drafted. Next: once he buys, his subscription in Stripe should carry the
+> Black Friday coupon.
 
 ## The read
 
