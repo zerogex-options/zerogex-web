@@ -273,10 +273,17 @@ function pasteValue(formatted: string): string {
   return formatted === '—' ? PASTE_MISSING : formatted;
 }
 
+// Same order as the free script's Settings dialog, which lists the inputs in
+// the order public/tradingview/zerogex-daily-gamma-levels.pine declares them:
+// Call Wall first, not the flip. The block used to lead with the flip, so a
+// reader typing it in top to bottom put the flip in the Call Wall field.
+// Reordering the script instead would mean republishing it and rearranging
+// Settings for everyone already using it. The digest test reads the order
+// from the .pine file, so the two cannot drift apart unnoticed.
 function pasteLine(row: DigestRow): string {
   return (
-    `${row.symbol}: flip ${pasteValue(row.flip)}` +
-    ` / call wall ${pasteValue(row.callWall)}` +
+    `${row.symbol}: call wall ${pasteValue(row.callWall)}` +
+    ` / flip ${pasteValue(row.flip)}` +
     ` / put wall ${pasteValue(row.putWall)}` +
     ` / max pain ${pasteValue(row.maxPain)}`
   );
@@ -362,7 +369,7 @@ export function renderDailyLevelsEmail(
     // empty string behind as a second blank line.
     omittedNote || null,
     omittedNote ? '' : null,
-    'Paste order for the free TradingView script (Gamma Flip / Call Wall / Put Wall / Max Pain):',
+    'Paste order for the free TradingView script (Call Wall / Gamma Flip / Put Wall / Max Pain):',
     zeroNote,
     ...model.rows.map(pasteLine),
     `Don't have the script yet? Get the free TradingView indicator: ${site}${TRADINGVIEW_PATH}`,
@@ -456,7 +463,7 @@ export function renderDailyLevelsEmail(
       }
 
       <p style="margin:24px 0 6px; font-size:13px; font-weight:700; color:#12283c;">Paste order for the free TradingView script</p>
-      <p style="margin:0 0 8px; font-size:12px; color:#6b7680;">Gamma Flip / Call Wall / Put Wall / Max Pain${zeroNote ? ` &middot; ${escapeHtml(zeroNote)}` : ''}</p>
+      <p style="margin:0 0 8px; font-size:12px; color:#6b7680;">Call Wall / Gamma Flip / Put Wall / Max Pain${zeroNote ? ` &middot; ${escapeHtml(zeroNote)}` : ''}</p>
       <pre style="margin:0; padding:14px 16px; background:#f5f7f9; border:1px solid #e2e6ea; border-radius:8px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; line-height:1.7; color:#12283c; white-space:pre-wrap; word-break:break-word;">${escapeHtml(model.rows.map(pasteLine).join('\n'))}</pre>
       <p style="margin:8px 0 0; font-size:12px; color:#6b7680;">Don&rsquo;t have the script yet? <a href="${escapeHtml(`${site}${TRADINGVIEW_PATH}`)}" style="color:#12283c; font-weight:600;">Get the free TradingView indicator &rarr;</a></p>
 

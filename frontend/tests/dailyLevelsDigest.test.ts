@@ -12,6 +12,8 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 process.env.ZEROGEX_END_USER_TOKEN_SECRET =
   process.env.ZEROGEX_END_USER_TOKEN_SECRET || 'test-secret-do-not-use-in-production';
@@ -213,9 +215,49 @@ test('the TradingView paste block is present in the order the script asks for', 
   const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
   const { text, html } = render(m);
   for (const body of [text, html]) {
-    assert.match(body, /Gamma Flip \/ Call Wall \/ Put Wall \/ Max Pain/);
-    assert.match(body, /SPX: flip 7620 \/ call wall 7700 \/ put wall 7550 \/ max pain 7600/);
+    assert.match(body, /Call Wall \/ Gamma Flip \/ Put Wall \/ Max Pain/);
+    assert.match(body, /SPX: call wall 7700 \/ flip 7620 \/ put wall 7550 \/ max pain 7600/);
   }
+});
+
+test('the paste order is read from the script, not assumed — regression', () => {
+  // TradingView's Settings dialog lists a script's inputs in the order the
+  // script declares them, and that is the order a reader types this block in.
+  // The block used to lead with the flip while the script's first input is
+  // Call Wall, so typing it in top to bottom put the flip in the Call Wall
+  // field. The test above only checks the block against a hardcoded order,
+  // which is how that went unnoticed. This one takes the order from the .pine
+  // file, the source of record for the published script.
+  const pine = readFileSync(
+    path.join(path.dirname(new URL(import.meta.url).pathname), '../public/tradingview/zerogex-daily-gamma-levels.pine'),
+    'utf8',
+  );
+  const settingsOrder = [
+    ...pine.matchAll(/^\w+\s*=\s*input\.float\([^,]+,\s*"([^"]+)"[^\n]*\bgroup\s*=\s*GRP_LVL\b/gm),
+  ].map((match) => match[1]);
+  // Settings label -> the label each paste line uses for it.
+  const pasteLabel: Record<string, string> = {
+    'Call Wall': 'call wall',
+    'Gamma Flip': 'flip',
+    'Put Wall': 'put wall',
+    'Max Pain': 'max pain',
+  };
+  assert.deepEqual(
+    [...settingsOrder].sort(),
+    Object.keys(pasteLabel).sort(),
+    'the .pine file no longer declares exactly these four level inputs',
+  );
+
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  const { text, html } = render(m);
+  for (const body of [text, html]) {
+    assert.ok(body.includes(settingsOrder.join(' / ')), `the header should read ${settingsOrder.join(' / ')}`);
+  }
+  const spxLine = text.split('\n').find((line) => line.startsWith('SPX: '))!;
+  assert.deepEqual(
+    spxLine.slice('SPX: '.length).split(' / ').map((field) => field.replace(/ \S+$/, '')),
+    settingsOrder.map((label) => pasteLabel[label]),
+  );
 });
 
 test('a missing level pastes as 0, never as an em dash — regression, live data', () => {
@@ -231,8 +273,8 @@ test('a missing level pastes as 0, never as an em dash — regression, live data
   })!;
   const { text, html } = render(m);
   for (const body of [text, html]) {
-    assert.match(body, /NDX: flip 0 \/ call wall/);
-    assert.ok(!/NDX: flip —/.test(body), 'paste block must not carry an em dash');
+    assert.match(body, /NDX: call wall 7700 \/ flip 0 \/ put wall/);
+    assert.ok(!/NDX: [^\n]*—/.test(body), 'paste block must not carry an em dash');
   }
   // The readable table still reports the level as absent rather than as zero:
   // "flip 0" would be a false statement about the market.
@@ -317,9 +359,9 @@ test("a QQQ subscriber's digest leads with QQQ everywhere it matters", () => {
   const { text, html } = render(m);
   // First data row of the table, and first line of the paste block.
   assert.match(text, /\nQQQ\s+\S.*spot/);
-  assert.match(text, /Gamma Flip \/ Call Wall \/ Put Wall \/ Max Pain\):\nQQQ: flip/);
+  assert.match(text, /Call Wall \/ Gamma Flip \/ Put Wall \/ Max Pain\):\nQQQ: call wall/);
   // The other five are still there — the choice reorders, it does not filter.
-  for (const s of ['SPX', 'SPY', 'NDX', 'ES', 'NQ']) assert.match(text, new RegExp(`${s}: flip`));
+  for (const s of ['SPX', 'SPY', 'NDX', 'ES', 'NQ']) assert.match(text, new RegExp(`${s}: call wall`));
   assert.equal(html.indexOf('>QQQ<'), html.search(/>(SPX|SPY|QQQ|NDX|ES|NQ)</));
 });
 
@@ -347,7 +389,7 @@ test('the digest still reads correctly with images blocked', () => {
   const { text } = render(m);
   assert.ok(!text.includes('<img'));
   assert.match(text, /SPY\s+\S.*spot .* flip .* call wall .* put wall/);
-  assert.match(text, /SPY: flip/);
+  assert.match(text, /SPY: call wall/);
 });
 
 test('a chosen symbol with no snapshot yields no model — the caller substitutes', () => {
@@ -399,7 +441,7 @@ test('the paste block links the indicator it is formatted for', () => {
   const { text, html } = render(m);
   // Right under the paste lines, ahead of the "Full page" link, so a reader
   // without the script finds it where they need it, not only in the footer.
-  assert.match(text, /NQ: flip[^\n]*\nDon't have the script yet\? Get the free TradingView indicator: https:\/\/zerogex\.io\/tradingview-indicator\n/);
+  assert.match(text, /NQ: call wall[^\n]*\nDon't have the script yet\? Get the free TradingView indicator: https:\/\/zerogex\.io\/tradingview-indicator\n/);
   assert.match(html, /<\/pre>\s*<p[^>]*>Don&rsquo;t have the script yet\? <a href="https:\/\/zerogex\.io\/tradingview-indicator"/);
 });
 
