@@ -1,6 +1,6 @@
 # Gregory Ian: can the levels go straight into TradingView? (2026-11-18)
 
-American English, and each paragraph in the draft is a single line with no hard
+American English, and each paragraph in the reply is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
 
 **Inbound.** Tue Nov 17, 10:53 PM, from gregians@outlook.com, as a reply to the
@@ -13,7 +13,8 @@ a month earlier.
 > is that possible or it is all manual? any help on this will be highly
 > appreciated. thank you
 
-> **Status:** draft, unsent. Reply in the same thread.
+> **Status:** sent Wed Nov 18, in the same thread. Nothing to do unless he
+> replies; the likely follow-ups are answered at the end.
 
 ## The read
 
@@ -31,32 +32,31 @@ a month earlier.
   is public, at `/gex-levels#levels-email`, and double opt-in. It's a separate
   list (`levels_subscribers`), not his account, so his lapsed account doesn't
   matter and signing up doesn't start any other email.
-- **The draft says "match by name", not "same order", on purpose.** The email
+- **The reply says "match by name", not "same order", on purpose.** The email
   calls its block the "paste order" and lists Gamma Flip first. The
   indicator's settings list Call Wall first (`callWall` is the first
   `input.float` in `frontend/public/tradingview/zerogex-daily-gamma-levels.pine`).
   Every number in the email is labeled, so matching by name avoids typing a
   call wall into the flip field. Queued as a separate fix.
-- **The lines don't move during the day, so the draft says so.** The email is
+- **The lines don't move during the day, so the reply says so.** The email is
   a before-the-open snapshot, and the TradingView lines stay wherever he typed
   them. He was a paying member, so he's used to levels that update.
 - **Wall alerts are the paid version of what he's asking for.** Any paid plan
   (Basic and up, `core/wallAlertsDelivery.ts`). A rule is a symbol and a side,
   not a strike (`WallAlertRule` in `core/wallAlerts.ts`), so it follows the
   live wall, and email is one of its channels. SPX, SPY, QQQ and NDX only, so
-  the draft names those four. That paragraph is the only pitch in the draft;
-  delete it if you'd rather keep this purely helpful.
+  the reply names those four. That paragraph is the only pitch in the reply.
 - **His discount still works with no action from you.** The subject line he
   replied to is the auto variant, so he's stamped `winback_email_sent_at`. The
   coupon is standing, not time-limited, and checkout attaches it through
   `/pricing?winback=1` while his account is still lapsed (`winbackEligible` in
-  `app/api/billing/checkout/route.ts`). The draft doesn't restate the
+  `app/api/billing/checkout/route.ts`). The reply doesn't restate the
   percentage. His own copy of the original email, quoted below his reply,
   already says it.
 - **Left out: NinjaTrader, Sierra Chart, Bookmap, SabrTrader.** He asked about
   TradingView. They're in "If he replies".
 
-## Draft
+## Reply (sent)
 
 **Subject:** Re: A lot has changed at ZeroGEX - and your discount's ready
 
@@ -100,7 +100,7 @@ Michael
   `confirmed_at`: he hasn't clicked the confirmation. A filled
   `unsubscribed_at`: he opted out, and the form won't restart it.
 - **"Can't you make TradingView update on its own?"** Not today, for the reason
-  in the draft. Don't give a date.
+  in the reply. Don't give a date.
 - **"Is there any chart where the levels update by themselves?"** Yes, but not
   TradingView: the NinjaTrader 8, Sierra Chart and Bookmap indicators on Pro
   fetch them with the API key, and SabrTrader has ZeroGEX built in on the same
