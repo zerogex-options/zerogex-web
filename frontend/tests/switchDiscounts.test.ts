@@ -14,6 +14,7 @@ import { planSwitchDiscounts } from '../core/switchDiscounts.ts';
 const PROMO = 'promo_10_off_12m';
 const CARD_MONTHLY = 'card_50_off_12m';
 const CARD_ANNUAL = 'card_50_off_once';
+const BLACK_FRIDAY = 'bf_50_off_12m';
 
 // The public promo is live: its window is open and both monthly plans carry it.
 process.env.PROMO_END_AT = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -21,6 +22,9 @@ process.env.STRIPE_COUPON_PROMO_BASIC_MONTHLY = PROMO;
 process.env.STRIPE_COUPON_PROMO_PRO_MONTHLY = PROMO;
 process.env.STRIPE_CAMPAIGN_TARGET_MONTHLY = CARD_MONTHLY;
 process.env.STRIPE_CAMPAIGN_TARGET_ANNUAL = CARD_ANNUAL;
+// The Black Friday coupon (core/blackFridaySale.ts). Configured whether or not
+// the sale window is open: it is how a sale member is recognized afterwards.
+process.env.STRIPE_COUPON_BLACK_FRIDAY = BLACK_FRIDAY;
 
 function switchTo(tier: 'basic' | 'pro', cadence: 'monthly' | 'quarterly' | 'annual', currentCouponIds: string[]) {
   return planSwitchDiscounts({
@@ -72,5 +76,31 @@ test('a member without the card rate still gets the live promo on the same switc
   assert.ok(plan);
   assert.deepEqual(plan.keep, [PROMO]);
   assert.deepEqual(plan.missing, [PROMO]);
+  assert.equal(plan.changed, true);
+});
+
+// The Black Friday rate is exclusive the same way: half off the first year
+// rides through any switch, and a live public promo never joins it.
+
+test('a Black Friday member moving Basic → Pro monthly keeps the sale rate and gets no promo on top', () => {
+  const plan = switchTo('pro', 'monthly', [BLACK_FRIDAY]);
+  assert.ok(plan);
+  assert.deepEqual(plan.keep, [BLACK_FRIDAY]);
+  assert.deepEqual(plan.missing, []);
+  assert.equal(plan.changed, false);
+});
+
+test('a Black Friday member moving to annual keeps the sale rate', () => {
+  const plan = switchTo('pro', 'annual', [BLACK_FRIDAY]);
+  assert.ok(plan);
+  assert.deepEqual(plan.keep, [BLACK_FRIDAY]);
+  assert.equal(plan.changed, false);
+});
+
+test('a Black Friday member somehow carrying the promo as well has it removed on their next switch', () => {
+  const plan = switchTo('basic', 'monthly', [BLACK_FRIDAY, PROMO]);
+  assert.ok(plan);
+  assert.deepEqual(plan.keep, [BLACK_FRIDAY]);
+  assert.deepEqual(plan.stale, [PROMO]);
   assert.equal(plan.changed, true);
 });

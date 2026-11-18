@@ -147,6 +147,22 @@ export const dict: PageDictionary = {
     errorAddCard: 'Add a card now',
     cardAddedFinishSwitch: 'Card added. Now confirm your switch to {plan}\u00a0- nothing is charged until you do.',
     cardAddedFinishSwitchCta: 'Finish switching',
+    // Black Friday sale (core/blackFridaySale.ts). {pct} is the discount, {list}
+    // the regular price, {deadline} the last day ("Tuesday, December 1").
+    saleBannerLabel: '[ BLACK FRIDAY SALE ]',
+    saleBannerHeadline: '{pct}% off your first year, on every plan',
+    saleBannerTerms: 'For new members who pay today · Ends {deadline}',
+    salePriceNoteMonthly: '{pct}% off your first 12 monthly payments, then {list}/mo.',
+    salePriceNoteQuarterly: '{pct}% off your first 4 quarterly payments, then {list} every 3 months.',
+    salePriceNoteAnnual: '{pct}% off your first year, then {list}/year.',
+    saleCtaLabel: 'Get {label} at {pct}% off',
+    saleTrialInstead: 'Prefer to try it free first? Start a {days}-day free trial at the regular {list}/mo instead.',
+    saleHighlight: 'Black Friday',
+    heroTrialSubtitleSale:
+      'Take {pct}% off your first year by paying today, or start your {days}-day free trial of Basic.',
+    salePolicyLabel: 'Black Friday sale.',
+    salePolicyBody:
+      'Through {deadline} (New York time), first-time subscribers who pay when they subscribe get {pct}% off every payment in their first year, on any plan: 12 monthly payments, 4 quarterly payments, or the first annual payment. A sale purchase is covered by the 7-day money-back guarantee, Basic monthly included. The sale price can’t be combined with a free trial or any other discount, and after the first year the plan renews at the regular price.',
     cadenceMonthly: 'monthly',
     cadenceQuarterly: 'quarterly',
     cadenceAnnual: 'annual',
@@ -303,6 +319,21 @@ export const dict: PageDictionary = {
     cardAddedFinishSwitch:
       'Carta aggiunta. Ora conferma il passaggio a {plan}\u00a0- non ti viene addebitato nulla finché non confermi.',
     cardAddedFinishSwitchCta: 'Completa il cambio',
+    saleBannerLabel: '[ OFFERTA BLACK FRIDAY ]',
+    saleBannerHeadline: '{pct}% di sconto sul tuo primo anno, su tutti i piani',
+    saleBannerTerms: 'Per i nuovi iscritti che pagano oggi · Termina {deadline}',
+    salePriceNoteMonthly: '{pct}% di sconto sui primi 12 pagamenti mensili, poi {list}/mese.',
+    salePriceNoteQuarterly: '{pct}% di sconto sui primi 4 pagamenti trimestrali, poi {list} ogni 3 mesi.',
+    salePriceNoteAnnual: '{pct}% di sconto sul primo anno, poi {list}/anno.',
+    saleCtaLabel: 'Ottieni {label} con il {pct}% di sconto',
+    saleTrialInstead:
+      'Preferisci provarlo gratis prima? Inizia invece la prova gratuita di {days} giorni al prezzo normale di {list}/mese.',
+    saleHighlight: 'Black Friday',
+    heroTrialSubtitleSale:
+      'Ottieni il {pct}% di sconto sul primo anno pagando oggi, oppure inizia la prova gratuita di {days} giorni di Basic.',
+    salePolicyLabel: 'Offerta Black Friday.',
+    salePolicyBody:
+      "Fino a {deadline} (ora di New York), chi si abbona per la prima volta e paga al momento dell'abbonamento ottiene il {pct}% di sconto su ogni pagamento del primo anno, su qualsiasi piano: 12 pagamenti mensili, 4 pagamenti trimestrali o il primo pagamento annuale. Un acquisto in offerta è coperto dalla garanzia soddisfatti o rimborsati di 7 giorni, anche su Basic mensile. Il prezzo in offerta non è cumulabile con una prova gratuita né con altri sconti, e dopo il primo anno il piano si rinnova al prezzo normale.",
     cadenceMonthly: 'mensile',
     cadenceQuarterly: 'trimestrale',
     cadenceAnnual: 'annuale',
@@ -460,6 +491,21 @@ export const dict: PageDictionary = {
     cardAddedFinishSwitch:
       'Karte hinterlegt. Bestätige jetzt deinen Wechsel zu {plan}\u00a0- bis dahin wird nichts berechnet.',
     cardAddedFinishSwitchCta: 'Wechsel abschließen',
+    saleBannerLabel: '[ BLACK-FRIDAY-ANGEBOT ]',
+    saleBannerHeadline: '{pct} % Rabatt auf dein erstes Jahr, für jeden Plan',
+    saleBannerTerms: 'Für neue Mitglieder, die heute bezahlen · Endet {deadline}',
+    salePriceNoteMonthly: '{pct} % Rabatt auf deine ersten 12 Monatszahlungen, danach {list}/Monat.',
+    salePriceNoteQuarterly: '{pct} % Rabatt auf deine ersten 4 Quartalszahlungen, danach {list} alle 3 Monate.',
+    salePriceNoteAnnual: '{pct} % Rabatt auf dein erstes Jahr, danach {list}/Jahr.',
+    saleCtaLabel: '{label} mit {pct} % Rabatt holen',
+    saleTrialInstead:
+      'Lieber erst kostenlos testen? Starte stattdessen die {days}-tägige kostenlose Testphase zum regulären Preis von {list}/Monat.',
+    saleHighlight: 'Black Friday',
+    heroTrialSubtitleSale:
+      'Spare {pct} % auf dein erstes Jahr, wenn du heute bezahlst, oder starte deine {days}-tägige kostenlose Testphase von Basic.',
+    salePolicyLabel: 'Black-Friday-Angebot.',
+    salePolicyBody:
+      'Bis einschließlich {deadline} (New Yorker Zeit) erhalten Erstabonnenten, die beim Abschluss bezahlen, {pct} % Rabatt auf jede Zahlung in ihrem ersten Jahr, für jeden Plan: 12 Monatszahlungen, 4 Quartalszahlungen oder die erste Jahreszahlung. Ein Kauf zum Angebotspreis ist durch die 7-Tage-Geld-zurück-Garantie abgedeckt, auch bei Basic monatlich. Der Angebotspreis ist nicht mit einer kostenlosen Testphase oder anderen Rabatten kombinierbar, und nach dem ersten Jahr verlängert sich der Plan zum regulären Preis.',
     cadenceMonthly: 'monatlich',
     cadenceQuarterly: 'vierteljährlich',
     cadenceAnnual: 'jährlich',
@@ -614,6 +660,21 @@ export const dict: PageDictionary = {
     cardAddedFinishSwitch:
       'Tarjeta añadida. Ahora confirma tu cambio a {plan}\u00a0- no se cobra nada hasta que lo hagas.',
     cardAddedFinishSwitchCta: 'Completar el cambio',
+    saleBannerLabel: '[ OFERTA BLACK FRIDAY ]',
+    saleBannerHeadline: '{pct} % de descuento en tu primer año, en todos los planes',
+    saleBannerTerms: 'Para nuevos miembros que pagan hoy · Termina el {deadline}',
+    salePriceNoteMonthly: '{pct} % de descuento en tus primeros 12 pagos mensuales, luego {list}/mes.',
+    salePriceNoteQuarterly: '{pct} % de descuento en tus primeros 4 pagos trimestrales, luego {list} cada 3 meses.',
+    salePriceNoteAnnual: '{pct} % de descuento en tu primer año, luego {list}/año.',
+    saleCtaLabel: 'Consigue {label} con un {pct} % de descuento',
+    saleTrialInstead:
+      '¿Prefieres probarlo gratis primero? Empieza en su lugar la prueba gratuita de {days} días al precio normal de {list}/mes.',
+    saleHighlight: 'Black Friday',
+    heroTrialSubtitleSale:
+      'Obtén un {pct} % de descuento en tu primer año pagando hoy, o empieza tu prueba gratuita de {days} días de Basic.',
+    salePolicyLabel: 'Oferta Black Friday.',
+    salePolicyBody:
+      'Hasta el {deadline} (hora de Nueva York), quienes se suscriben por primera vez y pagan al suscribirse obtienen un {pct} % de descuento en cada pago de su primer año, en cualquier plan: 12 pagos mensuales, 4 pagos trimestrales o el primer pago anual. Una compra en oferta está cubierta por la garantía de devolución de 7 días, incluido Basic mensual. El precio de oferta no se puede combinar con una prueba gratuita ni con otros descuentos, y después del primer año el plan se renueva al precio normal.',
     cadenceMonthly: 'mensual',
     cadenceQuarterly: 'trimestral',
     cadenceAnnual: 'anual',
@@ -770,6 +831,21 @@ export const dict: PageDictionary = {
     cardAddedFinishSwitch:
       'Carte ajoutée. Confirmez maintenant votre passage à {plan}\u00a0- rien n’est débité tant que vous ne l’avez pas fait.',
     cardAddedFinishSwitchCta: 'Terminer le changement',
+    saleBannerLabel: '[ OFFRE BLACK FRIDAY ]',
+    saleBannerHeadline: '{pct} % de réduction sur votre première année, sur toutes les offres',
+    saleBannerTerms: 'Pour les nouveaux membres qui paient aujourd’hui · Se termine le {deadline}',
+    salePriceNoteMonthly: '{pct} % de réduction sur vos 12 premiers paiements mensuels, puis {list}/mois.',
+    salePriceNoteQuarterly: '{pct} % de réduction sur vos 4 premiers paiements trimestriels, puis {list} tous les 3 mois.',
+    salePriceNoteAnnual: '{pct} % de réduction sur votre première année, puis {list}/an.',
+    saleCtaLabel: 'Obtenir {label} à -{pct} %',
+    saleTrialInstead:
+      'Vous préférez essayer gratuitement d’abord ? Démarrez plutôt l’essai gratuit de {days} jours au prix normal de {list}/mois.',
+    saleHighlight: 'Black Friday',
+    heroTrialSubtitleSale:
+      'Profitez de {pct} % de réduction sur votre première année en payant aujourd’hui, ou démarrez votre essai gratuit de {days} jours de Basic.',
+    salePolicyLabel: 'Offre Black Friday.',
+    salePolicyBody:
+      'Jusqu’au {deadline} inclus (heure de New York), les personnes qui s’abonnent pour la première fois et paient à l’abonnement bénéficient de {pct} % de réduction sur chaque paiement de leur première année, sur toutes les offres : 12 paiements mensuels, 4 paiements trimestriels ou le premier paiement annuel. Un achat au prix de l’offre est couvert par la garantie satisfait ou remboursé de 7 jours, y compris Basic mensuel. Le prix de l’offre n’est pas cumulable avec un essai gratuit ni avec une autre réduction, et après la première année l’offre se renouvelle au prix normal.',
     cadenceMonthly: 'mensuel',
     cadenceQuarterly: 'trimestriel',
     cadenceAnnual: 'annuel',

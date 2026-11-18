@@ -4,8 +4,10 @@ import {
   BILLING_CADENCES,
   getActivePromoCouponId,
   getActivePromoDeadlineLabel,
+  getBlackFridayWindow,
   getSellableCadences,
   getTrialPlans,
+  isBlackFridayOpen,
   isSkuSellable,
   priceIdToSku,
   skuHasFreeTrial,
@@ -33,6 +35,15 @@ function trialProUpgradeUntilNow(
 ): string | null {
   const trialEndMs = periodEndIso ? Date.parse(periodEndIso) : null;
   return isTrialProUpgradeOpen({ status, current: currentPlan, trialEndMs, nowMs: Date.now() }) ? periodEndIso : null;
+}
+
+// When the Black Friday sale ends, while it is on (core/blackFridaySale.ts); null
+// otherwise. The same check checkout applies, so the page shows the sale price
+// exactly when checkout would charge it. Outside the component so the render
+// reads no clock.
+function blackFridayEndsAtNow(): string | null {
+  const saleWindow = getBlackFridayWindow();
+  return saleWindow && isBlackFridayOpen() ? new Date(saleWindow.endMs).toISOString() : null;
 }
 
 // The switch a member was making when they were sent to add a card, once they
@@ -172,6 +183,7 @@ export default async function PricingPage({
         guaranteeUsed={guaranteeUsed}
         noCardTrial={isNoCardTrialEnabled()}
         finishSwitch={finishSwitch}
+        saleEndsAt={blackFridayEndsAtNow()}
       />
     </>
   );

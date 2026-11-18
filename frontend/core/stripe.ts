@@ -10,6 +10,7 @@ import {
   type BillingCadence,
   type Sku,
 } from './billingPlans.ts';
+import { isSaleWindowOpen, parseSaleWindow, type SaleWindow } from './blackFridaySale.ts';
 
 // The catalogue types and guards live in core/billingPlans.ts (pure, so the
 // pricing page and the unit tests can import them without pulling in the Stripe
@@ -208,6 +209,31 @@ export function getActivePromoDeadlineLabel(): string | null {
     day: 'numeric',
     year: 'numeric',
   }).format(new Date(endTs));
+}
+
+// ---------------------------------------------------------------------------
+// Black Friday sale (the offer and its rules: core/blackFridaySale.ts)
+// ---------------------------------------------------------------------------
+
+// The sale's coupon: percent off, repeating for 12 months, made by
+// scripts/setup-black-friday.mts. Deliberately NOT one of the managed coupons
+// (getManagedCadenceCouponIds): a plan switch keeps it as it is, so a sale
+// member keeps half off for the rest of their first year on any plan.
+export function getBlackFridayCouponId(): string | null {
+  return envValue('STRIPE_COUPON_BLACK_FRIDAY');
+}
+
+// BLACK_FRIDAY_START_AT (optional) to BLACK_FRIDAY_END_AT, or null when unset
+// or unparseable (which closes the sale). Read per call, like the trial plans.
+export function getBlackFridayWindow(): SaleWindow | null {
+  return parseSaleWindow(process.env.BLACK_FRIDAY_START_AT, process.env.BLACK_FRIDAY_END_AT);
+}
+
+// Whether the sale is on right now: inside the window AND the coupon is set.
+// The pricing page shows the sale and checkout applies it only while this is
+// true, so the two can never disagree about whether it is on.
+export function isBlackFridayOpen(nowMs: number = Date.now()): boolean {
+  return getBlackFridayCouponId() !== null && isSaleWindowOpen(getBlackFridayWindow(), nowMs);
 }
 
 // Always-on win-back coupon, applied at checkout when a churned member returns

@@ -22,6 +22,7 @@ import {
   BILLING_CADENCES,
   formatBilledUsd,
   formatPerMonthUsd,
+  formatUsd,
   maxSavingsPct,
   MONEY_BACK_GUARANTEE_DAYS,
   MONTHLY_PROMO,
@@ -29,6 +30,12 @@ import {
   planHasFreeTrial,
   type BillingCadence,
 } from '@/core/billingPlans';
+import {
+  BLACK_FRIDAY_SALE,
+  formatSaleDeadline,
+  salePerMonthUsd,
+  salePriceUsd,
+} from '@/core/blackFridaySale';
 import { planRegisterHref } from '@/core/pricingLinks';
 import { dict } from './Client.i18n';
 
@@ -111,6 +118,12 @@ type Props = {
   // The page opens that switch's confirm step, priced; nothing is charged until
   // they confirm the amount.
   finishSwitch: { tier: BillableTier; cadence: Cadence } | null;
+  // When the Black Friday sale ends (ISO), while it is on; null otherwise.
+  // Resolved server-side with the same check checkout applies
+  // (core/stripe.ts isBlackFridayOpen), so the page shows the sale price
+  // exactly when checkout would charge it. The offer itself is
+  // core/blackFridaySale.ts.
+  saleEndsAt: string | null;
 };
 
 // What the promo is worth over its whole run: $10 off × 12 months = $120.
@@ -139,6 +152,11 @@ function portalLinkOf(err: unknown): PortalLink | null {
     : null;
 }
 
+// A plan button subscribes at whatever the card shows. 'trial' is the one other
+// choice: on the Basic monthly card during the Black Friday sale, the regular
+// free trial at the regular price instead of the sale price paid today.
+type SubscribeChoice = 'trial';
+
 type TierAction =
   | { kind: 'link'; href: string; label: string }
   | { kind: 'subscribe'; tier: BillableTier; label: string }
@@ -158,7 +176,7 @@ function CtaButton({
   action: TierAction;
   busy: boolean;
   tier: BillableTier;
-  onSubscribe: (tier: BillableTier) => void;
+  onSubscribe: (tier: BillableTier, choice?: SubscribeChoice) => void;
   onChangePlan: (tier: BillableTier) => void;
 }) {
   const baseStyle = {
@@ -229,15 +247,27 @@ function periodSuffixKey(cadence: Cadence): string {
   return cadence === 'monthly' ? 'perMonthSuffix' : cadence === 'quarterly' ? 'perQuarterSuffix' : 'perYearSuffix';
 }
 
+// The note under a Black Friday price: how long the sale price lasts on this
+// billing period, and what the plan renews at afterwards.
+const SALE_NOTE_KEY: Record<Cadence, string> = {
+  monthly: 'salePriceNoteMonthly',
+  quarterly: 'salePriceNoteQuarterly',
+  annual: 'salePriceNoteAnnual',
+};
+
 function PriceDisplay({
   cadence,
   tier,
   promoActive,
+  sale,
   accent,
 }: {
   cadence: Cadence;
   tier: BillableTier;
   promoActive: boolean;
+  // The Black Friday price is shown on this card (core/blackFridaySale.ts).
+  // Takes precedence over the monthly promo, which checkout never stacks on it.
+  sale: boolean;
   accent: string;
 }) {
   const t = usePageT(dict);
@@ -245,6 +275,54 @@ function PriceDisplay({
   const suffix = (
     <span style={{ fontSize: 15, color: C.muted, fontWeight: 700 }}>{t(periodSuffixKey(cadence))}</span>
   );
+
+  if (sale) {
+    // Sale prices carry cents ($19.50), so they are formatted with formatUsd,
+    // never formatBilledUsd, which rounds to whole dollars.
+    const sku = { tier, cadence };
+    return (
+      <div style={{ marginTop: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <span
+            style={{
+              fontSize: 22,
+              color: C.muted,
+              textDecoration: 'line-through',
+              textDecorationColor: 'var(--color-bear)',
+              textDecorationThickness: 3,
+              fontWeight: 700,
+            }}
+          >
+            {formatBilledUsd(display.listPrice)}
+          </span>
+          <span
+            style={{
+              fontSize: 52,
+              fontWeight: 900,
+              letterSpacing: '-1.5px',
+              lineHeight: 1,
+              color: 'var(--color-brand-primary)',
+              textShadow: '0 0 24px var(--color-brand-primary-soft, rgba(245,180,0,0.35))',
+            }}
+          >
+            {formatUsd(salePriceUsd(sku))}
+          </span>
+          {suffix}
+        </div>
+        {cadence !== 'monthly' && (
+          <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: accent }}>
+            {t('equivalentPerMonth', { price: formatPerMonthUsd(salePerMonthUsd(sku)) })}
+          </div>
+        )}
+        <div style={{ marginTop: 6, fontSize: 13, color: C.muted, fontWeight: 600 }}>
+          {t(SALE_NOTE_KEY[cadence], {
+            pct: BLACK_FRIDAY_SALE.percentOff,
+            list: formatBilledUsd(display.listPrice),
+          })}
+        </div>
+      </div>
+    );
+  }
 
   if (cadence === 'monthly' && promoActive && display.promoPrice != null) {
     return (
@@ -338,6 +416,8 @@ function TierCard({
   keepsTrialUntil,
   trialDays,
   noCard,
+  sale,
+  trialInstead,
   action,
   busy,
   onSubscribe,
@@ -368,9 +448,15 @@ function TierCard({
   trialDays: number;
   // The trial starts without a card (core/noCardTrial.ts).
   noCard: boolean;
+  // The card is sold at the Black Friday price, paid today
+  // (core/blackFridaySale.ts). Excludes startsTrial and keepsTrialUntil.
+  sale: boolean;
+  // On a sale card for a plan that would otherwise trial (Basic monthly): the
+  // link text offering the regular free trial at the regular price instead.
+  trialInstead: string | null;
   action: TierAction;
   busy: boolean;
-  onSubscribe: (tier: BillableTier) => void;
+  onSubscribe: (tier: BillableTier, choice?: SubscribeChoice) => void;
   onChangePlan: (tier: BillableTier) => void;
 }) {
   const t = usePageT(dict);
@@ -406,7 +492,7 @@ function TierCard({
         )}
       </div>
 
-      <PriceDisplay cadence={cadence} tier={tier} promoActive={promoActive} accent={accent} />
+      <PriceDisplay cadence={cadence} tier={tier} promoActive={promoActive} sale={sale} accent={accent} />
 
       {startsTrial && (
         <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
@@ -470,9 +556,52 @@ function TierCard({
       </ul>
 
       <CtaButton action={action} busy={busy} tier={tier} onSubscribe={onSubscribe} onChangePlan={onChangePlan} />
-      {(action.kind === 'subscribe' || action.kind === 'link') && (startsTrial || hasGuarantee) && (
+      {(action.kind === 'subscribe' || action.kind === 'link') && (startsTrial || hasGuarantee || sale) && (
         <p style={{ margin: '10px 0 0', fontSize: 12, color: C.muted, textAlign: 'center', fontWeight: 600 }}>
           {startsTrial ? t('noChargeToday') : t('billedTodayNote')}
+        </p>
+      )}
+      {trialInstead && (action.kind === 'subscribe' || action.kind === 'link') && (
+        <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, textAlign: 'center', lineHeight: 1.55 }}>
+          {action.kind === 'link' ? (
+            // Logged out: the same signup as the main button. Back on this page
+            // after signing up, the member picks the trial here again.
+            <Link
+              href={action.href}
+              style={{ color: 'inherit', textDecoration: 'underline' }}
+              onClick={() =>
+                capture(TelemetryEvent.PlanTrialCtaClick, {
+                  selected_plan: tier,
+                  choice: 'trial_instead_of_sale',
+                  ...readUtmParams(),
+                })
+              }
+            >
+              {trialInstead}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (busy) return;
+                capture(TelemetryEvent.PlanTrialCtaClick, {
+                  selected_plan: tier,
+                  choice: 'trial_instead_of_sale',
+                  ...readUtmParams(),
+                });
+                onSubscribe(tier, 'trial');
+              }}
+              style={{
+                all: 'unset',
+                cursor: busy ? 'wait' : 'pointer',
+                textDecoration: 'underline',
+                color: 'inherit',
+              }}
+            >
+              {trialInstead}
+            </button>
+          )}
         </p>
       )}
     </article>
@@ -537,6 +666,47 @@ function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) 
         )}
         <strong style={{ fontWeight: 900 }}>{t('limitedTimeTotal', { total: formatBilledUsd(PROMO_TOTAL_SAVINGS_USD) })}</strong> ·{' '}
         {deadlineLabel ? t('limitedTimeOfferEnds', { deadline: deadlineLabel }) : t('limitedTimeForLimited')}
+      </div>
+    </div>
+  );
+}
+
+// The Black Friday banner, in place of the limited-time banner while the sale
+// is on for this visitor. Same shimmer and pulse (CSS only, off under reduced
+// motion). The figures come from core/blackFridaySale.ts, the same module
+// checkout reads.
+function BlackFridayBanner({ deadline }: { deadline: string }) {
+  const t = usePageT(dict);
+  return (
+    <div
+      role="status"
+      aria-label="Black Friday sale"
+      style={{
+        position: 'relative',
+        maxWidth: 820,
+        margin: '0 auto 28px',
+        padding: '18px 22px',
+        borderRadius: 16,
+        overflow: 'hidden',
+        background:
+          'linear-gradient(120deg, var(--color-brand-primary) 0%, var(--heat-mid) 35%, var(--color-accent-hot) 70%, var(--heat-mid) 100%)',
+        backgroundSize: '220% 100%',
+        animation: 'zgxPromoShine 4s linear infinite, zgxPromoPulse 2.4s ease-in-out infinite',
+        boxShadow:
+          '0 0 0 1px rgba(255,255,255,0.18) inset, 0 14px 50px color-mix(in srgb, var(--color-brand-primary) 45%, transparent)',
+        color: 'var(--text-inverse)',
+        textAlign: 'center',
+        fontWeight: 900,
+      }}
+    >
+      <div style={{ fontSize: 12, letterSpacing: '0.32em', textTransform: 'uppercase', opacity: 0.92 }}>
+        {t('saleBannerLabel')}
+      </div>
+      <div style={{ marginTop: 6, fontSize: 'clamp(20px, 2.6vw, 26px)', letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+        {t('saleBannerHeadline', { pct: BLACK_FRIDAY_SALE.percentOff })}
+      </div>
+      <div style={{ marginTop: 4, fontSize: 13, fontWeight: 700, opacity: 0.9 }}>
+        {t('saleBannerTerms', { deadline })}
       </div>
     </div>
   );
@@ -646,11 +816,16 @@ function BillingComparison({
   cadence,
   setCadence,
   promoActiveByCadence,
+  sale,
 }: {
   cadences: Cadence[];
   cadence: Cadence;
   setCadence: (cadence: Cadence) => void;
   promoActiveByCadence: Record<Cadence, boolean>;
+  // The Black Friday price is on for this visitor: every row shows it, as the
+  // cards do. The sale takes the same share off every plan, so the "Save N%"
+  // against monthly reads the same at sale prices as at list prices.
+  sale: boolean;
 }) {
   const t = usePageT(dict);
   const tiers: Array<{ tier: BillableTier; title: string; accent: string }> = [
@@ -709,7 +884,7 @@ function BillingComparison({
         <tbody>
           {cadences.map((option) => {
             const selected = option === cadence;
-            const promo = option === 'monthly' && promoActiveByCadence.monthly;
+            const promo = !sale && option === 'monthly' && promoActiveByCadence.monthly;
             const rowBg = selected ? 'color-mix(in srgb, var(--color-brand-primary) 9%, transparent)' : 'transparent';
             const cellStyle: React.CSSProperties = {
               padding: `${cellPad}`,
@@ -753,8 +928,14 @@ function BillingComparison({
                 </th>
                 {tiers.map(({ tier, accent }) => {
                   const display = planDisplay({ tier, cadence: option });
-                  const billed = promo && display.promoPrice != null ? display.promoPrice : display.listPrice;
-                  const perMonth = option === 'monthly' ? billed : display.perMonth;
+                  const sku = { tier, cadence: option };
+                  const billed = sale
+                    ? salePriceUsd(sku)
+                    : promo && display.promoPrice != null
+                      ? display.promoPrice
+                      : display.listPrice;
+                  const perMonth = sale ? salePerMonthUsd(sku) : option === 'monthly' ? billed : display.perMonth;
+                  const discounted = sale || (promo && display.promoPrice != null);
                   return (
                     <td key={tier} style={cellStyle}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -768,9 +949,9 @@ function BillingComparison({
                             fontVariantNumeric: 'tabular-nums',
                           }}
                         >
-                          {formatBilledUsd(billed)}
+                          {sale ? formatUsd(billed) : formatBilledUsd(billed)}
                         </span>
-                        {promo && display.promoPrice != null && (
+                        {discounted && (
                           <span
                             style={{
                               fontSize: 14,
@@ -814,6 +995,13 @@ function BillingComparison({
                             }}
                           >
                             {t('saveHighlight', { pct: display.savingsPct })}
+                          </span>
+                        ) : sale ? (
+                          <span style={{ fontSize: 12, fontWeight: 600, color: C.muted, lineHeight: 1.4 }}>
+                            {t('comparePromoNote', {
+                              months: BLACK_FRIDAY_SALE.months,
+                              rack: formatBilledUsd(display.listPrice),
+                            })}
                           </span>
                         ) : promo ? (
                           <span style={{ fontSize: 12, fontWeight: 600, color: C.muted, lineHeight: 1.4 }}>
@@ -860,6 +1048,7 @@ function PricingClientInner({
   guaranteeUsed,
   noCardTrial,
   finishSwitch,
+  saleEndsAt,
 }: Props) {
   const t = usePageT(dict);
   const { locale } = useLanguage();
@@ -1078,6 +1267,20 @@ function PricingClientInner({
   // independent of the current toggle so it doesn't flicker on cadence change.
   const anyPromoActive = Object.values(promoActiveByCadence).some(Boolean);
 
+  // The Black Friday sale (core/blackFridaySale.ts), shown to a visitor checkout
+  // would sell it to: anyone who may be new (logged out, or signed in and never
+  // subscribed). Not a subscriber, not a returning member (the sale is for
+  // first-timers only, as checkout enforces), and not a ?reactivate=1 invitee,
+  // whose page is the extended trial their email promised. While the session
+  // loads this reads as eligible, like the page's other new-visitor defaults.
+  const saleEligible =
+    saleEndsAt !== null && !hasActiveSubscription && !isResubscribe && !cameFromReactivate && currentTier !== 'admin';
+  // "Tuesday, December 1", in the member's language, New York time.
+  const saleDeadline = useMemo(
+    () => (saleEndsAt ? formatSaleDeadline(Date.parse(saleEndsAt), locale) : null),
+    [locale, saleEndsAt],
+  );
+
   // Preserve the win-back intent across the auth round-trip: a churned member
   // who clicks the email link while logged out would otherwise land back on a
   // bare /pricing (no ?winback=1) after registering/logging in and silently
@@ -1124,11 +1327,17 @@ function PricingClientInner({
   );
 
   const handleSubscribe = useCallback(
-    async (tier: BillableTier) => {
+    async (tier: BillableTier, choice?: SubscribeChoice) => {
       if (!isAuthed) {
         router.push(registerHref);
         return;
       }
+      // Every card shows the Black Friday price while the sale is on for this
+      // member, so a plan button buys at it unless they picked the free trial
+      // instead (Basic monthly). Sent as intent: checkout re-checks the window
+      // and the account, and refuses rather than charging a different price if
+      // the sale closed after this page loaded.
+      const buyAtSale = saleEligible && choice !== 'trial';
       if (currentTier === 'admin') {
         setError(t('errorAdminNoSubscribe'));
         return;
@@ -1146,6 +1355,7 @@ function PricingClientInner({
             selected_plan: tier,
             cadence,
             user_id: authSession?.user?.id,
+            ...(buyAtSale ? { black_friday: true } : {}),
             ...readUtmParams(),
           });
           await callBilling('/api/billing/checkout', {
@@ -1157,6 +1367,9 @@ function PricingClientInner({
             // Carry the reactivation intent so the server grants the extended
             // trial for an eligible inactive signup (verified server-side).
             ...(cameFromReactivate ? { reactivate: true } : {}),
+            // The member is buying at the Black Friday price (verified
+            // server-side; see buyAtSale above).
+            ...(buyAtSale ? { blackFriday: true } : {}),
           });
         }
       } catch (err) {
@@ -1172,7 +1385,7 @@ function PricingClientInner({
         setBusyTier(null);
       }
     },
-    [authSession?.user?.id, callBilling, cadence, cameFromWinback, cameFromReactivate, currentTier, hasActiveSubscription, isAuthed, refreshSession, registerHref, router, t],
+    [authSession?.user?.id, callBilling, cadence, cameFromWinback, cameFromReactivate, currentTier, hasActiveSubscription, isAuthed, refreshSession, registerHref, router, saleEligible, t],
   );
 
   // Existing subscriber switching plan from a card. The server decides: a
@@ -1348,9 +1561,22 @@ function PricingClientInner({
   //     charged in-app) — not a paid member's switch (the guarantee covers a
   //     subscription's first payment only), not the plan they are already on,
   //     and not for someone who has already used their one refund.
+  //   • during the Black Friday sale, for a visitor it applies to: every card is
+  //     the sale price, paid today, under the guarantee (Basic monthly
+  //     included), and the trial plan offers its free trial at the regular
+  //     price as the alternative (trialInstead).
   const cardTerms = useCallback(
     (tier: BillableTier) => {
       const planTrials = planHasFreeTrial({ tier, cadence }, trialPlans);
+      if (saleEligible) {
+        return {
+          startsTrial: false,
+          hasGuarantee: !guaranteeUsed,
+          keepsTrial: false,
+          sale: true,
+          trialInstead: planTrials,
+        };
+      }
       const isCurrentPlan =
         hasActiveSubscription && currentPlan?.tier === tier && currentPlan?.cadence === cadence;
       const startsTrial = !hasActiveSubscription && !isResubscribe && (planTrials || cameFromReactivate);
@@ -1359,7 +1585,7 @@ function PricingClientInner({
       const guaranteeReachable = !hasActiveSubscription || subscriptionStatus === 'trialing';
       const hasGuarantee =
         !startsTrial && !planTrials && !keepsTrial && guaranteeReachable && !isCurrentPlan && !guaranteeUsed;
-      return { startsTrial, hasGuarantee, keepsTrial };
+      return { startsTrial, hasGuarantee, keepsTrial, sale: false, trialInstead: false };
     },
     [
       cadence,
@@ -1368,6 +1594,7 @@ function PricingClientInner({
       guaranteeUsed,
       hasActiveSubscription,
       isResubscribe,
+      saleEligible,
       subscriptionStatus,
       trialPlans,
       trialProUpgradeUntil,
@@ -1398,9 +1625,14 @@ function PricingClientInner({
     (tier: BillableTier): TierAction => {
       const label = tier === 'basic' ? t('basicTitle') : t('proTitle');
       // A trial card keeps the word "trial" ("Start Basic Trial"); a card sold
-      // under the guarantee says what it is — a subscription, billed today.
-      const { startsTrial } = cardTerms(tier);
-      const primaryLabel = startsTrial ? t('startTrialLabel', { label }) : t('subscribeToLabel', { label });
+      // under the guarantee says what it is — a subscription, billed today; a
+      // sale card names the sale ("Get Basic at 50% off").
+      const { startsTrial, sale } = cardTerms(tier);
+      const primaryLabel = sale
+        ? t('saleCtaLabel', { label, pct: BLACK_FRIDAY_SALE.percentOff })
+        : startsTrial
+          ? t('startTrialLabel', { label })
+          : t('subscribeToLabel', { label });
       // Tier- and cadence-specific register link so a logged-out plan click
       // returns to the pricing page with THIS plan and billing period selected,
       // and with the win-back or reactivation offer it arrived with.
@@ -1436,7 +1668,11 @@ function PricingClientInner({
   // "Limited Time" pill omitted from the per-card highlights when the global
   // banner is already shown above — the banner carries that callout once
   // instead of repeating it twice per card.
+  // During the sale the card's badge names the sale instead: its "Save N%"
+  // against monthly still holds, but next to a struck-through price it reads
+  // as the sale discount, which it is not. The comparison table below keeps it.
   const savingsHighlight = (tier: BillableTier): string[] => {
+    if (saleEligible) return [t('saleHighlight')];
     const pct = planDisplay({ tier, cadence }).savingsPct;
     return pct != null ? [t('saveHighlight', { pct })] : [];
   };
@@ -1457,7 +1693,8 @@ function PricingClientInner({
           50% { box-shadow: 0 0 0 1px rgba(255,255,255,0.28) inset, 0 18px 70px rgba(255, 46, 99, 0.6); }
         }
         @media (prefers-reduced-motion: reduce) {
-          [aria-label="Limited time offer"] {
+          [aria-label="Limited time offer"],
+          [aria-label="Black Friday sale"] {
             animation: none !important;
           }
         }
@@ -1484,7 +1721,9 @@ function PricingClientInner({
                   {t('heroTrialTitle')}
                 </h1>
                 <p style={{ margin: '0 auto 12px', maxWidth: 760, color: C.light, fontSize: 20, lineHeight: 1.6, fontWeight: 600 }}>
-                  {t('heroTrialSubtitle', { days: trialDaysDisplay })}
+                  {saleEligible
+                    ? t('heroTrialSubtitleSale', { pct: BLACK_FRIDAY_SALE.percentOff, days: trialDaysDisplay })
+                    : t('heroTrialSubtitle', { days: trialDaysDisplay })}
                 </p>
                 <p style={{ margin: '0 auto 14px', maxWidth: 760, color: C.amber, fontSize: 15, lineHeight: 1.7, fontWeight: 700 }}>
                   {t(noCardCopy ? 'heroTrialNoChargeNoCard' : 'heroTrialNoCharge', { days: trialDaysDisplay })}
@@ -1528,7 +1767,11 @@ function PricingClientInner({
             </div>
           )}
 
-          {anyPromoActive && <LimitedTimeBanner deadlineLabel={promoDeadlineLabel} />}
+          {saleEligible && saleDeadline ? (
+            <BlackFridayBanner deadline={saleDeadline} />
+          ) : (
+            anyPromoActive && <LimitedTimeBanner deadlineLabel={promoDeadlineLabel} />
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
             <div>
@@ -1713,6 +1956,15 @@ function PricingClientInner({
               keepsTrialUntil={null}
               trialDays={trialDaysDisplay}
               noCard={noCardCopy}
+              sale={basicTerms.sale}
+              trialInstead={
+                basicTerms.trialInstead
+                  ? t('saleTrialInstead', {
+                      days: TRIAL_DAYS,
+                      list: formatBilledUsd(planDisplay({ tier: 'basic', cadence }).listPrice),
+                    })
+                  : null
+              }
               accent="var(--color-brand-primary)"
               features={[
                 t('basicFeature1'),
@@ -1741,6 +1993,15 @@ function PricingClientInner({
               }
               trialDays={trialDaysDisplay}
               noCard={noCardCopy}
+              sale={proTerms.sale}
+              trialInstead={
+                proTerms.trialInstead
+                  ? t('saleTrialInstead', {
+                      days: TRIAL_DAYS,
+                      list: formatBilledUsd(planDisplay({ tier: 'pro', cadence }).listPrice),
+                    })
+                  : null
+              }
               accent="var(--color-brand-accent)"
               features={[
                 t('proFeature1'),
@@ -1805,6 +2066,7 @@ function PricingClientInner({
             cadence={cadence}
             setCadence={setCadence}
             promoActiveByCadence={promoActiveByCadence}
+            sale={saleEligible}
           />
 
           <PlanComparison />
@@ -1886,6 +2148,14 @@ function PricingClientInner({
                 <li>
                   <strong>{t('moneyBackListLabel')}</strong> {t('moneyBackListBody')}
                 </li>
+                {/* The sale's terms, stated with the rest of the policy while it
+                    runs (to anyone, so the page is the record of what was sold). */}
+                {saleEndsAt && saleDeadline && (
+                  <li>
+                    <strong>{t('salePolicyLabel')}</strong>{' '}
+                    {t('salePolicyBody', { deadline: saleDeadline, pct: BLACK_FRIDAY_SALE.percentOff })}
+                  </li>
+                )}
                 <li>
                   <strong>{t('cancelAnytimeLabel')}</strong> {t('cancelAnytimeBody')}
                 </li>

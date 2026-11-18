@@ -6,12 +6,14 @@ import { FOUNDING_LOCKIN_DEADLINE_ISO, isFoundingLockinOpen } from '@/core/found
 import {
   getActivePromoCouponId,
   getAppUrl,
+  getBlackFridayCouponId,
   getFoundingIntroCouponId,
   getFoundingPromoCode,
   getStripe,
   getWinbackCouponId,
   isBillableTier,
   isBillingCadence,
+  isBlackFridayOpen,
   isPaidSignupDisabled,
   isSkuSellable,
   skuHasFreeTrial,
@@ -21,6 +23,7 @@ import {
   type BillingCadence,
 } from '@/core/stripe';
 import { MONEY_BACK_GUARANTEE_DAYS } from '@/core/billingPlans';
+import { SALE_REFUSAL_MESSAGE, decideSaleCheckout } from '@/core/blackFridaySale';
 import { checkoutSubmitMessage, type CheckoutProtection } from '@/core/checkoutDisclosure';
 import { normalizeLocale } from '@/core/i18n/locales';
 import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
@@ -287,6 +290,7 @@ export async function POST(request: NextRequest) {
     foundingCode?: unknown;
     winback?: unknown;
     reactivate?: unknown;
+    blackFriday?: unknown;
   };
 
   if (!isBillableTier(body.tier)) {
@@ -324,6 +328,13 @@ export async function POST(request: NextRequest) {
   // server-side below from reactivation_email_sent_at + trial eligibility, never
   // trusted from the client.
   const reactivationRequested = body.reactivate === true || body.reactivate === '1';
+  // The member picked the Black Friday price on the pricing page. Like the two
+  // flags above it grants nothing alone: decideSaleCheckout below re-derives
+  // the entitlement from the sale window and the account. What it adds is the
+  // member's choice on Basic monthly (the sale price today instead of the free
+  // trial), and a refusal, rather than a different price, if the sale closed
+  // after the page was loaded.
+  const saleRequested = body.blackFriday === true;
 
   const db = getDb();
   const row = db
@@ -424,7 +435,7 @@ export async function POST(request: NextRequest) {
   // Resolve any discount before talking to Stripe so we can fail fast on
   // misconfiguration (e.g. founding code accepted but coupon env unset)
   // without leaving a half-created customer behind on retries.
-  const discountResult = resolveDiscount({
+  const resolvedDiscount = resolveDiscount({
     tier,
     cadence,
     foundingCode,
@@ -434,8 +445,8 @@ export async function POST(request: NextRequest) {
     winbackEligible,
     hasPriorPaid: hasHeldSubscriptionBefore,
   });
-  if (!discountResult.ok) {
-    return NextResponse.json({ error: discountResult.error }, { status: discountResult.status });
+  if (!resolvedDiscount.ok) {
+    return NextResponse.json({ error: resolvedDiscount.error }, { status: resolvedDiscount.status });
   }
 
   // Reactivation entitlement is server-authoritative, exactly like win-back
@@ -469,13 +480,44 @@ export async function POST(request: NextRequest) {
   // (never-paid signups the reactivation drip reached) and the entitlement is
   // re-derived server-side exactly as before.
   const planHasTrial = skuHasFreeTrial({ tier, cadence });
-  const trialDays = hasHeldSubscriptionBefore
+  const trialDaysWithoutSale = hasHeldSubscriptionBefore
     ? null
     : reactivationEligible
       ? getReactivationTrialDays()
       : planHasTrial
         ? TRIAL_PERIOD_DAYS
         : null;
+
+  // The Black Friday sale (core/blackFridaySale.ts): half off the first year for
+  // a first-time member who pays today. It never comes with a free trial: on a
+  // plan that would trial (Basic monthly, or any plan for a reactivation
+  // invitee) it applies only when the member picked the sale price, and then
+  // the trial is dropped and the payment taken today. It is exclusive, so it
+  // replaces whatever resolveDiscount found (a referral bonus, a partner or
+  // campaign rate) instead of stacking with it. Founding and win-back rates
+  // never meet it: both belong to accounts that have held a subscription, and
+  // the sale is for first-timers only.
+  const saleDecision = decideSaleCheckout({
+    saleOpen: isBlackFridayOpen(),
+    firstTime: !hasHeldSubscriptionBefore,
+    trialOtherwise: trialDaysWithoutSale !== null,
+    saleRequested,
+  });
+  if (saleDecision.kind === 'refuse') {
+    return NextResponse.json(
+      {
+        error: SALE_REFUSAL_MESSAGE[saleDecision.reason],
+        code: saleDecision.reason === 'closed' ? 'SALE_CLOSED' : 'SALE_NOT_ELIGIBLE',
+      },
+      { status: saleDecision.reason === 'closed' ? 410 : 403 },
+    );
+  }
+  // isBlackFridayOpen already required the coupon, so a 'sale' decision always
+  // has one; the null check only keeps the types honest.
+  const saleCouponId = saleDecision.kind === 'sale' ? getBlackFridayCouponId() : null;
+  const saleApplied = saleCouponId !== null;
+  const discountResult = saleCouponId !== null ? saleDiscount(saleCouponId) : resolvedDiscount;
+  const trialDays = saleApplied ? null : trialDaysWithoutSale;
 
   // Founding members get the deferral-to-July-1 trial instead of the 7-day
   // one. Absolute trial_end (not a day count) so every founding member
@@ -524,6 +566,11 @@ export async function POST(request: NextRequest) {
   // the card is only known once they pay, so that match is made at refund
   // time): the terms line, the banner and the stamp all leave it out rather
   // than promise a refund the Account page would then refuse.
+  //
+  // A Black Friday purchase is covered on every plan, Basic monthly included:
+  // the sale is paid up front in place of the trial, and every plan sold paid up
+  // front carries the guarantee. The money_back stamp is what the refund flow
+  // reads (core/moneyBackGuarantee.ts isCoveredStart), so it needs nothing else.
   const guaranteeUsed = hasPriorMoneyBackRefund({
     userId: actor.user.id,
     email: actor.user.email,
@@ -531,7 +578,10 @@ export async function POST(request: NextRequest) {
     subscriptionId: '',
   });
   const moneyBackCovered =
-    !foundingTrialEndUnix && !trialDays && !guaranteeUsed && skuHasMoneyBackGuarantee({ tier, cadence });
+    !foundingTrialEndUnix &&
+    !trialDays &&
+    !guaranteeUsed &&
+    (saleApplied || skuHasMoneyBackGuarantee({ tier, cadence }));
 
   // What the post-checkout banner should say, decided here because this is the
   // only place that knows what was actually granted — the member lands on the
@@ -708,6 +758,9 @@ export async function POST(request: NextRequest) {
         ...(discountResult.campaignApplied && discountResult.campaignCode
           ? { campaign_code: discountResult.campaignCode }
           : {}),
+        // Bought at the Black Friday price. Observability: lets the sale's
+        // signups be counted in Stripe (search subscriptions by metadata).
+        ...(saleApplied ? { black_friday: '1' } : {}),
         // Started without a card. The webhook copies it onto the users row
         // (no_card_trial_subscription_id), and every trial email and page that
         // would otherwise promise a charge reads it from there.
@@ -794,7 +847,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} heldBefore=${hasHeldSubscriptionBefore ? '1' : '0'} everPaid=${everPaid ? '1' : '0'} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} moneyBack=${moneyBackCovered ? '1' : guaranteeUsed ? 'used' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} card=${trialDays || foundingTrialEndUnix ? (noCardTrial ? '0' : '1') : 'na'}${noCardEnabled && siblingHadTrial ? ' noCardRefused=inbox' : ''} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} heldBefore=${hasHeldSubscriptionBefore ? '1' : '0'} everPaid=${everPaid ? '1' : '0'} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} moneyBack=${moneyBackCovered ? '1' : guaranteeUsed ? 'used' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} blackFriday=${saleApplied ? (saleRequested ? 'chosen' : 'auto') : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} card=${trialDays || foundingTrialEndUnix ? (noCardTrial ? '0' : '1') : 'na'}${noCardEnabled && siblingHadTrial ? ' noCardRefused=inbox' : ''} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
@@ -823,6 +876,25 @@ type DiscountResolution =
       campaignCode: string | null;
     }
   | { ok: false; status: number; error: string };
+
+// The Black Friday coupon alone: the sale is exclusive, so no second coupon is
+// stacked and none of the other offers' flags are set. Partner commission and
+// campaign attribution do not depend on these flags (both follow
+// users.referred_by_code), so a partner still earns commission on a sale
+// signup, on the sale price, and a campaign signup is still counted.
+function saleDiscount(couponId: string): Extract<DiscountResolution, { ok: true }> {
+  return {
+    ok: true,
+    couponId,
+    stackCouponId: null,
+    foundingApplied: false,
+    referralApplied: false,
+    partnerApplied: false,
+    winbackApplied: false,
+    campaignApplied: false,
+    campaignCode: null,
+  };
+}
 
 function resolveDiscount(input: {
   tier: BillableTier;

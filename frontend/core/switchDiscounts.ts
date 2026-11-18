@@ -19,7 +19,9 @@
 //   • Campaign member (the business card's 50% off, core/campaigns.ts): also
 //     EXCLUSIVE, as at checkout. The campaign coupon is not one we manage, so
 //     it stays exactly as it is, and the public promo is never added next to
-//     it; a promo already sitting beside it is stripped.
+//     it; a promo already sitting beside it is stripped. A Black Friday member
+//     (core/blackFridaySale.ts) is treated the same way: half off their first
+//     year rides through any switch, alone.
 //   • Everyone else: a monthly promo the member already holds stays on a move
 //     to the other monthly plan, even after the window has closed (the promise
 //     is their first 12 months). Otherwise the new plan gets the ACTIVE public
@@ -32,6 +34,7 @@
 // scripts/fix-plan-switch-discount.mts can import this under plain node.
 import {
   getActivePromoCouponId,
+  getBlackFridayCouponId,
   getConfiguredPromoCouponId,
   getFoundingIntroCouponId,
   getManagedCadenceCouponIds,
@@ -58,7 +61,11 @@ export function planSwitchDiscounts(input: {
   foundingLifetimeAppliedAt: string | null;
 }): SwitchDiscountPlan | null {
   // (1) Correct promo/founding coupon for the NEW plan (may be null).
-  const campaignCouponIds = new Set(getCampaignCouponIds());
+  // Coupons whose rate is exclusive: the campaign rates and the Black Friday
+  // rate. Neither is managed, so each stays as it is; no promo joins them.
+  const exclusiveCouponIds = new Set(getCampaignCouponIds());
+  const saleCouponId = getBlackFridayCouponId();
+  if (saleCouponId) exclusiveCouponIds.add(saleCouponId);
   let correctPrimary: string | null;
   if (input.foundingMemberStartedAt) {
     // Founding is exclusive: never fall through to the public promo. Once the
@@ -66,9 +73,9 @@ export function planSwitchDiscounts(input: {
     if (input.foundingLifetimeAppliedAt) return null;
     correctPrimary = getFoundingIntroCouponId(input.newSku.tier, input.newSku.cadence);
     if (!correctPrimary) return null;
-  } else if (input.currentCouponIds.some((id) => campaignCouponIds.has(id))) {
-    // A campaign rate is exclusive too: the campaign coupon stays as it is (it
-    // isn't managed), and no public promo joins it.
+  } else if (input.currentCouponIds.some((id) => exclusiveCouponIds.has(id))) {
+    // A campaign or Black Friday rate is exclusive too: its coupon stays as it
+    // is (it isn't managed), and no public promo joins it.
     correctPrimary = null;
   } else {
     const advertisedPromoCouponIds = BILLABLE_TIERS.flatMap((tier) =>
