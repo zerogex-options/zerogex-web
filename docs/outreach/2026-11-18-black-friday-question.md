@@ -171,3 +171,40 @@ Founder, ZeroGEX
   in Stripe should show the coupon "Black Friday: 50% off your first year" and
   the metadata `black_friday = 1`. That's the first live check that checkout
   applied the sale.
+
+## Follow-up 2: Jed (Wed Nov 18, 2:37 PM)
+
+> I appreciate the insight and tips. I am about to register and wait for
+> midnight or it may be tomorrow morning but its going to get purchased.
+>
+> I cant wait to get deep into doing this and I am sure I will have many more
+> questions. I am extremely pleased to support a project like this. Some of
+> these tools out here are not good as advertised.
+>
+> Again cant wait. I get zerogex and GTA 6 LOL!!!!!
+
+### The read
+
+- **Nothing to fix.** He's registering now and buying tonight or tomorrow
+  morning. Both are inside the sale, which runs through December 1, so the
+  reply takes the rush out of it.
+- **Short reply, warm.** He'll have questions; say yes to them. The GTA 6 line
+  gets a light nod, without naming a release date in a business email.
+
+### Draft reply
+
+Same thread.
+
+Hi Jed,
+
+That means a lot, thank you, especially from someone who has compared the alternatives.
+
+No rush on the timing: the sale price is there through Tuesday, December 1, so after midnight tonight or tomorrow morning both work.
+
+And please do send the questions as they come up. They're how I find out what to build next, and I'm happy to help you get the most out of it for your spreads.
+
+Enjoy both, and don't let GTA 6 eat into your trading time!
+
+Best,
+Michael
+Founder, ZeroGEX
