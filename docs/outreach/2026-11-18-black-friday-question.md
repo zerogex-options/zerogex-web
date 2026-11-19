@@ -28,6 +28,25 @@ No name given, so the draft opens "Hi there".
 > Stripe (a partial refund leaves his plan and access as they are; the
 > `charge.refunded` webhook only logs it and reverses partner commissions, and
 > he has none).
+>
+> **Thu Nov 19, `make diagnose-user`:** no refund needed. He registered Wed Nov
+> 18 at 2:37 PM ET (`user_7d29bb37572db9d760f7194d`, verified, organic), and
+> has never started a checkout: no Stripe customer, nothing paid. But he was
+> last seen at 12:59 AM ET, right after midnight, while the sale was still off,
+> so he most likely looked and saw $299. He's first-time
+> (`hasHeldSubscriptionBefore` no), so the sale applies whenever he buys. Next:
+> a short heads-up that it's live now (draft below).
+
+### Heads-up (Thu Nov 19)
+
+Same thread.
+
+Hi Jed,
+
+Quick heads-up: the sale is live now. If you looked overnight, it hadn't switched on yet, sorry about that. Pro annual is $149.50 at https://zerogex.io/pricing (choose Annual, then "Get Pro at 50% off"), any time through December 1.
+
+Best,
+Michael
 
 ## The read
 
