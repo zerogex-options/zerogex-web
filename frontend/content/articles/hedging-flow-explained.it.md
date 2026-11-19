@@ -16,11 +16,12 @@ La pagina abbina questa stima a una lettura di come sta cambiando il gamma dei d
 
 ## Cos'è il numero
 
-ZeroGEX classifica il volume delle opzioni confrontando il prezzo a cui è stato scambiato con la quotazione rilevata intorno a quel momento:
+ZeroGEX classifica il volume delle opzioni con il tick test, che confronta il prezzo di ogni scambio con quello dello scambio precedente sullo stesso contratto:
 
-- il volume eseguito vicino all'ask conta come **su iniziativa del compratore**;
-- il volume eseguito vicino al bid conta come **su iniziativa del venditore**;
-- il volume a metà dello spread, il volume del primo minuto della sessione e il volume senza una quotazione utilizzabile restano **non classificati**.
+- il volume eseguito sopra lo scambio precedente conta come **su iniziativa del compratore**;
+- il volume eseguito sotto conta come **su iniziativa del venditore**;
+- il volume a prezzo invariato prende il lato dell'ultima variazione di prezzo;
+- il volume senza un prezzo o una variazione di prezzo precedente su cui basarsi e il volume del primo minuto della sessione restano **non classificati**.
 
 All'interno di ogni contratto e di ogni minuto, il volume non classificato viene ripartito nella stessa proporzione acquisti/vendite del volume classificato di quel minuto. Una coppia contratto-minuto senza nulla di classificato non aggiunge nulla.
 

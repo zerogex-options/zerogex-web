@@ -16,11 +16,12 @@ La página combina esa estimación con una lectura de cómo está cambiando la g
 
 ## Qué es la cifra
 
-ZeroGEX clasifica el volumen de opciones comparando el precio al que se negoció con la cotización de ese momento:
+ZeroGEX clasifica el volumen de opciones con el tick test, que compara el precio de cada operación con el de la operación anterior del mismo contrato:
 
-- el volumen que se imprime cerca del ask cuenta como **iniciado por el comprador**;
-- el volumen que se imprime cerca del bid cuenta como **iniciado por el vendedor**;
-- el volumen en mitad del spread, el volumen del primer minuto de la sesión y el volumen sin una cotización utilizable quedan **sin clasificar**.
+- el volumen que se imprime por encima de la operación anterior cuenta como **iniciado por el comprador**;
+- el volumen que se imprime por debajo cuenta como **iniciado por el vendedor**;
+- el volumen a un precio sin cambio toma el lado del último cambio de precio;
+- el volumen sin un precio o un cambio de precio anterior en el que basarse y el volumen del primer minuto de la sesión quedan **sin clasificar**.
 
 Dentro de cada contrato y cada minuto, el volumen sin clasificar se reparte en la misma proporción de compra/venta que el volumen clasificado de ese minuto. Un contrato-minuto sin nada clasificado no suma nada.
 

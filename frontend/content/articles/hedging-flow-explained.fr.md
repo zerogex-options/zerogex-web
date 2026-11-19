@@ -16,11 +16,12 @@ La page associe cette estimation à une lecture de l'évolution du gamma des dea
 
 ## Ce qu'est le chiffre
 
-ZeroGEX classe le volume d'options en comparant le prix auquel il s'est traité à la cotation en vigueur à ce moment-là :
+ZeroGEX classe le volume d'options avec le tick test, qui compare le prix de chaque transaction à celui de la transaction précédente sur le même contrat :
 
-- le volume qui s'imprime près de l'ask compte comme **initié par l'acheteur** ;
-- le volume qui s'imprime près du bid compte comme **initié par le vendeur** ;
-- le volume au milieu du spread, le volume de la première minute de la séance et le volume sans cotation exploitable restent **non classés**.
+- le volume qui s'imprime au-dessus de la transaction précédente compte comme **initié par l'acheteur** ;
+- le volume qui s'imprime en dessous compte comme **initié par le vendeur** ;
+- le volume à prix inchangé prend le côté du dernier changement de prix ;
+- le volume sans prix ni changement de prix antérieur sur lequel s'appuyer et le volume de la première minute de la séance restent **non classés**.
 
 Pour chaque contrat et chaque minute, le volume non classé est réparti selon la même proportion achat/vente que le volume classé de cette minute. Une minute-contrat sans aucun volume classé n'ajoute rien.
 

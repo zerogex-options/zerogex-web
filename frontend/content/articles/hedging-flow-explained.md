@@ -16,11 +16,12 @@ The page pairs that estimate with a read of how dealer gamma near the current pr
 
 ## What the number is
 
-ZeroGEX classifies option volume by comparing the price it traded at with the quote around that time:
+ZeroGEX classifies option volume with the tick test, which compares each trade's price with the trade before it in the same contract:
 
-- volume that prints close to the ask counts as **buyer-initiated**;
-- volume that prints close to the bid counts as **seller-initiated**;
-- volume in the middle of the spread, volume in the first minute of the session, and volume with no usable quote stay **unclassified**.
+- volume that prints above the previous trade counts as **buyer-initiated**;
+- volume that prints below it counts as **seller-initiated**;
+- volume at an unchanged price takes the side of the last price change;
+- volume with no earlier price or price change to go on, and volume in the first minute of the session, stay **unclassified**.
 
 Within each contract and each minute, unclassified volume is split in the same buy/sell proportion as that minute's classified volume. A contract-minute with nothing classified adds nothing.
 
