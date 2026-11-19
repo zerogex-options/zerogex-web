@@ -15,7 +15,10 @@ his refund deadline. His account confirms it: Pro monthly, paid on day one,
 under the 7-day money-back guarantee.
 
 > **Status:** sent Wed Nov 18. **John replied at 3:19 PM: he's staying, on the
-> free month.** Next: run `gift-month`, then send the reply under "I'll stay".
+> free month.** Free month applied Thu Nov 19 (balance transaction
+> `cbtxn_1UdcqY4AOiqteMYY7ZGMiXYb`): balance -$59.00, Dec 18 invoice $0.00.
+> Next: send the reply under "I'll stay". When GLD goes live, use "If he
+> stayed" under the early-tester invite.
 
 ## His reply (Wed Nov 18, 3:19 PM)
 
