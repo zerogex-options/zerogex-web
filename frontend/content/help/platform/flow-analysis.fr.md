@@ -12,13 +12,15 @@ Deux réglages de l'en-tête s'appliquent à toute la page : **Session** (la sé
 
 ## Acheté et vendu
 
-Chaque print d'option est classé selon le côté qui a franchi le spread, suivant la convention de Lee-Ready :
+Chaque trade sur option est classé comme acheté ou vendu par le **tick test** : son prix est comparé à celui du trade précédent sur le même contrat, et non au bid ni au ask.
 
-- Au **ask** ou tout près, un acheteur a payé le prix : il compte comme **acheté**.
-- Au **bid** ou tout près, un vendeur l'a frappé : il compte comme **vendu**.
-- Les prints au **milieu** sont répartis entre les deux au prorata des prints au ask et au bid de ce contrat dans la même minute. Les prints sans aucun indice de côté, comme l'enchère d'ouverture de 09:30, comptent pour moitié de chaque côté.
+- **Plus haut** que le trade précédent : un acheteur a payé plus cher, il compte donc comme **acheté**.
+- **Plus bas** que le trade précédent : un vendeur a accepté un prix plus bas, il compte donc comme **vendu**.
+- **Inchangé** : il prend le côté du dernier changement de prix, si bien qu'une série de trades au même prix compte comme achetée après une hausse, et comme vendue après une baisse.
 
-Acheté plus vendu donne donc toujours tout ce qui s'est échangé. La lecture de l'agresseur est ce que le flux de données dit de plus proche de l'intention, mais elle ne distingue pas une ouverture d'une clôture : un put « vendu » au bid peut être un nouveau vendeur ou un acheteur qui prend ses bénéfices.
+Certains trades ne donnent aucun indice de côté : un trade sans trade antérieur auquel le comparer, un trade à prix inchangé avant qu'un changement de prix ait fixé un côté, et tous les trades de la première minute de la séance, qui comprend l'enchère d'ouverture de 09:30. Ils sont répartis entre acheté et vendu au prorata des trades achetés et vendus de ce contrat dans la même minute, ou comptent pour moitié de chaque côté quand cette minute n'en a aucun, comme à l'ouverture.
+
+Acheté plus vendu donne donc toujours tout ce qui s'est échangé. La lecture de l'agresseur est ce que le flux de données dit de plus proche de l'intention, mais elle ne distingue pas une ouverture d'une clôture : un put « vendu » à un prix plus bas peut être un nouveau vendeur ou un acheteur qui prend ses bénéfices.
 
 Les calls achetés et les puts vendus forment le **côté haussier** ; les puts achetés et les calls vendus, le **côté baissier**. Les couleurs suivent cette règle partout sur la page : le vert est le côté haussier, le rouge le côté baissier. C'est pourquoi le « bought » de la ligne des puts est rouge.
 

@@ -128,7 +128,7 @@ export default function BoughtSoldBoard({ read, barLabel, compact, loading, fail
           Bought vs. sold
         </h2>
         <p className="zg-caption" style={{ margin: '4px 0 0' }}>
-          Contracts by who crossed the spread: at the ask counts as bought, at the bid as sold.
+          Contracts by who crossed the spread, judged by the tick test: a trade priced above the one before counts as bought, below it as sold.
           {scopeNote ? ` ${scopeNote}` : ''}
         </p>
       </div>

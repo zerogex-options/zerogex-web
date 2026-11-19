@@ -24,7 +24,7 @@ ZeroGEX starts with observed market data and applies mechanical calculations to 
 
 **Mechanically computed from those inputs:**
 
-- **Aggressor classification** - each print is classified as buyer-initiated or seller-initiated from its execution price relative to the contemporaneous bid/ask, a Lee-Ready-style rule. Prints inside the spread, the opening auction, and prints with no usable quote are left unclassified rather than assigned a side. This estimates which side *initiated* a trade. It does not identify the participant type on either side.
+- **Aggressor classification** - each trade is classified as buyer-initiated or seller-initiated with the tick test, which compares its price with the previous trade in the same contract. A higher price counts as buyer-initiated and a lower one as seller-initiated; a trade at an unchanged price carries the direction of the last change. The test reads trade prices only, not the bid and ask. Trades with no earlier price or price change to go on, and every trade in the session's first minute (09:30 ET, which includes the opening auction), are left unclassified rather than assigned a side. This estimates which side *initiated* a trade. It does not identify the participant type on either side.
 - **Implied volatility** - solved from live option prices and maintained as a per-expiration volatility surface.
 - **Greeks** - per-contract delta, gamma, theta, and vega, calculated on every chain ingest through a Black-Scholes pipeline against those surfaces. They are deterministic functions of the observed inputs - reproducible from the same snapshot, and not a positioning assumption.
 
@@ -71,7 +71,7 @@ Open interest tells you how many contracts exist at a strike. It does not tell y
 
 Some proprietary exchange datasets go materially further. They classify executed volume by participant type (customer, professional customer, broker-dealer, market maker), by buy/sell action, and in some cases by open/close position effect. Those datasets support a materially richer reconstruction of market-maker positioning. They still do not provide a complete, consolidated, continuously observable ledger of every dealer's outstanding inventory across the market: position levels have to be reconstructed from flows, and the reconstruction depends on venue coverage, history depth, and participant classification. We say "reconstruction" rather than "observation" for that reason, and we are testing the approach rather than asserting it (section 6).
 
-A separate distinction applies to the options tape, and it is an easy one to blur: **aggressor classification is not participant attribution.** A buyer-initiated trade does not by itself establish that a customer bought or that a dealer sold. A seller-initiated trade does not establish that a customer sold or that a dealer bought. Where a print sits relative to the quote says who initiated; it does not say who was on either side.
+A separate distinction applies to the options tape, and it is an easy one to blur: **aggressor classification is not participant attribution.** A buyer-initiated trade does not by itself establish that a customer bought or that a dealer sold. A seller-initiated trade does not establish that a customer sold or that a dealer bought. Which way a trade's price moved from the one before it estimates who initiated; it does not say who was on either side.
 
 Practical consequences we think are worth stating:
 
@@ -102,7 +102,7 @@ The same standard applies to degraded data. When the option chain is too degrade
 
 The clearest way to test a positioning convention is against an independently constructed estimate that does not rely on it.
 
-Proprietary exchange datasets classify options activity by participant type, buy/sell action, and open/close position effect. That is materially richer evidence about market-maker activity than aggregate open interest or bid/ask aggressor classification alone.
+Proprietary exchange datasets classify options activity by participant type, buy/sell action, and open/close position effect. That is materially richer evidence about market-maker activity than aggregate open interest or aggressor classification from trade prices alone.
 
 **We have built a research framework that compares three things on identical sessions and identical outcomes:** the current production positioning model; positioning inferred from our own aggressor classification under the common "the passive side is a market maker" assumption; and Market-Maker Attributed GEX reconstructed from exchange-classified market-maker activity. The attributed measure is still a reconstruction, not an observation of dealer inventory: its quality depends on participant classification, exchange coverage, enough history to build inventory from a known zero, and the contracts that can be matched and priced.
 

@@ -33,7 +33,7 @@ Keines der sechs fließt in den Composite Score ein. Die einzige Überschneidung
 
 ### Tape Flow Bias
 
-Lee-Ready-Aggressor-Klassifizierung auf dem Options-Tape. Netto aus Call-Kauf-/Verkaufsprämie und Put-Kauf-/Verkaufsprämie. Positiv = Aggressoren zahlen für die Aufwärtsseite. Ein starkes Signal hier, ohne gegenläufigen GEX Gradient, ist Echtzeit-Überzeugung.
+Aggressor-Klassifizierung auf dem Options-Tape per Tick-Test: Jeder Trade wird mit dem vorherigen Trade desselben Kontrakts verglichen, ein höherer Preis zählt als Kauf, ein niedrigerer als Verkauf. Netto aus Call-Kauf-/Verkaufsprämie und Put-Kauf-/Verkaufsprämie. Positiv = Aggressoren zahlen für die Aufwärtsseite. Ein starkes Signal hier, ohne gegenläufigen GEX Gradient, ist Echtzeit-Überzeugung.
 
 ### Skew Delta
 

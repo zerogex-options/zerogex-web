@@ -12,13 +12,15 @@ Zwei Bedienelemente im Seitenkopf gelten für die ganze Seite: **Session** (die 
 
 ## Gekauft und verkauft
 
-Jeder Options-Print wird nach der Seite eingeordnet, die den Spread gekreuzt hat, nach der Lee-Ready-Konvention:
+Jeder Options-Trade wird mit dem **Tick-Test** als gekauft oder verkauft eingeordnet: Sein Preis wird mit dem vorherigen Trade desselben Kontrakts verglichen, nicht mit Bid und Ask.
 
-- Am oder nahe am **Ask** hat ein Käufer den Preis bezahlt: Das zählt als **gekauft**.
-- Am oder nahe am **Bid** hat ein Verkäufer zugeschlagen: Das zählt als **verkauft**.
-- Prints in der **Mitte** werden im Verhältnis der Ask- und Bid-Prints desselben Kontrakts in derselben Minute auf beide Seiten verteilt. Prints ganz ohne Anhaltspunkt für eine Seite, etwa die Eröffnungsauktion um 09:30, zählen zur Hälfte in jede Richtung.
+- **Höher** als der Trade davor: Ein Käufer hat mehr bezahlt, also zählt er als **gekauft**.
+- **Niedriger** als der Trade davor: Ein Verkäufer hat einen niedrigeren Preis akzeptiert, also zählt er als **verkauft**.
+- **Unverändert**: Er übernimmt die Seite der letzten Preisänderung. Eine Serie von Trades zum selben Preis zählt nach einem Anstieg also als gekauft, nach einem Rückgang als verkauft.
 
-Gekauft plus verkauft ergibt also immer alle gehandelten Kontrakte. Die Aggressor-Lesart kommt der Absicht so nah, wie es der Datenfeed erlaubt, kann aber eine Eröffnung nicht von einer Schließung unterscheiden: Ein am Bid „verkaufter“ Put kann ein neuer Verkäufer sein oder ein Käufer, der Gewinne mitnimmt.
+Manche Trades geben keinen Anhaltspunkt für eine Seite: ein Trade ohne früheren Trade zum Vergleich, ein Trade zum unveränderten Preis, bevor eine Preisänderung eine Seite festgelegt hat, und jeder Trade in der ersten Minute der Sitzung, zu der die Eröffnungsauktion um 09:30 gehört. Diese werden im Verhältnis der gekauften und verkauften Trades desselben Kontrakts in derselben Minute auf beide Seiten verteilt oder zählen zur Hälfte in jede Richtung, wenn es in dieser Minute keine gibt, wie bei der Eröffnung.
+
+Gekauft plus verkauft ergibt also immer alle gehandelten Kontrakte. Die Aggressor-Lesart kommt der Absicht so nah, wie es der Datenfeed erlaubt, kann aber eine Eröffnung nicht von einer Schließung unterscheiden: Ein zu einem niedrigeren Preis „verkaufter“ Put kann ein neuer Verkäufer sein oder ein Käufer, der Gewinne mitnimmt.
 
 Gekaufte Calls und verkaufte Puts bilden die **bullische Seite**, gekaufte Puts und verkaufte Calls die **bärische Seite**. Die Farben folgen dem überall auf der Seite: Grün ist die bullische Seite, Rot die bärische. Deshalb ist das „bought“ in der Put-Zeile rot.
 
