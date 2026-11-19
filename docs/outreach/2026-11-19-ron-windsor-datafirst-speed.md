@@ -13,8 +13,11 @@ often open interest updates, print-to-screen latency, opening vs closing flow,
 QQQ / SPX / NQ coverage, which plan and what price, and API / NinjaTrader /
 TradingView.
 
-> **Status:** unsent. Check his account first (see "Before sending"), then
-> reply in the same thread.
+> **Status:** ready to send as written, Black Friday paragraph included.
+> Account checked Thu Nov 19: `make diagnose-user` says "No user found with
+> email rwinholdings@gmail.com" (the `make: *** Error 1` after it is just the
+> script's exit code for no match). No account means no earlier plan or
+> trial, so the sale applies. Reply in the same thread.
 
 ## The read
 
@@ -163,6 +166,17 @@ Founder, ZeroGEX
 - **"Can I trial first?"** Basic monthly has a 7-day free trial at the regular
   $39. The sale price is paid at signup instead, with the 7-day money-back
   guarantee. Not both.
+- **"Checkout says the sale isn't available to me."** Unlikely, but
+  `diagnose-user` matches the exact address only, while sign-in has treated
+  Gmail spellings with dots as one inbox since Nov 18. An old account under a
+  dotted spelling with a past plan or trial would make him a returning
+  member. Look for one:
+
+  ```bash
+  sudo sqlite3 -readonly -header /var/lib/zerogex/auth.db "SELECT email, tier, created_at FROM users WHERE lower(email) LIKE '%@gmail.com' AND replace(substr(lower(email), 1, instr(lower(email), '@') - 1), '.', '') = 'rwinholdings';"
+  ```
+
+  No row: the refusal has another cause, so ask him for the exact message.
 - **"Why do your NQ levels differ from my QQQ map?"** They're different books:
   NDX options against QQQ options. QQQ is on the site too, so he can compare
   the two directly.
