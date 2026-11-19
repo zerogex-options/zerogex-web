@@ -1,5 +1,5 @@
 [Unit]
-Description=ZeroGEX web return-intent review digest timer (daily)
+Description=ZeroGEX web return-intent email timer (daily)
 
 [Timer]
 # Daily at 16:50 UTC (~12:50 PM ET in summer / 11:50 AM ET in winter).
