@@ -11,8 +11,9 @@ you told him on Nov 5 that the rest of the MAG 7 is coming, then GLD:
 
 He attached a picture. I couldn't see it; see "Decide before sending".
 
-> **Status:** Nov 18: sending the draft as written. The heatmap fix is
-> merged but not deployed, so the follow-up below goes after the deploy.
+> **Status:** both sent. The draft went out as written on Nov 18. Both halves
+> of the heatmap fix were deployed that evening, and the follow-up below went
+> out after. Waiting on his reply.
 
 ## The read
 
@@ -26,15 +27,11 @@ He attached a picture. I couldn't see it; see "Decide before sending".
 - **Every heatmap on the site is gamma, not open interest.** The GEX Heatmap
   (strike × time) and the Strike × DTE heatmap on Dealer Positioning both shade
   net GEX.
-- **The GEX Heatmap's Expiry menu: fixed and merged, not deployed yet.** It
-  used to relabel the chart without filtering it. Both halves of the fix are
-  on `release` as of Nov 18: web `cc30afa` and zerogex-oa `864cea5`, with no
-  schema change. The web half also makes the heatmap follow the expiry picked
-  anywhere in the tab, so deploy zerogex-oa first. If the web half goes live
-  alone, the draft's 0DTE step labels the heatmap card on the same page
-  "0DTE" while it still sums every expiration. The draft leaves the heatmap
-  out, because until the deploy its live Expiry menu still mislabels. The
-  follow-up after the draft points him to it once it works.
+- **The GEX Heatmap's Expiry menu: fixed, live since the Nov 18 evening
+  deploy.** It used to relabel the chart without filtering it. The fix was web
+  `cc30afa` plus zerogex-oa `864cea5`, with no schema change, deployed
+  zerogex-oa first. The draft left the heatmap out because it went before the
+  deploy. The follow-up points him to it.
 - **The once-a-day point is the useful one for a 0DTE trader.** 0DTE open
   interest is only the positions carried in from earlier days, and it doesn't
   change during the session. The Gamma Terminal's Volume basis does follow the
