@@ -4,6 +4,7 @@ import {
   readChargeInvoice,
   readInvoiceChargeId,
   readInvoicePaymentIntentId,
+  readInvoiceChargedPriceId,
   readInvoicePaymentMethodId,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
@@ -187,5 +188,53 @@ test('a basil charge, which has no invoice field, is unknown rather than a one-o
 test('an unreadable charge is unknown, never a one-off, and never throws', () => {
   for (const junk of [null, undefined, 42, 'ch_x', {}, { invoice: 7 }, { invoice: {} }, { invoice: '' }]) {
     assert.deepEqual(readChargeInvoice(junk), { kind: 'unknown' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// readInvoiceChargedPriceId: the plan an invoice charged for, which on a
+// plan-change invoice is NOT the first line. Stripe lists the credit for unused
+// time on the old plan first.
+
+test('a Basic-to-Pro upgrade invoice charged for Pro, not Basic (acacia)', () => {
+  const upgrade = {
+    id: 'in_up',
+    billing_reason: 'subscription_update',
+    lines: {
+      data: [
+        { amount: -3500, price: { id: 'price_basic_monthly' } },
+        { amount: 5106, price: { id: 'price_pro_monthly' } },
+      ],
+    },
+  };
+  assert.equal(readInvoicePriceId(upgrade), 'price_basic_monthly');
+  assert.equal(readInvoiceChargedPriceId(upgrade), 'price_pro_monthly');
+});
+
+test('a Basic-to-Pro upgrade invoice charged for Pro, not Basic (basil)', () => {
+  const upgrade = {
+    id: 'in_up',
+    lines: {
+      data: [
+        { amount: -3500, pricing: { price_details: { price: 'price_basic_monthly' } } },
+        { amount: 5106, pricing: { price_details: { price: 'price_pro_monthly' } } },
+      ],
+    },
+  };
+  assert.equal(readInvoiceChargedPriceId(upgrade), 'price_pro_monthly');
+});
+
+test('a plain renewal charges the same price either reader returns', () => {
+  const renewal = { lines: { data: [{ amount: 5900, price: { id: 'price_pro_monthly' } }] } };
+  assert.equal(readInvoiceChargedPriceId(renewal), 'price_pro_monthly');
+  assert.equal(readInvoiceChargedPriceId(acaciaInvoice), 'price_pro_annual');
+  assert.equal(readInvoiceChargedPriceId(basilInvoice), 'price_pro_annual');
+});
+
+test('with no positive line it falls back to the first price, and junk is null', () => {
+  const zero = { lines: { data: [{ amount: 0, price: { id: 'price_a' } }, { amount: -100, price: { id: 'price_b' } }] } };
+  assert.equal(readInvoiceChargedPriceId(zero), 'price_a');
+  for (const junk of [null, undefined, 42, 'in_x', {}, { lines: null }, { lines: { data: 7 } }]) {
+    assert.equal(readInvoiceChargedPriceId(junk), null);
   }
 });

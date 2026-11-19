@@ -113,10 +113,10 @@ warnIfPricesUnconfigured();
 const { getDb } = await import('../core/db.ts');
 const { priceIdToSku } = await import('../core/stripe.ts');
 const {
+  readInvoiceChargedPriceId,
   readInvoicePaidAtUnix,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
-  readInvoicePriceId,
   readInvoicePaymentMethodId,
   readInvoiceRefundedAmount,
 } = await import('../core/stripeInvoice.ts');
@@ -201,7 +201,11 @@ if (!invoice) {
 const periodStartUnix = readInvoicePeriodStartUnix(invoice);
 const invoicePeriodEndUnix = readInvoicePeriodEndUnix(invoice);
 const refunded = readInvoiceRefundedAmount(invoice);
-const priceId = readInvoicePriceId(invoice);
+// The plan the invoice CHARGED for. On a plan-change invoice (say an upgrade
+// from Basic to Pro, which is the newest non-zero invoice until the next
+// renewal) the first line is the credit for the old plan, so the first-line
+// reader would quietly reinstate the plan they had just left.
+const priceId = readInvoiceChargedPriceId(invoice);
 
 let untilUnix: number | null = invoicePeriodEndUnix;
 if (untilArg) {
@@ -215,6 +219,9 @@ console.log(
     `${refunded != null && refunded > 0 ? `  (${money(refunded, invoice.currency)} refunded)` : ''}`,
 );
 console.log(`  paid period       ${isoOf(periodStartUnix)}  ->  ${isoOf(invoicePeriodEndUnix)}`);
+if (invoice.billing_reason === 'subscription_update') {
+  console.log('  (a plan-change invoice: the plan below is the one it charged for, not the one left)');
+}
 console.log(`Honor access until: ${isoOf(untilUnix)}${untilArg ? '  (from --until)' : ''}`);
 
 if (untilUnix == null) fail('the period end could not be resolved from the invoice; pass --until <ISO>.');

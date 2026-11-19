@@ -95,6 +95,34 @@ export function readInvoicePriceId(invoice: unknown): string | null {
   return null;
 }
 
+function readLinePriceId(line: Record<string, unknown>): string | null {
+  const flat = idOf(line.price as Expandable);
+  if (flat) return flat;
+  const pricing = obj(line.pricing);
+  const priceDetails = pricing ? obj(pricing.price_details) : null;
+  return priceDetails ? idOf(priceDetails.price as Expandable) : null;
+}
+
+// The price of the plan this invoice actually CHARGED for: the line with the
+// largest positive amount. Differs from readInvoicePriceId on a plan-change
+// invoice, where Stripe lists the credit for unused time on the OLD plan
+// (negative, old price) before the charge for the NEW plan (positive, new
+// price), so the first line names the plan the member just left. Use this when
+// re-creating "the plan they paid for". Falls back to readInvoicePriceId when no
+// line carries a positive amount.
+export function readInvoiceChargedPriceId(invoice: unknown): string | null {
+  const inv = obj(invoice);
+  if (!inv) return null;
+  let best: { priceId: string; amount: number } | null = null;
+  for (const line of readInvoiceLines(inv)) {
+    const amount = num(line.amount);
+    const priceId = readLinePriceId(line);
+    if (amount == null || amount <= 0 || !priceId) continue;
+    if (!best || amount > best.amount) best = { priceId, amount };
+  }
+  return best ? best.priceId : readInvoicePriceId(inv);
+}
+
 // The END of the service period this invoice paid for (Unix seconds), or null
 // when it can't be determined. Line-level `period.end` is authoritative — it is
 // the same in every API version and, unlike the invoice-level field, is the
