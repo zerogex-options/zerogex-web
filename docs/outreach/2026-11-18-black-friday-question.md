@@ -19,6 +19,15 @@ No name given, so the draft opens "Hi there".
 > reply (end of this note, "Follow-up") was sent Wed Nov 18 afternoon, as
 > drafted. Next: once he buys, his subscription in Stripe should carry the
 > Black Friday coupon.
+>
+> **Thu Nov 19, ~8:45 AM ET:** the sale went live on the site when the setup
+> ran this morning, not at midnight (`make setup-black-friday VERIFY=1`: no
+> problems; the live /pricing serves the sale, ending Dec 1). From midnight
+> until then the site showed regular prices, so if Jed checked out overnight he
+> paid $299 for Pro annual instead of $149.50: refund the $149.50 difference in
+> Stripe (a partial refund leaves his plan and access as they are; the
+> `charge.refunded` webhook only logs it and reverses partner commissions, and
+> he has none).
 
 ## The read
 
