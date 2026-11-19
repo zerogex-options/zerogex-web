@@ -1,12 +1,12 @@
 # Cotations d'Options en Direct
 
-*Suivez un contrat d'options pendant toute la séance. Choisir le contrat, lire les barres de volume au bid/mid/ask et les chiffres au-dessus du graphique.*
+*Suivez un contrat d'options pendant toute la séance. Choisir le contrat, lire les barres de volume acheté et vendu et les chiffres au-dessus du graphique.*
 
 ---
 
 ## Ce que montre cette page
 
-La page Cotations d'Options en Direct suit **un contrat d'options** du symbole actif pendant la séance : le prix de la dernière transaction, et le volume de chaque minute réparti selon l'endroit où il s'est échangé - à l'ask, au mid ou au bid. Elle se met à jour toutes les 30 secondes.
+La page Cotations d'Options en Direct suit **un contrat d'options** du symbole actif pendant la séance : le prix de la dernière transaction, et le volume de chaque minute réparti par côté - acheté, vendu ou sans indice de côté. Elle se met à jour toutes les 30 secondes.
 
 ## Choisir un contrat
 
@@ -30,19 +30,21 @@ Pour la séance affichée :
 
 ## Le graphique
 
-- **Barres** (axe de gauche) - volume par minute, empilé selon l'endroit où il s'est échangé : **Ask Vol**, **Mid Vol** et **Bid Vol**.
+- **Barres** (axe de gauche) - volume par minute, empilé par côté : **Bought** (acheté), **No side** (sans côté) et **Sold** (vendu).
 - **Ligne** (axe de droite) - le prix de la dernière transaction (**Last**).
+
+Le côté vient du **tick test**, qui compare le prix de chaque transaction à celui de la transaction précédente sur le même contrat, et non au bid ni au ask. Un prix plus haut compte comme acheté, un prix plus bas comme vendu, et un prix inchangé prend le côté du dernier changement de prix. **No side** est le volume auquel le test ne peut pas attribuer de côté : une transaction sans transaction antérieure à laquelle la comparer, un prix inchangé avant qu'un changement de prix ait fixé un côté, et tout ce qui s'échange dans la minute d'ouverture de 9 h 30.
 
 L'axe du temps couvre la séance, de 9 h 30 à 16 h 15 ET. Avant l'ouverture de la séance du jour, la page affiche la plus récente. Sur téléphone, les barres sont regroupées par tranches de 5 minutes pour rester lisibles.
 
-Survolez une barre pour voir l'heure, le dernier prix et le nombre de contrats échangés au bid, au mid et à l'ask.
+Survolez une barre pour voir l'heure, le dernier prix et le nombre de ses contrats comptés comme vendus, achetés ou sans côté.
 
 ## Comment le lire
 
 Trois schémas :
 
-1. **Qui traverse le spread ?** Le volume côté ask correspond aux transactions exécutées à l'ask ou près de lui - des acheteurs qui paient l'ask pour être servis. Le volume côté bid correspond à des vendeurs qui vendent au bid. Le volume mid correspond aux transactions entre les deux.
-2. **Le prix confirme-t-il ?** Du volume côté ask avec une ligne Last en hausse signifie que les acheteurs contrôlent ce contrat. Un fort volume côté ask alors que le prix stagne mérite un examen plus attentif.
+1. **Qui pousse le prix ?** Le volume acheté correspond à des acheteurs qui paient plus cher pour être servis : des transactions qui ont fait monter le prix ou l'ont maintenu après une hausse. Le volume vendu correspond à des vendeurs qui acceptent moins : des transactions qui l'ont fait baisser ou l'ont maintenu après une baisse. Le volume sans côté correspond aux transactions auxquelles le test n'a pas pu attribuer de côté.
+2. **Quel volume derrière le mouvement ?** Le côté vient des propres changements de prix de ce contrat, donc le volume acheté et une ligne Last en hausse vont généralement ensemble ; leur accord n'est pas une seconde lecture indépendante. Ce que les barres ajoutent, c'est le nombre de contrats échangés à chaque mouvement : une hausse sur une poignée de contrats en dit moins qu'une hausse portée par un fort volume acheté.
 3. **Quel poids pour la séance du jour face à l'OI ?** Quand Vol est élevé par rapport à l'OI, l'activité du jour est importante au regard des positions déjà ouvertes - un nouveau positionnement est peut-être en train de se construire.
 
 ## ES et NQ

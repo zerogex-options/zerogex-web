@@ -1,12 +1,12 @@
 # Cotizaciones de Opciones en Vivo
 
-*Sigue un contrato de opciones durante toda la sesión. Cómo elegir el contrato, cómo leer las barras de volumen en bid/mid/ask y las cifras sobre el gráfico.*
+*Sigue un contrato de opciones durante toda la sesión. Cómo elegir el contrato, cómo leer las barras de volumen comprado y vendido y las cifras sobre el gráfico.*
 
 ---
 
 ## Qué muestra esta página
 
-La página de Cotizaciones de Opciones en Vivo sigue **un contrato de opciones** del símbolo activo a lo largo de la sesión: el precio de la última operación y el volumen de cada minuto, dividido según dónde se negoció - en el ask, en el mid o en el bid. Se actualiza cada 30 segundos.
+La página de Cotizaciones de Opciones en Vivo sigue **un contrato de opciones** del símbolo activo a lo largo de la sesión: el precio de la última operación y el volumen de cada minuto, dividido por lado - comprado, vendido o sin indicio de lado. Se actualiza cada 30 segundos.
 
 ## Elegir un contrato
 
@@ -30,19 +30,21 @@ Para la sesión mostrada:
 
 ## El gráfico
 
-- **Barras** (eje izquierdo) - volumen por minuto, apilado según dónde se negoció: **Ask Vol**, **Mid Vol** y **Bid Vol**.
+- **Barras** (eje izquierdo) - volumen por minuto, apilado por lado: **Bought** (comprado), **No side** (sin lado) y **Sold** (vendido).
 - **Línea** (eje derecho) - el precio de la última operación (**Last**).
+
+El lado sale del **tick test**, que compara el precio de cada operación con el de la operación anterior del mismo contrato, no con el bid y el ask. Un precio más alto cuenta como comprado, uno más bajo como vendido, y un precio sin cambio toma el lado del último cambio de precio. **No side** es el volumen al que el test no puede asignar un lado: una operación sin otra anterior con la que compararla, un precio sin cambio antes de que algún cambio de precio haya fijado un lado, y todo lo del minuto de apertura de las 9:30.
 
 El eje de tiempo abarca la sesión, de 9:30 a 16:15 ET. Antes de que abra la sesión de hoy, la página muestra la más reciente. En el móvil las barras se agrupan en bloques de 5 minutos para que sigan siendo legibles.
 
-Pasa el cursor sobre una barra para ver la hora, el último precio y cuántos contratos se negociaron en el bid, el mid y el ask.
+Pasa el cursor sobre una barra para ver la hora, el último precio y cuántos de sus contratos contaron como vendidos, comprados o sin lado.
 
 ## Cómo leerlo
 
 Tres patrones:
 
-1. **¿Quién cruza el spread?** El volumen del lado ask son operaciones ejecutadas en el ask o cerca de él - compradores que pagan el ask para conseguir la ejecución. El volumen del lado bid son vendedores que venden al bid. El volumen mid son las operaciones intermedias.
-2. **¿Lo confirma el precio?** Volumen del lado ask con la línea Last subiendo indica que los compradores controlan este contrato. Mucho volumen del lado ask mientras el precio no avanza merece una mirada más atenta.
+1. **¿Quién mueve el precio?** El volumen comprado son compradores que pagan más para conseguir la ejecución: operaciones que subieron el precio o lo mantuvieron después de una subida. El volumen vendido son vendedores que aceptan menos: operaciones que lo bajaron o lo mantuvieron después de una bajada. El volumen sin lado son operaciones a las que el test no pudo asignar un lado.
+2. **¿Cuánto volumen hay detrás del movimiento?** El lado sale de los propios cambios de precio de este contrato, así que el volumen comprado y una línea Last al alza suelen ir juntos; que coincidan no es una segunda lectura independiente. Lo que añaden las barras es cuántos contratos se negociaron en cada movimiento: una subida con un puñado de contratos dice menos que una con mucho volumen comprado detrás.
 3. **¿Qué peso tiene hoy frente al OI?** Cuando Vol es grande en relación con el OI, la negociación de hoy es grande frente a las posiciones ya abiertas - puede estar formándose un posicionamiento nuevo.
 
 ## ES y NQ

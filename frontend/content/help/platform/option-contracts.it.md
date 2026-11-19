@@ -1,12 +1,12 @@
 # Quotazioni Live delle Opzioni
 
-*Segui un singolo contratto di opzioni per tutta la sessione. Come scegliere il contratto, leggere le barre di volume a bid/mid/ask e i dati sopra il grafico.*
+*Segui un singolo contratto di opzioni per tutta la sessione. Come scegliere il contratto, leggere le barre di volume acquistato e venduto e i dati sopra il grafico.*
 
 ---
 
 ## Cosa mostra questa pagina
 
-La pagina Quotazioni Live delle Opzioni segue **un contratto di opzioni** sul simbolo attivo per tutta la sessione: il prezzo dell'ultimo scambio e il volume di ogni minuto, suddiviso in base a dove è stato scambiato - all'ask, al mid o al bid. Si aggiorna ogni 30 secondi.
+La pagina Quotazioni Live delle Opzioni segue **un contratto di opzioni** sul simbolo attivo per tutta la sessione: il prezzo dell'ultimo scambio e il volume di ogni minuto, suddiviso per lato - acquistato, venduto o senza indizio di lato. Si aggiorna ogni 30 secondi.
 
 ## Scegliere un contratto
 
@@ -30,19 +30,21 @@ Per la sessione mostrata:
 
 ## Il grafico
 
-- **Barre** (asse sinistro) - volume al minuto, impilato in base a dove è stato scambiato: **Ask Vol**, **Mid Vol** e **Bid Vol**.
+- **Barre** (asse sinistro) - volume al minuto, impilato per lato: **Bought** (acquistato), **No side** (senza lato) e **Sold** (venduto).
 - **Linea** (asse destro) - il prezzo dell'ultimo scambio (**Last**).
+
+Il lato viene dal **tick test**, che confronta il prezzo di ogni scambio con quello dello scambio precedente sullo stesso contratto, non con il bid e l'ask. Un prezzo più alto conta come acquistato, uno più basso come venduto, e un prezzo invariato prende il lato dell'ultima variazione di prezzo. **No side** è il volume a cui il test non può assegnare un lato: uno scambio senza uno precedente con cui confrontarlo, un prezzo invariato prima che una variazione di prezzo abbia fissato un lato, e tutto ciò che viene scambiato nel minuto di apertura delle 9:30.
 
 L'asse del tempo copre la sessione, dalle 9:30 alle 16:15 ET. Prima che apra la sessione di oggi, la pagina mostra la più recente. Sullo smartphone le barre sono raggruppate in blocchi da 5 minuti per restare leggibili.
 
-Passa il mouse su una barra per vedere l'orario, l'ultimo prezzo e quanti contratti sono stati scambiati al bid, al mid e all'ask.
+Passa il mouse su una barra per vedere l'orario, l'ultimo prezzo e quanti dei suoi contratti contano come venduti, acquistati o senza lato.
 
 ## Come leggerlo
 
 Tre pattern:
 
-1. **Chi attraversa lo spread?** Il volume lato ask sono scambi eseguiti all'ask o vicino a esso - compratori che pagano l'ask pur di essere eseguiti. Il volume lato bid sono venditori che vendono al bid. Il volume mid sono gli scambi a metà strada.
-2. **Il prezzo conferma?** Volume lato ask con la linea Last in salita significa che i compratori controllano questo contratto. Un forte volume lato ask mentre il prezzo non si muove merita un'occhiata più attenta.
+1. **Chi spinge il prezzo?** Il volume acquistato sono compratori che pagano di più pur di essere eseguiti: scambi che hanno fatto salire il prezzo o lo hanno mantenuto dopo un rialzo. Il volume venduto sono venditori che accettano meno: scambi che lo hanno fatto scendere o lo hanno mantenuto dopo un ribasso. Il volume senza lato sono scambi a cui il test non ha potuto assegnare un lato.
+2. **Quanto volume c'è dietro il movimento?** Il lato viene dalle variazioni di prezzo di questo stesso contratto, quindi volume acquistato e linea Last in salita di solito vanno insieme; che concordino non è una seconda lettura indipendente. Quello che le barre aggiungono è quanti contratti sono stati scambiati a ogni movimento: un rialzo su una manciata di contratti dice meno di uno sostenuto da un forte volume acquistato.
 3. **Quanto pesa oggi rispetto all'OI?** Quando Vol è grande rispetto all'OI, gli scambi di oggi sono consistenti rispetto alle posizioni già aperte - potrebbe formarsi un nuovo posizionamento.
 
 ## ES e NQ

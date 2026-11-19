@@ -1,12 +1,12 @@
 # Live Options Quotes
 
-*Follow one option contract through the session. Picking the contract, reading the bid/mid/ask volume bars, and the stats above the chart.*
+*Follow one option contract through the session. Picking the contract, reading the bought and sold volume bars, and the stats above the chart.*
 
 ---
 
 ## What this page shows
 
-The Live Options Quotes page follows **one option contract** on the active symbol through the trading session: its last trade price, and each minute's volume split by where it traded - at the ask, at the mid, or at the bid. It refreshes every 30 seconds.
+The Live Options Quotes page follows **one option contract** on the active symbol through the trading session: its last trade price, and each minute's volume split by side - bought, sold, or no side to go on. It refreshes every 30 seconds.
 
 ## Picking a contract
 
@@ -30,19 +30,21 @@ For the session shown:
 
 ## The chart
 
-- **Bars** (left axis) - volume per minute, stacked by where it traded: **Ask Vol**, **Mid Vol** and **Bid Vol**.
+- **Bars** (left axis) - volume per minute, stacked by side: **Bought**, **No side** and **Sold**.
 - **Line** (right axis) - the **Last** trade price.
+
+The side comes from the **tick test**, which compares each trade's price with the contract's trade before it, not with the bid and ask. Higher counts as bought, lower as sold, and an unchanged price keeps the side of the last change. **No side** is volume the test can't sign: a trade with no earlier one to compare against, an unchanged price before any change has set a side, and everything in the 9:30 AM opening minute.
 
 The time axis spans the session, 9:30 AM to 4:15 PM ET. Before today's session opens, the page shows the most recent one. On a phone the bars are grouped into 5-minute bins so they stay readable.
 
-Hover a bar for the time, the last price, and how many contracts traded at the bid, mid and ask.
+Hover a bar for the time, the last price, and how many of its contracts counted as sold, bought or no side.
 
 ## How to read it
 
 Three patterns:
 
-1. **Who is crossing the spread?** Ask-side volume is trades that printed at or near the ask - buyers paying up to get filled. Bid-side volume is sellers hitting the bid. Mid volume is trades in between.
-2. **Does the price agree?** Ask-side volume with the Last line rising is buyers in control of this contract. Heavy ask-side volume while the price goes nowhere is worth a closer look.
+1. **Who is pushing the price?** Bought volume is buyers paying up to get filled: trades that moved the price up, or held it after a rise. Sold volume is sellers taking less: trades that moved it down, or held it after a drop. No-side volume is trades the test couldn't sign.
+2. **How much volume is behind the move?** The side comes from this contract's own price changes, so bought volume and a rising Last line usually go together; their agreement is not a second, independent read. What the bars add is how many contracts traded on each move: a rise on a handful of contracts says less than one with heavy bought volume behind it.
 3. **How big is today next to OI?** When Vol is large relative to OI, today's trading is big next to the positions already open - new positioning may be building.
 
 ## ES and NQ
