@@ -162,7 +162,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'option-contracts',
     title: 'Live Options Quotes',
-    description: 'One contract at a time\u00a0- intraday price, bid/ask volume, open interest, IV, delta and theta.',
+    description: 'One contract at a time\u00a0- intraday price, bought and sold volume, open interest, IV, delta and theta.',
     section: 'Strategy Tools',
   },
   {
