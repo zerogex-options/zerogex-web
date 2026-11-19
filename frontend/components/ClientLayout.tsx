@@ -18,6 +18,7 @@ import DisclaimerModal from './DisclaimerModal';
 import TermsAcceptanceModal from './TermsAcceptanceModal';
 import FoundingLockinModal from './FoundingLockinModal';
 import ProWelcomeModal from './ProWelcomeModal';
+import BlackFridayBar from './BlackFridayBar';
 import TechnicalSnapshotPrewarm from './TechnicalSnapshotPrewarm';
 import OptionChainPrewarm from './OptionChainPrewarm';
 
@@ -289,6 +290,9 @@ export default function ClientLayout({
     return (
       <>
         {children}
+        {/* The Black Friday bar decides for itself whether to show (the member,
+            the sale and the route); see components/BlackFridayBar.tsx. */}
+        <BlackFridayBar />
         {termsModal}
         {disclaimerModal}
         {foundingLockinModal}
@@ -336,6 +340,7 @@ export default function ClientLayout({
       <div className="lg:pl-[var(--zgx-nav-width,0px)]">
         <Footer theme={theme} />
       </div>
+      <BlackFridayBar />
       {termsModal}
       {disclaimerModal}
       {foundingLockinModal}

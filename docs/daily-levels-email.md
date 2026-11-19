@@ -218,6 +218,25 @@ the email asks the reader to buy — and would put Playwright and
 Everything the image shows is repeated as text beneath it, because most clients
 block images by default and Gmail proxies the rest.
 
+## During a sale
+
+While the Black Friday sale is on (`STRIPE_COUPON_BLACK_FRIDAY` set and the
+time inside `BLACK_FRIDAY_START_AT` to `BLACK_FRIDAY_END_AT`, the same rule the
+pricing page and checkout use), the closing paragraph that pitches the paid
+plans becomes a Black Friday line: the percent off, the last day, and a link to
+`/pricing`. It goes only to subscribers the sale is for. An address that
+belongs to an account with a current plan or trial, a comped plan, or one held
+before (a lapsed trial counts) gets the usual paragraph, because checkout
+wouldn't sell them the sale. Addresses are compared by inbox, so a Gmail dot or
+`+tag` variant counts as the same address. Subscribers with no account get the
+line.
+
+Nothing to switch on or off: the line stops when the window closes. The run's
+preamble prints `Black Friday: on until ...; the sale line goes to N of M`.
+Rendering is `renderDailyLevelsEmail(..., { sale })` in
+`frontend/core/dailyLevelsDigest.ts`; the address check is
+`levelsMailboxesWithoutSale()` in `frontend/core/levelsSubscribers.ts`.
+
 ## Environment
 
 Read from `frontend/.env.local` or the process env:
@@ -230,6 +249,7 @@ Read from `frontend/.env.local` or the process env:
 | `NEXT_PUBLIC_APP_URL` | yes | Link and image base. |
 | `NEXT_PUBLIC_NYSE_HOLIDAYS` | recommended | Unset degrades guard 1 to weekends-only. |
 | `AUTH_DB_PATH` | yes | Also mirrored into the unit's `ReadWritePaths` by the deploy step. |
+| `STRIPE_COUPON_BLACK_FRIDAY`, `BLACK_FRIDAY_START_AT`, `BLACK_FRIDAY_END_AT` | no | The sale window. All set and the time inside it: the sale line goes out (see "During a sale"). |
 
 ## Operating
 

@@ -53,6 +53,8 @@ That is 12:00 AM ET Thursday, November 19 to 11:59:59 PM ET Tuesday, December 1.
   - the sale price on every card, with the regular price struck through;
   - sale prices in the "Compare billing options" table;
   - a "Black Friday sale." entry in the Refund & Cancellation Policy, stating the terms.
+- **A strip along the bottom of every other page**, for signed-in members who could buy it: "50% off your first year of ZeroGEX, on every plan. Ends Tuesday, December 1." and a "See the sale" button to `/pricing`. It goes to exactly who checkout sells the sale to: a free account with no current plan or trial that has never held one. Closing it with the X keeps it closed in that browser until the sale ends. It's left off `/pricing` (which has its own banner), the sign-in and password pages, Terms, Privacy and embedded pages, and it disappears by itself when the sale closes.
+- **Admins see both as a preview**, so you can check the live sale from your own account. The plan buttons on `/pricing` still say "Admin (no subscription)".
 - **Who does not see it:** members with a subscription, returning members, and visitors from the reactivation email (their page keeps the extended trial it promised).
 - **After 11:59 PM ET on December 1:** the page and checkout go back to normal on their own. Everyone who bought keeps half off for their first year.
 
@@ -60,7 +62,9 @@ If a page was loaded before the sale closed and the member clicks after, checkou
 
 ## 3a. Telling free members
 
-The announcement email to free members is ready: `--campaign 2026-11-black-friday` in `scripts/send-product-update.mts`. The send steps, who it reaches and when to send are in the "Black Friday sale" section of `docs/newsletters/SEND-RUNBOOK.md`. It fills its prices and deadline from the sale itself, and won't send until the sale is on.
+The announcement email to free members is ready: `--campaign 2026-11-black-friday` in `scripts/send-product-update.mts`. It goes to every verified free account that has never held a subscription, including accounts that verified and never came back. The send steps, who it reaches and when to send are in the "Black Friday sale" section of `docs/newsletters/SEND-RUNBOOK.md`. It fills its prices and deadline from the sale itself, and won't send until the sale is on.
+
+The free daily levels email carries the sale too, with nothing to run. While the sale is on, the paragraph that usually pitches the paid plans becomes a Black Friday line with a link to `/pricing`, for every subscriber whose address doesn't belong to an account that has, or had, a plan or trial. Everyone else gets the usual email. The line stops by itself when the sale closes, and each morning's log says how many got it (`docs/daily-levels-email.md`, "During a sale").
 
 ## 4. Levers
 

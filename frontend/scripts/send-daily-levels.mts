@@ -45,8 +45,11 @@ import {
   buildDigestModel,
   renderDailyLevelsEmail,
   DIGEST_SYMBOL_ORDER,
+  type DigestSale,
   type SymbolSnapshot,
 } from '../core/dailyLevelsDigest.ts';
+import { BLACK_FRIDAY_SALE, formatSaleDeadline, openSaleWindow } from '../core/blackFridaySale.ts';
+import { mailboxKey } from '../core/mailboxKey.ts';
 import { summarizeForecastHistory, FORECAST_HISTORY_LIMIT, type ForecastDateEntry, type HistorySummary } from '../core/trackRecord.ts';
 import {
   SEND_WINDOW_END_MIN,
@@ -184,6 +187,7 @@ for (const key of [
   'ZEROGEX_API_TOKEN', 'ZEROGEX_API_KEY', 'ZEROGEX_API_BASE_URL',
   'RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'NEXT_PUBLIC_APP_URL',
   'NEXT_PUBLIC_NYSE_HOLIDAYS', 'AUTH_DB_PATH', 'ZEROGEX_END_USER_TOKEN_SECRET',
+  'STRIPE_COUPON_BLACK_FRIDAY', 'BLACK_FRIDAY_START_AT', 'BLACK_FRIDAY_END_AT',
 ]) {
   if (!process.env[key] && envLocal[key]) process.env[key] = envLocal[key];
 }
@@ -191,6 +195,22 @@ for (const key of [
 const API_BASE = (process.env.ZEROGEX_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 const API_TOKEN = process.env.ZEROGEX_API_TOKEN || process.env.ZEROGEX_API_KEY;
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://zerogex.io').replace(/\/+$/, '');
+
+// The Black Friday sale (core/blackFridaySale.ts), while it is on: the same
+// three keys and the same openSaleWindow checkout reads. A recipient it is for
+// gets a short sale line in place of the usual paid-plans paragraph; see the
+// send loop for who that is.
+const saleWindow = openSaleWindow(
+  {
+    couponId: process.env.STRIPE_COUPON_BLACK_FRIDAY,
+    startAt: process.env.BLACK_FRIDAY_START_AT,
+    endAt: process.env.BLACK_FRIDAY_END_AT,
+  },
+  Date.now(),
+);
+const sale: DigestSale | null = saleWindow
+  ? { percentOff: BLACK_FRIDAY_SALE.percentOff, deadline: formatSaleDeadline(saleWindow.endMs) }
+  : null;
 
 if (!API_TOKEN) {
   console.error('Error: ZEROGEX_API_TOKEN (or legacy ZEROGEX_API_KEY) is required to read levels.');
@@ -366,6 +386,7 @@ if (args.previewTo) {
   const rendered = renderDailyLevelsEmail(model, {
     unsubUrl: buildLevelsUnsubUrl(APP_URL, 'lvl_preview'),
     siteUrl: APP_URL,
+    sale,
   });
   console.log(`\nSending ONE preview to ${args.previewTo} (no database writes)...`);
   await sendDailyLevelsEmail(args.previewTo, { ...rendered, unsubUrl: buildLevelsUnsubUrl(APP_URL, 'lvl_preview') });
@@ -376,7 +397,7 @@ if (args.previewTo) {
 // ── Recipients ──────────────────────────────────────────────────────────────
 // Imported late and dynamically: core/db.ts opens the SQLite file at module
 // load, and a --help or an aborted guard run must not touch the database.
-const { listLevelsDigestRecipients, markLevelsDigestSent, countLevelsSubscribers } =
+const { listLevelsDigestRecipients, markLevelsDigestSent, countLevelsSubscribers, levelsMailboxesWithoutSale } =
   await import('../core/levelsSubscribers.ts');
 
 const counts = countLevelsSubscribers();
@@ -387,6 +408,18 @@ console.log(`\nSubscribers:      ${counts.confirmed} confirmed · ${counts.pendi
 const { recipients, alreadySent } = listLevelsDigestRecipients(sessionDate, args.limit ?? undefined);
 if (alreadySent > 0) console.log(`Already sent:     ${alreadySent} (got the ${sessionDate} digest earlier, skipped)`);
 console.log(`This run:         ${recipients.length}`);
+
+// The inboxes whose account has, or had, a plan: the sale is for first-time
+// subscribers, so they keep the usual paragraph. Read only while the sale is on.
+const withoutSale = sale ? levelsMailboxesWithoutSale() : new Set<string>();
+const saleFor = (email: string): DigestSale | null => (sale && !withoutSale.has(mailboxKey(email)) ? sale : null);
+if (sale) {
+  const getsSale = recipients.filter((r) => saleFor(r.email)).length;
+  console.log(
+    `Black Friday:     on until ${sale.deadline}; the sale line goes to ${getsSale} of ${recipients.length} ` +
+      '(the rest have, or had, a plan)',
+  );
+}
 
 if (recipients.length === 0) {
   console.log(alreadySent > 0 ? `\nEveryone has already been sent the ${sessionDate} digest. Nothing to do.` : '\nNothing to do.');
@@ -410,6 +443,7 @@ if (args.dryRun) {
   console.log(renderDailyLevelsEmail(model, {
     unsubUrl: buildLevelsUnsubUrl(APP_URL, 'lvl_preview'),
     siteUrl: APP_URL,
+    sale,
   }).text);
   process.exit(0);
 }
@@ -435,7 +469,7 @@ const { sent, failed } = await deliverAll(
     // their preference has no usable snapshot this morning — better a digest
     // led by the wrong ticker than no digest at all.
     const theirModel = (await modelFor(subscriber.symbol)) ?? model;
-    const rendered = renderDailyLevelsEmail(theirModel, { unsubUrl, siteUrl: APP_URL });
+    const rendered = renderDailyLevelsEmail(theirModel, { unsubUrl, siteUrl: APP_URL, sale: saleFor(subscriber.email) });
     await sendDailyLevelsEmail(subscriber.email, { ...rendered, unsubUrl });
     // Delivered. Nothing from here on may throw: deliverAll would take it for
     // a failed send and mail them a second copy.

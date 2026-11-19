@@ -664,9 +664,14 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 
 **Black Friday sale** — `send-product-update.mts --campaign 2026-11-black-friday` (copy in `docs/newsletters/2026-11-black-friday-registrants.{html,txt}`)
 - **Subject:** filled from the sale, e.g. `Black Friday: 50% off your first year of ZeroGEX, through December 1`
-- Sent by hand, never on a timer. Verified free members who have never held a
-  subscription (a lapsed trial counts), including referral, partner and
-  campaign signups, whose discount the sale replaces at checkout.
+- Sent by hand, never on a timer. Every verified free account that has never
+  held a subscription (a lapsed trial counts), including referral, partner and
+  campaign signups, whose discount the sale replaces at checkout, and, unlike
+  the other free-member campaigns, accounts that never signed in after
+  verifying.
+- The free daily levels email swaps its paid-plan paragraph for a sale line
+  while the sale is on, for subscribers the sale is for. See
+  `docs/daily-levels-email.md`, "During a sale".
 - No code: the sale prices are on `/pricing`. The sender fills the rate,
   deadline and prices from `core/blackFridaySale.ts` and the configured window
   (`core/blackFridayEmail.ts`), and refuses a real send unless the sale is on

@@ -15,6 +15,9 @@ import { randomBytes } from 'crypto';
 
 import { getDb } from './db.ts';
 import { MARKET_LEVELS_SYMBOLS } from './symbols.ts';
+import { isUnstartedSubscriptionStatus } from './billingUser.ts';
+import { showsSaleBanner } from './blackFridaySale.ts';
+import { mailboxKey } from './mailboxKey.ts';
 import {
   normalizeEmail,
   sentDuringSession,
@@ -413,6 +416,44 @@ export type LevelsSubscriberCounts = {
 };
 
 /** Headline counts for the admin readout and the send script's preamble. */
+/**
+ * The inboxes the Black Friday line in the daily levels email is NOT for: every
+ * live account checkout wouldn't sell the sale to, by the same rule as the
+ * site's sale banner (core/blackFridaySale.ts showsSaleBanner): a current plan
+ * or trial, one held before, or a paid tier with no subscription (a comped
+ * member, a creator partner). Keyed by mailbox (core/mailboxKey.ts), so a Gmail
+ * spelling variant on the levels list still matches its account. An address
+ * with no account at all belongs to someone new, so it gets the line.
+ */
+export function levelsMailboxesWithoutSale(): Set<string> {
+  const rows = getDb()
+    .prepare(
+      `SELECT email, tier, stripe_subscription_id, subscription_status,
+              paid_welcome_email_sent_at, subscription_lapsed
+         FROM users
+        WHERE deleted_at IS NULL`,
+    )
+    .all() as Array<{
+    email: string;
+    tier: string;
+    stripe_subscription_id: string | null;
+    subscription_status: string | null;
+    paid_welcome_email_sent_at: string | null;
+    subscription_lapsed: number | null;
+  }>;
+  const out = new Set<string>();
+  for (const row of rows) {
+    const forSale = showsSaleBanner({
+      tier: row.tier,
+      hasActiveSubscription:
+        !!row.stripe_subscription_id && !isUnstartedSubscriptionStatus(row.subscription_status),
+      hasHeldSubscription: row.paid_welcome_email_sent_at != null || row.subscription_lapsed === 1,
+    });
+    if (!forSale) out.add(mailboxKey(row.email));
+  }
+  return out;
+}
+
 export function countLevelsSubscribers(): LevelsSubscriberCounts {
   const row = getDb()
     .prepare(

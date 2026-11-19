@@ -550,3 +550,34 @@ test('the reading list always carries the track-record link', () => {
   assert.match(r.text, /zerogex\.io\/track-record/);
   assert.match(r.html, /zerogex\.io\/track-record/);
 });
+
+// ── The Black Friday line ──────────────────────────────────────────────────
+// While the sale is on, a recipient it's for gets a short sale line in place of
+// the usual paid-plans paragraph (scripts/send-daily-levels.mts decides who).
+
+const SALE = { percentOff: 50, deadline: 'Tuesday, December 1' };
+
+test('the sale line replaces the paid-plans paragraph, in both bodies', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  const r = renderDailyLevelsEmail(m, { unsubUrl: 'https://x/u', siteUrl: 'https://zerogex.io', sale: SALE });
+  assert.match(r.text, /Black Friday: every paid plan is 50% off for your first year, through Tuesday, December 1\./);
+  assert.match(r.text, /See the sale prices: https:\/\/zerogex\.io\/pricing/);
+  assert.doesNotMatch(r.text, /Start with a 7-day free trial on Basic/);
+  assert.match(r.html, /<strong>Black Friday:<\/strong> every paid plan is 50% off for your first year, through Tuesday, December 1\./);
+  assert.match(r.html, /See the sale prices &rarr;/);
+  assert.doesNotMatch(r.html, /7-day free trial on Basic/);
+});
+
+test('without the sale, the email is exactly what it was', () => {
+  const m = buildDigestModel({ snapshots: ALL_SIX, sessionDate: SESSION, basis: 'prior-session' })!;
+  const before = render(m);
+  const off = renderDailyLevelsEmail(m, {
+    unsubUrl: 'https://zerogex.io/levels-email/unsubscribe?s=lvl_x&t=tok',
+    siteUrl: 'https://zerogex.io',
+    sale: null,
+  });
+  assert.equal(off.text, before.text);
+  assert.equal(off.html, before.html);
+  assert.match(before.text, /Start with a 7-day free trial on Basic/);
+  assert.doesNotMatch(before.text, /Black Friday/);
+});

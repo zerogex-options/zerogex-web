@@ -27,7 +27,9 @@
 //                  WHERE subscription_status IN ('active','trialing')
 //   registrants  → signed up ≤N days (default 30) or since --since, verified
 //                  email, logged in (proxied by authenticated page-view activity
-//                  — no last_login column exists), and never subscribed.
+//                  — no last_login column exists), and never subscribed. A
+//                  campaign flagged includeNeverSignedIn drops the logged-in
+//                  test (the Black Friday sale: everyone who could buy it).
 //                  Whether this also skips anyone the automated ~2h onboarding
 //                  nudge already reached is per-campaign
 //                  (CampaignSpec.excludeOnboardingNudged): July did, August does
@@ -182,6 +184,10 @@ type CampaignSpec = {
   // who have never held a subscription, the only ones checkout sells it to.
   // No latch: the sale is on the pricing page for anyone eligible.
   blackFridaySale?: boolean;
+  // Reach registrants who verified their email but have never signed in since
+  // (no page views). Off by default: an update about the product is for people
+  // who have used it. The sale is for everyone with an account who could buy it.
+  includeNeverSignedIn?: boolean;
   // Leave out registrants who signed up fewer than this many days ago. They are
   // still inside the onboarding emails at full price, and an offer aimed at the
   // members onboarding did not convert should not reach them first.
@@ -367,6 +373,9 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
     // A bare /pricing CTA; the sale is the offer, not the extended trial.
     grantsExtendedTrial: false,
     blackFridaySale: true,
+    // Every verified free account that could buy it, whether or not it has
+    // signed in since verifying: the sale is the reason to come back.
+    includeNeverSignedIn: true,
     // No minAccountAgeDays: the sale is on the pricing page for a new signup
     // too, and an email telling them is better than a full-price trial.
     content: {
@@ -1049,8 +1058,12 @@ if (audience === 'subscribers') {
         AND (subscription_status IS NULL OR subscription_status NOT IN ('active','trialing'))
         AND marketing_unsubscribed_at IS NULL
         AND deleted_at IS NULL
-        AND created_at >= '${esc(sinceIso)}'
-        AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id)`;
+        AND created_at >= '${esc(sinceIso)}'${
+          campaignSpec.includeNeverSignedIn
+            ? ''
+            : `
+        AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id)`
+        }`;
   // A member who signed up through a referral, partner or campaign link gets
   // that link's discount applied by checkout itself, and Stripe hides the
   // promotion-code box whenever checkout applies one. They could not enter the
@@ -1162,6 +1175,9 @@ if (audience === 'registrants') {
   console.log(
     cli.since ? `Signup window:  since ${cli.since}` : `Signup window:  last ${cli.days} days`,
   );
+  if (campaignSpec.includeNeverSignedIn) {
+    console.log('Reach:          includes accounts that verified but never signed in since');
+  }
   console.log(
     campaignSpec.excludeOnboardingNudged
       ? `Excluded:       ${excludedNudged} already got the ~2h onboarding nudge`

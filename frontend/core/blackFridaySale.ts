@@ -84,6 +84,38 @@ export function isSaleWindowOpen(window: SaleWindow | null, nowMs: number): bool
   return nowMs < window.endMs;
 }
 
+export type SaleConfig = {
+  couponId: string | null | undefined;
+  startAt: string | null | undefined;
+  endAt: string | null | undefined;
+};
+
+// The sale's window while the sale is on (the coupon is configured and now is
+// inside the window); null otherwise. The one definition of "on" that checkout
+// (core/stripe.ts isBlackFridayOpen), the pricing page and the session's banner
+// flag all read, so they can never disagree. A blank coupon counts as unset:
+// deploy/steps/036.billing seeds blank placeholders (KEY=).
+export function openSaleWindow(config: SaleConfig, nowMs: number): SaleWindow | null {
+  if (!(config.couponId ?? '').trim()) return null;
+  const saleWindow = parseSaleWindow(config.startAt, config.endAt);
+  return isSaleWindowOpen(saleWindow, nowMs) ? saleWindow : null;
+}
+
+// Whether the site-wide sale banner is for this signed-in member: someone
+// checkout would sell the sale to, which means a free account ('public') with
+// no live subscription or trial that has never held one. A paid tier with no
+// subscription (a comped member, a creator partner) already has the product,
+// so it doesn't see the banner. An admin sees it as a preview, as on /pricing:
+// an admin can't subscribe, so nothing can be bought from it.
+export function showsSaleBanner(member: {
+  tier: string;
+  hasActiveSubscription: boolean;
+  hasHeldSubscription: boolean;
+}): boolean {
+  if (member.tier !== 'public' && member.tier !== 'admin') return false;
+  return !member.hasActiveSubscription && !member.hasHeldSubscription;
+}
+
 // The last day of the sale as the page states it, in New York time and the
 // member's language: "Tuesday, December 1". Formatted one second before the
 // end, so an end set at midnight reads as the day it closes rather than the

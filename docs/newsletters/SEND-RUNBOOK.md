@@ -20,7 +20,7 @@ on `/pricing` and checkout applies them (`docs/black-friday-2026-runbook.md`).
 
 | Campaign | Who | Files | Subject |
 |---|---|---|---|
-| `2026-11-black-friday` | Verified free members who have never held a subscription (a lapsed trial counts as one) and have opened a page while signed in | `2026-11-black-friday-registrants.html` / `.txt` | `Black Friday: {{SALE_PERCENT}} off your first year of ZeroGEX, through {{SALE_DEADLINE_SHORT}}`, i.e. "Black Friday: 50% off your first year of ZeroGEX, through December 1" |
+| `2026-11-black-friday` | Every verified free account that has never held a subscription (a lapsed trial counts as one), including accounts that verified but never signed in again | `2026-11-black-friday-registrants.html` / `.txt` | `Black Friday: {{SALE_PERCENT}} off your first year of ZeroGEX, through {{SALE_DEADLINE_SHORT}}`, i.e. "Black Friday: 50% off your first year of ZeroGEX, through December 1" |
 
 **Idempotency key:** `offer_2026_11_black_friday`.
 
@@ -36,8 +36,12 @@ opens.
 - Left out: anyone who has held a subscription, a lapsed trial included.
   Checkout won't sell them the sale, so the email would promise a price they
   can't get. The dry run prints how many.
-- Left out, as for every campaign: never verified, never signed in,
-  unsubscribed, deleted.
+- Left out: never verified, unsubscribed, deleted. Mail to an address nobody
+  confirmed is what bounces and gets marked as spam, which hurts delivery of
+  every other email.
+- In, unlike the other free-member campaigns: accounts that verified but never
+  signed in again. The others leave them out; a sale is the one email worth
+  sending them. The dry run says so on its "Reach:" line.
 - In, unlike the November code offer: members who signed up through a
   referral, partner or campaign link. The sale replaces their discount at
   checkout, so they get it too.

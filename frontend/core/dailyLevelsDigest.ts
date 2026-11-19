@@ -338,11 +338,22 @@ const FOOTER_LINKS: ReadonlyArray<{ path: string; label: string; blurb: string }
 
 export type RenderedEmail = { subject: string; text: string; html: string };
 
+// The Black Friday sale, for a recipient it's for (scripts/send-daily-levels.mts
+// decides: the sale is on, and no account on their inbox has held a plan).
+// Replaces the closing paid-plans paragraph rather than adding a second pitch.
+export type DigestSale = {
+  // 50
+  percentOff: number;
+  // "Tuesday, December 1" (core/blackFridaySale.ts formatSaleDeadline)
+  deadline: string;
+};
+
 export function renderDailyLevelsEmail(
   model: DigestModel,
-  opts: { unsubUrl: string; siteUrl: string },
+  opts: { unsubUrl: string; siteUrl: string; sale?: DigestSale | null },
 ): RenderedEmail {
   const site = opts.siteUrl.replace(/\/+$/, '');
+  const sale = opts.sale ?? null;
   const omittedNote = model.omitted.length
     ? `Not included this morning (no matching snapshot): ${model.omitted.join(', ')}.`
     : '';
@@ -382,7 +393,9 @@ export function renderDailyLevelsEmail(
       : []),
     ...FOOTER_LINKS.map((l) => `  ${l.label}\u00a0- ${l.blurb}\n    ${site}${l.path}`),
     '',
-    `Live intraday levels, dealer flow and signals are what the paid plans add. Start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee: ${site}/pricing`,
+    sale
+      ? `Black Friday: every paid plan is ${sale.percentOff}% off for your first year, through ${sale.deadline}. Live intraday levels, dealer flow and signals are what the paid plans add. See the sale prices: ${site}/pricing`
+      : `Live intraday levels, dealer flow and signals are what the paid plans add. Start with a 7-day free trial on Basic (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee: ${site}/pricing`,
     '',
     '---',
     `Unsubscribe: ${opts.unsubUrl}`,
@@ -487,10 +500,18 @@ export function renderDailyLevelsEmail(
         ).join('')}
       </div>
 
-      <p style="margin:20px 0 0; padding-top:18px; border-top:1px solid #e8e8e8; font-size:13px; color:#555;">
+      ${
+        sale
+          ? `<p style="margin:20px 0 0; padding:14px 16px; background:#fdeeed; border-left:4px solid #f45854; border-radius:6px; font-size:13px; line-height:1.55; color:#12283c;">
+        <strong>Black Friday:</strong> every paid plan is ${escapeHtml(String(sale.percentOff))}% off for your first year, through ${escapeHtml(sale.deadline)}.
+        Live intraday levels, dealer flow and signals are what the paid plans add.
+        <a href="${escapeHtml(`${site}/pricing`)}" style="color:#cc352f; font-weight:700;">See the sale prices &rarr;</a>
+      </p>`
+          : `<p style="margin:20px 0 0; padding-top:18px; border-top:1px solid #e8e8e8; font-size:13px; color:#555;">
         Live intraday levels, dealer flow and signals are what the paid plans add.
         Start with a <a href="${escapeHtml(`${site}/pricing`)}" style="color:#12283c; font-weight:600;">7-day free trial on Basic</a> (no charge until the trial ends), or pick any other plan with a 7-day money-back guarantee.
-      </p>
+      </p>`
+      }
 
       <p style="margin:18px 0 0; font-size:11px; color:#8a939b;">
         You are receiving this because you confirmed a subscription to the free ZeroGEX daily levels email.

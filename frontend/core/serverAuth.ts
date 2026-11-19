@@ -28,6 +28,7 @@ import { normalizeCampaignCode } from '@/core/campaigns';
 import { sanitizeUtmSource } from '@/core/utils';
 import { isAcceptedTermsVersionCurrent } from '@/core/legalTerms';
 import { isUnstartedSubscriptionStatus } from '@/core/billingUser';
+import { openSaleWindow, showsSaleBanner } from '@/core/blackFridaySale';
 import { accountOnMailbox, findAccountForSignIn, isGmailAddress, mailboxKey } from '@/core/mailboxKey';
 import { DELETED_ACCOUNT_MESSAGE, isReturningOAuthSignIn, resolveOAuthAccount } from '@/core/oauthAccount';
 
@@ -78,6 +79,12 @@ type SessionWithUser = {
     // welcome, or the lapsed flag set on churn). Checkout suppresses the 7-day
     // trial for these users, so the UI must not promise them a free trial.
     hasPriorPaid: boolean;
+    // When the Black Friday sale ends (ISO), while the sale is on and this
+    // member is someone it's for (core/blackFridaySale.ts showsSaleBanner);
+    // null otherwise. Decided here, per request, rather than in the page, so a
+    // statically rendered page can't show a sale that has ended. Drives the
+    // site-wide sale banner (components/BlackFridayBar.tsx).
+    blackFridayEndsAt: string | null;
     emailVerified: boolean;
     disclaimerAcknowledgedAt: string | null;
     disclaimerVersionAcknowledged: string | null;
@@ -300,6 +307,23 @@ function otherSpellingNote(used: string, via: 'email' | 'mailbox'): string {
   return via === 'mailbox' ? ` (as ${used}, another spelling of this Gmail address)` : '';
 }
 
+// The Black Friday sale's end, for a member the site-wide banner is for, while
+// the sale is on; null otherwise. Env is read directly (the same three keys as
+// core/stripe.ts isBlackFridayOpen, through the same openSaleWindow) so this
+// module, which the request proxy loads, doesn't pull in the Stripe client.
+function blackFridayEndsAtFor(member: Parameters<typeof showsSaleBanner>[0]): string | null {
+  if (!showsSaleBanner(member)) return null;
+  const saleWindow = openSaleWindow(
+    {
+      couponId: process.env.STRIPE_COUPON_BLACK_FRIDAY,
+      startAt: process.env.BLACK_FRIDAY_START_AT,
+      endAt: process.env.BLACK_FRIDAY_END_AT,
+    },
+    Date.now(),
+  );
+  return saleWindow ? new Date(saleWindow.endMs).toISOString() : null;
+}
+
 function getSessionByToken(token: string): SessionWithUser | null {
   ensureBootstrapAdmin();
   const db = getDb();
@@ -362,6 +386,14 @@ function getSessionByToken(token: string): SessionWithUser | null {
       hasPriorPaid:
         row.paid_welcome_email_sent_at != null ||
         (row.subscription_lapsed as number | null) === 1,
+      blackFridayEndsAt: blackFridayEndsAtFor({
+        tier: normalizeTier(row.tier as string),
+        hasActiveSubscription:
+          !!row.stripe_subscription_id &&
+          !isUnstartedSubscriptionStatus(row.subscription_status as string | null),
+        hasHeldSubscription:
+          row.paid_welcome_email_sent_at != null || (row.subscription_lapsed as number | null) === 1,
+      }),
       // Mirrors the same shape: source of truth is the column, not the tier.
       // Gated on /api/billing/checkout so unverified users can't subscribe;
       // surfaced in the session so the pricing UI can prompt for resend.

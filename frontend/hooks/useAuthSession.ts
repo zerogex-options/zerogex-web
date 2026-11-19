@@ -26,6 +26,10 @@ type SessionUser = {
   // the free trial for these users, so the pricing UI shows "Subscribe" copy
   // rather than promising a trial they won't get.
   hasPriorPaid?: boolean;
+  // When the Black Friday sale ends (ISO), while it's on and this member is
+  // someone it's for; null/absent otherwise. Decided server-side per request
+  // (core/serverAuth.ts). Drives components/BlackFridayBar.tsx.
+  blackFridayEndsAt?: string | null;
   // True iff users.email_verified_at is set. Gates /api/billing/checkout
   // server-side; the pricing/founding clients show a "verify your email"
   // banner when false so the user can resend the link.

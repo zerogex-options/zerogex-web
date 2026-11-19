@@ -31,12 +31,14 @@ const {
   countLevelsSubscribers,
   getLevelsSubscriberByEmail,
   getLevelsSubscriberById,
+  levelsMailboxesWithoutSale,
   listLevelsDigestRecipients,
   listSendableLevelsSubscribers,
   markLevelsDigestSent,
   recordLevelsSubscription,
   unsubscribeLevelsSubscriber,
 } = await import('../core/levelsSubscribers.ts');
+const { mailboxKey } = await import('../core/mailboxKey.ts');
 
 const db = getDb();
 
@@ -366,4 +368,55 @@ test('lookup by email normalizes, and misses return null rather than throwing', 
   assert.equal(getLevelsSubscriberByEmail('garbage'), null);
   assert.equal(getLevelsSubscriberById('lvl_missing'), null);
   assert.equal(getLevelsSubscriberById(''), null);
+});
+
+// ── The Black Friday line ──────────────────────────────────────────────────
+// While the sale is on, the daily levels email carries a sale line for anyone
+// it's for. Which inboxes it is NOT for comes from real account rows, by the
+// same rule as the site's sale banner.
+
+test('the Black Friday line skips every inbox whose account has, or had, a plan', () => {
+  db.exec('DELETE FROM users;');
+  const at = T0.toISOString();
+  const add = (
+    id: string,
+    email: string,
+    tier: string,
+    extra: { sub?: string; status?: string; welcome?: boolean; lapsed?: boolean; deleted?: boolean } = {},
+  ) =>
+    db
+      .prepare(
+        `INSERT INTO users (id, email, tier, created_at, updated_at, stripe_subscription_id,
+                            subscription_status, paid_welcome_email_sent_at, subscription_lapsed, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        id, email, tier, at, at, extra.sub ?? null, extra.status ?? null,
+        extra.welcome ? at : null, extra.lapsed ? 1 : 0, extra.deleted ? at : null,
+      );
+  add('u_free', 'free@x.com', 'public');
+  add('u_trial', 'trialing@x.com', 'basic', { sub: 'sub_1', status: 'trialing', welcome: true });
+  add('u_lapsed', 'lapsed@x.com', 'public', { welcome: true, lapsed: true });
+  add('u_comped', 'comped@x.com', 'pro');
+  add('u_gmail', 'Jane.Doe@gmail.com', 'public', { welcome: true, lapsed: true });
+  add('u_admin', 'admin@x.com', 'admin');
+  add('u_incomplete', 'incomplete@x.com', 'public', { sub: 'sub_2', status: 'incomplete' });
+  add('u_deleted', 'deleted@x.com', 'public', { welcome: true, lapsed: true, deleted: true });
+
+  const skip = levelsMailboxesWithoutSale();
+  // Has, or had, a plan, or already has the product: the usual paragraph.
+  assert.equal(skip.has('trialing@x.com'), true);
+  assert.equal(skip.has('lapsed@x.com'), true);
+  assert.equal(skip.has('comped@x.com'), true);
+  // Matched by inbox: the levels list may hold another spelling of the address.
+  assert.equal(skip.has(mailboxKey('janedoe+levels@gmail.com')), true);
+  // The sale line: never subscribed, an admin (a preview), a first payment that
+  // never went through (checkout still treats them as first-time), an address
+  // whose account was deleted, and an address with no account at all.
+  assert.equal(skip.has('free@x.com'), false);
+  assert.equal(skip.has('admin@x.com'), false);
+  assert.equal(skip.has('incomplete@x.com'), false);
+  assert.equal(skip.has('deleted@x.com'), false);
+  assert.equal(skip.has('stranger@x.com'), false);
+  db.exec('DELETE FROM users;');
 });

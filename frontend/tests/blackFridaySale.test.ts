@@ -13,10 +13,12 @@ import {
   decideSaleCheckout,
   formatSaleDeadline,
   isSaleWindowOpen,
+  openSaleWindow,
   parseSaleWindow,
   salePayments,
   salePerMonthUsd,
   salePriceUsd,
+  showsSaleBanner,
   type SaleCheckoutInput,
 } from '../core/blackFridaySale.ts';
 import { BILLABLE_TIERS, BILLING_CADENCES, LIST_PRICE_USD, formatUsd } from '../core/billingPlans.ts';
@@ -196,4 +198,31 @@ test('the copy states the terms checkout enforces', () => {
   assert.match(dict.en.salePolicyBody, /renews at the regular price/);
   assert.match(dict.en.salePriceNoteMonthly, /12 monthly payments/);
   assert.match(dict.en.salePriceNoteQuarterly, /4 quarterly payments/);
+});
+
+// --- one definition of "on", and who the site-wide banner is for -------------
+
+
+test('the sale is on only with the coupon set and inside the window', () => {
+  const inside = Date.parse('2026-11-23T14:00:00Z');
+  const config = { couponId: 'ZGX_BLACK_FRIDAY_2026_50_OFF_12M', startAt: START, endAt: END };
+  assert.deepEqual(openSaleWindow(config, inside), { startMs: Date.parse(START), endMs: Date.parse(END) });
+  assert.equal(openSaleWindow({ ...config, couponId: '' }, inside), null);
+  assert.equal(openSaleWindow({ ...config, couponId: '   ' }, inside), null);
+  assert.equal(openSaleWindow({ ...config, couponId: undefined }, inside), null);
+  assert.equal(openSaleWindow(config, Date.parse(START) - 1), null);
+  assert.equal(openSaleWindow(config, Date.parse(END)), null);
+  assert.equal(openSaleWindow({ ...config, endAt: 'soon' }, inside), null);
+});
+
+test('the banner is for exactly who checkout sells the sale to (plus an admin, as a preview)', () => {
+  const free = { tier: 'public', hasActiveSubscription: false, hasHeldSubscription: false };
+  assert.equal(showsSaleBanner(free), true);
+  assert.equal(showsSaleBanner({ ...free, tier: 'admin' }), true);
+  // A current plan or trial, or one held before: checkout refuses them.
+  assert.equal(showsSaleBanner({ ...free, hasActiveSubscription: true }), false);
+  assert.equal(showsSaleBanner({ ...free, hasHeldSubscription: true }), false);
+  // A paid tier with no subscription (comped, creator partner) already has it.
+  assert.equal(showsSaleBanner({ ...free, tier: 'basic' }), false);
+  assert.equal(showsSaleBanner({ ...free, tier: 'pro' }), false);
 });

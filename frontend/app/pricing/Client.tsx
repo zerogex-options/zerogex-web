@@ -1273,8 +1273,9 @@ function PricingClientInner({
   // first-timers only, as checkout enforces), and not a ?reactivate=1 invitee,
   // whose page is the extended trial their email promised. While the session
   // loads this reads as eligible, like the page's other new-visitor defaults.
-  const saleEligible =
-    saleEndsAt !== null && !hasActiveSubscription && !isResubscribe && !cameFromReactivate && currentTier !== 'admin';
+  // An admin sees it too, as a preview of what new visitors get: their buttons
+  // stay "Admin (no subscription)", so nothing can be bought from it.
+  const saleEligible = saleEndsAt !== null && !hasActiveSubscription && !isResubscribe && !cameFromReactivate;
   // "Tuesday, December 1", in the member's language, New York time.
   const saleDeadline = useMemo(
     () => (saleEndsAt ? formatSaleDeadline(Date.parse(saleEndsAt), locale) : null),
