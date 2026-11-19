@@ -10,8 +10,11 @@ access the platform. Please activate the promised free month on my account."
 Same member as `2026-10-27-naif-pro-chart-lag.md` and
 `2026-11-12-naif-bot-trading-and-trade-audit-403.md`.
 
-> **Status:** not yet checked on the box. Step 1 confirms the cause; the fix
-> and the draft below are for the likely one (he canceled before Nov 18).
+> **Status:** cause confirmed Nov 19 (step 1). He canceled on **Nov 4**
+> (`stripe_cancellation_requested`, 19:35 UTC, a week after the credit), the
+> subscription ended Nov 18 at 21:47 UTC (`stripe_subscription_deleted`), and
+> the balance still reads -$59.00. No API keys were revoked (no `Revoked`
+> row), so the API key paragraph comes out of the draft. Steps 2 to 5 next.
 
 ## The read
 
