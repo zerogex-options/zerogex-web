@@ -14,8 +14,33 @@ That subject is the paid-up-front welcome (`core/mailer.ts`), which also named
 his refund deadline. His account confirms it: Pro monthly, paid on day one,
 under the 7-day money-back guarantee.
 
-> **Status:** drafted and checked Nov 18 (`make diagnose-user`, below). Ready
-> to send as written.
+> **Status:** sent Wed Nov 18. **John replied at 3:19 PM: he's staying, on the
+> free month.** Next: run `gift-month`, then send the reply under "I'll stay".
+
+## His reply (Wed Nov 18, 3:19 PM)
+
+> Hey, Michael. Thanx for the message. I didn't expect a response. What I'm
+> working on is picking the instrument to fit the tool. Yeah. The whole cart
+> and horse thing. I found something interesting and I need option and related
+> data. I like your site: I was on Tanuki trader and I was like "what?" The
+> nerds got a hold of the veto button over there. Marketing didn't have much of
+> a chance.
+>
+> I don't want to accept your generous offer and bail on you early next year if
+> it doesn't work out. I'm not that guy. Once again, I do like your site. I
+> could learn a great deal with what you offer for educating folks.
+>
+> Okay, you talked me into it. I will accept your kind offer and stay with ya.
+
+- **He took the "stay" offer,** so his next month is free. He turned down the
+  refund-and-come-back route because he didn't want to take it and then leave.
+- **He's flexible on the instrument.** "Picking the instrument to fit the tool"
+  means he'll trade what we cover, so the reply points him to the S&P 500 and
+  the Nasdaq, the only markets with signals and trade ideas.
+- **Worth keeping:** he came from Tanuki Trader and found it too technical. The
+  education side is what he likes here.
+- **"Option and related data" is unspecified.** The reply asks what it is
+  rather than guessing.
 
 ## His account (`make diagnose-user`, Nov 18)
 
@@ -166,21 +191,31 @@ make gift-month EMAIL=jpshepherd@mac.com NOTE="waiting for gold" DRY_RUN=1
 make gift-month EMAIL=jpshepherd@mac.com NOTE="waiting for gold" YES=1
 ```
 
+The preview should show `Auth DB: /var/lib/zerogex/auth.db`, his subscription
+`sub_1UdAGA4AOiqteMYYyacOdIk1`, and "one month = $59.00". The real run should
+end with his next invoice on 2026-12-18 at `$0.00 due`.
+
 It credits $59, one month of his plan, to his Stripe balance, so his Dec 18
 bill is $0 and billing carries on at $59 after that. His plan and billing date
-don't change. No apostrophes in `NOTE`. Afterward, `make diagnose-user` shows
-the credit under Balance and $0.00 under Upcoming invoice.
+don't change. No apostrophes in `NOTE`.
 
-**Reply:**
+**Reply** (send only after the real run shows `$0.00 due`):
 
 Hi John,
 
-Done. Your next month is on me, so your December 18 bill will be $0, and it's $59 a month after that. I'll write to you when gold is live.
+That's good of you, and I'm glad you're staying. Your next month is on me, so your December 18 bill will be $0, and it's $59 a month after that. I'll write to you when gold is live.
+
+Since you're picking the instrument to fit the tool, the S&P 500 and the Nasdaq (SPX, SPY and ES, or NDX, QQQ and NQ) get the most out of the site. They're the only ones with the signals and trade ideas so far.
+
+If there's specific options data you need for what you found, tell me what it is and I'll point you to it. And since you like the education side, it's all in one place here: https://zerogex.io/education
 
 Best,
 Michael
 
 ### What his answer to the GC question tells you
+
+**Nov 18:** he didn't answer it. He's picking the instrument to fit the tool,
+so don't ask again. The notes below stay for when gold comes up.
 
 - **GC futures:** GLD levels are a partial fit until they're on GC prices,
   which is the bigger job above. Don't promise it, but note it as a request
