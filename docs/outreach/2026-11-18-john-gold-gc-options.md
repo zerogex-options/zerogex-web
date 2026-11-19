@@ -192,8 +192,11 @@ make gift-month EMAIL=jpshepherd@mac.com NOTE="waiting for gold" YES=1
 ```
 
 The preview should show `Auth DB: /var/lib/zerogex/auth.db`, his subscription
-`sub_1UdAGA4AOiqteMYYyacOdIk1`, and "one month = $59.00". The real run should
-end with his next invoice on 2026-12-18 at `$0.00 due`.
+`sub_1UdAGA4AOiqteMYYyacOdIk1`, "one month = $59.00", and "Balance now: $0.00".
+If "Balance now" says "(a credit already)", the free month is already in
+place: stop, and don't apply it again. The tool only blocks a repeat on the
+same New York day, so a second run on a later day would credit another $59.
+The real run should end with his next invoice on 2026-12-18 at `$0.00 due`.
 
 It credits $59, one month of his plan, to his Stripe balance, so his Dec 18
 bill is $0 and billing carries on at $59 after that. His plan and billing date
