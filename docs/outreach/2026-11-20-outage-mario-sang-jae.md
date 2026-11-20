@@ -24,8 +24,19 @@ the Fri Nov 20 fix:
   > primarily use ZeroGEX for NQ futures trading, so this issue is affecting
   > my daily trading workflow.
 
-> **Status:** drafts, not sent. Run the account check under "Verify first"
-> before sending the second one.
+> **Status:** Mario's reply went out, and Mario answered the same day that
+> everything works (below). Done, no reply needed. Sang-jae: nothing
+> recorded here yet.
+
+**Mario's answer, Fri Nov 20:**
+
+> Buenas tardes desde España ya esta todo perfecto
+>
+> Muchas gracias 👍💪
+
+In English: "Good afternoon from Spain, everything's perfect now. Thanks a
+lot." That confirms the Spain guess below. The thread ends on a thank-you, so
+it needs no answer.
 
 ## What happened
 
@@ -38,10 +49,10 @@ the Fri Nov 20 fix:
 - **Fixed Fri Nov 20 at about 7:30 AM ET.** The fix (`c880580`, on
   `claude/fix-reinstate-test-typecheck`) went into `release` at 7:26 AM ET,
   then `make rebuild`.
-- **The deploy is fixed on `claude/deploy-keep-site-up`.** A failed build
-  now leaves the running site up, and a new build that doesn't start is
-  swapped back for the previous one by itself. Both drafts promise this, so
-  merge that branch on the host before your next deploy.
+- **The deploy is fixed** (`claude/deploy-keep-site-up`, in `release` since
+  Nov 20). A failed build now leaves the running site up, and a new build
+  that doesn't start is swapped back for the previous one by itself. Both
+  drafts promise this.
 
 ## The read
 
