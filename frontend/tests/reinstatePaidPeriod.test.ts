@@ -13,7 +13,7 @@ const { fixture, member, run } = await createBusyDb('reinstate-upgrade');
 const S = (ms: number) => Math.floor((NOW_MS + ms) / 1000);
 
 test('after a Basic-to-Pro upgrade it reinstates Pro, the plan the invoice charged for', (t) => {
-  const f = fixture(t);
+  const f = fixture(t, 'reinstate-upgrade');
   member(f, 'naif@example.test', {
     tier: 'public',
     stripe_customer_id: 'cus_n',
