@@ -551,9 +551,10 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 - The reply to a churned member who came back to the site **on their own** — the
   only churn touch that fires on behaviour rather than a calendar. Sent by
   `frontend/scripts/send-return-intent.mts` / `make return-intent`, driven daily
-  at 16:50 UTC by `zerogex-web-return-intent.timer` (deploy step 093), in
-  **review-digest mode** by default: the timer mails the operator who qualifies
-  and sends nothing to members until `make return-intent YES=1`.
+  at 16:50 UTC by `zerogex-web-return-intent.timer` (deploy step 093), which
+  **sends to members on its own** (`return-intent YES=1`). It started in
+  review-digest mode; `make return-intent DIGEST=1` still produces that digest
+  by hand.
 - **Sweeper, not a webhook send**, on purpose: the trigger is a `login_success`
   audit row, which no Stripe event corresponds to. Eligibility is a pure,
   unit-tested predicate in `core/returnIntent.ts` (`tests/returnIntent.test.ts`,
@@ -739,14 +740,16 @@ same second, and `Persistent=true` so a missed run catches up after a reboot.
 | `renewal-reminders` | `14:20:00` | daily | Renewal reminder (quarterly 7 days / annual 30 days out) | yes |
 | `money-back-sweep` | `*:25:00` | hourly | Money-back refund alert (stalled request) | operator only |
 | `reactivation` | `16:40:00` | daily | Reactivation (extended trial) | **yes** |
-| `return-intent` | `16:50:00` | daily | Return-intent **digest** | **no — operator digest only** |
+| `return-intent` | `16:50:00` | daily | Return intent | **yes** |
 | `winback` | `Mon 16:35:00` | weekly | Win-back **digest** | **no — operator digest only** |
 | `foh-donation-reminder` | `*-01,04,07,10-05 09:00 ET` | quarterly | Folds of Honor reminder | operator only |
 
 **The digest asymmetry is deliberate but easy to misread.** The installed units pass:
 
-- `winback DIGEST=1` and `return-intent DIGEST=1` — nothing reaches a member until
-  someone runs `make winback YES=1` / `make return-intent YES=1` by hand.
+- `winback DIGEST=1` — nothing reaches a member until someone runs
+  `make winback YES=1` by hand.
+- `return-intent YES=1` — delivers to members on the daily tick. It ran in
+  digest mode until the first batches had been reviewed.
 - `reactivation YES=1` — this one **does** deliver to members on the daily tick.
   `--digest` is an exclusive branch that `process.exit(0)`s before sending
   (`scripts/send-reactivation.mts:446`), and the unit doesn't pass it, so **no one

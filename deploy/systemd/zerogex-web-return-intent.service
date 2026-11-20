@@ -1,5 +1,5 @@
 [Unit]
-Description=ZeroGEX web return-intent review digest (churned members who came back)
+Description=ZeroGEX web return-intent email (churned members who came back)
 Documentation=https://github.com/zerogex-options/zerogex-web
 After=network-online.target
 Wants=network-online.target
@@ -23,14 +23,16 @@ WorkingDirectory=/home/ubuntu/zerogex-web
 Environment="HOME=/home/ubuntu"
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 
-# REVIEW MODE, not auto-send — same posture as the win-back unit. The daily
-# timer emails the founder who came back and has not been answered, with one
-# rendered draft, and sends NOTHING to those members. Approve a batch with
-# `make return-intent YES=1`. To auto-send instead, change this to
-# `return-intent YES=1` (the job then writes the cooldown stamp, so the
-# ReadWritePaths exception below still applies either way). The digest
-# recipient comes from RETURN_INTENT_DIGEST_TO in frontend/.env.local.
-ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web return-intent DIGEST=1
+# AUTO-SEND. This started in review mode (DIGEST=1, the win-back's posture) so
+# the first batches could be read before going out unattended. It now delivers
+# on the daily tick: the email answers a visit, and a manual approval step made
+# the reply wait on the founder. The guards that make that safe all live in
+# core/returnIntent.ts and are re-checked on every run: the 90-day cooldown, the
+# 24h quiet window, and the lapsed / deleted / unsubscribed / partner skips. No
+# discount and no trial claim, so a wrong send gives nothing away. To go back to
+# review mode, change this to `return-intent DIGEST=1` (recipient from
+# RETURN_INTENT_DIGEST_TO in frontend/.env.local).
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web return-intent YES=1
 
 # Resend + SQLite are the only outbound legs; cap so a hung HTTPS connect can't
 # pile up overlapping timer fires.
@@ -41,11 +43,10 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-# RW exception: the auth DB dir. The digest run itself is read-only, but the
-# approve step (`make return-intent YES=1`) writes UPDATE users SET
+# RW exception: the auth DB dir. Every send writes UPDATE users SET
 # return_intent_email_sent_at + the audit_events INSERT to the same SQLite file
-# as the live PM2 writer, and shares this unit's sandbox if triggered via
-# systemctl. Update this if you change AUTH_DB_PATH in frontend/.env.local.
+# as the live PM2 writer. Without this the email goes out, the cooldown stamp
+# fails as readonly, and the next tick sends it again. Update this if you change AUTH_DB_PATH in frontend/.env.local.
 # Deploy step 093 also writes a drop-in that mirrors ReadWritePaths onto
 # whatever you set there.
 ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data

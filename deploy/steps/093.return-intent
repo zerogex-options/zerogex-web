@@ -4,13 +4,11 @@
 # Step 093: Return-Intent Timer (systemd)
 # ==============================================
 #
-# Installs and enables the return-intent REVIEW-DIGEST timer (see
+# Installs and enables the return-intent timer (see
 # deploy/systemd/zerogex-web-return-intent.{service,timer}). The timer fires
-# daily (:50) and triggers `make return-intent DIGEST=1`, which emails the
-# founder (RETURN_INTENT_DIGEST_TO) every churned member who has logged back in
-# since they left and has not been answered, plus one rendered draft — and sends
-# NOTHING to those members. The founder approves a batch with
-# `make return-intent YES=1`.
+# daily (:50) and triggers `make return-intent YES=1`, which emails every
+# churned member who has logged back in since they left and has not been
+# answered. It started in review mode (DIGEST=1); it now sends on its own.
 #
 # This is the one churn touch that fires on BEHAVIOUR rather than a calendar.
 # The cancellation acknowledgment fires at the click; the win-back fires ~30
@@ -22,8 +20,8 @@
 # rather than a permanent latch, and the visit must also postdate the last send
 # — so it re-arms for every future return instead of spending the cohort on one
 # run. No discount and no trial claim; where the member left a cancellation
-# reason the copy answers that objection. To auto-send daily instead of
-# reviewing first, change the service ExecStart to `return-intent YES=1`.
+# reason the copy answers that objection. To review each batch first instead,
+# change the service ExecStart to `return-intent DIGEST=1`.
 #
 # Idempotent — safe to re-run. The unit files are overwritten from the repo
 # (they're version-controlled, so this is the desired behavior), and
@@ -161,31 +159,23 @@ else
     exit 1
 fi
 
-# --- Env soft-check for the digest recipient -------------------------
-# The daily job runs in DIGEST mode, which needs a founder address to send the
-# review email to. Warn (don't fail) if it's unset — the timer still installs.
-if [ -f "$ENV_FILE" ]; then
-    warn_missing_env RETURN_INTENT_DIGEST_TO
-fi
-
-# The script also needs ZEROGEX_END_USER_TOKEN_SECRET to sign the one-click
-# unsubscribe link. The DIGEST run does not sign one, so an unset secret shows
-# up only when the operator approves a batch — check it here instead of at 2am.
+# The daily send needs ZEROGEX_END_USER_TOKEN_SECRET to sign the one-click
+# unsubscribe link in every email. An unset secret fails the run (and fires the
+# OnFailure alert) — check it here instead of finding out from that alert.
 if [ -f "$ENV_FILE" ]; then
     warn_missing_env ZEROGEX_END_USER_TOKEN_SECRET
 fi
 
-# Deliberately NO test run: the service's ExecStart is the real DIGEST run (it
-# emails the founder). We let the first scheduled tick be the validation.
+# Deliberately NO test run: the service's ExecStart is the real send (it emails
+# members). We let the first scheduled tick be the validation.
 # journalctl shows the result.
 
 log ""
-log "Return-intent review-digest timer setup complete!"
+log "Return-intent timer setup complete!"
 log ""
 log "Summary:"
 log "  ✓ ${UNIT}.timer enabled (daily 16:50 UTC, Persistent=true catches missed runs)"
-log "  ✓ REVIEW MODE: the daily run emails RETURN_INTENT_DIGEST_TO the eligible list + draft and sends NOTHING to members"
-log "  ✓ Approve a batch with: make return-intent YES=1  (auto-send instead: set service ExecStart to 'return-intent YES=1')"
+log "  ✓ AUTO-SEND: the daily run emails every eligible member (review first instead: set service ExecStart to 'return-intent DIGEST=1')"
 log "  ✓ Eligibility: lapsed + verified + not deleted + not unsubscribed + non-admin + a login AFTER their churn, 24h-14d old"
 log "  ✓ Throttled by a COOLDOWN (users.return_intent_email_sent_at, 90d) — NOT a one-shot latch, so it re-arms for every future return"
 log "  ✓ No discount and no trial claim; per-reason copy comes from the member's own Stripe cancellation survey"
@@ -194,6 +184,6 @@ log "Useful commands:"
 log "  • systemctl list-timers ${UNIT}.timer                                  - next/last run"
 log "  • cd $APP_DIR && make return-intent DRY_RUN=1                          - who qualifies, and why everyone else did not"
 log "  • cd $APP_DIR && make return-intent DIGEST=1 DIGEST_TO=you@example.com - send yourself the review digest now"
-log "  • cd $APP_DIR && make return-intent YES=1 LIMIT=25                     - APPROVE + send, capped at 25 this run"
+log "  • cd $APP_DIR && make return-intent YES=1 LIMIT=25                     - send now, capped at 25 this run"
 log "  • cd $APP_DIR && make return-intent PREVIEW_TO=you@example.com         - one sample email"
 log "  • journalctl -u ${UNIT} -n 50                                          - recent run logs"
