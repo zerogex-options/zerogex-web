@@ -9,12 +9,10 @@ canceled in the app on Thu Nov 19 at 10:59 PM ET, six days after subscribing
 on Fri Nov 13 at 1:28 PM ET. Survey reason "Wasn't using it". They typed: "I
 pay for 2 gamma exposure charts".
 
-> **Status:** drafts, not sent. No `make diagnose-user` yet: the one check
-> under "Verify first" picks the draft. **Draft A** (expected: they took the
-> refund) has no deadline. **Draft B** is only for the case where they didn't:
-> their self-serve refund window then closes as early as today, Fri Nov 20,
-> around 1:28 PM ET (the check prints the exact time). The draft's offer still
-> works after that, with `FORCE=1` on your side.
+> **Status:** checked Fri Nov 20. `make money-back-refund` printed
+> `tier=public, sub=none` and `not eligible (no_subscription)`: they took the
+> refund. **Draft A** is the one to send, and it has no deadline. Not sent yet.
+> Draft B below is moot.
 
 ## The read
 
