@@ -47,12 +47,12 @@ the Fri Nov 20 fix:
 
 - **Both are this outage.** Mario wrote "this morning", most likely from
   Spain, where morning is the US night. Sang-jae trades NQ futures, which trade
-  through the US night, his daytime in Korea, so the outage covered his
+  through the US night, daytime in Korea, so the outage covered Sang-jae's
   trading day.
-- **Sang-jae's second question deserves a checked answer.** The page he
-  linked is Dealer Positioning (`/gamma-exposure`), which needs Basic or above
-  (`core/auth.ts`). The outage hit every page, but confirm his plan didn't also
-  change before telling him it didn't.
+- **Sang-jae's second question deserves a checked answer.** The page in the
+  email is Dealer Positioning (`/gamma-exposure`), which needs Basic or above
+  (`core/auth.ts`). The outage hit every page, but confirm Sang-jae's plan
+  didn't also change before saying it didn't.
 - **Keep the cause plain and owned.** "An update failed partway through and
   took the site offline" is true and enough, as in the Glimind note.
 - **Spanish for Mario, with "tú"**, which is what the Spanish pages on the site
@@ -64,14 +64,14 @@ the Fri Nov 20 fix:
 
 1. **Their accounts.** Expect `basic` or `pro`, and `active` or `trialing`,
    with no `paused_until` in the future. If Sang-jae's row shows anything else,
-   his access did change: don't send his draft as written.
+   that access did change: don't send that draft as written.
 
    ```bash
    sudo sqlite3 -readonly -header /var/lib/zerogex/auth.db "SELECT email, tier, subscription_status, current_period_end, paused_until, last_seen_at FROM users WHERE email IN ('chacha0475@naver.com', 'marianogr8888@gmail.com');"
    ```
 
    No row for an address means that person's account is under a different
-   email. Mario's draft doesn't depend on his account, so it can go anyway.
+   email. Mario's draft doesn't depend on the account, so it can go anyway.
 
 2. **Optional, can wait: when the outage started.** This counts 502s per hour
    in the nginx access logs (box time, ET). The first hour with a big count is
@@ -108,8 +108,10 @@ site keeps working."
 
 ## Draft: Sang-jae (English)
 
-Reply in the same thread. His family name is Cha (차) and his given name is
-Sang-jae (상재), so "Hi Sang-jae" matches how you greet everyone else.
+Reply in the same thread. 차상재 is written family name first: Cha (차), then
+the given name, 상재, which is Sang-jae in standard romanization. The email
+doesn't show how Sang-jae spells it in English (Sangjae and Sang Jae are also
+common), so "Hello," is the safe opening if you'd rather not guess.
 
 Hi Sang-jae,
 
