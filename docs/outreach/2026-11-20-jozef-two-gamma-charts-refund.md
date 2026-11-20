@@ -9,10 +9,14 @@ canceled in the app on Thu Nov 19 at 10:59 PM ET, six days after subscribing
 on Fri Nov 13 at 1:28 PM ET. Survey reason "Wasn't using it". They typed: "I
 pay for 2 gamma exposure charts".
 
-> **Status:** checked Fri Nov 20. `make money-back-refund` printed
-> `tier=public, sub=none` and `not eligible (no_subscription)`: they took the
-> refund. **Draft A** is the one to send, and it has no deadline. Not sent yet.
-> Draft B below is moot.
+> **Status:** done. Checked Fri Nov 20: they had taken the refund
+> (`make money-back-refund` printed `tier=public, sub=none` and `not eligible
+> (no_subscription)`), so Draft A went out, at 12:11 PM. Draft B was never
+> needed. **Jozef replied:** "Hey Michael. Zerogex is phenomenal, but I pay for
+> spotgamma alpha as well. More detailed dealer positioning. Easier for me to
+> read. Thanks!" Nothing more to send. One member isn't a pattern, but it's a
+> specific comparison worth keeping: SpotGamma Alpha's dealer positioning,
+> which they find more detailed and easier to read.
 
 ## The read
 
@@ -132,13 +136,9 @@ Best,
 
 ## Worth knowing (can wait)
 
-- **The alert called a refunded member "STILL HAS ACCESS".** It treats a
-  cancel as savable unless the payment had failed, and never checks for a
-  money-back refund. So when
-  someone cancels and takes the refund before the next alert run, you get
-  "STILL HAS ACCESS" and save commands for a plan that's already gone. Until
-  it's fixed, the tell is "Paying member" with Tier `public` and Access ends
-  `—`. Small fix in `frontend/core/cancellationAlert.ts`,
-  `frontend/scripts/send-cancellation-alerts.mts` and the badge in
-  `frontend/core/mailer.ts`. Not done yet; it can be its own branch whenever
-  you want it.
+- **The alert called a refunded member "STILL HAS ACCESS".** It never
+  checked for a money-back refund, so someone who canceled and then took the
+  refund before the next alert run got "STILL HAS ACCESS" and save commands
+  for a plan that was already gone. Fixed on `claude/cancel-alert-refund-aware`:
+  the alert now reads the refund on that subscription and says "Canceled and
+  refunded", with the amount, the plan they were on, and no save commands.
