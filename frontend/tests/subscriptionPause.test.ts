@@ -8,8 +8,9 @@ import {
   monthlyBillUnix,
   billsDuringPause,
   pauseRevokesApiKeys,
+  previewResume,
 } from '../core/subscriptionPause.ts';
-import { createBusyDb, httpCalls } from './support/busyDb.ts';
+import { auditCount, createBusyDb, httpCalls } from './support/busyDb.ts';
 
 // core/stripe.ts builds its price table at module load, so the env goes first.
 // Every cadence is mapped for one tier, so priceIdToSku resolves the real thing,
@@ -280,4 +281,196 @@ test('pause-subscription preview: a Basic plan has no API key to lose, so no key
   const stdout = dryRunPause(t, 'basic-member@example.com', 'basic', 'price_basic_monthly');
   assert.match(stdout, /^Plan:\s+basic monthly$/m);
   assert.doesNotMatch(stdout, /API key/);
+});
+
+// --- Ending a pause early (make resume-subscription) -------------------------
+// What the operator reads before ending a pause by hand, then a real run of
+// scripts/resume-subscription.mts against the same stubs. The case it was built
+// for: a member who paused, then canceled a minute later. The cancel email told
+// them they had access until the period ended; the pause had switched it off.
+// Resuming has to give that access back, keep the cancel, and charge nothing.
+
+test('previewResume: a scheduled cancel stays, so access lasts to the period end and nothing more is billed', () => {
+  const periodEnd = utc(2026, 11, 25, 13, 16);
+  assert.deepEqual(previewResume({ cancelAtPeriodEnd: true, periodEndUnix: periodEnd, latestInvoiceStatus: 'paid' }), {
+    accessUntilUnix: periodEnd,
+    nextChargeUnix: null,
+    periodUnpaid: false,
+  });
+});
+
+test('previewResume: with no cancel, access carries on and the next bill is the period end', () => {
+  const periodEnd = utc(2026, 12, 15, 1, 43);
+  assert.deepEqual(previewResume({ cancelAtPeriodEnd: false, periodEndUnix: periodEnd, latestInvoiceStatus: 'paid' }), {
+    accessUntilUnix: null,
+    nextChargeUnix: periodEnd,
+    periodUnpaid: false,
+  });
+});
+
+test('previewResume: only a voided bill marks the period unpaid', () => {
+  const periodEnd = utc(2027, 1, 15, 1, 43);
+  const unpaid = (latestInvoiceStatus: string | null) =>
+    previewResume({ cancelAtPeriodEnd: false, periodEndUnix: periodEnd, latestInvoiceStatus }).periodUnpaid;
+  assert.equal(unpaid('void'), true);
+  assert.equal(unpaid('paid'), false);
+  assert.equal(unpaid(null), false);
+});
+
+test('previewResume: an unusable period end gives no date rather than a wrong one', () => {
+  assert.deepEqual(previewResume({ cancelAtPeriodEnd: true, periodEndUnix: Number.NaN, latestInvoiceStatus: 'paid' }), {
+    accessUntilUnix: null,
+    nextChargeUnix: null,
+    periodUnpaid: false,
+  });
+});
+
+// The script's dates, formatted the way it prints them.
+const et = (unix: number) =>
+  new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(new Date(unix * 1000));
+
+// monthlySubscription, paused yesterday for three months, with this period's
+// bill as its latest invoice.
+function pausedSubscription(
+  id: string,
+  priceId: string,
+  opts: { cancelAtPeriodEnd: boolean; billStatus: string; billCents: number; paused?: boolean },
+) {
+  return {
+    ...monthlySubscription(id, priceId),
+    cancel_at_period_end: opts.cancelAtPeriodEnd,
+    pause_collection: opts.paused === false ? null : { behavior: 'void', resumes_at: nowUnix + 90 * 86_400 },
+    latest_invoice: { id: `in_${id}`, object: 'invoice', status: opts.billStatus, amount_due: opts.billCents, currency: 'usd' },
+  };
+}
+
+function periodEndOf(sub: ReturnType<typeof pausedSubscription>): number {
+  return sub.items.data[0].current_period_end;
+}
+
+function runResume(
+  t: TestContext,
+  name: string,
+  sub: ReturnType<typeof pausedSubscription>,
+  opts: { args?: string[]; columns?: Record<string, string | number | null> } = {},
+) {
+  const f = busy.fixture(t, `resume-${name}`);
+  const email = `${name}@example.com`;
+  const userId = busy.member(f, email, {
+    tier: 'public',
+    subscription_status: sub.status,
+    stripe_subscription_id: sub.id,
+    paused_until: new Date((nowUnix + 90 * 86_400) * 1000).toISOString(),
+    ...opts.columns,
+  });
+  const result = busy.run(f, 'resume-subscription.mts', ['--email', email, ...(opts.args ?? [])], {
+    env: {
+      STRIPE_SECRET_KEY: 'sk_test_resume_preview',
+      STRIPE_PRICE_BASIC_MONTHLY: 'price_basic_monthly',
+      STRIPE_PRICE_PRO_MONTHLY: 'price_pro_monthly',
+    },
+    routes: {
+      [`GET api.stripe.com/v1/subscriptions/${sub.id}`]: sub,
+      [`POST api.stripe.com/v1/subscriptions/${sub.id}`]: { ...sub, pause_collection: null },
+    },
+  });
+  const calls = httpCalls(f).map((c) => `${c.method} ${new URL(c.url).pathname}`);
+  return { f, email, userId, result, calls };
+}
+
+test('resume-subscription preview: paused, then canceled, gets access back until the period end and is charged nothing', (t) => {
+  const sub = pausedSubscription('sub_paused_canceled', 'price_basic_monthly', {
+    cancelAtPeriodEnd: true,
+    billStatus: 'paid',
+    billCents: 0,
+  });
+  const { result, calls } = runResume(t, 'paused-canceled', sub);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  const out = result.stdout;
+  assert.match(out, /^Plan:\s+basic monthly$/m);
+  assert.match(out, /^Paused:\s+yes, until /m);
+  assert.match(out, /^This period:\s+ends .+; its bill in_sub_paused_canceled \(0\.00 USD\) is paid$/m);
+  assert.ok(
+    out.includes(`Access:            back on now, until ${et(periodEndOf(sub))}, when the scheduled cancel ends the plan`),
+    out,
+  );
+  assert.match(out, /^Next charge:\s+none\. The scheduled cancel stays, so nothing more is billed\.$/m);
+  assert.doesNotMatch(out, /voided|API key/);
+  assert.match(out, /^Dry run: nothing changed\./m);
+  assert.deepEqual(calls, ['GET /v1/subscriptions/sub_paused_canceled'], 'a dry run only reads the subscription');
+});
+
+test('resume-subscription preview: a Pro plan whose bill the pause voided says both, and the next charge', (t) => {
+  const sub = pausedSubscription('sub_pro_voided', 'price_pro_monthly', {
+    cancelAtPeriodEnd: false,
+    billStatus: 'void',
+    billCents: 5900,
+  });
+  const { result } = runResume(t, 'pro-voided', sub);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  const out = result.stdout;
+  assert.match(out, /^Access:\s+back on now, and it carries on$/m);
+  assert.ok(out.includes(`Next charge:       ${et(periodEndOf(sub))}, the usual monthly bill`), out);
+  assert.match(out, /This period's bill was voided \(a pause voids every bill inside it\), so they get/);
+  assert.match(out, /^API keys:\s+the pause revoked them for good, and resuming doesn't bring them back\.$/m);
+  assert.match(out, /Tell the member to make a new one at https:\/\/zerogex\.test\/account#api-access$/m);
+});
+
+test('resume-subscription: a subscription that is not paused is left alone, even with --yes', (t) => {
+  const sub = pausedSubscription('sub_not_paused', 'price_basic_monthly', {
+    cancelAtPeriodEnd: false,
+    billStatus: 'paid',
+    billCents: 3900,
+    paused: false,
+  });
+  const { result, calls } = runResume(t, 'not-paused', sub, { args: ['--yes'], columns: { paused_until: null } });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /^Not paused\. Nothing to do\.$/m);
+  assert.deepEqual(calls, ['GET /v1/subscriptions/sub_not_paused']);
+});
+
+test('resume-subscription: refuses a subscription whose payment failed', (t) => {
+  const sub = {
+    ...pausedSubscription('sub_past_due', 'price_basic_monthly', { cancelAtPeriodEnd: false, billStatus: 'open', billCents: 3900 }),
+    status: 'past_due',
+  };
+  const { result, calls } = runResume(t, 'past-due', sub, { args: ['--yes'] });
+  assert.equal(result.status, 1, result.stderr + result.stdout);
+  assert.match(result.stderr, /REFUSING: sub_past_due is 'past_due'/);
+  assert.deepEqual(calls, ['GET /v1/subscriptions/sub_past_due'], 'nothing is written');
+});
+
+test('resume-subscription --yes: clears only the pause, keeps the cancel, and records it', (t) => {
+  const sub = pausedSubscription('sub_resume_apply', 'price_basic_monthly', {
+    cancelAtPeriodEnd: true,
+    billStatus: 'paid',
+    billCents: 0,
+  });
+  // The row as the webhook leaves it once it has heard: tier back, pause gone.
+  // The wait for it then ends at the first look instead of timing out.
+  const { f, userId, result, calls } = runResume(t, 'resume-apply', sub, {
+    args: ['--yes'],
+    columns: { tier: 'basic', paused_until: null },
+  });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.deepEqual(calls, ['GET /v1/subscriptions/sub_resume_apply', 'POST /v1/subscriptions/sub_resume_apply']);
+  // The whole update: the pause cleared, nothing else, so the cancel stays.
+  assert.equal(httpCalls(f)[1].body, 'pause_collection=');
+  assert.equal(auditCount(f, 'billing_resume_requested', userId), 1);
+  const { message } = f.db
+    .prepare(`SELECT message FROM audit_events WHERE type = 'billing_resume_requested' AND user_id = ?`)
+    .get(userId) as { message: string };
+  assert.match(message, /^Operator resume \(make resume-subscription\) for sub sub_resume_apply: was paused until .+; scheduled cancel kept$/);
+  assert.match(result.stdout, /^Done\. resume-apply@example\.com is no longer paused\.$/m);
+  assert.match(result.stdout, /^ {2}The site has it: tier basic\.$/m);
+  assert.match(result.stdout, /^No email was sent\. Tell the member\.$/m);
 });

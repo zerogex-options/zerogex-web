@@ -12,7 +12,9 @@
 // isPausableCadence allows one. scripts/pause-subscription.mts sets the same
 // pause for a member who asks by email, and previews it with billsDuringPause.
 // pauseRevokesApiKeys decides who is told that the pause costs them their API
-// key. Locked down in tests/subscriptionPause.test.ts.
+// key. scripts/resume-subscription.mts ends a pause early for a member, and
+// previews what that does with previewResume. Locked down in
+// tests/subscriptionPause.test.ts.
 
 import { isApiKeyEligibleTier, type TierId } from './auth.ts';
 
@@ -158,4 +160,43 @@ export function billsDuringPause(anchorUnix: number, nowUnix: number, resumesAtU
     return { skippedUnix, nextChargeUnix: bill };
   }
   return { skippedUnix, nextChargeUnix: null };
+}
+
+// What ending a pause right now does, for the operator's preview in
+// scripts/resume-subscription.mts. Resuming clears pause_collection and nothing
+// else, exactly as the Account page's Resume now does (action 'resume' in
+// app/api/billing/cancel-flow/route.ts), so a cancel the member scheduled stays
+// scheduled.
+//
+//   accessUntilUnix  Access comes back as soon as the webhook hears. With a
+//                    cancel scheduled it lasts until the period ends, and then
+//                    the plan ends. Null otherwise: it carries on.
+//   nextChargeUnix   The next bill Stripe collects: the end of the current
+//                    period. Null when a scheduled cancel means nothing more
+//                    is billed.
+//   periodUnpaid     This period's bill was voided, which is what a pause does
+//                    to every bill dated inside it. Resuming then hands over
+//                    the rest of the period with no payment behind it. Resume
+//                    now in the app does the same; the preview says so, so it
+//                    is a choice and not a surprise.
+export type ResumePreview = {
+  accessUntilUnix: number | null;
+  nextChargeUnix: number | null;
+  periodUnpaid: boolean;
+};
+
+export function previewResume(input: {
+  cancelAtPeriodEnd: boolean;
+  periodEndUnix: number | null;
+  // Status of the subscription's latest invoice (the bill for this period), or
+  // null when there is none.
+  latestInvoiceStatus: string | null;
+}): ResumePreview {
+  const periodEnd =
+    typeof input.periodEndUnix === 'number' && Number.isFinite(input.periodEndUnix) ? input.periodEndUnix : null;
+  return {
+    accessUntilUnix: input.cancelAtPeriodEnd ? periodEnd : null,
+    nextChargeUnix: input.cancelAtPeriodEnd ? null : periodEnd,
+    periodUnpaid: input.latestInvoiceStatus === 'void',
+  };
 }
