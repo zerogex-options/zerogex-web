@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildCancellationAlertEmail } from '../core/mailer.ts';
-import { buildChurnAlert, type ChurnAlertInput } from '../core/cancellationAlert.ts';
+import { buildChurnAlert, type ChurnAlertInput, type ChurnRefund } from '../core/cancellationAlert.ts';
 import { formatCancellationRequestedMessage } from '../core/cancellationReason.ts';
 
 // The operator's cancellation alert as it lands in the inbox. A Cancel after
@@ -65,5 +65,48 @@ test('the rendered alert says whether the bill was voided', () => {
   for (const body of [notVoided.html, notVoided.text]) {
     assert.match(body, /The unpaid bill was not voided and may still be payable\./);
     assert.match(body, /make cancel-subscription EMAIL=member@example\.com VOID_INVOICE=1 DRY_RUN=1/);
+  }
+});
+
+// A Cancel followed by the 7-day money-back refund before the sweep ran: the
+// refund ended the plan on the spot and cleared the member's row, so the alert
+// must not wear the "still has access" badge either (Nov 19, 2026).
+const REFUNDED: ChurnRefund = {
+  status: 'completed',
+  amountRefunded: 5900,
+  currency: 'usd',
+  tier: 'pro',
+  atIso: '2026-08-28T14:04:11.000Z',
+};
+
+test('a cancel followed by a money-back refund never reads as savable', () => {
+  const { subject, html, text } = buildCancellationAlertEmail(
+    buildChurnAlert({ ...BASE, tier: 'public', currentPeriodEndIso: null, refund: REFUNDED }, NOW),
+  );
+  assert.match(subject, /^\[ZeroGEX\] Canceled and refunded: member@example\.com — /);
+  assert.match(html, /Canceled and refunded &mdash; access ended/);
+  assert.match(text, /^Refunded — they took the 7-day money-back refund/);
+  assert.match(text, /Access ends\s+Ended with the refund/);
+  assert.match(text, /Tier at churn\s+pro/);
+  for (const body of [html, text]) {
+    assert.match(body, /\$59\.00 on /);
+    assert.doesNotMatch(body, /still has access|still have access|savable|left to reply/);
+    assert.doesNotMatch(body, /make save-url|make honor-winback-discount|make money-back-refund/);
+  }
+  // Not dressed in the amber of a live save.
+  assert.doesNotMatch(html, /background: #fff8e1; color: #8a6100;/);
+});
+
+test('a money-back refund that has not finished says so, and how to finish it', () => {
+  const { subject, html, text } = buildCancellationAlertEmail(
+    buildChurnAlert({ ...BASE, refund: { ...REFUNDED, status: 'pending', amountRefunded: 0, tier: null, atIso: null } }, NOW),
+  );
+  assert.match(subject, /^\[ZeroGEX\] Canceled, refund not finished: member@example\.com — /);
+  assert.match(html, /Canceled &mdash; refund not finished/);
+  assert.match(text, /^Refund not finished/);
+  for (const body of [html, text]) {
+    assert.match(body, /make money-back-refund EMAIL=member@example\.com/);
+    assert.doesNotMatch(body, /still has access|still have access|savable|left to reply/);
+    assert.doesNotMatch(body, /make save-url|make honor-winback-discount/);
   }
 });

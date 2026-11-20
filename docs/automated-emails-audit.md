@@ -635,6 +635,14 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   whether the bill was voided instead of "savable", drops the save commands, and adds
   `make cancel-subscription … VOID_INVOICE=1 DRY_RUN=1` when the bill was not voided. A
   bill left unvoided alerts even when no reason was given.
+- A member who clicks Cancel and then takes the 7-day money-back refund before the sweep
+  runs has no plan left to save. The sweep reads `money_back_refunds` for the subscription
+  the churn row names: a `completed` refund turns the alert into `[ZeroGEX] Canceled and
+  refunded: …` (badge "Canceled and refunded — access ended", a Refund line with the amount
+  and time, Tier at churn from the refund ledger rather than the `public` the refund left
+  on the row, and only `make diagnose-user`). A `pending` one reads `Canceled, refund not
+  finished: …` and adds `make money-back-refund` (a dry run; it resumes without refunding
+  twice). A refused (`failed`) request changed nothing, so that alert reads as before.
 - **Sweeper, not a webhook send**, on purpose: the alert is derived from `audit_events`, so
   a failed send simply isn't latched and the next tick retries it, and history is
   backfillable with `SINCE=`. Idempotency is a `cancellation_alert_sent` audit row keyed

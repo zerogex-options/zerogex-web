@@ -3295,23 +3295,30 @@ export function buildCancellationAlertEmail(alert: ChurnAlert): {
   text: string;
 } {
   // A cancel on a failed payment is a `pending` row too, but it ended the plan
-  // on the spot, so it is not dressed as savable.
+  // on the spot, so it is not dressed as savable. Nor is one followed by a
+  // money-back refund: finished, it ended the plan; pending, the member has
+  // asked for their money back.
   const ended = alert.endedOnFailedPayment;
-  const savable = alert.kind === 'pending' && !ended;
+  const refund = alert.refund;
+  const savable = alert.kind === 'pending' && !ended && !refund;
   const appUrl = getAppUrl();
   const adminUrl = `${appUrl}/admin/monitoring`;
 
   const factLines = alert.facts.map((f) => `  ${f.label.padEnd(18)} ${f.value}`).join('\n');
   const commandLines = alert.commands.map((c) => `  ${c}`).join('\n');
-  const badge = ended
-    ? 'Plan ended &mdash; payment had failed'
-    : alert.kind !== 'pending'
-      ? 'Subscription ended'
-      : alert.billing === 'paying'
-        ? 'Paying member canceled &mdash; still has access'
-        : alert.billing === 'trial'
-          ? 'Trial canceled &mdash; never charged'
-          : 'Canceled &mdash; still has access';
+  const badge = refund
+    ? refund.status === 'completed'
+      ? 'Canceled and refunded &mdash; access ended'
+      : 'Canceled &mdash; refund not finished'
+    : ended
+      ? 'Plan ended &mdash; payment had failed'
+      : alert.kind !== 'pending'
+        ? 'Subscription ended'
+        : alert.billing === 'paying'
+          ? 'Paying member canceled &mdash; still has access'
+          : alert.billing === 'trial'
+            ? 'Trial canceled &mdash; never charged'
+            : 'Canceled &mdash; still has access';
 
   // Under the name: the save deadline, or for a plan that already ended, what
   // happened to its bill. A bill left open is the one to act on.

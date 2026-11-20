@@ -103,8 +103,12 @@ import {
   shouldAlertOnChurn,
   alertRunExitCode,
   billingAtCancel,
+  churnRefundFromLedger,
+  describeRefund,
   type ChurnBilling,
   type ChurnEventKind,
+  type ChurnRefund,
+  type MoneyBackLedgerRow,
 } from '../core/cancellationAlert.ts';
 import { sendCancellationAlertEmail } from '../core/mailer.ts';
 import { readSubscriberLedgerRows } from '../core/subscriberLedgerSource.ts';
@@ -432,6 +436,32 @@ function subscriptionStartLookup(db: DatabaseSync): (auditMessage: string) => st
   };
 }
 
+// The money-back refund on the subscription a churn row is about, read at send
+// time: a member who cancels and then takes the 7-day refund before this sweep
+// runs has no plan left to save (see ChurnRefund in core/cancellationAlert.ts).
+// The ledger is keyed by subscription and the churn row names its own, so the
+// match is exact. The table is missing only on a database the money-back flow
+// never ran against, and then nothing was refunded.
+function refundLookup(db: DatabaseSync): (auditMessage: string) => ChurnRefund | null {
+  const hasLedger = Boolean(
+    db
+      .prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'money_back_refunds'`)
+      .get(),
+  );
+  const forSubscription = hasLedger
+    ? db.prepare(
+        `SELECT status, amount_refunded, currency, tier, completed_at, updated_at
+           FROM money_back_refunds
+          WHERE subscription_id = ?`,
+      )
+    : null;
+  return (auditMessage) => {
+    const subscriptionId = parseChurnSubscriptionId(auditMessage);
+    if (!subscriptionId || !forSubscription) return null;
+    return churnRefundFromLedger(forSubscription.get(subscriptionId) as MoneyBackLedgerRow | undefined);
+  };
+}
+
 // How far back the Subscriber Ledger is read for the trial-or-paying label: the
 // whole history, as the Growth tab's daily rollup reads it, so an annual
 // member's last payment is still in view when they cancel.
@@ -492,6 +522,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
   let failed = 0;
   const subscriptionStartedAt = subscriptionStartLookup(db);
   const billingFor = billingLookup(db);
+  const refundFor = refundLookup(db);
 
   for (const row of batch) {
     const kind = classifyChurnEvent(row.type);
@@ -515,6 +546,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
         // whose cancel ended the plan on a failed payment has none either;
         // buildChurnAlert reads that off the row and ignores this.)
         currentPeriodEndIso: kind === 'pending' ? row.current_period_end : null,
+        refund: refundFor(row.message),
       },
       NOW_ISO,
     );
@@ -525,6 +557,7 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
       console.log(`      ${alert.headline}`);
       if (alert.saveWindowNote) console.log(`      ${alert.saveWindowNote}`);
       if (alert.billNote) console.log(`      ${alert.billNote}`);
+      if (alert.refund) console.log(`      refund: ${describeRefund(alert.refund)}`);
       console.log(`      billing: ${alert.billingLabel}`);
       console.log(`      reason: ${alert.reasonLabel}`);
       console.log(`      comment: ${alert.comment ?? '(none)'}`);
@@ -545,7 +578,8 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
       // the next tick retries it — the whole reason this is a sweeper.
       latch(insertLatch, row, kind);
       sent += 1;
-      console.log(`  SENT ${row.email} (${kind}, ${alert.billingLabel}) — ${alert.reasonLabel}`);
+      const refundTag = alert.refund ? `, refund ${alert.refund.status}` : '';
+      console.log(`  SENT ${row.email} (${kind}, ${alert.billingLabel}${refundTag}) — ${alert.reasonLabel}`);
     } catch (err) {
       failed += 1;
       const message = err instanceof Error ? err.message : String(err);

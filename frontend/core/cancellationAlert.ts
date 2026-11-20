@@ -161,6 +161,89 @@ export function describeBilling(billing: ChurnBilling | null): string {
   return 'unknown';
 }
 
+// ── Refunded under the 7-day money-back guarantee ────────────────────────────
+// A member can click Cancel and then, still inside the guarantee, take the
+// money-back refund from the Account page. The refund ends the subscription on
+// the spot and clears the member's row (core/moneyBackServer.ts), so by the
+// time the sweep runs, the plan the cancel had scheduled for period end is
+// already gone. An alert that still called it savable sent the operator after
+// someone who had their money back, with a save link and a win-back discount
+// that had nothing left to act on. (Nov 19, 2026: "Paying member canceled —
+// still has access", over "Tier at churn: public" and "Access ends: —".)
+//
+// The refund ledger (money_back_refunds) is keyed by subscription, and every
+// churn row names its subscription (parseChurnSubscriptionId), so the match is
+// exact: the guarantee request for the very plan this churn row is about, not
+// a guess from timing.
+//
+//   completed — refunded and canceled. Access has ended; nothing to save.
+//   pending   — a request still running, or one that stopped part-way (its
+//               operator alert said ACTION NEEDED). They asked for their money
+//               back, so it is not a save either.
+//   failed    — refused before any money moved. The member keeps the plan and
+//               the cancel they scheduled still stands, so the alert reads as it
+//               would without the request: not a ChurnRefund.
+export type ChurnRefundStatus = 'completed' | 'pending';
+
+export type ChurnRefund = {
+  status: ChurnRefundStatus;
+  // Minor units (cents): what has gone back to the member so far.
+  amountRefunded: number;
+  currency: string | null;
+  // The plan that was refunded, as the ledger recorded it, or null when the
+  // request stopped before recording it.
+  tier: string | null;
+  // completed: when the refund finished. pending: when it was last worked on.
+  atIso: string | null;
+};
+
+// The money_back_refunds columns the sweep reads, as SQLite returns them.
+export type MoneyBackLedgerRow = {
+  status: string | null;
+  amount_refunded: number | bigint | null;
+  currency: string | null;
+  tier: string | null;
+  completed_at: string | null;
+  updated_at: string | null;
+};
+
+// How the alert reads the ledger row for the churned subscription: null when
+// there is none, or when the request changed nothing (refused before any money
+// moved).
+export function churnRefundFromLedger(row: MoneyBackLedgerRow | null | undefined): ChurnRefund | null {
+  if (!row) return null;
+  if (row.status !== 'completed' && row.status !== 'pending') return null;
+  const amount = Number(row.amount_refunded ?? 0);
+  return {
+    status: row.status,
+    amountRefunded: Number.isFinite(amount) && amount > 0 ? amount : 0,
+    currency: row.currency ?? null,
+    tier: row.tier ?? null,
+    atIso: row.status === 'completed' ? (row.completed_at ?? row.updated_at) : row.updated_at,
+  };
+}
+
+// Mirrors formatMinorAmount in core/moneyBackServer.ts, which this module can't
+// import: it pulls in Stripe and the database.
+export function formatRefundAmount(amount: number, currency: string | null): string {
+  const code = (currency ?? 'usd').toUpperCase();
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(amount / 100);
+  } catch {
+    return `${(amount / 100).toFixed(2)} ${code}`;
+  }
+}
+
+// The Refund line on the alert.
+export function describeRefund(refund: ChurnRefund): string {
+  const amount = refund.amountRefunded > 0 ? formatRefundAmount(refund.amountRefunded, refund.currency) : null;
+  if (refund.status === 'pending') {
+    return amount ? `Not finished (${amount} refunded so far)` : 'Requested, not finished';
+  }
+  const when = formatEt(refund.atIso);
+  return when === '—' ? (amount ?? 'In full') : `${amount ?? 'In full'} on ${when}`;
+}
+
 // ── Run exit status ──────────────────────────────────────────────────────────
 // Whether a finished run should fail its systemd unit.
 //
@@ -259,6 +342,10 @@ export type ChurnAlertInput = {
   // lapse (already past) or when the DB row has been cleared. Ignored for a
   // cancel that ended the plan on a failed payment: there is no window left.
   currentPeriodEndIso: string | null;
+  // The money-back refund on the subscription this churn row is about
+  // (churnRefundFromLedger), or null/absent when there is none. A refund means
+  // there is nothing to save, whatever the rest of the row says.
+  refund?: ChurnRefund | null;
 };
 
 export type ChurnAlert = {
@@ -282,6 +369,9 @@ export type ChurnAlert = {
   endedOnFailedPayment: EndedOnFailedPayment | null;
   // Whether that cancel's unpaid bill was voided, in a sentence. Null otherwise.
   billNote: string | null;
+  // The money-back refund on this subscription, completed or still pending, or
+  // null when there is none. Either way there is nothing to save.
+  refund: ChurnRefund | null;
 };
 
 // Formats an ISO stamp the way the rest of the operator tooling does: ET, so it
@@ -323,6 +413,10 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
   // A cancel on a failed payment ended the plan on the spot: nothing to save.
   const endedOnFailedPayment =
     input.kind === 'pending' ? parseEndedOnFailedPayment(input.auditMessage) : null;
+  // So did a money-back refund, and one still pending is a member asking for
+  // their money back. Either one outranks the rest of the row.
+  const refund = input.refund ?? null;
+  const refunded = refund?.status === 'completed';
 
   // The subject line is the whole product for anyone reading on a phone: it has
   // to say who left and why WITHOUT being opened. The free-text comment wins the
@@ -333,25 +427,34 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
       ? reasonLabel
       : 'no reason given';
   // Paying or trial leads the subject, so the one fact that decides whether
-  // revenue just walked out is readable from the lock screen. A plan that has
-  // already ended leads with that instead, and with a bill left unvoided.
-  const who = endedOnFailedPayment
-    ? endedOnFailedPayment.billVoided
-      ? `Canceled, plan ended (payment had failed): ${input.email}`
-      : `Canceled, plan ended, bill not voided: ${input.email}`
-    : input.billing === 'paying'
-      ? `Paying member canceled: ${input.email}`
-      : input.billing === 'trial'
-        ? `Trial canceled, never charged: ${input.email}`
-        : `${input.email} ${input.kind === 'pending' ? 'canceled' : 'lapsed'}`;
+  // revenue just walked out is readable from the lock screen. A refund leads
+  // instead, and so does a plan that has already ended, with a bill left
+  // unvoided.
+  const who = refund
+    ? refunded
+      ? `Canceled and refunded: ${input.email}`
+      : `Canceled, refund not finished: ${input.email}`
+    : endedOnFailedPayment
+      ? endedOnFailedPayment.billVoided
+        ? `Canceled, plan ended (payment had failed): ${input.email}`
+        : `Canceled, plan ended, bill not voided: ${input.email}`
+      : input.billing === 'paying'
+        ? `Paying member canceled: ${input.email}`
+        : input.billing === 'trial'
+          ? `Trial canceled, never charged: ${input.email}`
+          : `${input.email} ${input.kind === 'pending' ? 'canceled' : 'lapsed'}`;
   const subject = `[ZeroGEX] ${who} — ${subjectReason}`;
   const billingLabel = describeBilling(input.billing);
 
-  const headline = endedOnFailedPayment
-    ? 'Plan already ended — their payment had failed, so the cancel ended it on the spot instead of at period end. Access is gone and there is no subscription left to save.'
-    : input.kind === 'pending'
-      ? 'Cancellation requested — they still have access, so this is savable.'
-      : 'Subscription ended — access has been revoked.';
+  const headline = refund
+    ? refunded
+      ? 'Refunded — they took the 7-day money-back refund, which ended the plan on the spot instead of at period end. Access is gone and there is no subscription left to save.'
+      : 'Refund not finished — they asked for the 7-day money-back refund and it has not completed, so this is not a save. The money-back alert says what is left; make money-back-refund finishes it without refunding twice.'
+    : endedOnFailedPayment
+      ? 'Plan already ended — their payment had failed, so the cancel ended it on the spot instead of at period end. Access is gone and there is no subscription left to save.'
+      : input.kind === 'pending'
+        ? 'Cancellation requested — they still have access, so this is savable.'
+        : 'Subscription ended — access has been revoked.';
 
   // The route records why a bill was not voided (billing_cancel_bill_not_voided)
   // and what to run; diagnose-user prints that row.
@@ -363,25 +466,36 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
 
   const remaining = daysUntil(input.currentPeriodEndIso, nowIso);
   const saveWindowNote =
-    input.kind === 'pending' && !endedOnFailedPayment && input.currentPeriodEndIso
+    input.kind === 'pending' && !endedOnFailedPayment && !refund && input.currentPeriodEndIso
       ? remaining !== null && remaining >= 0
         ? `Access runs until ${formatEt(input.currentPeriodEndIso)} — ${remaining} day${remaining === 1 ? '' : 's'} left to reply.`
         : `Access ran until ${formatEt(input.currentPeriodEndIso)}.`
       : null;
+
+  // Access ended with the refund once money moved: the flow removes it locally
+  // right after refunding, even when the Stripe cancel still has to be finished.
+  const accessEndedByRefund = refunded || (refund?.amountRefunded ?? 0) > 0;
 
   const facts: Array<{ label: string; value: string }> = [
     { label: 'Member', value: input.email },
     { label: 'Billing', value: billingLabel },
     { label: 'Reason (survey)', value: reasonLabel },
     { label: 'What they typed', value: reason.comment ?? '(nothing)' },
-    { label: 'Tier at churn', value: input.tier ?? 'unknown' },
+    // A refund has already set the member's row to 'public'; the ledger kept
+    // the plan they were on.
+    { label: 'Tier at churn', value: refund?.tier ?? input.tier ?? 'unknown' },
     { label: 'Tenure', value: tenure },
     { label: 'Signed up', value: formatEt(input.accountCreatedAtIso) },
     { label: 'Subscribed', value: formatEt(input.subscriptionStartedAtIso) },
     { label: 'Canceled', value: formatEt(input.churnedAtIso) },
+    ...(refund ? [{ label: 'Refund', value: describeRefund(refund) }] : []),
     {
       label: 'Access ends',
-      value: endedOnFailedPayment ? 'Already ended' : formatEt(input.currentPeriodEndIso),
+      value: accessEndedByRefund
+        ? 'Ended with the refund'
+        : endedOnFailedPayment
+          ? 'Already ended'
+          : formatEt(input.currentPeriodEndIso),
     },
     { label: 'User id', value: input.userId ?? 'unknown' },
   ];
@@ -390,19 +504,26 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
   // alert is copy-paste actionable instead of a prompt to go find the runbook.
   // A plan that has already ended has no subscription for save-url or
   // honor-winback-discount to act on; if its bill was not voided, the dry run
-  // lists what is still open, and YES=1 voids it.
-  const commands = endedOnFailedPayment
+  // lists what is still open, and YES=1 voids it. Neither does a refund: a
+  // finished one needs nothing, and an unfinished one is resumed by
+  // money-back-refund (a dry run without YES=1; it never refunds twice).
+  const commands = refund
     ? [
         `make diagnose-user EMAIL=${input.email}`,
-        ...(endedOnFailedPayment.billVoided
-          ? []
-          : [`make cancel-subscription EMAIL=${input.email} VOID_INVOICE=1 DRY_RUN=1`]),
+        ...(refunded ? [] : [`make money-back-refund EMAIL=${input.email}`]),
       ]
-    : [
-        `make diagnose-user EMAIL=${input.email}`,
-        `make save-url EMAIL=${input.email}`,
-        `make honor-winback-discount EMAIL=${input.email} DRY_RUN=1`,
-      ];
+    : endedOnFailedPayment
+      ? [
+          `make diagnose-user EMAIL=${input.email}`,
+          ...(endedOnFailedPayment.billVoided
+            ? []
+            : [`make cancel-subscription EMAIL=${input.email} VOID_INVOICE=1 DRY_RUN=1`]),
+        ]
+      : [
+          `make diagnose-user EMAIL=${input.email}`,
+          `make save-url EMAIL=${input.email}`,
+          `make honor-winback-discount EMAIL=${input.email} DRY_RUN=1`,
+        ];
 
   return {
     subject,
@@ -422,6 +543,7 @@ export function buildChurnAlert(input: ChurnAlertInput, nowIso: string): ChurnAl
     saveWindowNote,
     endedOnFailedPayment,
     billNote,
+    refund,
   };
 }
 

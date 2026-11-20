@@ -18,7 +18,12 @@ import {
   alertRunExitCode,
   billingAtCancel,
   LEDGER_MATCH_WINDOW_MS,
+  churnRefundFromLedger,
+  describeRefund,
+  formatEt,
+  formatRefundAmount,
   type ChurnAlertInput,
+  type MoneyBackLedgerRow,
 } from '../core/cancellationAlert.ts';
 import {
   formatCancellationReasonSuffix,
@@ -684,4 +689,169 @@ test('shouldAlertOnChurn: a bill left unvoided alerts even when no reason was gi
     shouldAlertOnChurn(formatCancellationRequestedMessage('sub_1', { feedback: 'unused' }, { billVoided: true }), false),
     true,
   );
+});
+
+// ── Refunded under the 7-day money-back guarantee ────────────────────────────
+// A member who clicks Cancel and then takes the refund before the sweep runs
+// has no plan left to save. On Nov 19, 2026 the alert still said "still has
+// access" over a row the refund had already cleared, and listed save commands
+// with nothing to act on. These pin what it says instead.
+
+const COMPLETED_LEDGER: MoneyBackLedgerRow = {
+  status: 'completed',
+  amount_refunded: 5900,
+  currency: 'usd',
+  tier: 'pro',
+  completed_at: '2026-08-28T14:04:11.000Z',
+  updated_at: '2026-08-28T14:04:11.000Z',
+};
+
+// The member's row as the refund leaves it (core/moneyBackServer.ts
+// clearLocally): tier 'public', no period end.
+const REFUNDED_ROW: ChurnAlertInput = {
+  ...BASE,
+  billing: 'paying',
+  auditMessage: formatCancellationRequestedMessage('sub_123', {
+    feedback: 'unused',
+    comment: 'I pay for 2 gamma exposure charts',
+  }),
+  tier: 'public',
+  currentPeriodEndIso: null,
+  refund: churnRefundFromLedger(COMPLETED_LEDGER),
+};
+
+test('refund ledger: a completed or pending request is read, a refused one is not', () => {
+  assert.equal(churnRefundFromLedger(null), null);
+  assert.equal(churnRefundFromLedger(undefined), null);
+  // Refused before any money moved: the member keeps the plan.
+  assert.equal(churnRefundFromLedger({ ...COMPLETED_LEDGER, status: 'failed', completed_at: null }), null);
+  assert.equal(churnRefundFromLedger({ ...COMPLETED_LEDGER, status: 'something_new' }), null);
+
+  assert.deepEqual(churnRefundFromLedger(COMPLETED_LEDGER), {
+    status: 'completed',
+    amountRefunded: 5900,
+    currency: 'usd',
+    tier: 'pro',
+    atIso: '2026-08-28T14:04:11.000Z',
+  });
+  // A pending one is dated by when it was last worked on.
+  assert.deepEqual(
+    churnRefundFromLedger({
+      status: 'pending',
+      amount_refunded: 0,
+      currency: null,
+      tier: null,
+      completed_at: null,
+      updated_at: '2026-08-28T14:03:00.000Z',
+    }),
+    { status: 'pending', amountRefunded: 0, currency: null, tier: null, atIso: '2026-08-28T14:03:00.000Z' },
+  );
+  // A completed one missing its completion stamp falls back to the last update.
+  assert.equal(
+    churnRefundFromLedger({ ...COMPLETED_LEDGER, completed_at: null, updated_at: '2026-08-28T14:05:00.000Z' })?.atIso,
+    '2026-08-28T14:05:00.000Z',
+  );
+  // SQLite can hand back a bigint, and a missing amount is no amount.
+  assert.equal(churnRefundFromLedger({ ...COMPLETED_LEDGER, amount_refunded: BigInt(5900) })?.amountRefunded, 5900);
+  assert.equal(churnRefundFromLedger({ ...COMPLETED_LEDGER, amount_refunded: null })?.amountRefunded, 0);
+});
+
+test('refund line: how much and when, or what is still open', () => {
+  const completed = churnRefundFromLedger(COMPLETED_LEDGER);
+  assert.ok(completed);
+  assert.equal(describeRefund(completed), `$59.00 on ${formatEt(COMPLETED_LEDGER.completed_at)}`);
+  assert.equal(describeRefund({ ...completed, atIso: null }), '$59.00');
+  assert.equal(describeRefund({ ...completed, amountRefunded: 0 }), `In full on ${formatEt(COMPLETED_LEDGER.completed_at)}`);
+  assert.equal(describeRefund({ ...completed, status: 'pending' }), 'Not finished ($59.00 refunded so far)');
+  assert.equal(describeRefund({ ...completed, status: 'pending', amountRefunded: 0 }), 'Requested, not finished');
+  assert.equal(formatRefundAmount(4900, 'eur'), '€49.00');
+  assert.equal(formatRefundAmount(4900, null), '$49.00');
+  // A code Intl refuses still prints a number rather than throwing.
+  assert.equal(formatRefundAmount(4900, 'x'), '49.00 X');
+});
+
+test('refunded: the alert says the plan ended with the refund, not that it is savable', () => {
+  const alert = buildChurnAlert(REFUNDED_ROW, NOW);
+  assert.ok(
+    alert.subject.startsWith('[ZeroGEX] Canceled and refunded: member@example.com — I pay for 2 gamma exposure charts'),
+  );
+  assert.match(alert.headline, /^Refunded — they took the 7-day money-back refund/);
+  assert.match(alert.headline, /no subscription left to save/);
+  assert.doesNotMatch(alert.headline, /savable|still have access/);
+  assert.equal(alert.saveWindowNote, null);
+
+  const facts = factsOf(alert);
+  assert.equal(facts.get('Access ends'), 'Ended with the refund');
+  assert.equal(facts.get('Refund'), `$59.00 on ${formatEt(COMPLETED_LEDGER.completed_at)}`);
+  // The plan they were on, not the 'public' the refund left on their row.
+  assert.equal(facts.get('Tier at churn'), 'pro');
+  // Still a paying member who left, for the reason they gave.
+  assert.equal(facts.get('Billing'), 'Paying member');
+  assert.equal(alert.reasonLabel, "Wasn't using it");
+  assert.equal(alert.comment, 'I pay for 2 gamma exposure charts');
+
+  // Nothing for the save link or the win-back discount to act on, and nothing
+  // left to finish.
+  assert.deepEqual(alert.commands, ['make diagnose-user EMAIL=member@example.com']);
+  assert.equal(alert.refund?.status, 'completed');
+});
+
+test('refunded: the Refund line sits between when they canceled and when access ended', () => {
+  const labels = buildChurnAlert(REFUNDED_ROW, NOW).facts.map((f) => f.label);
+  assert.equal(labels.indexOf('Refund'), labels.indexOf('Canceled') + 1);
+  assert.equal(labels.indexOf('Access ends'), labels.indexOf('Refund') + 1);
+});
+
+test('refunded: a lapse row for the same plan reads as refunded too', () => {
+  const lapsed = buildChurnAlert(
+    { ...REFUNDED_ROW, kind: 'lapsed', billing: null, auditMessage: 'Subscription sub_123 ended' },
+    NOW,
+  );
+  assert.ok(lapsed.subject.startsWith('[ZeroGEX] Canceled and refunded: member@example.com'));
+  assert.match(lapsed.headline, /^Refunded/);
+  assert.equal(factsOf(lapsed).get('Access ends'), 'Ended with the refund');
+});
+
+test('refund not finished: not a save, and the alert names the command that finishes it', () => {
+  // Nothing has moved yet (an unconfirmed refund): the row still has its plan
+  // and period end, and the alert reports them.
+  const nothingMoved = buildChurnAlert(
+    {
+      ...BASE,
+      billing: 'paying',
+      refund: { status: 'pending', amountRefunded: 0, currency: 'usd', tier: null, atIso: '2026-08-28T14:03:00.000Z' },
+    },
+    NOW,
+  );
+  assert.ok(nothingMoved.subject.startsWith('[ZeroGEX] Canceled, refund not finished: member@example.com — '));
+  assert.match(nothingMoved.headline, /^Refund not finished/);
+  assert.doesNotMatch(nothingMoved.headline, /savable|still have access/);
+  assert.equal(nothingMoved.saveWindowNote, null);
+  assert.equal(factsOf(nothingMoved).get('Refund'), 'Requested, not finished');
+  assert.equal(factsOf(nothingMoved).get('Access ends'), formatEt(BASE.currentPeriodEndIso));
+  assert.equal(factsOf(nothingMoved).get('Tier at churn'), 'pro');
+  assert.deepEqual(nothingMoved.commands, [
+    'make diagnose-user EMAIL=member@example.com',
+    'make money-back-refund EMAIL=member@example.com',
+  ]);
+
+  // Money moved but the Stripe cancel did not finish: the flow has already
+  // removed access, whatever period end the row still carries.
+  const moneyMoved = buildChurnAlert(
+    { ...BASE, refund: { status: 'pending', amountRefunded: 5900, currency: 'usd', tier: 'pro', atIso: null } },
+    NOW,
+  );
+  assert.equal(factsOf(moneyMoved).get('Access ends'), 'Ended with the refund');
+  assert.equal(factsOf(moneyMoved).get('Refund'), 'Not finished ($59.00 refunded so far)');
+});
+
+test('no refund on file reads exactly as before', () => {
+  const before = buildChurnAlert(BASE, NOW);
+  assert.equal(before.refund, null);
+  assert.equal(factsOf(before).has('Refund'), false);
+  assert.match(before.headline, /still have access, so this is savable/);
+  assert.ok(before.commands.some((c) => c.startsWith('make save-url')));
+  for (const refund of [null, undefined]) {
+    assert.deepEqual(buildChurnAlert({ ...BASE, refund }, NOW), before);
+  }
 });

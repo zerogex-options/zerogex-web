@@ -109,6 +109,33 @@ const endedChurnAlert = (billVoided: boolean) =>
     },
     '2026-09-15T18:25:00.000Z',
   );
+// A Cancel followed by the 7-day money-back refund before the sweep ran: the
+// refund cleared the member's row (tier public, no period end), and the sweep
+// reads the refund off money_back_refunds for the same subscription.
+const refundedChurnAlert = (status: 'completed' | 'pending') =>
+  buildChurnAlert(
+    {
+      churnEventId: 'audit_cancel_3',
+      kind: 'pending',
+      email: TO,
+      userId: 'user_123',
+      auditMessage: formatCancellationRequestedMessage('sub_1ABC', {
+        feedback: 'unused',
+        comment: 'I already pay for two other gamma exposure tools.',
+      }),
+      churnedAtIso: '2026-09-15T18:20:00.000Z',
+      accountCreatedAtIso: '2026-09-09T14:02:00.000Z',
+      subscriptionStartedAtIso: '2026-09-09T14:05:00.000Z',
+      tier: 'public',
+      billing: 'paying',
+      currentPeriodEndIso: null,
+      refund:
+        status === 'completed'
+          ? { status, amountRefunded: 5900, currency: 'usd', tier: 'pro', atIso: '2026-09-15T18:23:00.000Z' }
+          : { status, amountRefunded: 0, currency: 'usd', tier: null, atIso: '2026-09-15T18:22:30.000Z' },
+    },
+    '2026-09-15T18:25:00.000Z',
+  );
 // The cron's digest draft carries an unsigned placeholder unsubscribe link
 // (scripts/send-winback.mts), so this one does too.
 const WINBACK_DRAFT = M.renderWinbackEmail({ winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS, unsubUrl: `${APP_URL}/unsubscribe` });
@@ -185,6 +212,8 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   { id: 'cancellation-alert', variant: 'clicked Cancel (still has access)', run: () => capture(() => M.sendCancellationAlertEmail(OPS, CHURN_ALERT)) },
   { id: 'cancellation-alert', variant: 'canceled on a failed payment (plan ended, bill voided)', run: () => capture(() => M.sendCancellationAlertEmail(OPS, endedChurnAlert(true))) },
   { id: 'cancellation-alert', variant: 'canceled on a failed payment (bill not voided)', run: () => capture(() => M.sendCancellationAlertEmail(OPS, endedChurnAlert(false))) },
+  { id: 'cancellation-alert', variant: 'canceled, then took the 7-day money-back refund', run: () => capture(() => M.sendCancellationAlertEmail(OPS, refundedChurnAlert('completed'))) },
+  { id: 'cancellation-alert', variant: 'canceled, money-back refund not finished', run: () => capture(() => M.sendCancellationAlertEmail(OPS, refundedChurnAlert('pending'))) },
   { id: 'money-back-alert', variant: 'refund issued', run: () => capture(() => M.sendMoneyBackOperatorAlertEmail(OPS, { kind: 'issued', email: TO, planLabel: 'Pro (quarterly)', amountFormatted: '$115.00', source: 'self_serve', reason: 'too_expensive', comment: 'More than I need right now.', problems: [], subscriptionId: 'sub_123', refundIds: ['re_123'] })) },
   { id: 'money-back-alert', variant: 'action needed', run: () => capture(() => M.sendMoneyBackOperatorAlertEmail(OPS, { kind: 'attention', email: TO, planLabel: 'Pro (annual)', amountFormatted: '$299.00', source: 'self_serve', reason: null, comment: null, problems: ['The refund went through but Stripe did not cancel sub_456. Cancel it in the Dashboard, or the member is billed again at renewal.'], subscriptionId: 'sub_456', refundIds: ['re_456'] })) },
   { id: 'winback-digest', variant: 'default', run: () => capture(() => M.sendWinbackDigestEmail(OPS, { recipients: [TO, 'another@example.com'], skipped: [{ email: 'optedout@example.com', reason: 'unsubscribed from marketing on 2026-09-02' }], mode: 'auto', sendCommand: 'make winback YES=1', draft: WINBACK_DRAFT })) },
