@@ -137,6 +137,10 @@ const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast', '/forecast/cone', '/
 const config = {
   siteUrl: 'https://zerogex.io',
   generateRobotsTxt: false,
+  // Read routes from the build that just finished. Deploys build into
+  // .next-staging (ZEROGEX_DIST_DIR, see next.config.ts) while the live site
+  // keeps serving .next, so the default would map the old build's routes.
+  sourceDir: process.env.ZEROGEX_DIST_DIR || '.next',
 
   exclude: [
     // Auth & user chrome

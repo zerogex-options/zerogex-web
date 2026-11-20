@@ -15,6 +15,9 @@
 
 # next.js
 /.next/
+# deploy/build-and-swap.sh: the build in progress, the one before the live
+# build (kept for `make rollback`), and briefly a build that wouldn't start
+/.next-*/
 /out/
 
 # production

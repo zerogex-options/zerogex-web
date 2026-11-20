@@ -304,12 +304,12 @@ pm2 monit
 
 ```bash
 cd ~/zerogex-web
-git pull
-cd frontend
-npm install
-npm run build
-pm2 restart zerogex-web
+make deploy
 ```
+
+The new build is made beside the live one and swapped in only once it has
+finished, so a failed build leaves the site up. `make rollback` puts the
+previous build back. See [deploy/README.md](deploy/README.md#updating-the-application).
 
 ## 🐛 Troubleshooting
 

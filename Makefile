@@ -5,7 +5,8 @@ help:
 	@echo "  make install    - Install dependencies"
 	@echo "  make dev        - Run development server"
 	@echo "  make build      - Build for production"
-	@echo "  make rebuild    - Clean build and restart PM2"
+	@echo "  make rebuild    - Build beside the live site, swap it in, restart PM2 (a failed build leaves the site up)"
+	@echo "  make rollback   - Put the previous build back live (run again to undo)"
 	@echo "  make start      - Start PM2 process"
 	@echo "  make stop       - Stop PM2 process"
 	@echo "  make restart    - Restart PM2 process"
@@ -150,26 +151,36 @@ dev:
 # step; `make build` and `make rebuild` did not, so a routine rebuild between
 # deploys silently reintroduced the bug. Cheap and idempotent, so it just
 # becomes a prerequisite rather than something to remember.
+#
+# This builds straight into frontend/.next, the folder the live site serves,
+# and `next build` empties it first. On the server, use make rebuild or make
+# deploy, which build beside the live site.
 build: ninjatrader-package integration-assets
 	@echo "Building for production..."
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 
-# Clean build and restart. Same prerequisite, and for a second reason: Next
-# reads public/ once at boot, so a file that appears there while the server is
+# Build and restart. Same prerequisite, and for a second reason: Next reads
+# public/ once at boot, so a file that appears there while the server is
 # running keeps 404ing until a restart. Generating before the PM2 restart below
 # means one command leaves the box consistent; generating after would not.
+#
+# deploy/build-and-swap.sh builds into frontend/.next-staging while the live
+# site keeps serving frontend/.next, and swaps the new build in only once it
+# has finished. A failed build leaves the site exactly as it was. Before this,
+# the build went straight into .next, and on Nov 19, 2026 a build that stopped
+# at "Failed to type check" left the site returning 502 until the next morning.
+# After the restart it waits for the homepage to answer, and if the new build
+# doesn't, puts the previous one back (see make rollback).
 rebuild: ninjatrader-package integration-assets
-	@echo "Cleaning build directory..."
-# The running server rewrites ISR pages (the 60 s gamma-levels pages) into
-# .next while this deletes it, so one rm -rf can lose that race with
-# "Directory not empty" and stop the deploy before the build. Retry briefly;
-# the last attempt still fails loudly if something else is wrong.
-	@for i in 1 2 3 4 5; do rm -rf frontend/.next 2>/dev/null && exit 0; sleep 1; done; rm -rf frontend/.next
-	@echo "Building for production..."
-	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
-	@echo "Restarting PM2 process..."
-	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 restart zerogex-web'
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && bash deploy/build-and-swap.sh'
 	@echo "Rebuild complete!"
+
+# Put the build before the live one back (frontend/.next-previous) and restart
+# PM2. Run it again to undo. It swaps builds only, not code: the next deploy
+# builds the checked-out code again, so fix that first.
+.PHONY: rollback
+rollback:
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && bash deploy/build-and-swap.sh rollback'
 
 # Start PM2 process
 start:
@@ -1945,6 +1956,8 @@ clean:
 # "Directory not empty" and stop the deploy before the build. Retry briefly;
 # the last attempt still fails loudly if something else is wrong.
 	@for i in 1 2 3 4 5; do rm -rf frontend/.next 2>/dev/null && exit 0; sleep 1; done; rm -rf frontend/.next
+# The folders deploy/build-and-swap.sh keeps beside it. Nothing serves them.
+	rm -rf frontend/.next-staging frontend/.next-previous frontend/.next-failed frontend/.next-swap
 	rm -rf frontend/node_modules/.cache
 	@echo "Clean complete!"
 
@@ -2194,16 +2207,12 @@ deploy:
 	@make ninjatrader-package
 	@echo "5b. Publishing chart-platform study sources..."
 	@make integration-assets
-	@echo "6. Rebuilding application..."
-# The running server rewrites ISR pages (the 60 s gamma-levels pages) into
-# .next while this deletes it, so one rm -rf can lose that race with
-# "Directory not empty" and stop the deploy before the build. Retry briefly;
-# the last attempt still fails loudly if something else is wrong.
-	@for i in 1 2 3 4 5; do rm -rf frontend/.next 2>/dev/null && exit 0; sleep 1; done; rm -rf frontend/.next
-	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
-	@echo "7. Restarting PM2..."
-	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 restart zerogex-web'
-	@echo "8. Saving PM2 config..."
+	@echo "6. Building beside the live site, then swapping it in and restarting PM2..."
+# Builds into frontend/.next-staging while the site keeps serving
+# frontend/.next, and swaps only a finished build in. A failed build stops the
+# deploy here with the live site untouched. See the comment on rebuild.
+	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && bash deploy/build-and-swap.sh'
+	@echo "7. Saving PM2 config..."
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 save'
 	@echo "Deployment complete!"
 	@echo ""

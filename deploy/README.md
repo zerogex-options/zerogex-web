@@ -358,12 +358,19 @@ pm2 flush
 
 ```bash
 cd ~/zerogex-web
-git pull
-cd frontend
-npm install
-npm run build
-pm2 restart zerogex-web
+make deploy
 ```
+
+`make deploy` pulls, installs exactly what the lockfile says, and builds the
+new version beside the live one (`frontend/.next-staging`). It swaps the new
+build in and restarts PM2 only once the build has finished, so a failed build
+leaves the site serving as it was. Don't build with `npm run build` on the
+server: that builds straight into `frontend/.next`, the folder the live site
+serves.
+
+If the new version misbehaves once it's live, `make rollback` puts the previous
+build back (run it again to undo). The deploy does this by itself when the new
+build doesn't answer within a minute of its restart.
 
 ### Nginx Commands
 

@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // `make deploy` and `make rebuild` build into .next-staging with
+  // ZEROGEX_DIST_DIR set, then swap it into .next only when the build
+  // succeeded (deploy/build-and-swap.sh). The running site serves .next the
+  // whole time, so a failed build never takes it down. Everything else,
+  // including `next start` under PM2, leaves the variable unset and uses .next.
+  distDir: process.env.ZEROGEX_DIST_DIR || '.next',
+
   async redirects() {
     return [
       {
@@ -180,9 +187,9 @@ const nextConfig: NextConfig = {
 
   experimental: {
     // Next 16.3 turned on a Turbopack build cache in .next/cache/turbopack.
-    // `make deploy` and `make rebuild` delete .next before every build, so the
-    // cache would be written on every deploy and never read. Off, as the Next
-    // docs advise for builds that do not keep .next/cache.
+    // `make deploy` and `make rebuild` build into an empty .next-staging every
+    // time, so the cache would be written on every deploy and never read. Off,
+    // as the Next docs advise for builds that do not keep .next/cache.
     turbopackFileSystemCacheForBuild: false,
   },
 };
