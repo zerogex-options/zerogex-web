@@ -154,7 +154,7 @@ export const BASIC_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, BasicWallTex
       '/positioning-trap': IT_SIGNALS,
       '/option-contracts': {
         pitch:
-          "Quotazioni opzioni live segue un singolo contratto di opzioni durante la sessione: il prezzo dell'ultimo scambio e il volume di ogni minuto, diviso a seconda che sia stato scambiato all'ask, al mid o al bid.",
+          "Quotazioni opzioni live segue un singolo contratto di opzioni durante la sessione: il prezzo dell'ultimo scambio e il volume di ogni minuto, diviso tra acquistato, venduto e senza lato.",
       },
       '/options-calculator': {
         pitch:
@@ -297,7 +297,7 @@ export const BASIC_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, BasicWallTex
       '/positioning-trap': DE_SIGNALS,
       '/option-contracts': {
         pitch:
-          'Live-Optionskurse verfolgt einen einzelnen Optionskontrakt durch die Sitzung: den letzten Handelspreis und das Volumen jeder Minute, aufgeteilt danach, ob zum Ask, zur Mitte oder zum Bid gehandelt wurde.',
+          'Live-Optionskurse verfolgt einen einzelnen Optionskontrakt durch die Sitzung: den letzten Handelspreis und das Volumen jeder Minute, aufgeteilt in gekauft, verkauft und ohne Seite.',
       },
       '/options-calculator': {
         pitch:
@@ -439,7 +439,7 @@ export const BASIC_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, BasicWallTex
       '/positioning-trap': ES_SIGNALS,
       '/option-contracts': {
         pitch:
-          'Cotizaciones de opciones en vivo sigue un contrato de opciones a lo largo de la sesión: el precio de la última operación y el volumen de cada minuto, separado según se negociara al ask, al mid o al bid.',
+          'Cotizaciones de opciones en vivo sigue un contrato de opciones a lo largo de la sesión: el precio de la última operación y el volumen de cada minuto, separado en comprado, vendido y sin lado.',
       },
       '/options-calculator': {
         pitch:
@@ -583,7 +583,7 @@ export const BASIC_WALL_TRANSLATIONS: Record<Exclude<Locale, 'en'>, BasicWallTex
       '/positioning-trap': FR_SIGNALS,
       '/option-contracts': {
         pitch:
-          "Cotations d’options en direct suit un contrat d'options tout au long de la séance : le prix de la dernière transaction et le volume de chaque minute, réparti selon qu'il s'est échangé à l'ask, au mid ou au bid.",
+          "Cotations d’options en direct suit un contrat d'options tout au long de la séance : le prix de la dernière transaction et le volume de chaque minute, réparti entre acheté, vendu et sans côté.",
       },
       '/options-calculator': {
         pitch:

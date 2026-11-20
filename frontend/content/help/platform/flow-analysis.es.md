@@ -12,13 +12,15 @@ Dos controles del encabezado se aplican a toda la página: **Session** (la sesi�
 
 ## Comprado y vendido
 
-Cada print de opciones se clasifica según el lado que cruzó el spread, con la convención Lee-Ready:
+Cada trade de opciones se clasifica como comprado o vendido con el **tick test**: su precio se compara con el del trade anterior del mismo contrato, no con el bid y el ask.
 
-- En el **ask** o cerca, un comprador pagó el precio: cuenta como **comprado**.
-- En el **bid** o cerca, un vendedor lo golpeó: cuenta como **vendido**.
-- Los prints en el **punto medio** se reparten entre ambos en proporción a los prints en el ask y en el bid de ese contrato en el mismo minuto. Los prints sin ningún indicio de lado, como la subasta de apertura de las 09:30, cuentan la mitad para cada lado.
+- **Más alto** que el trade anterior: un comprador pagó más, así que cuenta como **comprado**.
+- **Más bajo** que el trade anterior: un vendedor aceptó un precio menor, así que cuenta como **vendido**.
+- **Sin cambio**: toma el lado del último cambio de precio, de modo que una serie de trades al mismo precio cuenta como comprada después de una subida, y como vendida después de una bajada.
 
-Así, comprado más vendido es siempre todo lo que se negoció. La lectura del agresor es lo más cerca que el feed llega a la intención, pero no distingue una apertura de un cierre: una put "vendida" en el bid puede ser un vendedor nuevo o un comprador que recoge beneficios.
+Algunos trades no dan ningún indicio de lado: un trade sin otro anterior con el que compararlo, un trade a un precio sin cambio antes de que algún cambio de precio haya fijado un lado, y todos los trades del primer minuto de la sesión, que incluye la subasta de apertura de las 09:30. Esos se reparten entre comprado y vendido en proporción a los trades comprados y vendidos de ese contrato en el mismo minuto, o cuentan la mitad para cada lado cuando ese minuto no tiene ninguno, como en la apertura.
+
+Así, comprado más vendido es siempre todo lo que se negoció. La lectura del agresor es lo más cerca que el feed llega a la intención, pero no distingue una apertura de un cierre: una put "vendida" a un precio más bajo puede ser un vendedor nuevo o un comprador que recoge beneficios.
 
 Las calls compradas y las puts vendidas forman el **lado alcista**; las puts compradas y las calls vendidas, el **lado bajista**. Los colores siguen esa regla en toda la página: verde es el lado alcista, rojo el bajista. Por eso el "bought" de la fila de puts es rojo.
 

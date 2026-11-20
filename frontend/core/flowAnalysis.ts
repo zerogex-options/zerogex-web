@@ -11,15 +11,19 @@
  * The feed carries, per option type, the session's contracts traded
  * (`call_volume_cum`) and its net position (`call_position_cum` = bought minus
  * sold). The backend's aggressor split makes bought + sold equal the volume:
- * a print at or near the ask is bought, at or near the bid sold, and mid prints
- * are shared out in proportion to that contract's ask:bid split for the bar
- * (flow_contract_facts in zerogex-oa). So the two sides fall out exactly:
+ * ingestion signs each trade with the tick test (FLOW_CLASSIFIER=tick since
+ * 2026-10-19: above the contract's previous trade price is bought, below is
+ * sold, unchanged keeps the last side; no quote is read), and the trades it
+ * cannot sign are shared out in proportion to that contract's bought:sold split
+ * for the minute (flow_contract_facts in zerogex-oa). So the two sides fall
+ * out exactly:
  *
  *   bought = (volume + position) / 2        sold = volume - bought
  *
- * A bar whose prints were all at the mid has no split to share them by; there
- * the backend nets them to zero, and this splits them evenly, which keeps
- * bought + sold equal to the volume the Call Volume total reports.
+ * A contract-minute with no signed trades at all (every contract's 09:30
+ * opening minute, which ingestion leaves unsigned) has no split to share them
+ * by; there the backend nets them to zero, and this splits them evenly, which
+ * keeps bought + sold equal to the volume the Call Volume total reports.
  *
  * The bullish side is calls bought plus puts sold, the bearish side puts
  * bought plus calls sold: the same signing `net_volume_cum` uses, so bullish

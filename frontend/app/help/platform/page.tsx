@@ -250,7 +250,7 @@ const sections: Section[] = [
         href: '/help/platform/option-contracts',
         title: 'Live Options Quotes',
         blurb:
-          'Look up any single contract by expiration, strike, and call/put: its intraday price, volume traded at the bid, mid, and ask, open interest, IV, delta, and theta.',
+          'Look up any single contract by expiration, strike, and call/put: its intraday price, volume bought and sold each minute, open interest, IV, delta, and theta.',
       },
       {
         href: '/help/platform/backtesting',

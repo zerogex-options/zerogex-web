@@ -147,7 +147,7 @@ export const BASIC_PAGE_PITCHES: Record<string, ProPagePitch> = {
   '/positioning-trap': BASIC_SIGNALS_PITCH,
   '/option-contracts': {
     pitch:
-      'Live Options Quotes follows one option contract through the session: its last trade price and each minute’s volume, split by whether it traded at the ask, the mid or the bid.',
+      'Live Options Quotes follows one option contract through the session: its last trade price and each minute’s volume, split into bought, sold and no side.',
     helpHref: '/help/platform/option-contracts',
   },
   '/options-calculator': {

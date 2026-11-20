@@ -33,7 +33,7 @@ None of the six feeds the Composite Score. The one overlap: the MSI has its own 
 
 ### Tape Flow Bias
 
-Lee-Ready aggressor classification on the options tape. Net of call buy/sell premium and put buy/sell premium. Positive = aggressors are paying for upside. A strong signal here in the absence of an opposing GEX gradient is real-time conviction.
+Aggressor classification on the options tape, by the tick test: each trade is compared with the one before it in the same contract, so a higher price counts as a buy and a lower one as a sell. Net of call buy/sell premium and put buy/sell premium. Positive = aggressors are paying for upside. A strong signal here in the absence of an opposing GEX gradient is real-time conviction.
 
 ### Skew Delta
 

@@ -12,13 +12,15 @@ Two controls in the header apply to the whole page: **Session** (the live sessio
 
 ## Bought and sold
 
-Every option print is classed by the side that crossed the spread, using the Lee-Ready convention:
+Every option trade is classed as bought or sold by the **tick test**: its price is compared with the trade before it in the same contract, not with the bid and ask.
 
-- At or near the **ask**, a buyer paid up: it counts as **bought**.
-- At or near the **bid**, a seller hit it: it counts as **sold**.
-- Prints at the **midpoint** are shared out between the two in proportion to that contract's ask and bid prints in the same minute. Prints with no side to go on at all, like the 09:30 opening auction, count half each way.
+- **Higher** than the trade before it: a buyer paid up, so it counts as **bought**.
+- **Lower** than the trade before it: a seller took a lower price, so it counts as **sold**.
+- **Unchanged**: it takes the side of the last price change, so a run of trades at one price after a rise counts as bought, and after a fall as sold.
 
-So bought plus sold is always every contract that traded. The aggressor read is the closest the feed gets to intent, but it cannot tell an opening trade from a closing one: a put "sold" at the bid can be a new seller or a buyer taking profits.
+Some trades have no side to go on: a trade with no earlier one to compare against, a trade at an unchanged price before any change has set a side, and every trade in the session's first minute, which includes the 09:30 opening auction. Those are shared out between bought and sold in proportion to that contract's bought and sold trades in the same minute, or count half each way when that minute has none, as at the open.
+
+So bought plus sold is always every contract that traded. The aggressor read is the closest the feed gets to intent, but it cannot tell an opening trade from a closing one: a put "sold" at a lower price can be a new seller or a buyer taking profits.
 
 Calls bought and puts sold make up the **bullish side**. Puts bought and calls sold make up the **bearish side**. Color follows that everywhere on the page: green is the bullish side, red the bearish side. That is why a put row's "bought" is red.
 

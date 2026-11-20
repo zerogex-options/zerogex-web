@@ -33,7 +33,7 @@ Nessuno dei sei alimenta il Composite Score. L'unica sovrapposizione: l'MSI ha u
 
 ### Tape Flow Bias
 
-Classificazione dell'aggressore secondo Lee-Ready sul tape delle opzioni. Netto tra premio di acquisto/vendita delle call e premio di acquisto/vendita dei put. Positivo = gli aggressori stanno pagando per il rialzo. Un segnale forte qui, in assenza di un GEX gradient opposto, è convinzione in tempo reale.
+Classificazione dell'aggressore sul tape delle opzioni con il tick test: ogni trade viene confrontato con il precedente sullo stesso contratto, e un prezzo più alto conta come acquisto, uno più basso come vendita. Netto tra premio di acquisto/vendita delle call e premio di acquisto/vendita dei put. Positivo = gli aggressori stanno pagando per il rialzo. Un segnale forte qui, in assenza di un GEX gradient opposto, è convinzione in tempo reale.
 
 ### Skew Delta
 

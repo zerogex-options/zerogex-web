@@ -12,13 +12,15 @@ Due controlli nell'intestazione valgono per tutta la pagina: **Session** (la ses
 
 ## Acquistato e venduto
 
-Ogni print di opzioni viene classificato in base al lato che ha attraversato lo spread, secondo la convenzione di Lee-Ready:
+Ogni trade di opzioni viene classificato come acquistato o venduto con il **tick test**: il suo prezzo viene confrontato con quello del trade precedente sullo stesso contratto, non con il bid e l'ask.
 
-- All'**ask** o vicino, un compratore ha pagato il prezzo: conta come **acquistato**.
-- Al **bid** o vicino, un venditore l'ha colpito: conta come **venduto**.
-- I print al **punto medio** vengono ripartiti tra i due in proporzione ai print all'ask e al bid di quel contratto nello stesso minuto. I print senza alcun indizio di lato, come l'asta di apertura delle 09:30, contano per metà da ciascuna parte.
+- **Più alto** del trade precedente: un compratore ha pagato di più, quindi conta come **acquistato**.
+- **Più basso** del trade precedente: un venditore ha accettato un prezzo più basso, quindi conta come **venduto**.
+- **Invariato**: prende il lato dell'ultima variazione di prezzo, quindi una serie di trade allo stesso prezzo conta come acquistata dopo un rialzo, e come venduta dopo un ribasso.
 
-Acquistato più venduto, quindi, è sempre tutto ciò che è stato scambiato. La lettura dell'aggressore è quanto di più vicino all'intenzione il feed possa offrire, ma non distingue un'apertura da una chiusura: una put "venduta" al bid può essere un nuovo venditore o un compratore che incassa i profitti.
+Alcuni trade non danno alcun indizio di lato: un trade senza un trade precedente con cui confrontarlo, un trade a prezzo invariato prima che una variazione di prezzo abbia fissato un lato, e tutti i trade del primo minuto della sessione, che comprende l'asta di apertura delle 09:30. Questi vengono ripartiti tra acquistato e venduto in proporzione ai trade acquistati e venduti di quel contratto nello stesso minuto, oppure contano per metà da ciascuna parte quando in quel minuto non ce ne sono, come all'apertura.
+
+Acquistato più venduto, quindi, è sempre tutto ciò che è stato scambiato. La lettura dell'aggressore è quanto di più vicino all'intenzione il feed possa offrire, ma non distingue un'apertura da una chiusura: una put "venduta" a un prezzo più basso può essere un nuovo venditore o un compratore che incassa i profitti.
 
 Le call acquistate e le put vendute formano il **lato rialzista**; le put acquistate e le call vendute, il **lato ribassista**. I colori seguono questa regola in tutta la pagina: il verde è il lato rialzista, il rosso quello ribassista. Per questo il "bought" nella riga delle put è rosso.
 

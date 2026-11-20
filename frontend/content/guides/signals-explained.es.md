@@ -45,7 +45,7 @@ Qué pregunta cada señal, hacia qué sesgo se inclina, la ventana que lee, los 
 | GEX Gradient | "¿Está el gamma apilado en un lado?" | Lectura direccional | Snapshot por strike (al refrescar el GEX) | Gamma por encima del spot, gamma por debajo del spot, concentración ATM, fracción en las alas, volatilidad realizada | Puntuación de -100 a +100; orientativa, fuera del MSI |
 | Positioning Trap | "¿Está la multitud mal posicionada?" | Mean-reversion (vs. multitud) | Intradía (5-10 min) | PCR, desequilibrio con signo de smart-money, momentum de 5 barras, inclinación al flip, régimen de net GEX | Puntuación de -100 a +100; orientativa, fuera del MSI |
 | Skew Delta | "¿Cuánto miedo está apostado en las puts?" | Lectura direccional | Intradía (al refrescar las cotizaciones) | IV de puts OTM, IV de calls OTM, spread vs. baseline | Puntuación de -100 a +100; orientativa, fuera del MSI |
-| Tape Flow Bias | "¿Hacia dónde se inclina el tape?" | Continuation | Ventana rodante corta (Lee-Ready) | Premium de compra/venta en calls, premium de compra/venta en puts, flow total de premium | Puntuación de -100 a +100; orientativa, fuera del MSI |
+| Tape Flow Bias | "¿Hacia dónde se inclina el tape?" | Continuation | Ventana rodante corta (tick test) | Premium de compra/venta en calls, premium de compra/venta en puts, flow total de premium | Puntuación de -100 a +100; orientativa, fuera del MSI |
 | Vanna/Charm Flow | "¿Forzarán la vol o el tiempo a los dealers a recubrirse?" | Continuation | Intradía (charm aumenta en las últimas 2 horas) | Vanna agregada del dealer, charm agregado del dealer, multiplicador de charm según el horario de sesión | Puntuación de -100 a +100; orientativa, fuera del MSI |
 
 ---

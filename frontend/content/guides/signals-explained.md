@@ -45,7 +45,7 @@ What each signal asks, the bias it leans toward, the window it reads, the headli
 | GEX Gradient | "Is gamma stacked on one side?" | Directional read | Per-strike snapshot (on GEX refresh) | Above-spot gamma, below-spot gamma, ATM concentration, wing fraction, realized vol | Score -100 to +100; advisory, not in the MSI |
 | Positioning Trap | "Is the crowd offside?" | Mean-reversion (vs. crowd) | Intraday (5-10 min) | PCR, signed smart-money imbalance, 5-bar momentum, flip lean, net GEX regime | Score -100 to +100; advisory, not in the MSI |
 | Skew Delta | "How much is fear bid into puts?" | Directional read | Intraday (on quote refresh) | OTM put IV, OTM call IV, spread vs. baseline | Score -100 to +100; advisory, not in the MSI |
-| Tape Flow Bias | "Which way is the tape leaning?" | Continuation | Short rolling window (Lee-Ready) | Call buy/sell premium, put buy/sell premium, total premium flow | Score -100 to +100; advisory, not in the MSI |
+| Tape Flow Bias | "Which way is the tape leaning?" | Continuation | Short rolling window (tick test) | Call buy/sell premium, put buy/sell premium, total premium flow | Score -100 to +100; advisory, not in the MSI |
 | Vanna/Charm Flow | "Will vol or time force dealers to re-hedge?" | Continuation | Intraday (charm ramps last 2 hrs) | Aggregated dealer vanna, aggregated dealer charm, session-time charm multiplier | Score -100 to +100; advisory, not in the MSI |
 
 ---

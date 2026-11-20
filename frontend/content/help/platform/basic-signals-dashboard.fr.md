@@ -33,7 +33,7 @@ Aucun des six n'alimente le Composite Score. Seul recoupement : le MSI possède 
 
 ### Tape Flow Bias
 
-Classification de l'agresseur selon Lee-Ready sur le tape des options. Net entre prime d'achat/vente de calls et prime d'achat/vente de puts. Positif = les agresseurs paient pour la hausse. Un signal fort ici, en l'absence d'un GEX gradient opposé, traduit une conviction en temps réel.
+Classification de l'agresseur sur le tape des options par le tick test : chaque trade est comparé au précédent sur le même contrat, un prix plus haut compte comme un achat et un prix plus bas comme une vente. Net entre prime d'achat/vente de calls et prime d'achat/vente de puts. Positif = les agresseurs paient pour la hausse. Un signal fort ici, en l'absence d'un GEX gradient opposé, traduit une conviction en temps réel.
 
 ### Skew Delta
 

@@ -319,9 +319,9 @@ function ContractLegend({
 }) {
   const items = [
     { label: "Last", value: latest?.last != null ? `$${Number(latest.last).toFixed(2)}` : "--", color: "var(--color-warning)" },
-    { label: "Ask Vol", value: null, color: "var(--color-positive)" },
-    { label: "Mid Vol", value: null, color: "var(--color-brand-accent)" },
-    { label: "Bid Vol", value: null, color: "var(--color-negative)" },
+    { label: "Bought", value: null, color: "var(--color-positive)" },
+    { label: "No side", value: null, color: "var(--color-brand-accent)" },
+    { label: "Sold", value: null, color: "var(--color-negative)" },
   ];
 
   return (
@@ -390,17 +390,17 @@ function ContractTooltipContent({ active, payload, label, binMinutes = 1 }: Tool
       {last != null && <div style={{ fontWeight: 600 }}>${last.toFixed(2)}</div>}
       {bidVol != null && bidVol > 0 && (
         <div style={{ color: "var(--color-chart-tooltip-muted)" }}>
-          {bidVol.toLocaleString()}x @ Bid
+          {bidVol.toLocaleString()}x sold
         </div>
       )}
       {midVol != null && midVol > 0 && (
         <div style={{ color: "var(--color-chart-tooltip-muted)" }}>
-          {midVol.toLocaleString()}x @ Mid
+          {midVol.toLocaleString()}x no side
         </div>
       )}
       {askVol != null && askVol > 0 && (
         <div style={{ color: "var(--color-chart-tooltip-muted)" }}>
-          {askVol.toLocaleString()}x @ Ask
+          {askVol.toLocaleString()}x bought
         </div>
       )}
     </div>
@@ -591,9 +591,9 @@ function ContractChart({
               )}
             />
 
-            <Bar yAxisId="volume" dataKey="askVol" name="Ask Vol" stackId="vol" fill="var(--color-positive)" isAnimationActive={false} />
-            <Bar yAxisId="volume" dataKey="midVol" name="Mid Vol" stackId="vol" fill="var(--color-brand-accent)" isAnimationActive={false} />
-            <Bar yAxisId="volume" dataKey="bidVol" name="Bid Vol" stackId="vol" fill="var(--color-negative)" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="askVol" name="Bought" stackId="vol" fill="var(--color-positive)" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="midVol" name="No side" stackId="vol" fill="var(--color-brand-accent)" isAnimationActive={false} />
+            <Bar yAxisId="volume" dataKey="bidVol" name="Sold" stackId="vol" fill="var(--color-negative)" isAnimationActive={false} />
 
             <Line yAxisId="price" type="monotone" dataKey="last" name="Last" stroke="var(--color-warning)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
           </ComposedChart>

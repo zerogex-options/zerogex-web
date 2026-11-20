@@ -45,7 +45,7 @@ Was jedes Signal fragt, welchen Bias es bevorzugt, welches Fenster es liest, wel
 | GEX Gradient | "Ist das Gamma auf einer Seite gestapelt?" | Direktionale Lesart | Snapshot pro Strike (bei GEX-Refresh) | Gamma über Spot, Gamma unter Spot, ATM-Konzentration, Wing-Anteil, realisierte Vol | Score von -100 bis +100; beratend, nicht im MSI |
 | Positioning Trap | "Liegt die Crowd falsch positioniert?" | Mean-Reversion (vs. Crowd) | Intraday (5-10 Min) | PCR, vorzeichenbehaftetes Smart-Money-Ungleichgewicht, 5-Bar-Momentum, Flip-Neigung, Net-GEX-Regime | Score von -100 bis +100; beratend, nicht im MSI |
 | Skew Delta | "Wie stark ist Angst in Puts eingepreist?" | Direktionale Lesart | Intraday (bei Quote-Refresh) | OTM-Put-IV, OTM-Call-IV, Spread vs. Baseline | Score von -100 bis +100; beratend, nicht im MSI |
-| Tape Flow Bias | "In welche Richtung neigt sich das Tape?" | Continuation | Kurzes rollierendes Fenster (Lee-Ready) | Call-Kauf-/Verkaufspremium, Put-Kauf-/Verkaufspremium, gesamter Premium-Flow | Score von -100 bis +100; beratend, nicht im MSI |
+| Tape Flow Bias | "In welche Richtung neigt sich das Tape?" | Continuation | Kurzes rollierendes Fenster (Tick-Test) | Call-Kauf-/Verkaufspremium, Put-Kauf-/Verkaufspremium, gesamter Premium-Flow | Score von -100 bis +100; beratend, nicht im MSI |
 | Vanna/Charm Flow | "Werden Vol oder Zeit Dealer zum Re-Hedging zwingen?" | Continuation | Intraday (Charm steigt in den letzten 2 Std.) | Aggregierte Dealer-Vanna, aggregierter Dealer-Charm, sessionzeitabhängiger Charm-Multiplikator | Score von -100 bis +100; beratend, nicht im MSI |
 
 ---

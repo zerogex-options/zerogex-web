@@ -16,11 +16,12 @@ Die Seite kombiniert diese Schätzung mit einer Lesart, wie sich das Dealer-Gamm
 
 ## Was die Zahl ist
 
-ZeroGEX klassifiziert Optionsvolumen, indem es den Preis, zu dem gehandelt wurde, mit der Kursstellung um diesen Zeitpunkt vergleicht:
+ZeroGEX klassifiziert Optionsvolumen mit dem Tick-Test, der den Preis jedes Trades mit dem vorherigen Trade desselben Kontrakts vergleicht:
 
-- Volumen, das nahe am Ask gedruckt wird, zählt als **käuferinitiiert**;
-- Volumen, das nahe am Bid gedruckt wird, zählt als **verkäuferinitiiert**;
-- Volumen in der Mitte des Spreads, Volumen in der ersten Minute der Session und Volumen ohne verwertbare Kursstellung bleiben **unklassifiziert**.
+- Volumen, das über dem vorherigen Trade gedruckt wird, zählt als **käuferinitiiert**;
+- Volumen, das darunter gedruckt wird, zählt als **verkäuferinitiiert**;
+- Volumen zu einem unveränderten Preis übernimmt die Seite der letzten Preisänderung;
+- Volumen ohne früheren Preis oder frühere Preisänderung als Anhaltspunkt und Volumen in der ersten Minute der Session bleiben **unklassifiziert**.
 
 Innerhalb jedes Kontrakts und jeder Minute wird unklassifiziertes Volumen im selben Kauf-/Verkaufsverhältnis aufgeteilt wie das klassifizierte Volumen dieser Minute. Eine Kontrakt-Minute ohne klassifiziertes Volumen trägt nichts bei.
 

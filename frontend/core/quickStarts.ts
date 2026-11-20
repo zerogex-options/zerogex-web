@@ -226,7 +226,7 @@ export const QUICK_START_TRACKS: readonly Track[] = [
       {
         id: 'live-chain',
         title: 'Reading a live options quote',
-        blurb: 'Picking a contract by expiration, strike, and type, then reading its intraday price, bid/ask volume, open interest, IV, delta, and theta.',
+        blurb: 'Picking a contract by expiration, strike, and type, then reading its intraday price, bought and sold volume, open interest, IV, delta, and theta.',
         duration: '2:15',
         level: 'New trader',
         tag: 'Live Options Quotes',

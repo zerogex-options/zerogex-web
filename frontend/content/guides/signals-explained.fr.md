@@ -45,7 +45,7 @@ Ce que demande chaque signal, le biais vers lequel il penche, la fenêtre qu'il 
 | GEX Gradient | "Le gamma est-il empilé d'un côté ?" | Lecture directionnelle | Snapshot par strike (au rafraîchissement du GEX) | Gamma au-dessus du spot, gamma en dessous du spot, concentration ATM, fraction sur les ailes, vol réalisée | Score de -100 à +100 ; consultatif, hors du MSI |
 | Positioning Trap | "La foule est-elle mal positionnée ?" | Mean-reversion (vs. foule) | Intraday (5-10 min) | PCR, déséquilibre signé de smart-money, momentum 5 barres, inclinaison au flip, régime de net GEX | Score de -100 à +100 ; consultatif, hors du MSI |
 | Skew Delta | "À quel point la peur est-elle pariée sur les puts ?" | Lecture directionnelle | Intraday (au rafraîchissement des cotations) | IV des puts OTM, IV des calls OTM, spread vs. baseline | Score de -100 à +100 ; consultatif, hors du MSI |
-| Tape Flow Bias | "De quel côté penche le tape ?" | Continuation | Courte fenêtre glissante (Lee-Ready) | Premium d'achat/vente sur les calls, premium d'achat/vente sur les puts, flow total de premium | Score de -100 à +100 ; consultatif, hors du MSI |
+| Tape Flow Bias | "De quel côté penche le tape ?" | Continuation | Courte fenêtre glissante (tick test) | Premium d'achat/vente sur les calls, premium d'achat/vente sur les puts, flow total de premium | Score de -100 à +100 ; consultatif, hors du MSI |
 | Vanna/Charm Flow | "La vol ou le temps vont-ils forcer les dealers à se re-couvrir ?" | Continuation | Intraday (le charm monte dans les 2 dernières heures) | Vanna agrégée du dealer, charm agrégé du dealer, multiplicateur de charm selon l'heure de session | Score de -100 à +100 ; consultatif, hors du MSI |
 
 ---
