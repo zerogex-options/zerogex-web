@@ -38,9 +38,10 @@ the Fri Nov 20 fix:
 - **Fixed Fri Nov 20 at about 7:30 AM ET.** The fix (`c880580`, on
   `claude/fix-reinstate-test-typecheck`) went into `release` at 7:26 AM ET,
   then `make rebuild`.
-- **The deploy itself is being fixed separately**, so a failed build leaves
-  the running site up. The drafts say so. Don't send that line if that change
-  doesn't ship.
+- **The deploy is fixed on `claude/deploy-keep-site-up`.** A failed build
+  now leaves the running site up, and a new build that doesn't start is
+  swapped back for the previous one by itself. Both drafts promise this, so
+  merge that branch on the host before your next deploy.
 
 ## The read
 
