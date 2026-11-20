@@ -142,4 +142,5 @@ Best,
   it's fixed, the tell is "Paying member" with Tier `public` and Access ends
   `—`. Small fix in `frontend/core/cancellationAlert.ts`,
   `frontend/scripts/send-cancellation-alerts.mts` and the badge in
-  `frontend/core/mailer.ts`. Queued as a separate task.
+  `frontend/core/mailer.ts`. Not done yet; it can be its own branch whenever
+  you want it.
