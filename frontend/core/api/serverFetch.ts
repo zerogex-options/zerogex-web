@@ -18,6 +18,21 @@ const UPSTREAM_BASE = (
   process.env.ZEROGEX_API_BASE_URL || 'http://127.0.0.1:8000'
 ).replace(/\/+$/, '');
 
+// How long a page waits for the backend before it renders without the answer.
+// Without a limit, a backend that takes the connection and then never answers
+// holds the page open: Node's fetch waits about five minutes for headers, and
+// nginx gives up on the page at 60 s with a 504. Tested Nov 20, 2026 against a
+// stand-in backend like that: the homepage hadn't answered after 15 s. With
+// this limit it answered in 10 s, with the track record left out.
+//
+// Ten seconds leaves room for a slow answer and keeps a page that makes a few
+// calls in a row inside nginx's limit (tests/serverFetchTimeout.test.ts checks
+// it stays under). A timeout is "unavailable" like any other failure, so pages
+// show the empty state they already show when the backend is down. Next drops
+// the signal when it refreshes a stale cached answer in the background, so a
+// visitor served from the cache never waits on this.
+const UPSTREAM_TIMEOUT_MS = 10_000;
+
 // One structured line per failure, routed to the Next.js server log (PM2
 // journal) — never the browser. The free ISR pages render a deliberately clean
 // empty state ("Data is briefly unavailable") on any failure, which is right
@@ -38,9 +53,9 @@ function logServerApiFailure(path: string, reason: string): void {
  * ``missing`` is the API answering successfully that the thing does not
  * exist: a 404 or a 410. There is nothing to show and there never will be.
  *
- * ``unavailable`` is everything else — no token, the backend unreachable, a
- * 500, a 503, a 401 from a rotated key. Nothing was learned about whether the
- * data exists.
+ * ``unavailable`` is everything else — no token, the backend unreachable or
+ * not answering within UPSTREAM_TIMEOUT_MS, a 500, a 503, a 401 from a rotated
+ * key. Nothing was learned about whether the data exists.
  *
  * Collapsing the two is only safe for a page that renders an empty state
  * either way. It is NOT safe for a page that calls ``notFound()``, because a
@@ -72,6 +87,8 @@ export async function serverApiGetResult<T>(
     const res = await fetch(`${UPSTREAM_BASE}${path}`, {
       headers: { Authorization: `Bearer ${token}` },
       next: { revalidate: revalidateSeconds },
+      // Covers reading the body too, not just waiting for the headers.
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
     if (!res.ok) {
       // Non-2xx: the FastAPI error body carries the detail that pins the cause
@@ -99,12 +116,20 @@ export async function serverApiGetResult<T>(
     }
     return { ok: true, data: (await res.json()) as T };
   } catch (err) {
-    // Network-level failure reaching UPSTREAM_BASE (backend down, connection
-    // refused, DNS, TLS) — the request never got a reply, distinct from a
-    // non-2xx above. Log the message, not the whole error object, to keep the
-    // line scannable.
-    const message = err instanceof Error ? err.message : String(err);
-    logServerApiFailure(path, `fetch failed reaching ${UPSTREAM_BASE} — ${message}`);
+    // No reply at all, distinct from a non-2xx above: either the backend took
+    // the connection and didn't answer within UPSTREAM_TIMEOUT_MS, or a
+    // network-level failure reaching UPSTREAM_BASE (backend down, connection
+    // refused, DNS, TLS). Log the message, not the whole error object, to keep
+    // the line scannable.
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      logServerApiFailure(
+        path,
+        `no answer from ${UPSTREAM_BASE} within ${UPSTREAM_TIMEOUT_MS / 1000} s`,
+      );
+    } else {
+      const message = err instanceof Error ? err.message : String(err);
+      logServerApiFailure(path, `fetch failed reaching ${UPSTREAM_BASE} — ${message}`);
+    }
     return { ok: false, reason: 'unavailable' };
   }
 }
@@ -113,8 +138,9 @@ export async function serverApiGetResult<T>(
  * Fetch a GET endpoint on the FastAPI backend with the server-only bearer
  * key attached. ``revalidateSeconds`` plugs into the Next.js fetch cache so
  * an ISR page rebuilds at that cadence. Returns ``null`` on any failure
- * (missing token, network error, non-2xx) so the caller can render a clean
- * empty state instead of crashing the page render.
+ * (missing token, network error, no answer within UPSTREAM_TIMEOUT_MS,
+ * non-2xx) so the caller can render a clean empty state instead of crashing
+ * or stalling the page render.
  *
  * Every ``null`` is logged with its discriminating reason (see
  * ``logServerApiFailure``) so the otherwise-invisible empty state can be
