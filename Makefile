@@ -169,7 +169,7 @@ build: ninjatrader-package integration-assets
 # has finished. A failed build leaves the site exactly as it was. Before this,
 # the build went straight into .next, and on Nov 19, 2026 a build that stopped
 # at "Failed to type check" left the site returning 502 until the next morning.
-# After the restart it waits for the homepage to answer, and if the new build
+# After the restart it waits for /terms to answer, and if the new build
 # doesn't, puts the previous one back (see make rollback).
 rebuild: ninjatrader-package integration-assets
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && bash deploy/build-and-swap.sh'

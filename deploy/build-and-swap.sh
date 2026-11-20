@@ -40,17 +40,19 @@ SWAP="$FRONTEND/.next-swap"
 
 APP_NAME="${WEB_PM2_NAME:-zerogex-web}"
 WEB_PORT="${WEB_PORT:-3000}"
-HEALTH_URL="http://127.0.0.1:${WEB_PORT}/"
+HEALTH_URL="http://127.0.0.1:${WEB_PORT}/terms"
 HEALTH_WAIT_SECONDS="${HEALTH_WAIT_SECONDS:-60}"
 
 log() { echo "[build-and-swap] $*"; }
 
 build_id() { cat "$1/BUILD_ID" 2>/dev/null || echo "none"; }
 
-# True once the homepage answers with anything but a server error. Not
-# /api/health: that one asks the data backend, and a backend outage is no
-# reason to throw away a good build. Next is ready in a second or two, but the
-# box has just finished a build, so allow it a minute.
+# True once /terms answers with anything but a server error. It is rendered on
+# every request, so it runs the same layout, session and proxy code as every
+# other page, and it never calls the data backend. The homepage and
+# /api/health both do, and a hung backend kept the homepage from answering at
+# all in testing: no reason to throw away a good build. Next is ready in a
+# second or two, but the box has just finished a build, so allow it a minute.
 site_answers() {
   local deadline=$((SECONDS + HEALTH_WAIT_SECONDS)) code=""
   while [ "$SECONDS" -lt "$deadline" ]; do
