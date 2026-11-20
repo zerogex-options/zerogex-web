@@ -163,8 +163,8 @@ One thing to clear up: because you paused before you canceled, your access switc
   locked out while its page says "Your access continues"), your alert, and
   the `honor-winback-discount`, `set-cancellation` and `save-url` tools. The
   fix needs one decision from you: what Cancel should do to a paused plan.
-  Suggested as a separate task, with Jozef's refunded "STILL HAS ACCESS" alert
-  folded in. Until then, on any alert that says "Paying member canceled" with
+  Not done here. It can be its own branch, with Jozef's refunded "STILL HAS
+  ACCESS" alert folded in. Until then, on any alert that says "Paying member canceled" with
   `Tier at churn: public`, check `make diagnose-user`: a
   `billing_subscription_paused` event means this case, and
   `make resume-subscription` puts it right.
