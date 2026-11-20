@@ -9,8 +9,10 @@ import {
   billsDuringPause,
   pauseRevokesApiKeys,
   previewResume,
+  endPauseParam,
+  scheduleCancelParams,
 } from '../core/subscriptionPause.ts';
-import { auditCount, createBusyDb, httpCalls } from './support/busyDb.ts';
+import { auditCount, column, createBusyDb, httpCalls, sqlite3Missing } from './support/busyDb.ts';
 
 // core/stripe.ts builds its price table at module load, so the env goes first.
 // Every cadence is mapped for one tier, so priceIdToSku resolves the real thing,
@@ -473,4 +475,145 @@ test('resume-subscription --yes: clears only the pause, keeps the cancel, and re
   assert.match(result.stdout, /^Done\. resume-apply@example\.com is no longer paused\.$/m);
   assert.match(result.stdout, /^ {2}The site has it: tier basic\.$/m);
   assert.match(result.stdout, /^No email was sent\. Tell the member\.$/m);
+});
+
+// --- A cancel or a save ends a pause ------------------------------------------
+// A plan paused AND canceling contradicted everything the member was told: the
+// cancel email said "you keep full access until ..." with access already off,
+// and the 25% link or "Keep my plan" put them back on the pause and its charge
+// (docs/outreach/2026-11-20-mat-paused-then-canceled.md). Now a cancel ends the
+// pause in the same update, so it is a plain cancel, and a save ends it too.
+
+test('endPauseParam: clears pause_collection on a paused plan, and adds nothing otherwise', () => {
+  assert.deepEqual(endPauseParam({ behavior: 'void', resumes_at: utc(2027, 2, 20, 20, 21) }), { pause_collection: '' });
+  assert.deepEqual(endPauseParam(null), {});
+  assert.deepEqual(endPauseParam(undefined), {});
+  assert.deepEqual(endPauseParam({ behavior: null }), {});
+});
+
+test('scheduleCancelParams: canceling a paused plan ends the pause in the same update', () => {
+  assert.deepEqual(
+    scheduleCancelParams({
+      pauseCollection: { behavior: 'void', resumes_at: utc(2027, 2, 20, 20, 21) },
+      feedback: 'too_expensive',
+      comment: 'need a bit more time',
+    }),
+    {
+      cancel_at_period_end: true,
+      pause_collection: '',
+      cancellation_details: { feedback: 'too_expensive', comment: 'need a bit more time' },
+    },
+  );
+});
+
+test('scheduleCancelParams: an unpaused plan gets a plain cancel, with only the reason it was given', () => {
+  assert.deepEqual(scheduleCancelParams({ pauseCollection: null }), { cancel_at_period_end: true });
+  assert.deepEqual(scheduleCancelParams({ pauseCollection: null, feedback: null, comment: 'just a comment' }), {
+    cancel_at_period_end: true,
+    cancellation_details: { comment: 'just a comment' },
+  });
+});
+
+// The operator side, run for real against the stubs. set-cancellation and
+// honor-winback-discount write through the sqlite3 CLI.
+function runOnPaused(
+  t: TestContext,
+  script: string,
+  name: string,
+  sub: ReturnType<typeof pausedSubscription>,
+  args: string[],
+) {
+  const f = busy.fixture(t, `${script.replace(/\.mts$/, '')}-${name}`);
+  const email = `${name}@example.com`;
+  const resumesAt = sub.pause_collection?.resumes_at;
+  const userId = busy.member(f, email, {
+    tier: sub.pause_collection ? 'public' : 'basic',
+    subscription_status: sub.status,
+    stripe_subscription_id: sub.id,
+    cancel_at_period_end: sub.cancel_at_period_end ? 1 : 0,
+    paused_until: resumesAt ? new Date(resumesAt * 1000).toISOString() : null,
+  });
+  const result = busy.run(f, script, ['--email', email, ...args], {
+    env: {
+      STRIPE_SECRET_KEY: 'sk_test_cancel_ends_pause',
+      STRIPE_PRICE_BASIC_MONTHLY: 'price_basic_monthly',
+      STRIPE_PRICE_PRO_MONTHLY: 'price_pro_monthly',
+    },
+    routes: {
+      [`GET api.stripe.com/v1/subscriptions/${sub.id}`]: sub,
+      [`POST api.stripe.com/v1/subscriptions/${sub.id}`]: { ...sub, cancel_at_period_end: true, pause_collection: null },
+    },
+  });
+  const calls = httpCalls(f);
+  return { f, email, userId, result, calls, paths: calls.map((c) => `${c.method} ${new URL(c.url).pathname}`) };
+}
+
+test('set-cancellation ON=1 on a paused plan ends the pause with the cancel, as the Account page does', { skip: sqlite3Missing }, (t) => {
+  const sub = pausedSubscription('sub_on_paused', 'price_basic_monthly', {
+    cancelAtPeriodEnd: false,
+    billStatus: 'paid',
+    billCents: 3900,
+  });
+  const { f, userId, result, calls, paths } = runOnPaused(t, 'set-cancellation.mts', 'on-paused', sub, ['--on', '--yes']);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /^Paused:\s+yes, until /m);
+  assert.match(result.stdout, /The pause ENDS now, so access comes back\. The subscription stays active until .+, then CANCELS/);
+  assert.deepEqual(paths, ['GET /v1/subscriptions/sub_on_paused', 'POST /v1/subscriptions/sub_on_paused']);
+  const sent = new URLSearchParams(calls[1].body ?? '');
+  assert.equal(sent.get('cancel_at_period_end'), 'true');
+  assert.equal(sent.get('pause_collection'), '', 'the pause is cleared in the same update');
+  assert.equal(column(f, userId, 'cancel_at_period_end'), 1);
+  const { message } = f.db
+    .prepare(`SELECT message FROM audit_events WHERE type = 'billing_cancellation_set' AND user_id = ?`)
+    .get(userId) as { message: string };
+  assert.match(message, /; ended its pause \(was paused until .+\)$/);
+});
+
+test('set-cancellation ON=1 on a plan that is not paused sends a plain cancel', { skip: sqlite3Missing }, (t) => {
+  const sub = pausedSubscription('sub_on_live', 'price_basic_monthly', {
+    cancelAtPeriodEnd: false,
+    billStatus: 'paid',
+    billCents: 3900,
+    paused: false,
+  });
+  const { result, calls } = runOnPaused(t, 'set-cancellation.mts', 'on-live', sub, ['--on', '--yes']);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, /^Paused:\s+no$/m);
+  assert.doesNotMatch(result.stdout, /pause ENDS/);
+  const sent = new URLSearchParams(calls[1].body ?? '');
+  assert.equal(sent.get('cancel_at_period_end'), 'true');
+  assert.equal(sent.has('pause_collection'), false);
+});
+
+test('set-cancellation on a plan left paused and canceling says so, either way', { skip: sqlite3Missing }, (t) => {
+  const sub = pausedSubscription('sub_half_paused', 'price_basic_monthly', {
+    cancelAtPeriodEnd: true,
+    billStatus: 'paid',
+    billCents: 0,
+  });
+  // OFF: taking the cancel off leaves the pause, so it does not "RENEW as normal".
+  const off = runOnPaused(t, 'set-cancellation.mts', 'half-paused-off', sub, ['--off', '--dry-run']);
+  assert.equal(off.result.status, 0, off.result.stderr + off.result.stdout);
+  assert.match(off.result.stdout, /^Effect: It stays PAUSED until .+: no access and no charge until then/m);
+  assert.doesNotMatch(off.result.stdout, /RENEW/);
+  // ON: already canceling, so nothing to set, but the missing access is named.
+  const on = runOnPaused(t, 'set-cancellation.mts', 'half-paused-on', sub, ['--on', '--dry-run']);
+  assert.equal(on.result.status, 0, on.result.stderr + on.result.stdout);
+  assert.match(on.result.stdout, /^Already scheduled to cancel\. Nothing to do\.$/m);
+  assert.match(on.result.stdout, /make resume-subscription EMAIL=half-paused-on@example\.com$/m);
+  assert.deepEqual(on.paths, ['GET /v1/subscriptions/sub_half_paused']);
+});
+
+test('honor-winback-discount refuses a paused plan and points at the resume', { skip: sqlite3Missing }, (t) => {
+  const sub = pausedSubscription('sub_winback_paused', 'price_basic_monthly', {
+    cancelAtPeriodEnd: true,
+    billStatus: 'paid',
+    billCents: 0,
+  });
+  const { result, paths } = runOnPaused(t, 'honor-winback-discount.mts', 'winback-paused', sub, ['--dry-run']);
+  assert.equal(result.status, 1, result.stderr + result.stdout);
+  assert.match(result.stderr, /sub_winback_paused is PAUSED until /);
+  assert.match(result.stderr, /make resume-subscription EMAIL=winback-paused@example\.com$/m);
+  assert.doesNotMatch(result.stdout, /RENEW/);
+  assert.deepEqual(paths, ['GET /v1/subscriptions/sub_winback_paused'], 'nothing is written');
 });

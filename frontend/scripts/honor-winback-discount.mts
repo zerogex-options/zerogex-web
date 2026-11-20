@@ -91,6 +91,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import Stripe from 'stripe';
 import { previewNextInvoice } from '../core/stripeInvoicePreview.ts';
 import { attachedCouponIds, discountsParam, readAttachedDiscounts } from '../core/subscriptionDiscounts.ts';
+import { derivePauseState } from '../core/subscriptionPause.ts';
 
 const AUDIT_TYPE = 'billing_winback_discount_honored';
 
@@ -543,6 +544,31 @@ if (subscription.status !== 'trialing' && subscription.status !== 'active') {
     `Error: Stripe reports subscription ${subscription.id} as '${subscription.status}', not trialing/active. ` +
       'A lapsed/canceled member must re-subscribe (win-back checkout link) instead. Aborting.',
   );
+  process.exit(1);
+}
+
+// A paused plan has no access and every bill until the pause ends is voided, so
+// nothing here would "RENEW at period end" as the plan below says: the coupon's
+// months would run out during the pause, and taking off a cancel would put the
+// member back on the pause and the charge after it
+// (docs/outreach/2026-11-20-mat-paused-then-canceled.md). End the pause first.
+const pause = derivePauseState(
+  subscription.pause_collection
+    ? {
+        behavior: subscription.pause_collection.behavior ?? null,
+        resumesAt: subscription.pause_collection.resumes_at ?? null,
+      }
+    : null,
+);
+if (pause.paused) {
+  console.error(
+    `Error: ${subscription.id} is PAUSED until ${pause.resumesAtIso ?? 'no resume date'}: no access, and every bill ` +
+      'until then is voided.',
+  );
+  console.error(
+    '       A discount now would run out during the pause, and taking off a cancel would leave them on it.',
+  );
+  console.error(`       End the pause first, then re-run: make resume-subscription EMAIL=${user.email}`);
   process.exit(1);
 }
 
