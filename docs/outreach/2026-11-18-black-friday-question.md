@@ -36,6 +36,10 @@ No name given, so the draft opens "Hi there".
 > so he most likely looked and saw $299. He's first-time
 > (`hasHeldSubscriptionBefore` no), so the sale applies whenever he buys. Next:
 > a short heads-up that it's live now (draft below).
+>
+> **Fri Nov 20:** he bought a subscription, and answered your next email with
+> product feedback (Follow-up 3, at the end). He's the sale's first real buyer,
+> so check that his subscription carries the Black Friday coupon before replying.
 
 ### Heads-up (Thu Nov 19)
 
@@ -232,6 +236,98 @@ No rush on the timing: the sale price is there through Tuesday, December 1, so a
 And please do send the questions as they come up. They're how I find out what to build next, and I'm happy to help you get the most out of it for your spreads.
 
 Enjoy both, and don't let GTA 6 eat into your trading time!
+
+Best,
+Michael
+Founder, ZeroGEX
+
+## Follow-up 3: Jed's feedback after buying (Fri Nov 20, 1:25 PM)
+
+Same thread, answering your email after his purchase:
+
+> Michael, Love the tools you created. I want to start with that. Its fantastic
+> and i see a lot of work went into it.
+>
+> Now I want to give some feedback as you have asked for it which is good as
+> many can not take constructive criticism anymore.
+>
+> The issues I will touch on or easy resolutions.
+>
+> 1. As much information you have provided and its very detailed its also an
+>    issue. Its lmost too long. The reason I say too long is in the articles we
+>    have no pictures of the charts pointing to what you are discussing. So when
+>    someone is trying to learn and having to switch tabs in a browser it will
+>    cause some people to lose focus. I find myself very focused and it even
+>    distracts me. Solution is to simplify the articles if possible and put some
+>    pictures of what is being discussed. In the diagram show where to click on
+>    the sidebar then show the information you are discussing in the picture.
+> 2. The other issue is maybe show some trades on how to use the information
+>    with pictures. Show a debit and credit vertical, show a butterfly, show an
+>    iron condor to get people to understand. Show when its possible to
+>    speculate late in day with a far OTM call our put for a squeeze.
+> 3. All of this can be resolved with videos, make short 5 to 10 minute videos
+>    discussing theory and basics then the tools itself with trades. Its a lot
+>    and like I stated with time it will be so very helpful. Thats what makes
+>    unusual whales and some of these others successful is there education.
+>    They keep it somewhat short and have videos. Some vids are long others
+>    short and to the point. Many people are visual learners.
+> 4. And last one is a community. A community is important. People tend to
+>    teach one another. We discussed this already.
+>
+> And thats it!!! Thats my feedback. You have a solid foundation with your tools
+> and I would say the best in business. And for the price its a no brainer.
+> Again great job and so happy i found you.
+>
+> Jed
+
+### Check first: did checkout apply the sale?
+
+His purchase is the first live test of the sale at checkout.
+
+```bash
+make diagnose-user EMAIL=the_real_scientist_1@proton.me
+```
+
+The `Discounts` line should read `ZGX_BLACK_FRIDAY_2026_50_OFF_12M — 50% off for
+12 months`. For Pro annual, `MONEY EVER COLLECTED` should come to $149.50 (that
+total comes from Stripe's invoice history, which syncs on a timer, so it can
+lag; the discount line is the one that settles it). If `Discounts` says `none`,
+he paid $299: refund the $149.50 difference in Stripe before replying (his plan
+stays as it is), and flag it, because checkout should have applied the sale.
+
+### The read
+
+- **He's right, and the numbers back him.** 35 of the 42 English articles have
+  no pictures, they average about 1,900 words (8 to 9 minutes of reading), and
+  none walks through a vertical, a butterfly or an iron condor. The seven with
+  pictures (gamma exposure, gamma walls, reading the gamma flip, max pain, vanna
+  and charm, hedging flow, 0DTE dealer positioning) already use the format he's
+  asking for: a screenshot of the tool next to the text about it.
+- **Short videos are already planned.** `core/quickStarts.ts` lists 25
+  walkthroughs of 1:30 to 3:20, from "ZeroGEX in 90 seconds" to "Strategy
+  Builder walkthrough" and "Running your first backtest". None is recorded, so
+  the Quick Start page stays hidden. The draft says they're planned, with no
+  date.
+- **What the draft commits you to:** pictures in the articles and worked trade
+  examples for the trades he named, with no dates. Videos are "planned" and the
+  community is "on my list", the same answer as last time. Cut any of it you
+  don't want to promise.
+
+### Draft reply
+
+Same thread.
+
+Hi Jed,
+
+Thank you for taking the time to write all this out. Feedback this specific is rare, and it's exactly what I need.
+
+You're right about the articles. They run long, and most of them explain a chart without ever showing it, so you end up reading in one tab and hunting for the tool in another. I'm going to add pictures: the tool being discussed, where to find it in the sidebar, and what to look at. I'll trim them where I can, too.
+
+The trade examples are a great idea, and today there aren't any. I'm going to put together worked examples from real days, with pictures: credit and debit verticals set against the walls and the gamma flip, a butterfly at the pin, an iron condor between the walls, and the late-day squeeze setups you mentioned for far out-of-the-money calls and puts.
+
+Short videos are already planned, from a 90-second tour of the platform to planning a trade from the open, and your note moves them up. And I agree on community: people teach each other a lot, and it's still on my list.
+
+Thanks again for the kind words. I'm really glad you found us too. If anything else gets in your way as you dig in, just tell me.
 
 Best,
 Michael
