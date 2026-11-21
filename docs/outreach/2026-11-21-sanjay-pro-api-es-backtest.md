@@ -3,10 +3,11 @@
 American English, and each paragraph in the draft is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
 
-> **Status:** both drafts unsent. Done 2026-11-21: trial extended to
-> 2026-11-29, Pro granted by hand. Code fix on
-> `claude/no-card-trial-card-add-lockout`; once deployed, his next sync keeps
-> Pro instead of undoing the hand grant. Send Reply A, then the API answers.
+> **Status (2026-11-21):** trial extended to 2026-11-29, Pro granted by hand
+> (diagnose-user reads `pro`), and the code fix
+> (`claude/no-card-trial-card-add-lockout`) is deployed, so his next sync keeps
+> Pro. Both replies final; send Reply A, then the API answers. Flow
+> 5-minute history (`flow_series_5min`, SPX) starts 2026-05-13.
 
 ## Thread so far
 
@@ -210,7 +211,7 @@ One note first, since you're working with ES. Our ES levels come from the SPX op
 
 Yes. /api/flow/series returns net contracts, call and put premium, call and put volume, net premium and the put/call ratio, in 1-minute or 5-minute bars (timeframe=1min or 5min). Values are running totals for the session, so the change from one bar to the next is that bar's flow. Add date=YYYY-MM-DD for a past day; /api/flow/sessions lists the days available. /api/flow/by-strike breaks the same flow down by strike (calls and puts bought and sold), and both take an expirations filter if you want 0DTE only.
 
-How far back: about the last 60 days. That window moves forward every day, so if you want a longer history, start saving it on your side now.
+How far back: about the last 60 days. That window moves forward every day, so if you want a longer history, start saving it on your side now. The exception is 5-minute bars across all strikes and expirations, which are kept permanently and go back to May 13, 2026.
 
 **2. Gamma Shift**
 
