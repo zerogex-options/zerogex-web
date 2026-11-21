@@ -3,11 +3,9 @@
 American English, and each paragraph in the draft is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
 
-> **Status:** both drafts unsent. **Fix the account first** (see "Account
-> shows Public" at the bottom), send that reply, then send the API answers.
-> The API reply says his Pro key reaches everything, which isn't true for him
-> until the account is fixed. The API draft also has two date placeholders;
-> fill them from "Fill in before sending".
+> **Status:** both drafts unsent. Trial extended to 2026-11-29 (done).
+> **Grant Pro by hand first** ("Second pass" at the bottom), send Reply A,
+> then send the API answers. The API dates are filled in (2026-11-21 query).
 
 ## Thread so far
 
@@ -154,6 +152,12 @@ production runs `DATA_RETENTION_DAYS=60`, `.env.example`)
 
 ## Fill in before sending
 
+> **Done 2026-11-21.** `DATA_RETENTION_DAYS=60`, `FLOW_SERIES_USE_SNAPSHOT=true`.
+> Gamma Shift from 2026-09-09; forecasts from 2026-07-06, touch odds from
+> 2026-07-15 (SPX). Both dates are in the draft. Still open, optional: the
+> `flow_series_5min` query below. The draft says 60 days for flow, which is
+> safe; if the query shows an earlier date, add the "exception" sentence.
+
 On the EC2 box, from the `zerogex-oa` directory:
 
 ```bash
@@ -209,7 +213,7 @@ How far back: about the last 60 days. That window moves forward every day, so if
 
 **2. Gamma Shift**
 
-Yes, as a series. /api/gex/regime-series gives the Gamma Shift read at every 5-minute bar of a session: stability (whether dealers are damping moves or adding to them) and lean (whether the change is supportive or capping), each measured against the session open and against a few bars earlier. Each bar also carries the gamma flip and how much room price has before crossing it, labeled secure, normal, thin or crossing. Add date=YYYY-MM-DD for a past day. This history is kept permanently and goes back to [GAMMA SHIFT START].
+Yes, as a series. /api/gex/regime-series gives the Gamma Shift read at every 5-minute bar of a session: stability (whether dealers are damping moves or adding to them) and lean (whether the change is supportive or capping), each measured against the session open and against a few bars earlier. Each bar also carries the gamma flip and how much room price has before crossing it, labeled secure, normal, thin or crossing. Add date=YYYY-MM-DD for a past day. This history is kept permanently and goes back to September 9, 2026.
 
 /api/gex/regime-history gives one regime read per session, up to 180 sessions per request. The card at the top of the Gamma Shift page (/api/gex/regime-shift) only compares the present moment with an earlier one, so it can't be pointed at a past time. For backtesting, use the series.
 
@@ -221,7 +225,7 @@ For the whole options book (all expirations), /api/gex/historical has the gamma 
 
 **4. Forecast Receipt**
 
-Yes. /api/forecast/{date}?symbol=ES returns that day's morning forecast and, after the close, its receipt. The forecast is written at 8:30 AM ET: projected low, high and close, the implied move, the expected volatility, the gamma flip and walls, the odds of touching the call wall and the put wall, and the odds of crossing the flip. The receipt is added at 4:05 PM ET: the actual low, high and close, whether price stayed in the range, realized versus implied volatility, whether the flip was crossed, and which walls were touched. /api/forecast/available-dates lists the days, and /api/forecast/history/recent gives a compact row per day. It goes back to [FORECAST START]. If you test the volatility call, start from August 4, 2026, when we corrected how it's graded; earlier grades aren't comparable.
+Yes. /api/forecast/{date}?symbol=ES returns that day's morning forecast and, after the close, its receipt. The forecast is written at 8:30 AM ET: projected low, high and close, the implied move, the expected volatility, the gamma flip and walls, the odds of touching the call wall and the put wall, and the odds of crossing the flip. The receipt is added at 4:05 PM ET: the actual low, high and close, whether price stayed in the range, realized versus implied volatility, whether the flip was crossed, and which walls were touched. /api/forecast/available-dates lists the days, and /api/forecast/history/recent gives a compact row per day. It goes back to July 6, 2026, and the touch odds start on July 15, 2026. If you test the volatility call, start from August 4, 2026, when we corrected how it's graded; earlier grades aren't comparable.
 
 **5. Update frequency and timestamps**
 
@@ -395,15 +399,101 @@ place of `<email>`.
    who switches plans, and it needs a code fix. That part can wait until he's
    sorted.
 
+## Second pass: what `diagnose-user` showed (2026-11-21)
+
+The first-pass plan above assumed a re-sync would grant him or show an
+unconfirmed card. Neither holds. The first-pass Reply A and Reply B are
+retired; use the reply below.
+
+**Timeline** (audit events, UTC):
+
+- **Nov 15 12:44** no-card trial on **Basic** (`no_card_trial=1`). Synced
+  `tier=basic`, paid welcome sent. That's why he sees the returning-member
+  screen.
+- **Nov 21 13:11** tries Basic to Pro twice: `billing_plan_switch_needs_card`.
+  Sent to the billing portal to add a card.
+- **13:15:16** card added (Visa 7541): `no_card_trial_card_added`, sync
+  `tier=basic`. That event only comes from `setup_intent.succeeded`, so **his
+  card was confirmed.**
+- **13:15:17.5** another sync: `tier=public`,
+  `billing_trial_setup_pending`.
+- **13:15:17.6** `billing_default_pm_wired [subscription] [customer]`: our
+  webhook set the card as the subscription's default.
+- **13:15:26** in-app upgrade to Pro, sync `tier=public` again.
+- **Later** the trial extension's re-sync also left him `public` (the
+  stuck-trials query run right after still lists him).
+
+**Likely cause (confirm with step 1 below):** `maybeWireDefaultPaymentMethod`
+in `app/api/webhooks/stripe/route.ts` calls
+`subscriptions.update(sub, { default_payment_method })` when the subscription
+has no default, which is always true for a no-card trial. Stripe documents
+that updating a subscription's payment method can attach a new
+`pending_setup_intent` to it. Nobody confirms that one, so every later sync
+sees a pending SetupIntent that hasn't succeeded and writes `public`.
+
+- **Re-entering his card won't fix it.** `setup_intent.succeeded` re-reads
+  the live subscription, which still carries the stuck SetupIntent.
+- **Who else it hits:** every no-card trial member who adds a card in the
+  portal mid-trial drops to Public until the trial converts. Card-at-checkout
+  trials aren't affected; Checkout sets the subscription's default itself.
+  Right now he's the only member stuck (the step 4 query returned one row).
+- **The conversion still grants:** an `active` subscription skips the
+  SetupIntent gate, so on Nov 29 a successful charge puts him on Pro by
+  itself. The hand grant covers the week between.
+
+## Second pass: steps
+
+On the EC2 box, `cd ~/zerogex-web/frontend && source ~/.nvm/nvm.sh && nvm
+use 22`, then:
+
+1. **Confirm the cause** (read-only, prints two lines):
+
+   ```bash
+   node --input-type=module <<'EOF'
+   import fs from "node:fs"; import Stripe from "stripe";
+   const env = Object.fromEntries(fs.readFileSync(".env.local","utf8").split("\n").filter(l => l.includes("=") && !l.trim().startsWith("#")).map(l => { const i = l.indexOf("="); return [l.slice(0,i).trim(), l.slice(i+1).trim()]; }));
+   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || env.STRIPE_SECRET_KEY);
+   const sub = await stripe.subscriptions.retrieve("sub_1Uc2nH4AOiqteMYYNAsvZd15", { expand: ["pending_setup_intent"] });
+   const si = sub.pending_setup_intent;
+   console.log("status:", sub.status, "| trial_end:", new Date(sub.trial_end * 1000).toISOString(), "| default_pm:", sub.default_payment_method);
+   console.log("pending_setup_intent:", si ? `${si.id} status=${si.status} pm=${si.payment_method} created=${new Date(si.created * 1000).toISOString()} next_action=${si.next_action?.type ?? "-"} error=${si.last_setup_error?.code ?? "-"}` : "none");
+   EOF
+   ```
+
+   Expected: `trialing`, trial end `2026-11-29T12:44:27`, and a
+   `pending_setup_intent` created around `2026-11-21T13:15:17` with a status
+   other than `succeeded`. Send the output to Claude either way; it decides
+   the code fix.
+
+2. **Give him Pro by hand:**
+
+   ```bash
+   node --no-warnings scripts/update-user-tier.mjs --email sanjaykhemka46@gmail.com --tier pro --dry-run
+   node --no-warnings scripts/update-user-tier.mjs --email sanjaykhemka46@gmail.com --tier pro
+   ```
+
+   The dry run should say `public -> pro`.
+
+3. **Check:** `cd ~/zerogex-web && make diagnose-user
+   EMAIL=sanjaykhemka46@gmail.com`. Tier should read `pro`.
+
+4. **Send Reply A** (below), then the API reply.
+
+**The hand grant can be undone by the next sync** until the code fix ships.
+Nothing is scheduled to sync him before Nov 29, but if he changes anything in
+billing (portal or plan switch), he drops back to Public and his API key is
+revoked (`maybeRevokeApiKeysOnTierDrop`). If he writes again, re-run step 2;
+he'll need to generate a new key.
+
 ## Reply A: access restored
 
 Reply in his "Pro trial shows Public" thread.
 
 Hi Sanjay,
 
-Thanks for letting me know, and sorry about this. It was a problem on our side: your Pro trial was set up correctly in billing, but your account on the site didn't pick it up, so the app kept treating you as a free account.
+Thanks for letting me know, and sorry about this. It was a bug on our side: when you added your card to upgrade, our system wrongly treated the card as unverified and dropped your account to free access, even though billing had your Pro trial set up correctly.
 
-It's fixed now. Reload the page and you'll have full Pro access, including Account → API Access, where you can generate your API key.
+It's fixed. Reload the page and you'll have full Pro access, including Account → API Access, where you can generate your API key.
 
 Since this ate into your trial, I've extended it by a week. Your first charge moves from November 22 to November 29, and you can still cancel any time before then at no cost.
 
@@ -413,31 +503,11 @@ Best,
 Michael
 Founder, ZeroGEX
 
-## Reply B: card not confirmed
-
-Only if step 3 shows a new `billing_trial_setup_pending` row.
-
-Hi Sanjay,
-
-Thanks for letting me know, and sorry for the trouble. I've looked into it: the card check for your trial never finished. That's usually a security step from your bank that didn't complete. Until it does, our system holds back Pro access, even though billing shows the trial.
-
-To fix it, go to Account → Manage billing, update your payment method, and re-enter your card, completing your bank's check if it asks. Pro access switches on within a minute of that.
-
-Please don't use the "Resubscribe" button on the page you were seeing. It would start a second subscription.
-
-I've also extended your trial by a week, so your first charge moves from November 22 to November 29, and you can cancel any time before then at no cost.
-
-I'll answer your API questions in your other email shortly.
-
-Best,
-Michael
-Founder, ZeroGEX
-
 ## If he replies
 
-- **He re-entered the card (Reply B) and still sees Public.** Run
-  `make diagnose-user` again and send me the output.
-- **He asks for compensation beyond the week.** Your call. The week covers
-  the trial he lost.
-- **He was charged anyway.** Only possible if the extension didn't apply.
-  Refund the charge and re-run step 2.
+- **He's back on Public, or his API key stopped working.** A sync undid the
+  hand grant (see above). Re-run step 2 and tell him to generate a new key.
+- **He asks for more than the week.** Your call. The week covers the trial he
+  lost.
+- **He was charged on Nov 22 anyway.** Only possible if the extension didn't
+  take; step 1's `trial_end` shows. Refund it.
