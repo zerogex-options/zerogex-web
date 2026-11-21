@@ -3,9 +3,10 @@
 American English, and each paragraph in the draft is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
 
-> **Status:** both drafts unsent. Trial extended to 2026-11-29 (done).
-> **Grant Pro by hand first** ("Second pass" at the bottom), send Reply A,
-> then send the API answers. The API dates are filled in (2026-11-21 query).
+> **Status:** both drafts unsent. Done 2026-11-21: trial extended to
+> 2026-11-29, Pro granted by hand. Code fix on
+> `claude/no-card-trial-card-add-lockout`; once deployed, his next sync keeps
+> Pro instead of undoing the hand grant. Send Reply A, then the API answers.
 
 ## Thread so far
 
@@ -446,7 +447,9 @@ sees a pending SetupIntent that hasn't succeeded and writes `public`.
 On the EC2 box, `cd ~/zerogex-web/frontend && source ~/.nvm/nvm.sh && nvm
 use 22`, then:
 
-1. **Confirm the cause** (read-only, prints two lines):
+1. **Confirm the cause** (read-only, prints two lines). Not run: the
+   heredoc's closing `EOF` was indented, so the shell never saw it end. The
+   fix doesn't depend on this output.
 
    ```bash
    node --input-type=module <<'EOF'
