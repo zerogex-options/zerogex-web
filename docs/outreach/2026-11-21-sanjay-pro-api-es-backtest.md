@@ -1,10 +1,13 @@
-# Sanjay: Pro API history for an ES intraday backtest (2026-11-21)
+# Sanjay Khemka: Pro API history for an ES backtest, and a Pro trial that shows Public (2026-11-21)
 
 American English, and each paragraph in the draft is a single line with no hard
 wrapping, so it can be pasted straight into a mail client.
 
-> **Status:** draft, unsent. Two dates in the draft are placeholders. Fill them
-> in from "Fill in before sending" first.
+> **Status:** both drafts unsent. **Fix the account first** (see "Account
+> shows Public" at the bottom), send that reply, then send the API answers.
+> The API reply says his Pro key reaches everything, which isn't true for him
+> until the account is fixed. The API draft also has two date placeholders;
+> fill them from "Fill in before sending".
 
 ## Thread so far
 
@@ -266,3 +269,175 @@ zerogex.io
   other dashboards publish and which often sits much closer to price.
 - **He asks for a price or a trial.** Check the current pricing page before
   quoting; prices changed in October (`docs/pricing-october-2026-runbook.md`).
+
+---
+
+# Account shows Public (second inbound, 2026-11-21 09:36)
+
+Sanjay Khemka, separate email. He "upgraded to the ZeroGEX Pro trial". The
+billing portal shows the Pro trial active with the first charge on
+**November 22** (tomorrow). The app shows him as **Public**. Paid pages
+redirect to "Your account is still here" with **Resubscribe to Basic**, and he
+can't reach the dashboard. Same in an incognito window.
+
+## The read
+
+- **Stripe has him on a Pro trial; our users row has him on `public`.** The
+  site reads the tier from the row on every request, so nothing on his side
+  (cache, incognito, signing out) will change it.
+- **The screen he sees tells us more than "Public" does.** "Your account is
+  still here" is the returning-member screen. It only shows when the row has
+  `paid_welcome_email_sent_at` set or `subscription_lapsed = 1`. The welcome
+  is only stamped when a sync actually grants a paid tier. So he was most
+  likely granted access at some point, and a later sync took it away. "I
+  upgraded to the Pro trial" suggests a Basic trial switched to Pro in-app.
+  The cause isn't knowable from code alone; `make diagnose-user` will show it.
+- **Fix it today.** His trial converts tomorrow. Charging him for a trial he
+  couldn't use is the outcome to avoid.
+- **Extend the trial a week.** It's the fair make-good, and it does double
+  duty: pushing `trial_end` makes Stripe send a fresh
+  `customer.subscription.updated`, and the webhook re-syncs his row from the
+  subscription's current state.
+- **Don't use "Resend" on the old event in the Stripe dashboard.** It does
+  nothing: the webhook records every event id and drops a repeat as a
+  duplicate (`app/api/webhooks/stripe/route.ts`, the
+  `stripe_webhook_events` INSERT OR IGNORE). A fresh event is needed, which
+  the trial extension produces.
+- **Don't flip the tier by hand with `update-user-tier`.** The next sync
+  recomputes the tier from Stripe and would undo it, and if the cause is an
+  unconfirmed card it would grant Pro on exactly the card the gate is there
+  to catch.
+
+## Verified
+
+Read from the code on `release`, 2026-11-21. All `frontend/` paths.
+
+- **Returning screen:** `app/unauthorized/page.tsx` shows it when
+  `resolveWall` returns `returning`, which needs `hasPriorPaid === true`
+  (`core/returningMember.ts`). `hasPriorPaid` is
+  `paid_welcome_email_sent_at != null || subscription_lapsed === 1`
+  (`core/serverAuth.ts`). The button names Basic because the page he reached
+  for (the dashboard) needs Basic.
+- **The tier is read fresh on each request:** `proxy.ts` loads the session
+  from the database, joined to `users.tier`. A reload picks up a fix.
+- **What sets the tier:** `syncSubscriptionToUser` in the webhook route. A
+  `trialing` subscription grants its tier only when its pending SetupIntent
+  has succeeded; otherwise it writes `public` and logs
+  `billing_trial_setup_pending`. `active` always grants. A paused
+  subscription grants nothing.
+- **The welcome stamp follows the grant:** `maybeSendPaidWelcomeEmail` runs
+  only when `grantsTier` is true, so a set `paid_welcome_email_sent_at` means
+  some sync did grant a paid tier.
+- **A deletion of some other subscription can't cause this:**
+  `clearSubscriptionFromUser` changes nothing when the row has moved on to a
+  different subscription (`stripe_subscription_deleted_superseded`).
+- **The extension re-syncs:** `scripts/extend-trial.mts` pushes `trial_end`
+  on the live subscription; Stripe emits `customer.subscription.updated`, and
+  the webhook mirrors it. It only touches subscriptions Stripe reports as
+  `trialing`.
+- **A re-added card re-syncs too:** `setup_intent.succeeded` re-reads the live
+  subscription and runs the same sync, so if his card was never confirmed,
+  re-entering it in the billing portal grants Pro within a minute.
+
+## Fix steps
+
+All on the EC2 box, from `~/zerogex-web`. Use his address from the email in
+place of `<email>`.
+
+1. **See what's on the row** (read-only):
+
+   ```bash
+   make diagnose-user EMAIL=<email>
+   ```
+
+   Note: Tier, Subscription status, the price (should be Pro), "Paid welcome
+   sent", "Subscription lapsed", and the audit events at the bottom. Look for
+   `billing_trial_setup_pending`, `billing_plan_switch_in_app`,
+   `stripe_webhook_stale_skipped` and `stripe_webhook_orphan`.
+
+   - If Stripe shows **no `trialing` subscription** for him, or his row has
+     no subscription id, stop and send me the output. The steps below won't
+     apply.
+
+2. **Extend the trial a week, which also re-syncs him:**
+
+   ```bash
+   make extend-trial EMAIL=<email> EXTEND_DAYS=7 DRY_RUN=1
+   make extend-trial EMAIL=<email> EXTEND_DAYS=7 YES=1
+   ```
+
+   The dry run should show the new trial end as about November 29. If it
+   doesn't, use `TRIAL_END=` with the date you want instead of `EXTEND_DAYS`.
+
+3. **Wait a minute, then check again:**
+
+   ```bash
+   make diagnose-user EMAIL=<email>
+   ```
+
+   - **Tier reads `pro`:** fixed. Send Reply A.
+   - **Still `public`, with a new `billing_trial_setup_pending` row:** his
+     card was never confirmed for the trial. Send Reply B.
+   - **Still `public`, anything else:** send me both outputs before replying.
+
+4. **Is anyone else stuck the same way?** Read-only:
+
+   ```bash
+   sqlite3 /var/lib/zerogex/auth.db "SELECT email, tier, subscription_status, stripe_price_id, current_period_end, paid_welcome_email_sent_at, subscription_lapsed FROM users WHERE subscription_status IN ('trialing','active') AND tier = 'public' AND paused_until IS NULL AND deleted_at IS NULL;"
+   ```
+
+   Rows with `trialing` and no confirmed card are expected (the gate working).
+   An `active` row, or a `trialing` row that has a paid-welcome date, is the
+   same problem as Sanjay's.
+
+5. **Send me the step 1 output.** It shows what took his access away. If a
+   sync revoked a granted trial, that's a bug that can hit any trial member
+   who switches plans, and it needs a code fix. That part can wait until he's
+   sorted.
+
+## Reply A: access restored
+
+Reply in his "Pro trial shows Public" thread.
+
+Hi Sanjay,
+
+Thanks for letting me know, and sorry about this. It was a problem on our side: your Pro trial was set up correctly in billing, but your account on the site didn't pick it up, so the app kept treating you as a free account.
+
+It's fixed now. Reload the page and you'll have full Pro access, including Account → API Access, where you can generate your API key.
+
+Since this ate into your trial, I've extended it by a week. Your first charge moves from November 22 to November 29, and you can still cancel any time before then at no cost.
+
+I'll answer your API questions in your other email shortly.
+
+Best,
+Michael
+Founder, ZeroGEX
+
+## Reply B: card not confirmed
+
+Only if step 3 shows a new `billing_trial_setup_pending` row.
+
+Hi Sanjay,
+
+Thanks for letting me know, and sorry for the trouble. I've looked into it: the card check for your trial never finished. That's usually a security step from your bank that didn't complete. Until it does, our system holds back Pro access, even though billing shows the trial.
+
+To fix it, go to Account → Manage billing, update your payment method, and re-enter your card, completing your bank's check if it asks. Pro access switches on within a minute of that.
+
+Please don't use the "Resubscribe" button on the page you were seeing. It would start a second subscription.
+
+I've also extended your trial by a week, so your first charge moves from November 22 to November 29, and you can cancel any time before then at no cost.
+
+I'll answer your API questions in your other email shortly.
+
+Best,
+Michael
+Founder, ZeroGEX
+
+## If he replies
+
+- **He re-entered the card (Reply B) and still sees Public.** Run
+  `make diagnose-user` again and send me the output.
+- **He asks for compensation beyond the week.** Your call. The week covers
+  the trial he lost.
+- **He was charged anyway.** Only possible if the extension didn't apply.
+  Refund the charge and re-run step 2.
