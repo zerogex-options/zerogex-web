@@ -515,3 +515,48 @@ Founder, ZeroGEX
   lost.
 - **He was charged on Nov 22 anyway.** Only possible if the extension didn't
   take; step 1's `trial_end` shows. Refund it.
+
+---
+
+# Third inbound: he'll start with Gamma Shift and Flow (2026-11-21, 2:22 PM)
+
+Both earlier replies sent. He thanks us and says his first model will lean
+on the Gamma Shift series and Flow Analysis. The API reply offered bar sizes
+and a download order for what he picked, so this answers that.
+
+## Verified
+
+zerogex-oa `release`, 2026-11-21.
+
+- **Gamma Shift series:** 5-minute bars only, from `gamma_regime_5min`,
+  retention-exempt, starts 2026-09-09 (SPX; ES is projected from it).
+- **Flow, 5-minute, unfiltered:** served from `flow_series_5min`
+  (`FLOW_SERIES_USE_SNAPSHOT=true` on the box), kept forever, starts
+  2026-05-13.
+- **Ages out at 60 days:** 1-minute flow (`flow_contract_facts`, every call
+  recomputes), 5-minute flow with a `strikes` or `expirations` filter (query
+  on `flow_by_contract`), `/api/flow/by-strike` and `/api/flow/centroids`
+  (`flow_contract_facts`).
+- **`/api/flow/sessions` only lists days inside the 60-day window** (reads
+  `flow_by_contract`). A dated flow or regime read for a day with nothing
+  stored returns an empty list, not an error.
+- **Session windows:** flow runs 9:30 to 16:15 ET, so a day's flow is final
+  shortly after 16:15.
+
+## Reply
+
+Hi Sanjay,
+
+Glad it helped. For those two, here's how I'd set it up.
+
+Use 5-minute bars for both. The Gamma Shift series only comes in 5-minute bars, and 5-minute flow lines up with it bar for bar, so you can join the two on the bar start time.
+
+Nothing you need is at risk of disappearing. Both are kept permanently: the Gamma Shift series goes back to September 9, 2026, and 5-minute flow across all strikes and expirations goes back to May 13, 2026. So your combined history starts on September 9, and you can download it at your own pace. Request one session at a time with date=YYYY-MM-DD; each call returns the whole day. /api/flow/sessions only lists about the last 60 days, so for older dates, step through the trading days yourself. A day with no data comes back as an empty list rather than an error.
+
+What does age out after about 60 days is 1-minute flow and any flow filtered by strike or expiration, including 0DTE only and /api/flow/by-strike. If you think you'll want any of that later, start saving it now with a daily job that runs after 4:30 PM ET, when the day's flow is final.
+
+Best,
+Michael
+Founder, ZeroGEX
+Know the levels that matter before price gets there.
+zerogex.io
