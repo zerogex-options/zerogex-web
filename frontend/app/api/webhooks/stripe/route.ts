@@ -94,7 +94,7 @@ import {
 import { subscriptionPaidAt } from '@/core/subscriberBucket';
 import { acceptsSubscriptionPaymentStamp } from '@/core/subscriptionPayments';
 import { derivePauseState } from '@/core/subscriptionPause';
-import { classifyPaymentSetup } from '@/core/paymentSetup';
+import { classifyPaymentSetup, paymentSetupGateApplies } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix } from '@/core/cancellationReason';
 import { handleCancelAckTransition, type CancelAckTransition } from '@/core/cancelAck';
 import { buildSaveUrl } from '@/core/retentionToken';
@@ -1048,8 +1048,17 @@ async function syncSubscriptionToUser(
   // as not-ready, so access is never granted on an unknown — a later
   // setup_intent.succeeded (or the checkout.session.completed retrieve, which
   // expands pending_setup_intent) re-syncs and grants once setup is confirmed.
+  //
+  // A trial that started without a card is not gated (paymentSetupGateApplies
+  // explains why): it already grants access with no card, so a pending
+  // SetupIntent that appears once a card is added must not take access away.
   let setupReady = true;
-  if (subscription.status === 'trialing') {
+  const startedNoCard = startedWithoutCard(
+    (subscription.metadata ?? {}) as Record<string, string | undefined>,
+  );
+  if (
+    paymentSetupGateApplies({ status: subscription.status, startedWithoutCard: startedNoCard })
+  ) {
     const readiness = classifyPaymentSetup(subscription);
     if (readiness === 'unresolved-id') {
       const psiId = subscription.pending_setup_intent as string;
@@ -1062,6 +1071,15 @@ async function syncSubscriptionToUser(
     } else {
       setupReady = readiness === 'ready';
     }
+  } else if (subscription.status === 'trialing' && classifyPaymentSetup(subscription) !== 'ready') {
+    // Only a no-card trial reaches here. Say so, so `make diagnose-user` shows
+    // why a trial with a pending SetupIntent still has access.
+    logAudit({
+      type: 'billing_trial_setup_gate_skipped_no_card',
+      userId: user.id,
+      email: user.email,
+      message: `No-card trial sub ${subscription.id} carries a pending_setup_intent; access kept without checking it (a no-card trial is not gated on card setup)`,
+    });
   }
 
   // Bounded payment-recovery grace. When an ESTABLISHED (previously `active`)

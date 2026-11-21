@@ -49,3 +49,25 @@ export function isPaymentSetupReady(
 ): boolean {
   return classifyPaymentSetup(subscription) === 'ready';
 }
+
+// Whether the gate above decides this subscription's access at all.
+//
+// Only a `trialing` subscription is gated: an `active` one has already been
+// charged. And not a trial that started WITHOUT a card (core/noCardTrial.ts
+// startedWithoutCard): that trial grants the paid tier with no payment method
+// at all, so a card added during it can only add to what the member already
+// has. Gating it is how adding a card took access away: on 2026-11-21 a
+// member's card was confirmed (setup_intent.succeeded), the webhook then set it
+// as the subscription's default, the subscription came back carrying a new
+// pending SetupIntent that nothing would ever confirm, and every later sync
+// read that as an unconfirmed card and wrote tier=public. The member lost the
+// rest of a trial they were entitled to with no card on file.
+//
+// Exempting the no-card trial opens no new door: whatever it can reach after a
+// card is added, it could already reach before.
+export function paymentSetupGateApplies(input: {
+  status: Stripe.Subscription.Status;
+  startedWithoutCard: boolean;
+}): boolean {
+  return input.status === 'trialing' && !input.startedWithoutCard;
+}
