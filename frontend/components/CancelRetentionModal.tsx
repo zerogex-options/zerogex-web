@@ -135,6 +135,10 @@ export default function CancelRetentionModal({
   // Whether the server voided the unpaid bill when it ended the plan, for the
   // "canceledNow" confirmation. It says nothing more will be charged only then.
   const [billVoided, setBillVoided] = useState(false);
+  // Whether the cancel ended a pause, for the "canceled" confirmation: the
+  // member's access is back until the period ends (core/subscriptionPause.ts
+  // scheduleCancelParams), which they wouldn't expect after a pause.
+  const [endedPause, setEndedPause] = useState(false);
 
   const endDate = formatDate(periodEndIso);
 
@@ -158,6 +162,7 @@ export default function CancelRetentionModal({
       setQuoteNotice(null);
       setSavedPct(SAVE_PERCENT);
       setBillVoided(false);
+      setEndedPause(false);
     }
   }, [open, entryStep]);
 
@@ -246,6 +251,7 @@ export default function CancelRetentionModal({
           endedNow?: boolean;
           billVoided?: boolean;
           alreadyEnded?: boolean;
+          endedPause?: boolean;
         };
         if (j.alreadyEnded) {
           setStep('alreadyEnded');
@@ -262,8 +268,13 @@ export default function CancelRetentionModal({
           window.setTimeout(onChanged, 4000);
           return;
         }
+        setEndedPause(j.endedPause === true);
         setStep('canceled');
         onChanged();
+        // The webhook turns access back on a moment after a cancel that ended a
+        // pause. Refresh again then, so the page behind the modal drops the
+        // paused banner.
+        if (j.endedPause) window.setTimeout(onChanged, 4000);
         return;
       }
       setError(t('genericError'));
@@ -766,7 +777,9 @@ export default function CancelRetentionModal({
           <>
             <h2 style={headingStyle}>{t('canceledHeading')}</h2>
             <p style={bodyStyle}>
-              {endDate ? t('canceledBody', { date: endDate }) : t('canceledBodyNoDate')}
+              {endDate
+                ? t(endedPause ? 'canceledEndedPauseBody' : 'canceledBody', { date: endDate })
+                : t(endedPause ? 'canceledEndedPauseBodyNoDate' : 'canceledBodyNoDate')}
             </p>
             <div style={buttonColumn}>
               <button type="button" onClick={onClose} style={primaryButtonStyle(false)}>

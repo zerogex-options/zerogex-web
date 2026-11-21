@@ -219,6 +219,9 @@ type UserRow = {
   stripe_price_id: string | null;
   current_period_end: string | null;
   cancel_at_period_end: number | null;
+  // When a pause ends (the webhook mirrors pause_collection.resumes_at), or
+  // NULL when not paused. A paused member has no access.
+  paused_until: string | null;
   payment_grace_started_at: string | null;
   payment_grace_reason: string | null;
   first_payment_at: string | null;
@@ -268,7 +271,8 @@ const rows = querySqlite<UserRow>(
           ${col('marketing_unsubscribed_at')},
           ${col('verified_never_paid_email_sent_at')},
           ${col('reactivation_email_sent_at')},
-          ${col('winback_email_sent_at')}
+          ${col('winback_email_sent_at')},
+          ${col('paused_until')}
    FROM users
    WHERE LOWER(email) = '${escapeSqlLiteral(cliArgs.email.toLowerCase())}'
    LIMIT 1;`,
@@ -359,6 +363,16 @@ kv('Stripe subscription id', orDash(user.stripe_subscription_id));
 kv('Stripe price id', orDash(user.stripe_price_id));
 kv('Current period end', orDash(user.current_period_end));
 kv('Cancel at period end', yesNo(user.cancel_at_period_end));
+kv(
+  'Paused until',
+  user.paused_until
+    ? `${user.paused_until} — no access until then${
+        Number(user.cancel_at_period_end) === 1
+          ? '. ALSO CANCELING: no access before the cancel either. make resume-subscription gives it back'
+          : ''
+      }`
+    : '—',
+);
 kv('Payment grace started', orDash(user.payment_grace_started_at));
 kv('Payment grace reason', orDash(user.payment_grace_reason));
 kv('First payment cleared', orDash(user.first_payment_at));
@@ -756,6 +770,12 @@ if (user.stripe_subscription_id) {
     const subPeriodEnd = (sub as unknown as { current_period_end?: number }).current_period_end;
     kv('Current period end', isoFromUnix(itemPeriodEnd ?? subPeriodEnd ?? null));
     kv('Cancel at period end', sub.cancel_at_period_end ? 'yes' : 'no');
+    kv(
+      'Pause collection',
+      sub.pause_collection?.behavior
+        ? `${sub.pause_collection.behavior}, resumes ${isoFromUnix(sub.pause_collection.resumes_at ?? null)}`
+        : 'none',
+    );
     const discounts = (sub as unknown as { discounts?: Array<DiscountShape | string> }).discounts;
     if (discounts && discounts.length > 0) {
       kv('Discounts', discounts.map(describeDiscount).join(', '));

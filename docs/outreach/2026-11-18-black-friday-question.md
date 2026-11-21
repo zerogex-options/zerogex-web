@@ -40,6 +40,9 @@ No name given, so the draft opens "Hi there".
 > **Fri Nov 20:** he bought a subscription, and answered your next email with
 > product feedback (Follow-up 3, at the end). He's the sale's first real buyer,
 > so check that his subscription carries the Black Friday coupon before replying.
+> Checked: the discount is on his subscription, so checkout applied the sale. The
+> Follow-up 3 reply went out as drafted, promising pictures in the articles and
+> worked trade examples, with no dates.
 
 ### Heads-up (Thu Nov 19)
 

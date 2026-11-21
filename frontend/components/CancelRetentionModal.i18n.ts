@@ -82,6 +82,12 @@ export const dict: PageDictionary = {
       'You’ll keep full access until {date}. Changed your mind later? You can resubscribe anytime from the pricing page.',
     canceledBodyNoDate:
       'You’ll keep full access until the end of your current billing period. Changed your mind later? You can resubscribe anytime from the pricing page.',
+    // Canceled while paused: the cancel ended the pause, so access is back until
+    // the period ends (core/subscriptionPause.ts scheduleCancelParams).
+    canceledEndedPauseBody:
+      'Canceling ended your pause, so your full access is back until {date}. After that your plan ends, and nothing more will be charged. Changed your mind later? You can resubscribe anytime from the pricing page.',
+    canceledEndedPauseBodyNoDate:
+      'Canceling ended your pause, so your full access is back until the end of your current billing period. After that your plan ends, and nothing more will be charged. Changed your mind later? You can resubscribe anytime from the pricing page.',
     // Terminal — canceled after a failed payment: ended now, not at period end.
     canceledNowHeading: 'Your subscription is canceled',
     canceledNowBody:

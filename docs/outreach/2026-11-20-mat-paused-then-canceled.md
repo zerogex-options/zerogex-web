@@ -9,11 +9,11 @@ wrapping, so it can be pasted straight into a mail client.
 just need a bit more time to make some money, i aim to be back soon as this is
 an incredible trading tool".
 
-> **Status:** draft, not sent. Run `make resume-subscription` (this branch),
-> then send the reply. No rush tonight, but do both this weekend: the access
-> it gives back is only good for Mon Nov 23 and Tue Nov 24, and after the plan
-> ends (Wed Nov 25, 8:16 AM ET) there's nothing left to give back. If you skip
-> the resume, send the reply with the swap paragraph below instead.
+> **Status:** done, Fri Nov 20. Resumed with `make resume-subscription`: the
+> site has it, tier `basic` until the plan ends Wed Nov 25, 8:16 AM ET, with
+> nothing charged. Then the reply below went out (the version with "I've
+> switched it back on"). Nothing left to do unless Mat replies; see "If Mat
+> replies".
 
 Everything below is from your `make diagnose-user`, `make save-url` and
 `make honor-winback-discount ... DRY_RUN=1` runs (Nov 20).
@@ -154,17 +154,14 @@ One thing to clear up: because you paused before you canceled, your access switc
   on the pause instead.
 - **Anything else:** thank them.
 
-## Worth knowing (can wait)
+## Fixed since
 
-- **Pausing and then canceling leaves a plan half paused, half canceled, and
-  everything treats it as a plain cancel:** the cancel email ("full access
-  until..."), the Account page (both banners at once, and "Keep my plan" there
-  quietly brings back the February charge), the 25% link (it leaves the member
-  locked out while its page says "Your access continues"), your alert, and
-  the `honor-winback-discount`, `set-cancellation` and `save-url` tools. The
-  fix needs one decision from you: what Cancel should do to a paused plan.
-  Not done here. It can be its own branch, with Jozef's refunded "STILL HAS
-  ACCESS" alert folded in. Until then, on any alert that says "Paying member canceled" with
-  `Tier at churn: public`, check `make diagnose-user`: a
-  `billing_subscription_paused` event means this case, and
-  `make resume-subscription` puts it right.
+- **Canceling a paused plan now ends the pause in the same step** (branch
+  `claude/cancel-ends-pause`), so it's a plain cancel with access until the
+  period ends, and every message about it is true. The 25% link and the cancel
+  modal's discounts end a pause too. `set-cancellation ON=1` ends a pause the
+  same way, `honor-winback-discount` refuses a paused plan and points at
+  `make resume-subscription`, and `diagnose-user` shows the pause in both its
+  database and Stripe sections.
+- **Still open, separately:** Jozef's refunded "STILL HAS ACCESS" alert
+  (`2026-11-20-jozef-two-gamma-charts-refund.md`).

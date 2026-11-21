@@ -13,8 +13,9 @@
 // pause for a member who asks by email, and previews it with billsDuringPause.
 // pauseRevokesApiKeys decides who is told that the pause costs them their API
 // key. scripts/resume-subscription.mts ends a pause early for a member, and
-// previews what that does with previewResume. Locked down in
-// tests/subscriptionPause.test.ts.
+// previews what that does with previewResume. A cancel or a save ends a pause
+// too (scheduleCancelParams, endPauseParam), so a plan is never paused and
+// canceling at once. Locked down in tests/subscriptionPause.test.ts.
 
 import { isApiKeyEligibleTier, type TierId } from './auth.ts';
 
@@ -199,4 +200,60 @@ export function previewResume(input: {
     nextChargeUnix: input.cancelAtPeriodEnd ? null : periodEnd,
     periodUnpaid: input.latestInvoiceStatus === 'void',
   };
+}
+
+// Stripe's subscription.pause_collection as it arrives: null unless the plan is
+// paused. Only `behavior` decides, as in derivePauseState.
+export type StripePauseCollection = { behavior?: string | null; resumes_at?: number | null } | null | undefined;
+
+// The update that ends a pause now. An empty string clears pause_collection in
+// the Stripe API, which is exactly what the Account page's Resume now sends.
+// Empty when the plan isn't paused, so it can be spread into any update.
+//
+// A save keeps the member's access on ("Keep my access & claim 25% off"), so a
+// save ends a pause too: the one-click save (app/save/route.ts) and the cancel
+// modal's discounts (app/api/billing/cancel-flow/route.ts) spread this into
+// their update. Otherwise a member who was paused would be told their access
+// continues while it stayed off until the pause ran out.
+export function endPauseParam(pauseCollection: StripePauseCollection): { pause_collection?: '' } {
+  return pauseCollection?.behavior ? { pause_collection: '' } : {};
+}
+
+// Canceling a paused plan ends the pause, then cancels at period end.
+//
+// Paused, a member has no access. Canceled at period end, everything they are
+// told says they keep access until then: the cancel email ("you keep full
+// access until ..."), the Account page, the 25% save link and the founder's
+// alert. A plan left paused AND canceling made all of that false, and the 25%
+// link or "Keep my plan" would quietly put the member back on the pause and on
+// the charge after it (docs/outreach/2026-11-20-mat-paused-then-canceled.md).
+//
+// Ending the pause makes it a plain cancel: access is back until the period
+// ends, then the plan ends with nothing more charged. That is exactly Resume
+// now followed by Cancel, which a member could always do, so it gives away
+// nothing new. If the pause already voided this period's bill, the rest of the
+// period comes free, as it does with Resume now.
+//
+// The in-app cancel (app/api/billing/cancel-flow/route.ts) and
+// make set-cancellation ON=1 both build their update here. feedback must
+// already be one of Stripe's values (validateCancelFeedback).
+export type ScheduleCancelParams = {
+  cancel_at_period_end: true;
+  pause_collection?: '';
+  cancellation_details?: { feedback?: string; comment?: string };
+};
+
+export function scheduleCancelParams(input: {
+  pauseCollection: StripePauseCollection;
+  feedback?: string | null;
+  comment?: string | null;
+}): ScheduleCancelParams {
+  const params: ScheduleCancelParams = { cancel_at_period_end: true, ...endPauseParam(input.pauseCollection) };
+  if (input.feedback || input.comment) {
+    params.cancellation_details = {
+      ...(input.feedback ? { feedback: input.feedback } : {}),
+      ...(input.comment ? { comment: input.comment } : {}),
+    };
+  }
+  return params;
 }

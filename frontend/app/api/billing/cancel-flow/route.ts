@@ -12,7 +12,14 @@ import {
 import { readAttachedDiscounts, stackedDiscountsParam } from '@/core/subscriptionDiscounts';
 import { canOfferRetentionDiscount, discountAuditType } from '@/core/cancelRetention';
 import { sanitizeCancellationComment, validateCancelFeedback } from '@/core/cancellationReason';
-import { clampPauseMonths, computeResumesAtUnix, isPausableCadence } from '@/core/subscriptionPause';
+import {
+  clampPauseMonths,
+  computeResumesAtUnix,
+  derivePauseState,
+  endPauseParam,
+  isPausableCadence,
+  scheduleCancelParams,
+} from '@/core/subscriptionPause';
 import {
   billWasVoided,
   cancelNowAndVoid,
@@ -49,6 +56,10 @@ import { sendCancellationEmail } from '@/core/mailer';
 //     is what populates the "Why Members Cancel" dashboard. Capturing the reason
 //     here means it's collected even when the operator never enabled Stripe's
 //     portal cancellation survey.
+//     A paused plan has its pause ended in the same update, so it becomes a
+//     plain cancel with access until period end, which is what the cancel
+//     email, the Account page and the save link all say
+//     (core/subscriptionPause.ts scheduleCancelParams).
 //     Except when the payment has already failed (past_due / unpaid): then the
 //     subscription is ended NOW and its open bill voided, so no retry can charge
 //     someone who canceled, and the member is acknowledged from here
@@ -199,6 +210,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A save keeps access on, so it ends a pause too (core/subscriptionPause.ts
+    // endPauseParam). The modal doesn't offer a save to a paused member, but a
+    // stale page can still send one.
+    const pauseEnd = endPauseParam(subscription.pause_collection);
     try {
       await stripe.subscriptions.update(subscription.id, {
         // The discounts already on the sub go back by id, so a repeating promo
@@ -208,6 +223,7 @@ export async function POST(request: NextRequest) {
         // mid-period; the stacked discount rides the next invoice only.
         cancel_at_period_end: false,
         proration_behavior: 'none',
+        ...pauseEnd,
       });
     } catch {
       return NextResponse.json(
@@ -247,9 +263,11 @@ export async function POST(request: NextRequest) {
       userId: row.id,
       email: row.email,
       ip: getClientIp(request),
-      message: audit.offsetsCountedCancellation
-        ? `${label} on sub ${subscription.id}: stacked ${coupon} (${percent}% off 1yr), cleared cancel_at_period_end`
-        : `${label} on sub ${subscription.id}: stacked ${coupon} (${percent}% off 1yr) before any cancel`,
+      message:
+        (audit.offsetsCountedCancellation
+          ? `${label} on sub ${subscription.id}: stacked ${coupon} (${percent}% off 1yr), cleared cancel_at_period_end`
+          : `${label} on sub ${subscription.id}: stacked ${coupon} (${percent}% off 1yr) before any cancel`) +
+        (pauseEnd.pause_collection === '' ? '; ended its pause' : ''),
     });
 
     return NextResponse.json({
@@ -471,14 +489,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, action: 'cancel', endedNow: true, billVoided });
   }
 
-  const updateParams: Stripe.SubscriptionUpdateParams = { cancel_at_period_end: true };
-  if (feedback || comment) {
-    const details: { feedback?: string; comment?: string } = {};
-    if (feedback) details.feedback = feedback;
-    if (comment) details.comment = comment;
-    // feedback is validated to Stripe's fixed enum, so this cast is sound.
-    updateParams.cancellation_details = details as Stripe.SubscriptionUpdateParams.CancellationDetails;
-  }
+  // A paused plan has its pause ended in the same update, so it is never paused
+  // and canceling at once (core/subscriptionPause.ts scheduleCancelParams).
+  const livePause = derivePauseState(
+    live.pause_collection
+      ? { behavior: live.pause_collection.behavior ?? null, resumesAt: live.pause_collection.resumes_at ?? null }
+      : null,
+  );
+  // feedback is validated to Stripe's fixed enum, so this cast is sound.
+  const updateParams = scheduleCancelParams({
+    pauseCollection: live.pause_collection,
+    feedback,
+    comment,
+  }) as Stripe.SubscriptionUpdateParams;
 
   try {
     await stripe.subscriptions.update(row.stripe_subscription_id, updateParams);
@@ -502,12 +525,15 @@ export async function POST(request: NextRequest) {
     ip: getClientIp(request),
     message: `In-app cancellation scheduled for sub ${row.stripe_subscription_id}${
       feedback ? ` (reason ${feedback})` : ' (no reason given)'
-    }`,
+    }${livePause.paused ? `; ended its pause (was paused until ${livePause.resumesAtIso ?? 'no date'})` : ''}`,
   });
 
   return NextResponse.json({
     ok: true,
     action: 'cancel',
     currentPeriodEnd: row.current_period_end,
+    // The modal tells a member who was paused that their access is back until
+    // the period ends.
+    endedPause: livePause.paused,
   });
 }

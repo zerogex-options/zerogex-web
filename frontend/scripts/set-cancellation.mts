@@ -9,7 +9,10 @@
 //          instead of ending. Use this to let a customer who had canceled
 //          convert after all.
 //   --on   Schedule cancellation at period end. She keeps access until then,
-//          then the subscription ends with no further charge.
+//          then the subscription ends with no further charge. A paused
+//          subscription has its pause ended in the same update, exactly as the
+//          Account page's Cancel does (core/subscriptionPause.ts
+//          scheduleCancelParams), so it is never paused and canceling at once.
 //
 // This only sets a flag; Stripe does the rest at period end. Clearing it on a
 // trialing sub is what turns "trial then cancel" into "trial then convert".
@@ -37,6 +40,8 @@ import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
+
+import { derivePauseState, scheduleCancelParams } from '../core/subscriptionPause.ts';
 
 const AUDIT_TYPE = 'billing_cancellation_set';
 
@@ -101,7 +106,8 @@ Direction (exactly one required):
               trial) converts to paid and charges at trial_end, instead of
               ending. Use to let a customer who had canceled convert after all.
       --on    Schedule cancellation at period end — she keeps access until then,
-              then it ends with no further charge.
+              then it ends with no further charge. A paused subscription has
+              its pause ended too, as the Account page's Cancel does.
 
 Other:
       --dry-run   Print the plan; no Stripe or DB writes.
@@ -310,14 +316,31 @@ const periodEndUnix = currentPeriodEndUnix(subscription);
 const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
 const isTrial = subscription.status === 'trialing';
 const endLabel = isTrial ? 'trial ends' : 'renews';
+// A paused plan has no access and skips its bills until the pause ends.
+const pause = derivePauseState(
+  subscription.pause_collection
+    ? {
+        behavior: subscription.pause_collection.behavior ?? null,
+        resumesAt: subscription.pause_collection.resumes_at ?? null,
+      }
+    : null,
+);
+const pausedUntil = pause.resumesAtIso ?? 'no resume date';
+// --on ends a pause in the same update (scheduleCancelParams).
+const endsPause = desired && pause.paused;
 
 // Plain-English consequence of the requested state.
 const consequence = (() => {
   const at = periodEndIso ?? 'period end';
   if (desired) {
-    return isTrial
+    const ending = isTrial
       ? `At ${at} the trial will END and the subscription will cancel — she will NOT be charged.`
       : `The subscription stays active until ${at}, then CANCELS — no further charge.`;
+    return endsPause ? `The pause ENDS now, so access comes back. ${ending}` : ending;
+  }
+  if (pause.paused) {
+    // Taking the cancel off a paused plan leaves the pause in place.
+    return `It stays PAUSED until ${pausedUntil}: no access and no charge until then, and billing restarts after it.`;
   }
   return isTrial
     ? `At ${at} Stripe will CHARGE her and convert the trial to a paid subscription (unless she cancels before then).`
@@ -328,10 +351,17 @@ console.log(`Auth DB:            ${dbPath}`);
 console.log(`Customer:           ${user.email} (id=${user.id})`);
 console.log(`Subscription:       ${subscription.id}`);
 console.log(`Status:             ${subscription.status} (${endLabel} ${periodEndIso ?? '—'})`);
+console.log(`Paused:             ${pause.paused ? `yes, until ${pausedUntil}` : 'no'}`);
 console.log(`cancel_at_period_end: ${subscription.cancel_at_period_end ? 'true' : 'false'}  →  ${desired ? 'true' : 'false'}`);
 
 if (subscription.cancel_at_period_end === desired) {
   console.log(`\nAlready ${desired ? 'scheduled to cancel' : 'not canceling'}. Nothing to do.`);
+  if (desired && pause.paused) {
+    // Paused and canceling at once, from before Cancel ended a pause (or a
+    // Dashboard edit): no access, though every message says otherwise.
+    console.log('It is also PAUSED, so it has no access until the cancel. To give that access back,');
+    console.log(`end the pause and keep the cancel: make resume-subscription EMAIL=${user.email}`);
+  }
   process.exit(0);
 }
 
@@ -358,7 +388,13 @@ if (!cliArgs.yes) {
 // --- Apply -----------------------------------------------------------------
 
 try {
-  await stripe.subscriptions.update(subscription.id, { cancel_at_period_end: desired });
+  await stripe.subscriptions.update(
+    subscription.id,
+    // --on is the Account page's Cancel: it ends a pause too.
+    desired
+      ? (scheduleCancelParams({ pauseCollection: subscription.pause_collection }) as Stripe.SubscriptionUpdateParams)
+      : { cancel_at_period_end: false },
+  );
 } catch (err) {
   const message = err instanceof Error ? err.message : 'unknown error';
   console.error(`\nError: Stripe subscription update failed: ${message}`);
@@ -386,7 +422,7 @@ INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, 
      NULL,
      '${escapeSqlLiteral(user.email)}',
      'manual-script',
-     '${escapeSqlLiteral(`cancel_at_period_end ${subscription.cancel_at_period_end ? 'true' : 'false'} → ${desired ? 'true' : 'false'} for sub ${subscription.id} (status=${subscription.status})`)}',
+     '${escapeSqlLiteral(`cancel_at_period_end ${subscription.cancel_at_period_end ? 'true' : 'false'} → ${desired ? 'true' : 'false'} for sub ${subscription.id} (status=${subscription.status})${endsPause ? `; ended its pause (was paused until ${pausedUntil})` : ''}`)}',
      '${escapeSqlLiteral(stamp)}'
    );`;
 try {
@@ -409,3 +445,6 @@ console.log(
   `\nDone. ${user.email}: cancel_at_period_end is now ${desired ? 'true (will cancel at period end)' : 'false (will renew/convert)'}.`,
 );
 console.log(consequence);
+if (endsPause) {
+  console.log('Access comes back as soon as the webhook lands. Check with make diagnose-user if in doubt.');
+}

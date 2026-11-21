@@ -10,6 +10,7 @@ import {
   SAVE_PERCENT,
 } from '@/core/retentionOffer';
 import { readAttachedDiscounts, stackedDiscountsParam } from '@/core/subscriptionDiscounts';
+import { endPauseParam } from '@/core/subscriptionPause';
 import { SAVE_PAGE_TITLE, saveDonePageCopy, saveOfferPageCopy } from './copy';
 
 // Self-serve retention SAVE. The cancellation email carries a one-click
@@ -286,6 +287,11 @@ export async function POST(request: NextRequest) {
       // Never prorate/charge mid-period; the stacked discount rides the next
       // (conversion/renewal) invoice only.
       proration_behavior: 'none',
+      // The button says "Keep my access", so a plan still paused from before a
+      // cancel ended its pause has it ended here (core/subscriptionPause.ts
+      // endPauseParam). Without this the member stayed locked out until the
+      // pause ran out while this page said their access continues.
+      ...endPauseParam(subscription.pause_collection),
     });
   } catch {
     return htmlResponse(APPLY_FAILED_PAGE, 502);
