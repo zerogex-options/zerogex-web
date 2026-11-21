@@ -429,6 +429,19 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 10,
     kind: 'tier1',
   },
+  'trading-spreads-with-gamma-levels': {
+    slug: 'trading-spreads-with-gamma-levels',
+    href: '/education/trading-spreads-with-gamma-levels',
+    title: 'Trading Spreads With Gamma Levels: 5 Worked Examples',
+    blurb:
+      'A credit spread, a debit spread, a butterfly, an iron condor and a late-day put, each placed on a real SPX session from the replay: where the strikes went against the walls, flip and pin, and how each ended, including the days the same trade lost.',
+    description:
+      'Five SPX trades placed against real gamma levels: a credit spread, debit spread, butterfly, iron condor and late-day put, and how each one ended.',
+    datePublished: '2026-11-21',
+    dateModified: '2026-11-21',
+    readMinutes: 9,
+    kind: 'tier1',
+  },
   'spy-vs-spx-gamma-levels': {
     slug: 'spy-vs-spx-gamma-levels',
     href: '/education/spy-vs-spx-gamma-levels',
@@ -725,6 +738,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'what-is-a-put-wall',
     'what-is-a-call-wall',
     'how-often-do-gamma-walls-break',
+    'trading-spreads-with-gamma-levels',
   ],
   '0dte-dealer-positioning-explained': [
     'gamma-exposure-explained',
@@ -736,6 +750,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'max-pain-explained',
     'why-spy-pins-near-strikes',
     'how-to-read-a-gamma-flip',
+    'trading-spreads-with-gamma-levels',
   ],
   'max-pain-explained': [
     'gamma-exposure-explained',
@@ -806,6 +821,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-walls-explained',
     'why-do-breakouts-fail',
     'what-is-a-call-wall',
+    'trading-spreads-with-gamma-levels',
   ],
   'why-do-breakouts-fail': [
     'gamma-walls-explained',
@@ -840,6 +856,13 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'zero-gamma-level-explained',
     'what-is-negative-gamma',
     'gamma-vwap-confluence-explained',
+    'trading-spreads-with-gamma-levels',
+  ],
+  'trading-spreads-with-gamma-levels': [
+    'gamma-walls-explained',
+    'how-often-do-gamma-walls-break',
+    'pin-strike-explained',
+    'how-to-trade-around-gamma-flip',
   ],
   'spy-vs-spx-gamma-levels': [
     'gamma-walls-explained',
