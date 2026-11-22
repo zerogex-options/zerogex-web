@@ -347,6 +347,9 @@ const candidates = querySqlite<UserRow>(
      AND stripe_subscription_id IS NOT NULL
      AND stripe_customer_id IS NOT NULL
      AND deleted_at IS NULL
+     -- A member who clicked Cancel has no renewal for the card to fail on;
+     -- "your next renewal could be declined" would be untrue.
+     AND COALESCE(cancel_at_period_end, 0) = 0
    ORDER BY current_period_end ASC
    LIMIT ${cliArgs.limit};`,
 );
