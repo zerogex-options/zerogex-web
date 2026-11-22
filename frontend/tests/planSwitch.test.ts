@@ -348,3 +348,16 @@ test('every offer is a switch decidePlanSwitch performs in-app', () => {
     }
   }
 });
+
+test('a paused trial is never switched in-app, whatever the target', () => {
+  // A trialing Basic monthly plan can be paused. Picking Pro annual used to
+  // return in_app_start_paid: the trial ended and the new plan was invoiced
+  // while pause_collection stayed on.
+  for (const target of [
+    { targetTier: 'pro' as const, targetCadence: 'annual' as const, targetHasTrial: false },
+    { targetTier: 'pro' as const, targetCadence: 'monthly' as const, targetHasTrial: false },
+    { targetTier: 'basic' as const, targetCadence: 'annual' as const, targetHasTrial: false },
+  ]) {
+    assert.deepEqual(decidePlanSwitch(input({ ...target, status: 'trialing', paused: true })), { kind: 'portal' });
+  }
+});

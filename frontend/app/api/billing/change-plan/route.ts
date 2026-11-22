@@ -271,6 +271,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "You're already on this plan." }, { status: 400 });
   }
 
+  // A paused plan resumes before it switches. Switching under a pause either
+  // voids the new plan's invoice (Resume would then grant it for nothing) or
+  // charges for a plan the member can't use until they resume, and the billing
+  // portal would allow the same switch, so refuse with the reason instead of
+  // sending them there (decidePlanSwitch never switches a paused plan in-app).
+  if (subscription.pause_collection != null) {
+    return NextResponse.json(
+      {
+        error: 'Your plan is paused. Resume it from your account page, then change plans.',
+        code: 'paused',
+      },
+      { status: 409 },
+    );
+  }
+
   const fromLabel = currentSku ? `${currentSku.tier}/${currentSku.cadence}` : 'unknown';
 
   // A trial that started without a card and still has none (core/noCardTrial.ts)

@@ -107,9 +107,16 @@ export function decidePlanSwitch(input: PlanSwitchInput): PlanSwitchDecision {
   }
   // An unmapped current price is never guessed at.
   if (!input.currentTier || !input.currentCadence) return { kind: 'portal' };
+  // A paused subscription is never switched in-app (see PlanSwitchInput.paused).
+  // Only the lengthen branch checked it: a trialer who paused (a trialing Basic
+  // monthly plan can be) and then picked Pro annual got in_app_start_paid, which
+  // ends the trial and invoices the new plan while pause_collection stays on.
+  // Under a pause with behavior 'void' that invoice is voided, so Resume gave a
+  // year of Pro for nothing; charged instead, the member paid with no access
+  // until they resumed. They resume first, then switch.
+  if (input.paused) return { kind: 'portal' };
   if (
     input.status === 'active' &&
-    !input.paused &&
     input.currentTier === input.targetTier &&
     CADENCE_MONTHS[input.targetCadence] > CADENCE_MONTHS[input.currentCadence]
   ) {
