@@ -101,11 +101,19 @@ export function clampPauseMonths(requested: unknown): number {
 
 // The Unix-seconds instant a pause of `months` starting at nowMs should resume.
 // Calendar-month arithmetic (not 30×days) so "1 month" lands on the same day
-// next month.
+// next month, in UTC, and on the target month's LAST day when that day doesn't
+// exist. setMonth overflowed instead: a one-month pause on Jan 31 resumed on
+// Mar 3 (Nov 30 + 3 months on Mar 2), so a member billed on the 1st had two
+// renewals voided for a one-month pause and nearly four free weeks.
 export function computeResumesAtUnix(nowMs: number, months: number): number {
   const d = new Date(nowMs);
-  d.setMonth(d.getMonth() + months);
-  return Math.floor(d.getTime() / 1000);
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const day = Math.min(d.getUTCDate(), lastDay);
+  return Math.floor(
+    Date.UTC(year, month, day, d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()) / 1000,
+  );
 }
 
 // A monthly bill `months` after the billing-cycle anchor, the way Stripe dates

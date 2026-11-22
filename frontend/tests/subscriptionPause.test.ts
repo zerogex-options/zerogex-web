@@ -72,6 +72,19 @@ test('computeResumesAtUnix: adds calendar months', () => {
   assert.equal(new Date(threeMonths * 1000).toISOString(), new Date(Date.UTC(2026, 10, 14, 12, 0, 0)).toISOString());
 });
 
+test('computeResumesAtUnix: a pause from the 29th-31st ends on the last day of a shorter month', () => {
+  const iso = (unix: number) => new Date(unix * 1000).toISOString();
+  // One month from Jan 31 is Feb 28, not Mar 3 (which voided the Mar 1 bill too).
+  assert.equal(iso(computeResumesAtUnix(Date.UTC(2027, 0, 31, 15, 30, 0), 1)), '2027-02-28T15:30:00.000Z');
+  // Leap year.
+  assert.equal(iso(computeResumesAtUnix(Date.UTC(2028, 0, 30, 9, 0, 0), 1)), '2028-02-29T09:00:00.000Z');
+  // Three months from Nov 30 is Feb 28, not Mar 2.
+  assert.equal(iso(computeResumesAtUnix(Date.UTC(2026, 10, 30, 12, 0, 0), 3)), '2027-02-28T12:00:00.000Z');
+  // Across the year end, and a 31st into a 31-day month stays the 31st.
+  assert.equal(iso(computeResumesAtUnix(Date.UTC(2026, 9, 31, 0, 0, 0), 2)), '2026-12-31T00:00:00.000Z');
+  assert.equal(iso(computeResumesAtUnix(Date.UTC(2026, 11, 31, 0, 0, 0), 1)), '2027-01-31T00:00:00.000Z');
+});
+
 // What both routes compute from users.stripe_price_id before asking the gate.
 function cadenceOfPrice(priceId: string | null) {
   const sku = priceId ? priceIdToSku(priceId) : null;
