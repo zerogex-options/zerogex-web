@@ -117,6 +117,20 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'Dollar gamma is net GEX expressed in dollars per 1% move: a rough estimate of how much S&P index exposure dealers would need to trade to re-hedge if SPX moved 1%. A print like +$1.5B is dollar gamma. The sign gives the regime; the magnitude says how much modeled hedging sits behind it.',
     },
   ],
+  'trading-spreads-with-gamma-levels': [
+    {
+      q: 'Where should the short strike of a put credit spread go relative to the put wall?',
+      a: 'A common placement is below the put wall, so price has to get through the heaviest put strike before the spread is threatened. The wall is not a guarantee: in ZeroGEX\'s measurement of 737 wall tests, SPX walls broke about one time in three within the hour, so decide before entering what you will do if price closes beyond the wall.',
+    },
+    {
+      q: 'Can gamma levels tell you which way SPX will move?',
+      a: 'No. The call wall, put wall, gamma flip and pin strike describe where modeled dealer hedging is concentrated and how it is modeled to behave, which helps with placing strikes and defining risk. They do not forecast direction: on consecutive days in October 2026, SPX sat below its gamma flip at 10:00 AM both times, then rallied 62 points into the close on one and fell 79 on the other.',
+    },
+    {
+      q: 'How often does a far out-of-the-money 0DTE option bought late in the day pay off?',
+      a: 'Rarely. In the 41 SPX sessions from August 28 to October 26, 2026, the index settled 25 or more points away from its 3:00 PM price once. An option that far out of the money at 3:00 PM usually ends the day with no value, so its cost is best treated as money you expect to lose.',
+    },
+  ],
   'pin-strike-explained': [
     {
       q: 'What is the Pin Strike?',
