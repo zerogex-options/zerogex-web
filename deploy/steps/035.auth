@@ -57,9 +57,17 @@ if [ ! -d "$AUTH_DATA_DIR" ]; then
   sudo mkdir -p "$AUTH_DATA_DIR"
   log "     + Created $AUTH_DATA_DIR"
 fi
-sudo chown "$USER:$USER" "$AUTH_DATA_DIR"
+# The app (PM2) and every timer run as the invoking user, so that user owns
+# the directory. Under sudo $USER is root: chowning to it locked the app out of
+# auth.db after the restart (logins and Stripe webhooks failing) and failed
+# every timer, so take the user sudo was invoked by, as the other steps do.
+AUTH_DATA_OWNER="${SUDO_USER:-$USER}"
+if [ "$AUTH_DATA_OWNER" = "root" ] || [ -z "$AUTH_DATA_OWNER" ]; then
+  AUTH_DATA_OWNER="$(stat -c '%U' "$HOME" 2>/dev/null || echo ubuntu)"
+fi
+sudo chown "$AUTH_DATA_OWNER:$AUTH_DATA_OWNER" "$AUTH_DATA_DIR"
 sudo chmod 700 "$AUTH_DATA_DIR"
-log "     ✓ Owner=$USER, mode=700"
+log "     ✓ Owner=$AUTH_DATA_OWNER, mode=700"
 
 # Always seed placeholders for the auth env keys so operators can fill them
 # in without guessing. The feature flag defaults to 0 (dormant).
