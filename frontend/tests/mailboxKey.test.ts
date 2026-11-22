@@ -50,7 +50,9 @@ seed.close();
 // assignment above has to land first. A static import would be hoisted past it.
 const { getDb } = await import('../core/db.ts');
 const { accountOnMailbox, deriveMailboxKeys, findAccountForSignIn, mailboxKey } = await import('../core/mailboxKey.ts');
-const { DELETED_ACCOUNT_MESSAGE, isReturningOAuthSignIn, resolveOAuthAccount } = await import('../core/oauthAccount.ts');
+const { DELETED_ACCOUNT_MESSAGE, UNVERIFIED_EMAIL_MESSAGE, isReturningOAuthSignIn, resolveOAuthAccount } = await import(
+  '../core/oauthAccount.ts'
+);
 
 const db = getDb();
 const PASSWORD_HASH = 'scrypt$salt$hash';
@@ -59,12 +61,13 @@ let seq = 0;
 // An account as registerUser writes it, mailbox_key included.
 function member(
   email: string,
-  opts: { tier?: string; password?: boolean; deletedAt?: string } = {},
+  opts: { tier?: string; password?: boolean; deletedAt?: string; verified?: boolean } = {},
 ): string {
   const id = `user_${++seq}`;
   db.prepare(
-    `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, deleted_at, mailbox_key)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, deleted_at, mailbox_key,
+                        email_verified_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     email,
@@ -74,6 +77,7 @@ function member(
     AT,
     opts.deletedAt ?? null,
     mailboxKey(email),
+    opts.verified ? AT : null,
   );
   return id;
 }
@@ -103,6 +107,81 @@ const signInFor = (email: string) => {
   const match = findAccountForSignIn(db, email);
   return match ? { id: String(match.row.id), via: match.via } : null;
 };
+
+test('adopting an account nobody verified drops the earlier registrant\'s password, sessions and sign-ins', () => {
+  // Someone registers a member's address first. Registration logs in before
+  // verification, so they hold a password and a session, and they link their
+  // own Apple ID to the account.
+  const squatted = member('victim.person@example.com');
+  db.prepare(
+    `INSERT INTO sessions (id, user_id, token_hash, csrf_secret, created_at, expires_at, last_rotated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run('sess_squatter', squatted, 'hash-squatter', 'csrf', AT, '2099-01-01T00:00:00.000Z', AT);
+  db.prepare(
+    `INSERT INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run('ident_squatter', squatted, 'apple', 'apple-sub-squatter', AT, AT);
+
+  // The real owner signs in with Google, which proves they read the inbox.
+  const input = { provider: 'google' as const, providerId: 'google-sub-victim', email: 'victim.person@example.com' };
+  const result = resolveOAuthAccount(db, input, createFromOAuth);
+  assert.equal(result.via, 'email');
+  assert.equal(result.row.id, squatted, 'the account is adopted, not duplicated');
+
+  const row = db
+    .prepare('SELECT password_hash, email_verified_at FROM users WHERE id = ?')
+    .get(squatted) as { password_hash: string | null; email_verified_at: string | null };
+  assert.equal(row.password_hash, null, "the earlier registrant's password no longer signs in");
+  assert.ok(row.email_verified_at, 'the address is verified now');
+  assert.ok(result.row.email_verified_at, 'the returned row is the updated one');
+  const sessions = db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ?').get(squatted) as { n: number };
+  assert.equal(sessions.n, 0, "the earlier registrant's session is gone");
+  assert.equal(identityOwner('apple', 'apple-sub-squatter'), undefined, 'their linked Apple ID is gone');
+  assert.equal(identityOwner('google', 'google-sub-victim'), squatted, 'the real owner is linked');
+});
+
+test('an Apple address Apple did not verify cannot adopt or create an account, but a linked Apple ID still signs in', () => {
+  const existing = member('work.person@example.com', { verified: true });
+  const unverified = { provider: 'apple' as const, providerId: 'apple-sub-work', email: 'work.person@example.com', emailVerified: false };
+  assert.throws(() => resolveOAuthAccount(db, unverified, createFromOAuth), new RegExp(UNVERIFIED_EMAIL_MESSAGE.slice(0, 30)));
+  assert.equal(identityOwner('apple', 'apple-sub-work'), undefined, 'nothing was linked');
+  const before = userCount();
+  assert.throws(() =>
+    resolveOAuthAccount(
+      db,
+      { provider: 'apple', providerId: 'apple-sub-new', email: 'brand.new@example.com', emailVerified: false },
+      createFromOAuth,
+    ),
+  );
+  assert.equal(userCount(), before, 'no account was created');
+
+  // Linked earlier (by its Apple subject, from inside the account): still signs in.
+  db.prepare(
+    `INSERT INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run('ident_work_apple', existing, 'apple', 'apple-sub-work', AT, AT);
+  const linked = resolveOAuthAccount(db, unverified, createFromOAuth);
+  assert.equal(linked.via, 'identity');
+  assert.equal(linked.row.id, existing);
+});
+
+test('adopting a verified account keeps its password and other sign-ins', () => {
+  const owner = member('kept.member@example.com', { verified: true });
+  db.prepare(
+    `INSERT INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run('ident_kept_apple', owner, 'apple', 'apple-sub-kept', AT, AT);
+  const result = resolveOAuthAccount(
+    db,
+    { provider: 'google', providerId: 'google-sub-kept', email: 'kept.member@example.com' },
+    createFromOAuth,
+  );
+  assert.equal(result.via, 'email');
+  const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(owner) as { password_hash: string | null };
+  assert.equal(row.password_hash, PASSWORD_HASH);
+  assert.equal(identityOwner('apple', 'apple-sub-kept'), owner);
+  assert.equal(identityOwner('google', 'google-sub-kept'), owner);
+});
 
 test('mailboxKey folds dots, +tags and googlemail.com for Gmail, and nothing else anywhere', () => {
   assert.equal(mailboxKey('a.b@gmail.com'), 'ab@gmail.com');
@@ -155,7 +234,7 @@ test('the boot that adds users.mailbox_key fills it in for existing members, beh
 });
 
 test('Google sign-in as ab@gmail.com lands in the a.b@gmail.com password account and links Google to it', () => {
-  const paid = member('a.b@gmail.com', { tier: 'basic' });
+  const paid = member('a.b@gmail.com', { tier: 'basic', verified: true });
   const accountsBefore = userCount();
   const input = { provider: 'google' as const, providerId: 'google-sub-ab', email: 'ab@gmail.com' };
 

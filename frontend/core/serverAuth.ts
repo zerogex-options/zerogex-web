@@ -1122,7 +1122,10 @@ export function isOAuthReturningUser(
   return isReturningOAuthSignIn(getDb(), provider, providerId, email);
 }
 
-export async function createOrLoginOAuthUser(request: NextRequest, input: { provider: 'google' | 'apple'; providerId: string; email: string; }) {
+export async function createOrLoginOAuthUser(
+  request: NextRequest,
+  input: { provider: 'google' | 'apple'; providerId: string; email: string; emailVerified?: boolean },
+) {
   const db = getDb();
   const reportedEmail = input.email.trim().toLowerCase();
 

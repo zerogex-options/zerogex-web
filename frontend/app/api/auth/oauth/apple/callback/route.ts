@@ -72,7 +72,7 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
     return fail(baseUrl, 'apple_missing_id_token');
   }
 
-  let payload: { sub: string; email: string };
+  let payload: { sub: string; email: string; emailVerified: boolean };
   try {
     payload = await verifyAppleIdToken(tokenPayload.id_token, config.clientId, expectedNonce);
   } catch (err) {
@@ -113,6 +113,9 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
       provider: 'apple',
       providerId: payload.sub,
       email: payload.email,
+      // Work & School Apple IDs can come unverified; those may only sign in
+      // through an Apple identity already linked (core/oauthAccount.ts).
+      emailVerified: payload.emailVerified,
     });
   } catch (err) {
     // e.g. a soft-deleted account refusing to be revived. Google's callback

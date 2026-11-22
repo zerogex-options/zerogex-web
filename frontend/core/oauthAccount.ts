@@ -22,7 +22,9 @@
 //      and picking one would be a guess, so this keeps the old behavior and
 //      reports them for a person to merge.
 // Steps 3 to 5 link the identity to the account they settle on, so the next
-// sign-in is step 2.
+// sign-in is step 2. When step 3 or 4 adopts an account whose address was never
+// verified, the earlier registrant's password, sessions and linked sign-ins are
+// removed first, so registering a member's address in advance is no way in.
 
 import { randomBytes } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
@@ -41,9 +43,19 @@ export type OAuthAccountResolution =
 export const DELETED_ACCOUNT_MESSAGE =
   'This account has been deleted. Contact support if you want it restored.';
 
+// Apple marks some addresses unverified (Sign in with Apple at Work & School).
+// Such an address can still sign in through an identity already linked by its
+// Apple subject, but it must not adopt or create an account by address: the
+// adoption below trusts the provider's word that the person reads the inbox.
+export const UNVERIFIED_EMAIL_MESSAGE =
+  'This sign-in did not come with a verified email address. Sign in another way, or contact support.';
+
 export function resolveOAuthAccount(
   db: DatabaseSync,
-  input: { provider: OAuthProvider; providerId: string; email: string },
+  // emailVerified: false only when the provider says it did not verify the
+  // address (Apple can); Google tokens without a verified address are refused
+  // before this runs (core/oauth.ts).
+  input: { provider: OAuthProvider; providerId: string; email: string; emailVerified?: boolean },
   // Inserts the new account and returns its id. Called inside this function's
   // transaction, so a failure anywhere after it leaves no half-made account.
   createAccount: (normalizedEmail: string) => string,
@@ -69,6 +81,9 @@ export function resolveOAuthAccount(
     )
     .get(input.provider, input.providerId) as UserRow | undefined;
   if (identityRow) return { via: 'identity', row: identityRow };
+  if (input.emailVerified === false) {
+    throw new Error(UNVERIFIED_EMAIL_MESSAGE);
+  }
 
   db.exec('BEGIN');
   try {
@@ -105,6 +120,26 @@ export function resolveOAuthAccount(
     }
 
     const now = new Date().toISOString();
+    if (resolution.via !== 'created' && !resolution.row.email_verified_at) {
+      // Nobody ever proved they own this address: registration logs in before
+      // verification. The provider has just proved the person signing in reads
+      // the inbox, so whatever the earlier registrant set up goes before the
+      // account is adopted: their password, their sessions and any sign-in they
+      // linked. Otherwise anyone could register a member's address first and
+      // keep a way in after the member signs in with Google or Apple and
+      // subscribes (a pre-hijack). The plan, billing and data stay with the
+      // account, and the address is now verified.
+      const id = String(resolution.row.id);
+      db.prepare('UPDATE users SET password_hash = NULL, email_verified_at = ?, updated_at = ? WHERE id = ?').run(
+        now,
+        now,
+        id,
+      );
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+      db.prepare('DELETE FROM user_identities WHERE user_id = ?').run(id);
+      const fresh = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined;
+      if (fresh) resolution = { ...resolution, row: fresh };
+    }
     db.prepare(
       `INSERT INTO user_identities (id, user_id, provider, provider_id, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?)
