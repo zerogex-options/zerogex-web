@@ -21,7 +21,7 @@ Cloudflare real-IP config is installed (it has been since the 503 fix). Check
 that it exists and is not empty:
 
 ```bash
-test -s /etc/nginx/conf.d/zerogex-realip.conf && echo ok
+test -s /etc/nginx/conf.d/zerogex-realip.conf && echo ok || echo MISSING
 ```
 
 **What will look different after the deploy (all intended):**
