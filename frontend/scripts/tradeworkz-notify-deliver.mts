@@ -38,6 +38,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import { sendTradeworkzNotification } from '../core/mailer.ts';
 import type { TradeworkzEmailPayload } from '../core/mailer.ts';
+import { tradeworkzSkipReason, type TradeworkzRecipient } from '../core/tradeworkzDelivery.ts';
 
 interface QueuedRow {
   id: number;
@@ -176,11 +177,10 @@ function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
 
-interface AuthUser {
-  id: string;
-  email: string;
-  email_verified_at: string | null;
-}
+// The plan and deletion columns too: a follow outlives the plan that made it,
+// so who may still get these Pro alerts is decided at send time
+// (core/tradeworkzDelivery.ts).
+type AuthUser = TradeworkzRecipient;
 
 function loadAuthUsers(dbPath: string, userIds: string[]): Map<string, AuthUser> {
   const map = new Map<string, AuthUser>();
@@ -188,7 +188,7 @@ function loadAuthUsers(dbPath: string, userIds: string[]): Map<string, AuthUser>
   const inList = userIds.map((id) => `'${escapeSqlLiteral(id)}'`).join(',');
   const rows = querySqlite<AuthUser>(
     dbPath,
-    `SELECT id, email, email_verified_at FROM users WHERE id IN (${inList})`,
+    `SELECT id, email, email_verified_at, tier, deleted_at FROM users WHERE id IN (${inList})`,
   );
   for (const r of rows) map.set(r.id, r);
   return map;
@@ -364,23 +364,15 @@ for (const row of queued.entries) {
   const user = usersById.get(row.end_user);
   const label = `#${row.id} ${row.bot_id} -> ${row.end_user} (${row.event_type})`;
 
-  if (!user) {
-    console.log(`  SKIP ${label}: unknown recipient`);
+  // Unknown, deleted, below Pro, or unverified: never emailed. The row is
+  // closed with the reason so the next run does not pick it up again.
+  const skipReason = tradeworkzSkipReason(user);
+  if (skipReason || !user) {
+    const reason = skipReason ?? 'unknown recipient';
+    console.log(`  SKIP ${label}: ${reason}${user ? ` (${user.email})` : ''}`);
     if (cliArgs.yes) {
       try {
-        await markNotification(TRADEWORKZ_INTERNAL_API, INTERNAL_AUTH, row.id, 'failed', 'unknown recipient');
-      } catch (err) {
-        console.error(`     mark-failed error: ${(err as Error).message}`);
-      }
-    }
-    skipped++;
-    continue;
-  }
-  if (!user.email_verified_at) {
-    console.log(`  SKIP ${label}: unverified recipient ${user.email}`);
-    if (cliArgs.yes) {
-      try {
-        await markNotification(TRADEWORKZ_INTERNAL_API, INTERNAL_AUTH, row.id, 'failed', 'unverified recipient');
+        await markNotification(TRADEWORKZ_INTERNAL_API, INTERNAL_AUTH, row.id, 'failed', reason);
       } catch (err) {
         console.error(`     mark-failed error: ${(err as Error).message}`);
       }
