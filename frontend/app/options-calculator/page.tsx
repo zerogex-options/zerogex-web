@@ -1,7 +1,7 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Area, AreaChart, CartesianGrid, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -225,6 +225,18 @@ export default function OptionsCalculatorPage() {
     setLegStrike({});
   };
 
+  // A pick belongs to the symbol it was made on. Carried across a symbol switch
+  // a strike picked on SPY (680) meant nothing on SPX, and an expiration the new
+  // chain doesn't list left the leg with no strikes at all (strike 0, no quote,
+  // premium 0): the payoff then drew a fixed profit at every price. Reset during
+  // render, keyed on the symbol, rather than in an effect.
+  const [picksFor, setPicksFor] = useState(symbol);
+  if (picksFor !== symbol) {
+    setPicksFor(symbol);
+    setLegExpiration({});
+    setLegStrike({});
+  }
+
   const { data: quoteData } = useMarketQuote(symbol, 3000);
   // useApiData wants a path-relative endpoint so it can prepend NEXT_PUBLIC_API_URL,
   // but buildOptionChainUrl in optionChainCache.ts gives us the full absolute URL
@@ -280,14 +292,33 @@ export default function OptionsCalculatorPage() {
 
   const spot = Number(quoteData?.close || 0);
 
+  // A leg's expiration and strike: the member's pick when the current chain
+  // lists it, the default otherwise (the <select> shows the first listed value
+  // for a pick it doesn't have, so the math must not keep using the stale one).
+  const legExp = useCallback(
+    (legId: string, label: string) => {
+      const picked = legExpiration[legId];
+      return picked && expirationChoices.includes(picked) ? picked : smartDefaultExp(label, expirationChoices);
+    },
+    [legExpiration, expirationChoices],
+  );
+  const legStrikeFor = useCallback(
+    (legId: string, label: string, right: OptionRight, exp: string) => {
+      const strikes = strikeMapByExpiration[exp] || [];
+      const picked = legStrike[legId] ? Number(legStrike[legId]) : NaN;
+      return Number.isFinite(picked) && strikes.includes(picked)
+        ? picked
+        : smartDefaultStrike(label, right, strikes, spot);
+    },
+    [legStrike, strikeMapByExpiration, spot],
+  );
+
   // Up to 4 option leg hooks (fixed count required by React rules)
-  const getOptLegExp = (idx: number) =>
-    optLegs[idx] ? (legExpiration[optLegs[idx].id] || smartDefaultExp(optLegs[idx].label, expirationChoices)) : '';
+  const getOptLegExp = (idx: number) => (optLegs[idx] ? legExp(optLegs[idx].id, optLegs[idx].label) : '');
   const getOptLegStrike = (idx: number, exp: string) => {
     if (!optLegs[idx]) return 0;
     const leg = optLegs[idx];
-    if (legStrike[leg.id]) return Number(legStrike[leg.id]);
-    return smartDefaultStrike(leg.label, leg.right, strikeMapByExpiration[exp] || [], spot);
+    return legStrikeFor(leg.id, leg.label, leg.right, exp);
   };
 
   const opt0Exp = getOptLegExp(0);
@@ -318,11 +349,8 @@ export default function OptionsCalculatorPage() {
         return { ...leg, expiration: '', strike: spot, ticker: symbol, quotePerContract: 0, quoteSide: '' };
       }
       const idx = optIdx++;
-      const expiration = legExpiration[leg.id] || smartDefaultExp(leg.label, expirationChoices);
-      const strikes = strikeMapByExpiration[expiration] || [];
-      const strike = legStrike[leg.id]
-        ? Number(legStrike[leg.id])
-        : smartDefaultStrike(leg.label, leg.right, strikes, spot);
+      const expiration = legExp(leg.id, leg.label);
+      const strike = legStrikeFor(leg.id, leg.label, leg.right, expiration);
       const quote = optQuotes[idx];
       const bid = Number(quote?.bid ?? 0);
       const ask = Number(quote?.ask ?? 0);
@@ -334,9 +362,10 @@ export default function OptionsCalculatorPage() {
         ticker: formatOptionTicker(symbol, expiration, leg.right, strike),
         quotePerContract,
         quoteSide: leg.role === 'long' ? 'ask' : 'bid',
+        hasQuote: quote != null,
       };
     });
-  }, [allLegs, legExpiration, legStrike, expirationChoices, strikeMapByExpiration, quote0, quote1, quote2, quote3, spot, symbol]);
+  }, [allLegs, legExp, legStrikeFor, quote0, quote1, quote2, quote3, spot, symbol]);
 
   const totalPosition = selectedLegs.reduce((sum, leg) => {
     const qty = leg.qty ?? 1;
@@ -429,6 +458,14 @@ export default function OptionsCalculatorPage() {
     // would snap to the closest uniform sample (~$0.46 off in this default
     // range) and the tooltip would read e.g. "$Δ: -$20.28" at the -$20
     // gridline. Including the ticks makes that hover land exactly on -$20.
+    // No curve until every option leg has a listed strike and a quote: a leg
+    // still at strike 0 or with no quote (premium 0) drew a curve that isn't
+    // the position.
+    const legsReady = selectedLegs.every(
+      (leg) => leg.right === 'stock' || (leg.strike > 0 && 'hasQuote' in leg && leg.hasQuote),
+    );
+    if (!legsReady) return [];
+
     const priceMap = new Map<string, number>();
     for (let i = 0; i <= 80; i++) {
       const S = minP + ((maxP - minP) * i) / 80;
@@ -436,6 +473,14 @@ export default function OptionsCalculatorPage() {
     }
     for (const t of xTicks) {
       priceMap.set(t.toFixed(4), t);
+    }
+    // The payoff bends only at the strikes, so sample each one: between 81
+    // evenly spaced points a butterfly's peak fell between samples and read
+    // up to ~$135 low on the chart.
+    for (const leg of selectedLegs) {
+      if (leg.right !== 'stock' && leg.strike >= minP && leg.strike <= maxP) {
+        priceMap.set(leg.strike.toFixed(4), leg.strike);
+      }
     }
 
     const prices = Array.from(priceMap.values()).sort((a, b) => a - b);
@@ -724,7 +769,7 @@ export default function OptionsCalculatorPage() {
             </div>
           )}
         </div>
-        {!chainReady ? (
+        {!chainReady || payoffData.length === 0 ? (
           <div className="bg-[var(--color-surface-subtle)] rounded p-12 flex flex-col items-center gap-3 text-sm text-[var(--color-text-secondary)]">
             <LoadingSpinner />
             <div>Loading payoff curve…</div>
@@ -812,7 +857,9 @@ export default function OptionsCalculatorPage() {
                 />
               ))}
             <Area
-              type="monotone"
+              // Straight segments: an expiry payoff is piecewise linear, and a
+              // monotone spline rounded off (and understated) its peaks.
+              type="linear"
               dataKey="pl"
               stroke="url(#plStroke)"
               strokeWidth={2.5}
