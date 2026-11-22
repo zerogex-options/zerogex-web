@@ -300,9 +300,14 @@ export default function GammaHeatmapCanvas() {
   // The narrow layout folds its secondary controls into an Options panel.
   const [optionsOpen, setOptionsOpen] = useState<boolean>(false);
 
-  // ── Pause-aware polling intervals — 1s on every hook so the heatmap stays live. ──
-  const heatmapInterval = paused ? 0 : 1000;
-  const historicalInterval = paused ? 0 : 1000;
+  // ── Pause-aware polling intervals. ──
+  // The live price (tip candle, spot line) moves at 1 s. The surface and the
+  // GEX history change only when the analytics engine writes a snapshot, once
+  // per ANALYTICS_INTERVAL (60 s), so polling them every second re-downloaded
+  // ~1.3 MB (SPY) to ~2.7 MB (SPX) of identical surface a second and rebuilt
+  // the grid each time. 10 s is six looks per write.
+  const heatmapInterval = paused ? 0 : 10_000;
+  const historicalInterval = paused ? 0 : 10_000;
   const quoteInterval = paused ? 0 : 1000;
 
   const baseMaxPoints = getMaxDataPoints();
@@ -376,6 +381,16 @@ export default function GammaHeatmapCanvas() {
   // representative spot (latest close); intraday spot drift (~1-2%) is
   // immaterial to the rounded ±B/M labels. The tooltip converts per-cell
   // below using that row's own close.
+  // The grid needs only WHICH price buckets exist, not their prices. priceData
+  // is a new array on every 1 s quote (the live tip close), so keying the grid
+  // on it rebuilt the dense matrix and its full percentile sort every second
+  // (~70 ms SPX, ~150 ms NDX). Keyed on the timestamps, it rebuilds when a bar
+  // or a surface actually changes.
+  const priceTimestampsKey = useMemo(() => priceData.map((p) => p.timestamp).join('|'), [priceData]);
+  const priceTimestamps = useMemo(
+    () => (priceTimestampsKey ? priceTimestampsKey.split('|') : []),
+    [priceTimestampsKey],
+  );
   const gexSpotRef = quote?.close ?? priceData[priceData.length - 1]?.close ?? null;
   const legendGexFactor = gexScaleFactor(gexUnit, gexSpotRef);
   // Whole-chain flips on their own window, the fallback when the heatmap's
@@ -421,8 +436,8 @@ export default function GammaHeatmapCanvas() {
     });
 
     const priceMsSet = new Set<number>();
-    (priceData || []).forEach((p) => {
-      const ms = new Date(p.timestamp).getTime();
+    priceTimestamps.forEach((timestamp) => {
+      const ms = new Date(timestamp).getTime();
       if (Number.isFinite(ms)) priceMsSet.add(bucketOf(ms));
     });
 
@@ -515,7 +530,7 @@ export default function GammaHeatmapCanvas() {
 
     const timestamps = slotsMs.map((ms) => new Date(ms).toISOString());
     return { timestamps, slotsMs, minStrike, maxStrike, stride, matrix, clip, strikes: reportedStrikes, raw };
-  }, [gexData, priceData, maxPoints, tf, symbol]);
+  }, [gexData, priceTimestamps, maxPoints, tf, symbol]);
 
   // Threshold above which a cycle's gamma_flip_span_used (fraction of
   // spot the resolver's grid spanned) is considered an "expansion
