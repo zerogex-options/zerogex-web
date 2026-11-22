@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE_NAME, hasTierAccess, isPublicRoute, requiredTierForRoute } from '@/core/auth';
 import { getSessionFromRequest } from '@/core/serverAuth';
+import { clientIpFromHeaders } from '@/core/clientIp';
 import { recordRequest, resolveUserIdFromCookie } from '@/core/monitoring';
 
 function readPositiveInt(name: string, fallback: number) {
@@ -28,10 +29,7 @@ function recordRequestForMonitoring(request: NextRequest) {
       return;
     }
     const isApi = pathname.startsWith('/api/');
-    const ip =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip')?.trim() ||
-      null;
+    const ip = clientIpFromHeaders(request.headers);
     const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value ?? null;
     const userId = sessionToken ? resolveUserIdFromCookie(sessionToken) : null;
     recordRequest({ isApi, userId, ip });

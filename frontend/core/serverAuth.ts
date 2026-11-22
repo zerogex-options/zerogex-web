@@ -1,4 +1,5 @@
-import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'crypto';
+import { randomBytes, scrypt, scryptSync, timingSafeEqual, createHash } from 'crypto';
+import { promisify } from 'util';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME, TierId, normalizeTier } from '@/core/auth';
@@ -20,6 +21,7 @@ import {
 // Appearance cookies outlive a session on purpose: they are a preference, and
 // the point is that the look survives signing out and back in.
 const APPEARANCE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+import { clientIpFromHeaders } from '@/core/clientIp';
 import { getDb } from '@/core/db';
 import { createFixedWindowLimiter, type RateLimitVerdict } from '@/core/rateLimit';
 import { sendEmailVerification } from '@/core/mailer';
@@ -151,7 +153,16 @@ const SESSION_ROTATE_AFTER_SECONDS = readPositiveInt('AUTH_SESSION_ROTATE_AFTER_
 // at, while keeping the write off the vast majority of requests.
 const LAST_SEEN_THROTTLE_SECONDS = readPositiveInt('AUTH_LAST_SEEN_THROTTLE_SECONDS', 60 * 15);
 const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+// Failed sign-ins per address per window. Successful ones are not counted, so
+// a shared office or carrier address is never locked out by members who type
+// their password right, and there is nothing a successful sign-in has to reset.
 const LOGIN_MAX_ATTEMPTS = 5;
+// Failed sign-ins per ACCOUNT per window, whatever address they come from. A
+// guesser rotating addresses, or one who used to reset the per-address count
+// by signing in to an account of their own, still gets this many tries at any
+// one member's password. Higher than the per-address cap so a member who
+// mistypes a few times is not the one locked out.
+const LOGIN_ACCOUNT_MAX_FAILURES = 10;
 const PASSWORD_RESET_TTL_SECONDS = readPositiveInt('AUTH_PASSWORD_RESET_TTL_SECONDS', 30 * 60);
 const PASSWORD_RESET_WINDOW_MS = 60 * 60 * 1000;
 const PASSWORD_RESET_MAX_REQUESTS = 5;
@@ -177,6 +188,10 @@ const BOOTSTRAP_ADMIN_FLAG = 'ZGEX_BOOTSTRAP_ADMIN_DONE';
 const loginLimiter = createFixedWindowLimiter({
   windowMs: LOGIN_WINDOW_MS,
   max: LOGIN_MAX_ATTEMPTS,
+});
+const loginAccountLimiter = createFixedWindowLimiter({
+  windowMs: LOGIN_WINDOW_MS,
+  max: LOGIN_ACCOUNT_MAX_FAILURES,
 });
 const passwordResetLimiter = createFixedWindowLimiter({
   windowMs: PASSWORD_RESET_WINDOW_MS,
@@ -229,17 +244,28 @@ function hashPassword(password: string, salt = randomBytes(16).toString('hex')) 
   return `scrypt$${salt}$${derived}`;
 }
 
-function verifyPassword(password: string, encodedHash?: string) {
+const scryptAsync = promisify(scrypt) as (password: string, salt: string, keylen: number) => Promise<Buffer>;
+
+// A hash of a random password, checked when the typed address has no password
+// account, so a wrong guess costs the same time whether or not the account
+// exists and the response time does not say which addresses are members.
+const DECOY_PASSWORD_HASH = hashPassword(randomBytes(16).toString('hex'));
+
+// Asynchronous on purpose: scryptSync held the single Next process for ~40 ms
+// per sign-in attempt, so a stream of wrong passwords stalled every page.
+async function verifyPassword(password: string, encodedHash?: string): Promise<boolean> {
   if (!encodedHash) return false;
   const [algorithm, salt, hash] = encodedHash.split('$');
   if (algorithm !== 'scrypt' || !salt || !hash) return false;
-  const derived = scryptSync(password, salt, 64);
+  const derived = await scryptAsync(password, salt, 64);
   const stored = Buffer.from(hash, 'hex');
   return stored.length === derived.length && timingSafeEqual(stored, derived);
 }
 
+// From X-Real-IP, which nginx sets and the visitor cannot: see core/clientIp.ts
+// for why the first X-Forwarded-For entry must never be trusted.
 export function getClientIp(request: NextRequest) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  return clientIpFromHeaders(request.headers) ?? 'unknown';
 }
 
 function rowToUser(row: Record<string, unknown>): AuthUser {
@@ -528,15 +554,28 @@ export function enforceSignupRateLimit(ip: string) {
   return toLegacyVerdict(signupLimiter.check(ip));
 }
 
-export function enforceLoginRateLimit(ip: string) {
-  return toLegacyVerdict(loginLimiter.check(ip));
+// The sign-in throttle, checked before the password: refuses when either the
+// address or the account has used up its failed attempts for the window.
+// Neither count moves here; recordLoginFailure does that once a password turns
+// out wrong. The account key folds Gmail spellings together, as sign-in does.
+function loginThrottleVerdict(ip: string, typedEmail: string) {
+  const byAddress = loginLimiter.peek(ip);
+  if (!byAddress.allowed) return toLegacyVerdict(byAddress);
+  return toLegacyVerdict(loginAccountLimiter.peek(mailboxKey(typedEmail)));
 }
 
-// Called on a successful sign-in. Without it, someone who mistypes their
-// password four times and then gets it right stays one attempt from a lockout
-// for the rest of the window.
-function clearLoginRateLimit(ip: string) {
-  loginLimiter.clear(ip);
+function recordLoginFailure(ip: string, typedEmail: string) {
+  loginLimiter.check(ip);
+  loginAccountLimiter.check(mailboxKey(typedEmail));
+}
+
+// A successful sign-in forgets that account's failures, so a member who
+// mistyped a few times is not left near the per-account cap. The per-address
+// count is deliberately left alone: clearing it on ANY success let someone
+// guess four times at a member's password, sign in to an account of their own,
+// and start over, without end.
+function clearLoginFailuresForAccount(typedEmail: string) {
+  loginAccountLimiter.clear(mailboxKey(typedEmail));
 }
 
 function issueSessionCookie(response: NextResponse, token: string, maxAgeSeconds = SESSION_TTL_SECONDS) {
@@ -746,18 +785,23 @@ export async function registerAndStartSession(
 
 export async function createSessionForUserCredentials(request: NextRequest, email: string, password: string) {
   const ip = getClientIp(request);
-  const limit = enforceLoginRateLimit(ip);
+  const typedEmail = email.trim().toLowerCase();
+  const limit = loginThrottleVerdict(ip, typedEmail);
   if (!limit.allowed) throw new Error(`Too many login attempts. Retry in ${limit.retryAfterSeconds}s.`);
 
-  const typedEmail = email.trim().toLowerCase();
   const match = getUserForSignIn(typedEmail);
-  if (!match || !match.user.passwordHash || !verifyPassword(password, match.user.passwordHash)) {
+  const passwordOk = match?.user.passwordHash
+    ? await verifyPassword(password, match.user.passwordHash)
+    : // No password account: spend the same time anyway (see DECOY_PASSWORD_HASH).
+      (await verifyPassword(password, DECOY_PASSWORD_HASH)) && false;
+  if (!match || !passwordOk) {
+    recordLoginFailure(ip, typedEmail);
     appendAuditEvent({ type: 'login_failure', email: typedEmail, ip, message: 'Failed login attempt' });
     throw new Error('Invalid credentials');
   }
 
   const { user, via } = match;
-  clearLoginRateLimit(ip);
+  clearLoginFailuresForAccount(typedEmail);
   const session = createSessionForUser(user);
   appendAuditEvent({
     type: 'login_success',

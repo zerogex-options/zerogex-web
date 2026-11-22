@@ -42,6 +42,13 @@ export type FixedWindowOptions = {
 export type FixedWindowLimiter = {
   check(key: string, nowMs?: number): RateLimitVerdict;
   /**
+   * The verdict check() would give for the NEXT attempt, without counting one.
+   *
+   * The login limiter needs this: it counts failed sign-ins only, so it asks
+   * first and records an attempt only when the password turns out wrong.
+   */
+  peek(key: string, nowMs?: number): RateLimitVerdict;
+  /**
    * Forget one key's window entirely.
    *
    * The login limiter needs this: a successful sign-in clears the failure
@@ -103,6 +110,17 @@ export function createFixedWindowLimiter(opts: FixedWindowOptions): FixedWindowL
       // NOTE: resetAt is deliberately NOT extended. A sliding window would let
       // a steady trickle hold the window open forever; a fixed window always
       // drains, so a blocked caller has a real time at which they recover.
+      return { allowed: true, remaining: Math.max(0, opts.max - entry.count) };
+    },
+    peek(key: string, nowMs: number = Date.now()): RateLimitVerdict {
+      const entry = store.get(key);
+      if (!entry || nowMs > entry.resetAt) return { allowed: true, remaining: opts.max };
+      if (entry.count >= opts.max) {
+        return {
+          allowed: false,
+          retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAt - nowMs) / 1000)),
+        };
+      }
       return { allowed: true, remaining: Math.max(0, opts.max - entry.count) };
     },
     clear: (key: string) => {

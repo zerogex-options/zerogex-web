@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizeTier } from '@/core/auth';
-import { requireSession, updateUserTier, validateCsrf } from '@/core/serverAuth';
+import { getClientIp, requireSession, updateUserTier, validateCsrf } from '@/core/serverAuth';
 
 export async function PATCH(request: NextRequest) {
   if (!validateCsrf(request)) {
@@ -22,7 +22,7 @@ export async function PATCH(request: NextRequest) {
       actor.user.id,
       body.email,
       normalizeTier(body.tier),
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+      getClientIp(request)
     );
 
     return NextResponse.json({ ok: true, user: result });

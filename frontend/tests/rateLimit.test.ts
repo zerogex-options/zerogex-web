@@ -118,3 +118,22 @@ test('clear() on an unknown key is a no-op, not a throw', () => {
   rl.clear('never-seen');
   assert.equal(rl.size(), 0);
 });
+
+test('peek() reports the next verdict without counting an attempt', () => {
+  // The login limiter counts FAILED sign-ins only: it peeks before checking the
+  // password and records an attempt only when the password is wrong, so members
+  // who type it right never use up a shared address's allowance.
+  const rl = createFixedWindowLimiter({ windowMs: 60_000, max: 2 });
+  assert.deepEqual(rl.peek('ip', T0), { allowed: true, remaining: 2 });
+  for (let i = 0; i < 10; i++) rl.peek('ip', T0);
+  assert.equal(rl.size(), 0, 'peeking tracks nothing');
+
+  rl.check('ip', T0);
+  assert.deepEqual(rl.peek('ip', T0), { allowed: true, remaining: 1 });
+  rl.check('ip', T0);
+  const blocked = rl.peek('ip', T0 + 10_000);
+  assert.equal(blocked.allowed, false);
+  assert.equal(blocked.allowed === false && blocked.retryAfterSeconds, 50);
+  // Peeking a full window never extends it.
+  assert.equal(rl.peek('ip', T0 + 60_001).allowed, true);
+});
