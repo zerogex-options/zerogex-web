@@ -192,6 +192,31 @@ export function isUnstartedSubscriptionStatus(status: string | null | undefined)
   return status === 'incomplete' || status === 'incomplete_expired';
 }
 
+// True when an `incomplete` snapshot describes a subscription the member's row
+// already holds in a started status (trialing, active, past_due...). Stripe
+// never moves a subscription back to incomplete, so such a snapshot is older
+// news and must not be applied. Checkout stamps customer.subscription.created
+// (incomplete), customer.subscription.updated (active) and
+// checkout.session.completed in the same second, and the webhook's ordering
+// guard compares whole seconds, so a created event that arrived last (a retry
+// after a deploy restart, or plain delivery order) passed it and set a paying
+// member to incomplete and Public, revoking their API keys, with nothing to
+// put it back until the next subscription event a month or a year away.
+export function isStaleIncompleteSnapshot(input: {
+  snapshotStatus: string | null | undefined;
+  snapshotSubscriptionId: string;
+  rowSubscriptionId: string | null | undefined;
+  rowStatus: string | null | undefined;
+}): boolean {
+  return (
+    input.snapshotStatus === 'incomplete' &&
+    !!input.rowSubscriptionId &&
+    input.rowSubscriptionId === input.snapshotSubscriptionId &&
+    !!input.rowStatus &&
+    !isUnstartedSubscriptionStatus(input.rowStatus)
+  );
+}
+
 // Takes a never-started subscription off the member's row so they can check
 // out again. Not churn, unlike markSubscriptionEnded: the member never had the
 // subscription, so subscription_lapsed is left alone (setting it would cost a

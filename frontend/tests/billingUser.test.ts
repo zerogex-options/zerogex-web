@@ -415,3 +415,30 @@ test("a late expiry for an old attempt leaves the member's new subscription alon
   assert.equal(released, false);
   assert.deepEqual(subscriptionRow('u_paid_on_retry'), before);
 });
+
+test('an incomplete snapshot of a subscription the row already has started is stale', async () => {
+  const { isStaleIncompleteSnapshot } = await import('../core/billingUser.ts');
+  const base = { snapshotSubscriptionId: 'sub_1', rowSubscriptionId: 'sub_1' };
+  // Checkout's created (incomplete) event landing after updated (active) in the
+  // same second: skipped, for every started status.
+  for (const rowStatus of ['active', 'trialing', 'past_due', 'unpaid', 'paused']) {
+    assert.equal(isStaleIncompleteSnapshot({ ...base, snapshotStatus: 'incomplete', rowStatus }), true, rowStatus);
+  }
+  // Still applied: the row has not started it yet, it is another subscription,
+  // there is no row subscription, or the snapshot is not `incomplete`.
+  assert.equal(isStaleIncompleteSnapshot({ ...base, snapshotStatus: 'incomplete', rowStatus: 'incomplete' }), false);
+  assert.equal(isStaleIncompleteSnapshot({ ...base, snapshotStatus: 'incomplete', rowStatus: null }), false);
+  assert.equal(
+    isStaleIncompleteSnapshot({ ...base, rowSubscriptionId: 'sub_2', snapshotStatus: 'incomplete', rowStatus: 'active' }),
+    false,
+  );
+  assert.equal(
+    isStaleIncompleteSnapshot({ ...base, rowSubscriptionId: null, snapshotStatus: 'incomplete', rowStatus: 'active' }),
+    false,
+  );
+  assert.equal(isStaleIncompleteSnapshot({ ...base, snapshotStatus: 'active', rowStatus: 'active' }), false);
+  assert.equal(
+    isStaleIncompleteSnapshot({ ...base, snapshotStatus: 'incomplete_expired', rowStatus: 'active' }),
+    false,
+  );
+});

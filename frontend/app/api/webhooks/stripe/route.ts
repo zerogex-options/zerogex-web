@@ -37,6 +37,7 @@ import { decideStaleInvoice, hoursOfValueRemaining } from '@/core/staleInvoice';
 import {
   findUserByCustomerId,
   findUserByCustomerIdIncludingDeleted,
+  isStaleIncompleteSnapshot,
   isUnstartedSubscriptionStatus,
   markSubscriptionEnded,
   releaseUnstartedSubscription,
@@ -995,6 +996,24 @@ async function syncSubscriptionToUser(
   // compares events per subscription, so without this a late event would put
   // the dead subscription back on a paying member's row and drop them to public.
   if (isUnstartedSubscriptionStatus(subscription.status)) {
+    // The same subscription, already past its first payment on the row: an
+    // incomplete snapshot of it is older news (see isStaleIncompleteSnapshot).
+    if (
+      isStaleIncompleteSnapshot({
+        snapshotStatus: subscription.status,
+        snapshotSubscriptionId: subscription.id,
+        rowSubscriptionId: user.stripe_subscription_id,
+        rowStatus: user.subscription_status,
+      })
+    ) {
+      logAudit({
+        type: 'stripe_subscription_stale_incomplete_skipped',
+        userId: user.id,
+        email: user.email,
+        message: `Skipped an incomplete snapshot of ${subscription.id}; the row already has it ${user.subscription_status}, and Stripe never moves a subscription back to incomplete`,
+      });
+      return;
+    }
     if (user.stripe_subscription_id && user.stripe_subscription_id !== subscription.id) {
       logAudit({
         type: 'stripe_subscription_unstarted_superseded',
