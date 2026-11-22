@@ -445,6 +445,7 @@ const candidates = querySqlite<UserRow>(
           ${exclusionCandidateSql('users')}
    FROM users
    WHERE tier = 'public'
+     AND deleted_at IS NULL
      AND email_verified_at IS NOT NULL
      ${foundingCarveOut}
      AND COALESCE(subscription_lapsed, 0) != 1
