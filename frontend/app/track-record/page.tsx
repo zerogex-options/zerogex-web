@@ -75,7 +75,10 @@ async function loadSymbol(symbol: string): Promise<SymbolRecord> {
   return { symbol, history: summarizeForecastHistory(list?.dates, symbol), stats };
 }
 
-const TITLE = 'Track Record\u00a0- ZeroGEX';
+// Says what the page proves. Someone weighing a subscription searches the
+// brand plus "review", "accuracy" or "track record", and this is the page that
+// answers them; "Track Record - ZeroGEX" told them nothing about what it holds.
+const TITLE = 'ZeroGEX Track Record: Every Forecast Graded, Misses Included';
 const DESCRIPTION =
   'Every gamma forecast we have published, graded. Coverage rates with confidence intervals, the dates we missed, and what the numbers do not say.';
 const OG_TITLE = 'ZeroGEX Track Record';

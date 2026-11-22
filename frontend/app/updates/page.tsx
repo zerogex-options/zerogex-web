@@ -4,7 +4,7 @@ import { Megaphone, Sparkles, Compass } from 'lucide-react';
 export const metadata = {
   title: 'Product Updates\u00a0- ZeroGEX',
   description:
-    "What's new at ZeroGEX: a Dots view for the GEX Heatmap, call and put wall alerts, the Gamma Terminal, Spread Monitor, 0DTE replays, the Intraday Cone and the Track Record, plus what's next.",
+    "What's new at ZeroGEX: wall alerts, a Dots view for the GEX Heatmap, the Gamma Terminal, Spread Monitor, 0DTE replays, the Intraday Cone and the Track Record.",
   alternates: { canonical: '/updates' },
 };
 

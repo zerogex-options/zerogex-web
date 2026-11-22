@@ -120,7 +120,7 @@ Below the gamma flip, dealers are generally net short gamma. To stay delta-neutr
 - Make selloffs accelerate as they go.
 - Make mean-reversion setups dangerous.
 
-The character of the tape is **momentum-driven and amplifying**. The pins of the prior regime release; a strike that gives way can become an accelerant rather than resistance. Long-premium strategies tend to benefit from the wider ranges, and trend-continuation setups have the hedging behind them. Catching a falling knife in a deep negative-gamma regime fights the exact reflex that would make a dip-buy work.
+The character of the tape is **momentum-driven and amplifying**. The pins of the prior regime release; a strike that gives way can become an accelerant rather than resistance, which is the mechanism behind a [gamma squeeze](/education/gamma-squeeze-explained). Long-premium strategies tend to benefit from the wider ranges, and trend-continuation setups have the hedging behind them. Catching a falling knife in a deep negative-gamma regime fights the exact reflex that would make a dip-buy work.
 
 ### Two important caveats
 

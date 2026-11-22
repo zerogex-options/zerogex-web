@@ -4,6 +4,7 @@ import path from 'node:path';
 import { serverApiGetDelayed } from '@/core/api/serverFetch';
 import { FREE_REVALIDATE_SECONDS } from '@/core/freeDelay';
 import { ARTICLE_REGISTRY, SITE_URL, type ArticleMeta } from '@/core/articleRegistry';
+import { INTEGRATIONS, INTEGRATIONS_HUB } from '@/core/integrations';
 import { LEVELS_PAGE_SYMBOLS, optionChainSymbolFor, type PickerSymbol } from '@/core/symbols';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gexSummary';
@@ -137,7 +138,26 @@ ${DISPLAY_ORDER.map(
 - [Delayed gamma terminal](${SITE_URL}/chart): The levels drawn on a price chart, beside the per-strike Net GEX book.
 - [GEX replay](${SITE_URL}/replay): How the levels moved through a past session, by date.
 - [Daily scorecard](${SITE_URL}/scorecard): What the published levels did afterwards, scored per session.
+- [Daily forecast](${SITE_URL}/forecast): Each session's range, volatility call and level touch odds, committed before the open and graded at the 4 PM ET close. No direction calls.
+- [Forecast track record](${SITE_URL}/track-record): Every published forecast graded, with coverage rates, confidence intervals and the days it missed.
 - [Embeddable gamma levels widget](${SITE_URL}/embed): The same delayed levels as a card for any website.
+`;
+
+// The chart-platform scripts. "Is there a gamma levels indicator for
+// TradingView / thinkorswim / NinjaTrader?" is a question people put to
+// assistants nearly word for word, and until 2026-11-22 this file named none of
+// them. Built from core/integrations.ts, the registry the /integrations hub and
+// every landing render from, so a new platform is listed here without an edit,
+// and the free-or-Pro label cannot disagree with the site.
+const INTEGRATIONS_SECTION = `## Chart-platform indicators
+
+${INTEGRATIONS.map(
+  (i) =>
+    `- [${i.navLabel}](${SITE_URL}${i.href}) (${i.tier === 'free' ? 'free' : 'included with Pro'}, ${
+      i.updates === 'auto' ? 'auto-updating' : 'manual entry'
+    }): ${i.blurb}`,
+).join('\n')}
+- [All chart integrations](${SITE_URL}${INTEGRATIONS_HUB.href}): The ${INTEGRATIONS.length} platforms side by side, which are free, and which keep their levels current on their own.
 `;
 
 const AI_CLIENTS = `## For AI clients
@@ -171,6 +191,7 @@ export function buildLlmsTxt(snapshots: Snapshot[]): string {
     HEADER,
     levelsSection(snapshots),
     TOOLS,
+    INTEGRATIONS_SECTION,
     `## Start here
 
 ${link(ARTICLE_REGISTRY['gamma-exposure-explained'])}`,

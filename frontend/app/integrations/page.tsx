@@ -21,8 +21,10 @@ import { INTEGRATIONS, INTEGRATIONS_HUB, type Integration } from '@/core/integra
 
 const PATH = INTEGRATIONS_HUB.href;
 const TITLE = 'ZeroGEX Chart Integrations: TradingView, thinkorswim & More';
+// Under 160 characters so the whole platform list survives in a search
+// result; at 209 it was cut off before Bookmap and SabrTrader.
 const DESCRIPTION =
-  'Plot ZeroGEX gamma levels on the chart you trade from: free TradingView and thinkorswim scripts, auto-updating Pro studies for NinjaTrader 8, Sierra Chart, and Bookmap, and a built-in connection in SabrTrader.';
+  'ZeroGEX gamma levels on your own chart: free TradingView and thinkorswim scripts, auto-updating NinjaTrader, Sierra Chart and Bookmap studies, and SabrTrader.';
 
 // SabrTrader's own setup guide. It built and maintains the ZeroGEX connector,
 // so its page, not ours, is the source of record for the steps.

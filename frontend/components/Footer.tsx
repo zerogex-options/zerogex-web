@@ -8,6 +8,8 @@ import { brandLogo } from '@/core/brand';
 import { INTEGRATIONS_HUB } from '@/core/integrations';
 import { useLanguage } from '@/core/LanguageContext';
 import type { TranslationKey } from '@/core/i18n';
+import { normalizeTier } from '@/core/auth';
+import { useAuthSession } from '@/hooks/useAuthSession';
 
 interface FooterProps {
   theme: Theme;
@@ -18,7 +20,11 @@ interface FooterProps {
 // Same convention core/navigation.ts uses for nav entries, so the two menus
 // never disagree about what to translate. (The chart-platform brand names
 // that used to need it now sit behind one translated "Integrations" link.)
-type FooterLink = { href: string; external?: boolean } & (
+// `membersOnly` marks a link to a tier-gated route that has no public page of
+// its own beside it. Everyone without a Basic+ plan, Googlebot included, gets a
+// 307 from it (proxy.ts) carrying X-Robots-Tag: noindex, so rendering it for
+// them put a link into a redirect on every page of the site.
+type FooterLink = { href: string; external?: boolean; membersOnly?: boolean } & (
   | { labelKey: TranslationKey; label?: never }
   | { label: string; labelKey?: never }
 );
@@ -67,7 +73,13 @@ const FOOTER_COLUMNS: FooterColumn[] = [
   {
     headingKey: 'footer.platform',
     links: [
-      { href: '/dashboard', labelKey: 'footer.platform' },
+      // Members only. For everyone else /dashboard is a 307 to
+      // /spx-gamma-levels with a noindex header, and the 2026-11-22 crawl found
+      // this one footer link was the only site-wide link into a redirect: 125
+      // of 127 pages carried it. The free version of the same surface is the
+      // Gamma Terminal link directly below, so a signed-out visitor loses
+      // nothing (core/publicToolHref.ts maps /dashboard to /chart too).
+      { href: '/dashboard', labelKey: 'footer.platform', membersOnly: true },
       { href: '/chart', label: 'Gamma Terminal' },
       // Site-wide, for the same reason the widget below is: a public page
       // with no inbound link does not exist. This one is also the page every
@@ -209,6 +221,12 @@ export default function Footer({ theme }: FooterProps) {
   const { t } = useLanguage();
   const isDark = theme === 'dark';
   const linkLabel = (link: FooterLink) => (link.labelKey ? t(link.labelKey) : link.label);
+  // Same rule as the homepage and /about module grids. The server snapshot is
+  // "loading", so the HTML a crawler reads always takes the signed-out branch.
+  const { data: authSession } = useAuthSession();
+  const memberTier = normalizeTier(authSession?.user?.tier);
+  const canOpenTools =
+    !!authSession?.authenticated && (memberTier === 'basic' || memberTier === 'pro' || memberTier === 'admin');
 
   return (
     <footer
@@ -300,7 +318,7 @@ export default function Footer({ theme }: FooterProps) {
                 {t(column.headingKey)}
               </div>
               <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 10 }}>
-                {column.links.map((link) => (
+                {column.links.filter((link) => canOpenTools || !link.membersOnly).map((link) => (
                   <li key={`${column.headingKey}-${link.href}`}>
                     {link.external ? (
                       <a href={link.href} target="_blank" rel="noreferrer" className="zg-footer-link">

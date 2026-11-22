@@ -22,8 +22,10 @@ import { INTEGRATIONS_HUB, integrationById } from '@/core/integrations';
 const INTEGRATION = integrationById('bookmap');
 const PATH = INTEGRATION.href;
 const TITLE = 'ZeroGEX Gamma Levels - Auto-Updating Bookmap Add-on';
+// Under 160 characters, like the other four landings: at 225 it was cut off
+// mid-list in search results (crawl of 2026-11-22).
 const DESCRIPTION =
-  'Bookmap add-on that draws the ZeroGEX gamma flip, call wall, put wall, max pain and pin strike on your heatmap with their history, a per-strike gamma profile and alerts, and keeps them current from the API. Included with Pro.';
+  'Bookmap add-on that draws the ZeroGEX gamma flip, call and put walls, max pain and pin strike on your heatmap, kept current from the API. Included with Pro.';
 
 export const metadata: Metadata = {
   title: TITLE,

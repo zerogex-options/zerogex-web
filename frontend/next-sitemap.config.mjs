@@ -61,6 +61,24 @@ const REGISTRY_SOURCE = (() => {
   }
 })();
 
+// /help/quickstarts is noindex until a Quick Start video is published
+// (app/help/quickstarts/page.tsx reads HAS_LIVE_QUICK_STARTS), and a sitemap
+// must not list a noindex page. This file runs as plain ESM and cannot import
+// core/quickStarts.ts, so it reads the source as text, the same way
+// registryDateModified reads the article registry. tests/quickStartsIndexing
+// checks this text test agrees with the module's own HAS_LIVE_QUICK_STARTS.
+const LIVE_QUICK_START_PATTERN = /status:\s*'live'\s*,/;
+const QUICK_STARTS_LIVE = (() => {
+  try {
+    return LIVE_QUICK_START_PATTERN.test(
+      fs.readFileSync(path.join(PROJECT_ROOT, 'core', 'quickStarts.ts'), 'utf8'),
+    );
+  } catch {
+    // Unreadable source: list the page rather than drop it on a guess.
+    return true;
+  }
+})();
+
 function registryDateModified(slug) {
   const start = REGISTRY_SOURCE.indexOf(`\n  '${slug}': {\n`);
   if (start < 0) return null;
@@ -351,6 +369,7 @@ const config = {
       '/education/decoding-gamma-exposure',
       ...GAMMA_LEVEL_PATHS,
       ...LEVELS_HUB_PATHS,
+      ...(QUICK_STARTS_LIVE ? [] : ['/help/quickstarts']),
     ]);
 
     const seen = new Set();

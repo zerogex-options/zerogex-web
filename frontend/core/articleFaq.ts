@@ -510,6 +510,28 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'When the modeled dealer-gamma profile has no zero crossing close enough to spot\u00a0- deep inside one regime, or a thin, one-sided chain\u00a0- there is no honest level to publish, so ZeroGEX leaves it blank. The sign of net GEX still shows which regime is in force.',
     },
   ],
+  'gamma-squeeze-explained': [
+    {
+      q: 'What is a gamma squeeze?',
+      a: 'A gamma squeeze is a fast move, usually higher, that is fed by option dealers\u2019 hedging. When dealers are short gamma, a rising price raises the delta of the options they are short, so they buy more of the underlying to stay hedged, and that buying can push price further in the same direction.',
+    },
+    {
+      q: 'What causes a gamma squeeze?',
+      a: 'Two ingredients: a dealer book that is short gamma near the current price, and a move that sets it off. Heavy buying of short-dated calls is the classic source of that short gamma, because near-the-money contracts close to expiration carry the most gamma. Once started, the hedging can continue without news until the gamma behind it fades.',
+    },
+    {
+      q: 'What is the difference between a gamma squeeze and a short squeeze?',
+      a: 'In a short squeeze, short sellers buy back borrowed shares as price rises. In a gamma squeeze, option dealers buy the underlying to hedge options they are short. The forced buyers, the fuel and the ending differ, though both can happen in the same stock at the same time.',
+    },
+    {
+      q: 'How long does a gamma squeeze last?',
+      a: 'Usually only as long as the gamma behind it. Short-dated options carry most of it, so many squeezes fade around expiration, or once price runs far enough past the concentrated strikes that those options\u2019 gamma drops. New call buying at higher strikes can extend one.',
+    },
+    {
+      q: 'Can gamma exposure data predict a gamma squeeze?',
+      a: 'It can show the conditions, not the event. Negative net GEX at spot, or price below the gamma flip, describes a modeled book in which hedging chases price. What public option data cannot show is who opened each trade, so an open-interest model can understate squeeze risk exactly when customers are buying the calls it assumes they sold.',
+    },
+  ],
 };
 
 export function getArticleFaq(slug: string): FaqItem[] | null {

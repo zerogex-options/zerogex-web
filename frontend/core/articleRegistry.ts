@@ -404,6 +404,20 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 10,
     kind: 'tier1',
   },
+  // The event to negative gamma's regime: "gamma squeeze" and its variants had
+  // no page on the site until 2026-11-22. See the route's header comment.
+  'gamma-squeeze-explained': {
+    slug: 'gamma-squeeze-explained',
+    href: '/education/gamma-squeeze-explained',
+    title: 'What Is a Gamma Squeeze? How Dealer Hedging Feeds a Move',
+    blurb:
+      'A gamma squeeze is a move fed by option dealers’ own hedging: when they are short gamma, a rising price forces them to buy more of the underlying. How one starts, why short-dated options concentrate it, how it differs from a short squeeze, and what GEX data cannot show.',
+    description:
+      'What is a gamma squeeze? How dealer hedging turns a rally into a feedback loop, why expiration matters, how it differs from a short squeeze, and what ends one.',
+    datePublished: '2026-11-22',
+    readMinutes: 9,
+    kind: 'tier1',
+  },
   'why-spy-pins-near-strikes': {
     slug: 'why-spy-pins-near-strikes',
     href: '/education/why-spy-pins-near-strikes',
@@ -781,6 +795,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'eod-pressure-explained',
   ],
   'squeeze-setup-explained': [
+    'gamma-squeeze-explained',
     'positioning-trap-explained',
     'eod-pressure-explained',
     'gamma-exposure-explained',
@@ -824,10 +839,19 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'eod-pressure-explained',
   ],
   'what-is-negative-gamma': [
+    'gamma-squeeze-explained',
     'what-is-gex-in-trading',
     'how-to-read-a-gamma-flip',
     'zero-gamma-level-explained',
     'spx-net-gamma-exposure-today',
+  ],
+  'gamma-squeeze-explained': [
+    'what-is-negative-gamma',
+    'what-is-a-call-wall',
+    'how-often-do-gamma-walls-break',
+    '0dte-dealer-positioning-explained',
+    'squeeze-setup-explained',
+    'how-to-read-a-gamma-flip',
   ],
   'why-spy-pins-near-strikes': [
     'options-support-and-resistance',
@@ -855,6 +879,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-walls-explained',
     'what-is-a-put-wall',
     'how-often-do-gamma-walls-break',
+    'gamma-squeeze-explained',
   ],
   'what-is-gex-in-trading': [
     'gamma-exposure-explained',
@@ -915,20 +940,25 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-read-a-gamma-flip',
     'forced-flow-and-zero-flow-explained',
   ],
+  // The five comparison pages link every sibling. SpotGamma's page shipped
+  // last (Oct 11) and only MenthorQ's list was updated, so the comparison with
+  // the most-searched competitor name had the fewest internal links of the
+  // five (crawl of 2026-11-22). Each list stays at six: the related grid is
+  // three wide, so a seventh card would sit alone on its own row.
   'zerogex-vs-bullflow': [
     'best-gex-tools',
+    'zerogex-vs-spotgamma',
     'zerogex-vs-quant-data',
     'zerogex-vs-menthorq',
     'zerogex-vs-tradegex',
-    'gamma-exposure-explained',
     'gamma-levels-in-claude',
   ],
   'zerogex-vs-quant-data': [
     'best-gex-tools',
+    'zerogex-vs-spotgamma',
     'zerogex-vs-bullflow',
     'zerogex-vs-menthorq',
     'zerogex-vs-tradegex',
-    'why-we-dont-publish-dex',
     'hedging-flow-explained',
   ],
   'zerogex-vs-menthorq': [
@@ -941,10 +971,10 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   ],
   'zerogex-vs-tradegex': [
     'best-gex-tools',
+    'zerogex-vs-spotgamma',
     'zerogex-vs-menthorq',
     'zerogex-vs-quant-data',
     'zerogex-vs-bullflow',
-    'how-often-do-gamma-walls-break',
     'why-we-dont-publish-dex',
   ],
   'zerogex-vs-spotgamma': [
