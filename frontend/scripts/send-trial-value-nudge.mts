@@ -420,10 +420,14 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+// Like the 48-hour reminder, the window reaches back further than the 6-hour
+// cadence so a run delayed by the timer's jitter, or missed during downtime,
+// can't skip anyone; trial_midpoint_email_sent_at keeps it to one email.
+const CATCH_UP_HOURS = 12;
 const nowMs = Date.now();
 const targetMs = nowMs + TARGET_HOURS * 3600_000;
 const halfWindowMs = (cliArgs.windowHours / 2) * 3600_000;
-const lowIso = new Date(targetMs - halfWindowMs).toISOString();
+const lowIso = new Date(targetMs - halfWindowMs - CATCH_UP_HOURS * 3600_000).toISOString();
 const highIso = new Date(targetMs + halfWindowMs).toISOString();
 
 type UserRow = {

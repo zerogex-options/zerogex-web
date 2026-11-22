@@ -650,13 +650,23 @@ if (cliArgs.render) {
   process.exit(0);
 }
 
-// Compute the inclusive [low, high] ISO bounds bracketing now+48h. SQLite
+// Compute the inclusive [low, high] ISO bounds around now+48h. SQLite
 // compares ISO strings lexicographically, which works because Stripe writes
 // strict ISO-8601 with the 'Z' suffix into current_period_end.
+//
+// The window reaches CATCH_UP_HOURS further back than the timer's cadence.
+// It used to be exactly as wide as the 6-hour cadence, but the timer's
+// random delay is drawn afresh each run and a catch-up run fires at boot, so
+// a trial ending between one run's lower edge and the next run's upper edge
+// was charged with no reminder (about 1 in 400 from the jitter alone, and
+// every trial ending during an outage). trial_reminder_email_sent_at already
+// keeps it to one email, so the extra reach costs nothing; the earliest a
+// late reminder can go out is 36 hours before the charge.
+const CATCH_UP_HOURS = 9;
 const nowMs = Date.now();
 const halfWindowMs = (cliArgs.windowHours * 3600_000) / 2;
 const targetMs = nowMs + TARGET_HOURS * 3600_000;
-const lowIso = new Date(targetMs - halfWindowMs).toISOString();
+const lowIso = new Date(targetMs - halfWindowMs - CATCH_UP_HOURS * 3600_000).toISOString();
 const highIso = new Date(targetMs + halfWindowMs).toISOString();
 
 type UserRow = {
