@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  hasPercentEscape,
   isApiTierGateEnabled,
   requiredApiAccess,
   type ApiAccess,
@@ -13,6 +14,10 @@ import {
 
 function eq(path: string, expected: ApiAccess | null) {
   assert.equal(requiredApiAccess(path), expected, path);
+}
+
+function eqm(method: string, path: string, expected: ApiAccess | null) {
+  assert.equal(requiredApiAccess(path, method), expected, `${method} ${path}`);
 }
 
 test('public shared-backtest permalink is exempt even under the pro /api/backtest prefix', () => {
@@ -28,16 +33,23 @@ test('backtest platform (non-shared) is pro', () => {
   eq('/api/backtest/meta', 'pro');
 });
 
-test('tradeworkz admin ops are admin; customer follow/feed stay open', () => {
+test('tradeworkz admin ops are admin; the follow list and unfollow stay open; follow and the feed are pro', () => {
   eq('/api/tradeworkz/admin', 'admin');
   eq('/api/tradeworkz/admin/reset-fleet', 'admin');
   eq('/api/tradeworkz/admin/simulate', 'admin');
-  // Per-user prefs are deliberately NOT gated — any logged-in tier uses them.
-  eq('/api/tradeworkz/me/feed', null);
+  // The caller's own follow list stays open to any logged-in tier, so a member
+  // who downgraded off Pro can still see what to unfollow.
   eq('/api/tradeworkz/me/follows', null);
-  // Follow/unfollow is a per-user pref nested under the premium /bots
-  // collection: 'public' is an explicit pass, same effect as null at the gate.
-  eq('/api/tradeworkz/bots/7/follow', 'public');
+  // The feed is the followed bots' entries and exits: Pro trade content.
+  eq('/api/tradeworkz/me/feed', 'pro');
+  eqm('POST', '/api/tradeworkz/me/feed', 'pro');
+  // Unfollowing is open to every tier ('public' is an explicit pass)...
+  eqm('DELETE', '/api/tradeworkz/bots/7/follow', 'public');
+  eqm('delete', '/api/tradeworkz/bots/7/follow', 'public');
+  // ...but following subscribes the caller to the bot's trades, so it is Pro.
+  // A free account could follow a bot and read every alert until 2026-11.
+  eqm('POST', '/api/tradeworkz/bots/7/follow', 'pro');
+  eqm('GET', '/api/tradeworkz/bots/7/follow', 'pro');
 });
 
 // The Pro /trading-signals page is the only client-side consumer of the
@@ -74,14 +86,47 @@ test('the Trade audit feeds are pro, and their admin copies stay admin', () => {
   eq('/api/tradeworkz/tradesx', null);
 });
 
-test('the follow carve-out is exact — it never widens the /bots gate', () => {
-  // Only the literal .../follow leaf passes; neighbors and deeper paths do not.
-  eq('/api/tradeworkz/bots/7/follow', 'public');
-  eq('/api/tradeworkz/bots/7/followers', 'pro');
-  eq('/api/tradeworkz/bots/7/follow/extra', 'pro');
+test('the unfollow carve-out is exact — it never widens the /bots gate', () => {
+  // Only DELETE on the literal .../follow leaf passes; neighbors, deeper paths
+  // and other methods do not.
+  eqm('DELETE', '/api/tradeworkz/bots/7/follow', 'public');
+  eqm('DELETE', '/api/tradeworkz/bots/7/followers', 'pro');
+  eqm('DELETE', '/api/tradeworkz/bots/7/follow/extra', 'pro');
+  eqm('DELETE', '/api/tradeworkz/bots/7', 'pro');
   // No {id} segment → not the follow leaf; falls through to the /bots gate.
-  eq('/api/tradeworkz/bots/follow', 'pro');
-  eq('/api/tradeworkz/bots/7/8/follow', 'pro'); // {id} is a single segment
+  eqm('DELETE', '/api/tradeworkz/bots/follow', 'pro');
+  eqm('DELETE', '/api/tradeworkz/bots/7/8/follow', 'pro'); // {id} is a single segment
+  eqm('PUT', '/api/tradeworkz/bots/7/follow', 'pro');
+});
+
+test('the Spread Monitor data is basic, like its page', () => {
+  for (const p of [
+    '/api/market/spreads',
+    '/api/market/spreads/series',
+    '/api/market/spreads/compare',
+    '/api/market/spreads/history',
+    '/api/market/spreads/surface',
+  ]) {
+    eq(p, 'basic');
+    eq(p.replace('/api/', '/api/v2/'), 'basic');
+  }
+  eq('/api/market/spreadsx', null);
+});
+
+test('a percent-escape in the path is detected, so the proxy can refuse it', () => {
+  // Each of these matched no rule (fail-open) while the backend, which routes
+  // on the decoded path, served the premium endpoint behind it.
+  for (const p of [
+    '/api/market/%68istorical',
+    '/api/signals/%61dvanced/eod-pressure',
+    '/api/signals/advanced%2Feod-pressure',
+    '/api/tradeworkz/%62ots',
+    '/api/tradeworkz/bots%2F7/trades',
+  ]) {
+    assert.equal(hasPercentEscape(p), true, p);
+  }
+  assert.equal(hasPercentEscape('/api/market/historical'), false);
+  assert.equal(hasPercentEscape('/api/backtest/runs/shared/tok_AbC-123'), false);
 });
 
 test('signals: advanced + trade-bias are pro; the rest (score/action/basic) are basic', () => {
@@ -214,8 +259,9 @@ test('versioned paths gate identically to their unversioned form', () => {
     // over-stripping would 403 the anonymous header chrome.
     ['/api/market/quote', null],
     ['/api/market/session-closes', null],
-    ['/api/tradeworkz/me/feed', null],
-    ['/api/tradeworkz/bots/7/follow', 'public'],
+    ['/api/tradeworkz/me/follows', null],
+    ['/api/tradeworkz/me/feed', 'pro'],
+    ['/api/tradeworkz/bots/7/follow', 'pro'],
   ];
   for (const [v1Path, expected] of cases) {
     eq(v1Path, expected);

@@ -4,7 +4,7 @@ import { hasTierAccess, normalizeTier } from '@/core/auth';
 import { mustNotStore } from '@/core/liveFreshness';
 import { requireSession } from '@/core/serverAuth';
 import { mintEndUserToken } from './endUserToken';
-import { isApiTierGateEnabled, requiredApiAccess } from './apiTierGate';
+import { hasPercentEscape, isApiTierGateEnabled, requiredApiAccess } from './apiTierGate';
 
 /**
  * Server-side BFF proxy for /api/* routes that reach the FastAPI
@@ -131,6 +131,20 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
 
   const pathname = request.nextUrl.pathname;
 
+  // A percent-escape anywhere in the path is refused before the session or the
+  // tier gate. The gate matches the path as Next hands it over, still encoded,
+  // but uvicorn decodes it before FastAPI routes it: /api/market/%68istorical
+  // matched no rule here (so it passed, the gate being fail-open) and was
+  // served upstream as /api/market/historical, live, to anyone. No page builds
+  // an API path that needs an escape (ids, dates, tokens and snake_case names
+  // only), and query strings are separate, so refusing closes the whole class.
+  if (hasPercentEscape(pathname)) {
+    return NextResponse.json(
+      { error: 'Bad request' },
+      { status: 400, headers: { 'Cache-Control': 'no-store, private' } },
+    );
+  }
+
   // Resolve the session: used both to gate premium data by consumer tier
   // (below) and to mint the X-End-User-Token for upstream attribution.
   // Anonymous callers are fine on ungated paths; they just carry no token.
@@ -155,7 +169,7 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
   // BILLING_API_TIER_GATE_ENABLED kill-switch so a mis-map can be rolled back
   // by flipping the env to 0 and restarting — no rebuild.
   if (authEnabled && isApiTierGateEnabled(process.env.BILLING_API_TIER_GATE_ENABLED)) {
-    const access = requiredApiAccess(pathname);
+    const access = requiredApiAccess(pathname, request.method);
     if (access && access !== 'public') {
       const tier = session ? normalizeTier(session.user.tier) : null;
       if (!tier) {

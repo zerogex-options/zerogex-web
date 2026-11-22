@@ -33,9 +33,11 @@ export type ApiAccess = 'public' | 'basic' | 'pro' | 'admin';
 // A rule matches either by path prefix (the common case) or by an exact regex
 // — the latter for carve-outs a prefix cannot express, e.g. a per-user action
 // nested UNDER a premium collection (`/api/tradeworkz/bots/{id}/follow`).
+// `methods`, when present, limits a rule to those HTTP methods (upper case);
+// a request with any other method skips the rule and falls to the next one.
 type Rule =
-  | { prefix: string; access: ApiAccess }
-  | { pattern: RegExp; access: ApiAccess };
+  | { prefix: string; access: ApiAccess; methods?: readonly string[] }
+  | { pattern: RegExp; access: ApiAccess; methods?: readonly string[] };
 
 // ORDERED, first-match-wins. More-specific prefixes MUST precede the broader
 // prefix they carve out of. Rationale for each tier is in the audit; the short
@@ -62,17 +64,25 @@ const RULES: readonly Rule[] = [
   { prefix: '/api/tradeworkz/admin', access: 'admin' },
 
   // TradeWorkz per-user actions that live UNDER the premium /bots collection.
-  // Follow/unfollow is a preference, not signal data, and /account/notifications
-  // (open to ANY logged-in tier) calls it — including for a member who has since
-  // downgraded off Pro and still needs to unfollow. Must precede the /bots rule.
-  { pattern: /^\/api\/tradeworkz\/bots\/[^/]+\/follow$/, access: 'public' },
+  // UNFOLLOWING stays open to every signed-in tier: /account/notifications
+  // (open to ANY logged-in tier) calls it, including for a member who has since
+  // downgraded off Pro and still needs to stop following. FOLLOWING (POST) is
+  // not carved out and falls to the pro /bots rule below: a follow subscribes
+  // the caller to every entry and exit the bot makes (direction, entry, target,
+  // stop, rationale), which is the Pro product itself. It used to be public for
+  // every method, so a free account could follow a bot and read its trades.
+  // Must precede the /bots rule.
+  { pattern: /^\/api\/tradeworkz\/bots\/[^/]+\/follow$/, methods: ['DELETE'], access: 'public' },
 
   // TradeWorkz signal product — the Pro-only /trading-signals page is the sole
   // client-side consumer of every one of these (bot roster + detail, per-bot
   // trades / equity curve / metrics, fleet summary, leaderboard, equity curves,
   // performance trend). They were unmapped, so the whole Pro bot surface was
-  // readable by anyone who could reach same-origin /api/*. The /me/* prefs
-  // (follows, feed) stay unlisted — per-user state, any logged-in tier.
+  // readable by anyone who could reach same-origin /api/*. /me/follows stays
+  // unlisted (the caller's own follow list, any logged-in tier, so a downgraded
+  // member can see what to unfollow). /me/feed is the followed bots' entries
+  // and exits, the same trade content as /bots and /trades, so it is Pro.
+  { prefix: '/api/tradeworkz/me/feed', access: 'pro' },
   { prefix: '/api/tradeworkz/bots', access: 'pro' },
   { prefix: '/api/tradeworkz/summary', access: 'pro' },
   { prefix: '/api/tradeworkz/leaderboard', access: 'pro' },
@@ -185,6 +195,10 @@ const RULES: readonly Rule[] = [
   //                    component renders from server-fetched props and issues no
   //                    client-side request.)
   { prefix: '/api/market/historical', access: 'basic' },
+  // Spread Monitor (/spread-monitor, Basic): spreads, series, compare, history
+  // and surface. useSpreadMonitor on that page is the only client-side caller.
+  // Unmapped until 2026-11, so an anonymous GET read live spread data.
+  { prefix: '/api/market/spreads', access: 'basic' },
   { prefix: '/api/market/open-interest', access: 'basic' },
   { prefix: '/api/market/session-levels', access: 'basic' },
 
@@ -227,13 +241,24 @@ function stripApiVersion(pathname: string): string {
 // the ordering in RULES is significant. Versioned paths are normalized to their
 // unversioned form first, so /api/v2/signals/advanced gates exactly as
 // /api/signals/advanced does.
-export function requiredApiAccess(pathname: string): ApiAccess | null {
+export function requiredApiAccess(pathname: string, method: string = 'GET'): ApiAccess | null {
   const path = stripApiVersion(pathname);
+  const verb = method.toUpperCase();
   for (const rule of RULES) {
+    if (rule.methods && !rule.methods.includes(verb)) continue;
     const hit = 'prefix' in rule ? covers(path, rule.prefix) : rule.pattern.test(path);
     if (hit) return rule.access;
   }
   return null;
+}
+
+// True when a request path carries a percent-escape. proxy.ts refuses those
+// outright: the rules above match the still-encoded path, while the backend
+// routes on the decoded one, so `/api/signals/%61dvanced/x` would match no rule
+// here and reach /api/signals/advanced/x upstream. Kept here, beside the rules
+// it protects, so the gate's tests can pin it.
+export function hasPercentEscape(pathname: string): boolean {
+  return pathname.includes('%');
 }
 
 // Kill-switch. The gate is ON by default (unset / empty / any value other than
