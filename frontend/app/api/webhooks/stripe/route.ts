@@ -1536,31 +1536,19 @@ async function maybeHandlePaymentRecovery(
 // all best-effort: a failure here must never unwind the tier sync above.
 async function maybeProcessReferral(user: UserRow, subscription: Stripe.Subscription): Promise<void> {
   try {
-    if (user.referred_by_code) {
-      const outcome = await rewardReferrerForConvertedReferee(user.id);
-      if (outcome.kind === 'credited') {
-        logAudit({
-          type: 'referral_reward_credited',
-          userId: user.id,
-          email: user.email,
-          message: `Referee ${user.id} converted; referrer credited ${outcome.amount} ${outcome.currency}`,
-        });
-      } else if (outcome.kind === 'banked') {
-        logAudit({
-          type: 'referral_reward_banked',
-          userId: user.id,
-          email: user.email,
-          message: `Referee ${user.id} converted; referrer free month banked (no active sub)`,
-        });
-      } else if (outcome.kind === 'error') {
-        logAudit({
-          type: 'referral_reward_error',
-          userId: user.id,
-          email: user.email,
-          message: `Crediting referrer for referee ${user.id} failed (banked as fallback): ${outcome.message}`,
-        });
-      }
-    }
+    // The referrer's month is for a referee who PAID. Stripe moves a trial to
+    // `active` when it draws the conversion invoice, about an hour before the
+    // charge, so rewarding on that transition paid out (a $59 balance credit)
+    // for every referred trial whose card then declined, with nothing to undo
+    // it: a self-referral farm on prepaid cards. Here it runs only once this
+    // subscription has a paid invoice on record; otherwise invoice.paid runs
+    // it when the charge clears (maybeRewardReferrerOnPaidInvoice).
+    const paid = subscriptionPaidAt({
+      stripeSubscriptionId: subscription.id,
+      lastPaidSubscriptionId: user.last_paid_subscription_id,
+      lastPaidInvoiceAt: user.last_paid_invoice_at,
+    });
+    if (paid) await maybeRewardReferrer(user);
 
     if (user.referral_credit_months > 0) {
       const redeemed = await redeemBankedReferralCredit(user, subscription);
@@ -1580,6 +1568,57 @@ async function maybeProcessReferral(user: UserRow, subscription: Stripe.Subscrip
       userId: user.id,
       email: user.email,
       message: `Referral processing for ${user.id} failed: ${message}`,
+    });
+  }
+}
+
+// invoice.paid: a real charge on a subscription just cleared, so a referred
+// member has converted for money and their referrer earns the month. Latched
+// in core/referrals (the referral row moves off 'pending' once), so renewals
+// and redeliveries are no-ops. A $0 invoice (the trial opening, a 100%-off
+// period) moved no money and earns nothing.
+async function maybeRewardReferrerOnPaidInvoice(invoice: Stripe.Invoice): Promise<void> {
+  try {
+    if (!(invoice.amount_paid > 0)) return;
+    if (!readInvoiceSubscriptionId(invoice)) return;
+    const customerId =
+      typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+    if (!customerId) return;
+    const user = findUserByCustomerId(customerId);
+    if (!user) return;
+    await maybeRewardReferrer(user);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'referral processing error';
+    logAudit({
+      type: 'referral_processing_error',
+      message: `Referral reward on paid invoice ${invoice.id} failed: ${message}`,
+    });
+  }
+}
+
+async function maybeRewardReferrer(user: UserRow): Promise<void> {
+  if (!user.referred_by_code) return;
+  const outcome = await rewardReferrerForConvertedReferee(user.id);
+  if (outcome.kind === 'credited') {
+    logAudit({
+      type: 'referral_reward_credited',
+      userId: user.id,
+      email: user.email,
+      message: `Referee ${user.id} converted; referrer credited ${outcome.amount} ${outcome.currency}`,
+    });
+  } else if (outcome.kind === 'banked') {
+    logAudit({
+      type: 'referral_reward_banked',
+      userId: user.id,
+      email: user.email,
+      message: `Referee ${user.id} converted; referrer free month banked (no active sub)`,
+    });
+  } else if (outcome.kind === 'error') {
+    logAudit({
+      type: 'referral_reward_error',
+      userId: user.id,
+      email: user.email,
+      message: `Crediting referrer for referee ${user.id} failed (banked as fallback): ${outcome.message}`,
     });
   }
 }
@@ -2911,6 +2950,9 @@ export async function POST(request: NextRequest) {
         // it is the stamp the admin headcount reads: it promotes the member off
         // the Converting line and onto Full Subscriber.
         await maybeStampFirstPayment(invoice);
+        // A referred member's charge cleared: reward their referrer now, not
+        // when the trial flipped to active an hour before the charge.
+        await maybeRewardReferrerOnPaidInvoice(invoice);
         // Trial-conversion confirmation — the success bookend to the
         // trial-conversion dunning email in invoice.payment_failed below.
         // Self-classifying and CAS-latched, so it no-ops on the renewals and
