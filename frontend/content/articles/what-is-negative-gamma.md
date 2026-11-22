@@ -37,7 +37,7 @@ The mechanical chain:
 3. That buying happens at the same moment customers are rallying the tape. It adds to the momentum.
 4. As spot drops, the opposite: dealer option delta rises (they become more long relative to neutral); to neutralize, they **sell** the underlying. That selling adds to the downside.
 
-In both directions, dealer hedging *reinforces* the move. The reflex is procyclical. The bigger the dealer short-gamma exposure, the more underlying flow each percent move requires.
+In both directions, dealer hedging *reinforces* the move. The reflex is procyclical. The bigger the dealer short-gamma exposure, the more underlying flow each percent move requires. When that loop carries a rally, traders call it a [gamma squeeze](/education/gamma-squeeze-explained).
 
 Compare to **positive gamma**, where the same flow chain inverts: dealers sell into strength and buy into weakness, dampening the move. The structural force in the tape is countercyclical. The same news that produces a 0.5% intraday range in a long-gamma regime can produce a 2% range in a short-gamma regime.
 

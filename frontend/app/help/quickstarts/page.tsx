@@ -1,12 +1,20 @@
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, PlayCircle, Clock } from 'lucide-react';
-import { liveQuickStartTracks, type Walkthrough } from '@/core/quickStarts';
+import { HAS_LIVE_QUICK_STARTS, liveQuickStartTracks, type Walkthrough } from '@/core/quickStarts';
 
 export const metadata = {
   title: 'ZeroGEX Quick Starts: Short Video Walkthroughs',
   description:
     'Short, focused video walkthroughs for the ZeroGEX platform, now being recorded - reading the dashboard, using signals, building a strategy, and more.',
   alternates: { canonical: '/help/quickstarts' },
+  // Until the first walkthrough is published, this page is four links to the
+  // written guides under a title that promises videos, and nothing on the site
+  // links to it: the Help menu entry and the Help Center card wait for a live
+  // video (core/quickStarts.ts). The sitemap was the only way in, so a searcher
+  // could land on a video page with no videos. It stays out of the index and
+  // out of next-sitemap.config.mjs until then; both lift on their own once a
+  // walkthrough goes live.
+  ...(HAS_LIVE_QUICK_STARTS ? {} : { robots: { index: false, follow: true } }),
 };
 
 // The written guides that cover the same ground the Onboarding videos will, in

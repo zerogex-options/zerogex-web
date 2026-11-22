@@ -230,7 +230,10 @@ export default function AboutPage({ founderPhoto = null }: { founderPhoto?: stri
             {t('heroSub')}
           </p>
           <div className="zg-lctas">
-            <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            {/* Same rule as the module grid below: for anyone without a plan,
+                Googlebot included, /dashboard is a 307 with a noindex header,
+                so they go straight to its free version instead. */}
+            <Link href={toolHrefFor('/dashboard', canOpenTools)} style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '14px 28px' }}>
                 {t('btnOpenDashboard')} <ArrowRight size={16} />
               </button>
@@ -745,7 +748,7 @@ export default function AboutPage({ founderPhoto = null }: { founderPhoto?: stri
             {t('ctaSub')}
           </p>
           <div className="zg-lctas" style={{ gap: 14 }}>
-            <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <Link href={toolHrefFor('/dashboard', canOpenTools)} style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{ padding: '16px 40px', fontSize: 15 }}>
                 {t('btnLaunchDashboard')} <ArrowRight size={18} />
               </button>

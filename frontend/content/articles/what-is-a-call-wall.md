@@ -58,7 +58,7 @@ The migration is itself information. If the call wall keeps drifting up as price
 Because dealers tend to defend the call wall in positive gamma, a *decisive* break above it is one of the more meaningful structural events on the tape. It usually means one of two things:
 
 - **The wall was migrating**, and price simply followed a ceiling that was already rising - less significant, often just trend continuation.
-- **The wall was static and price cleared it anyway** - a tell that the hedging that was capping the move has been overwhelmed, and frequently that the gamma regime itself is flipping. Once spot pushes above a held call wall and into thinner gamma, the dealer reflex can invert from selling rallies to chasing them, which is how a stalled tape turns into a fast one.
+- **The wall was static and price cleared it anyway** - a tell that the hedging that was capping the move has been overwhelmed, and frequently that the gamma regime itself is flipping. Once spot pushes above a held call wall and into thinner gamma, the dealer reflex can invert from selling rallies to chasing them, which is how a stalled tape turns into a fast one - and, when the chasing feeds on itself, into a [gamma squeeze](/education/gamma-squeeze-explained).
 
 The read, in order: is the wall holding or chasing, and is Net GEX building or fading? Neither predicted breaks in our measurement, but they change the mechanism: a break with contracting Net GEX has less hedging leaning against it than a break into strengthening positive gamma.
 

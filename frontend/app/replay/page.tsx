@@ -32,7 +32,9 @@ interface ReplaySessionList {
   sessions: ReplaySession[];
 }
 
-const TITLE = 'GEX Replay\u00a0- ZeroGEX';
+// "historical gex" / "gex history" searchers want exactly this free tool, and
+// "GEX Replay - ZeroGEX" named nothing they type.
+const TITLE = 'Free Historical GEX Replay: Past Sessions, Minute by Minute';
 const DESCRIPTION =
   'Free, no login: scrub any recent session minute by minute and watch the walls shift, the gamma flip drift and per-strike GEX migrate.';
 

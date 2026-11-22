@@ -24,6 +24,8 @@ It is an **Advanced** signal in the ZeroGEX stack - it produces both a continuo
 
 Critically, Squeeze Setup is a **Continuation** signal, not a fade. When it fires, the practical lean is to trade *with* the move once it breaks, not against it. That makes it the opposite of mean-reversion tools like Positioning Trap or Trap Detection. Knowing which bucket a signal lives in is half of reading it correctly.
 
+It is also not the same thing as a [gamma squeeze](/education/gamma-squeeze-explained), the dealer-hedging feedback loop that can carry a move once it is underway. Squeeze Setup looks for the conditions before a move fires, in either direction.
+
 ---
 
 ## The mechanism: how compression builds up
