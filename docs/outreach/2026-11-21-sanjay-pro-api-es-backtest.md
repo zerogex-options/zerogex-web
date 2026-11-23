@@ -560,3 +560,56 @@ Michael
 Founder, ZeroGEX
 Know the levels that matter before price gets there.
 zerogex.io
+
+---
+
+# Fourth inbound: Backtesting "HTTP 502" (Sun 2026-11-22, 2:56 AM ET)
+
+Subject "Repeated Technical Issue with Backtesting Beta – HTTP 502 Error". He
+opened Backtesting and got "Couldn't load backtest options – HTTP 502"
+(screenshot attached). He asks whether it's a known server-side issue or
+something on his end. "Again" and "continuing to encounter technical issues"
+refer back to the Public lockout.
+
+## The read
+
+- **Our Sunday maintenance caused it, not AWS.** The weekly
+  `zerogex-oa-db-vacuum-full` job starts Sunday at 2:30 ET (plus up to 5
+  minutes of random delay), stops the API and the three engines, runs VACUUM
+  FULL + REINDEX, then starts them again. Its budget is 4 hours. His email is
+  stamped 2:56 AM ET.
+- **The screenshot fits the API being down while the website stayed up.** The
+  page rendered, and only its data call failed. A whole-box restart would have
+  shown Cloudflare's error page instead of ours.
+- **Every data page fails the same way during the window,** not just
+  Backtesting. 2:30 AM ET is early afternoon in Asia.
+
+## Verified
+
+- **The 502 is the website saying "API unreachable":** `core/api/proxy.ts`
+  answers 502 when its fetch to the API (127.0.0.1:8000) throws, which is
+  what a stopped API produces. The API's own `/api/backtest/meta` raises no
+  502 (zerogex-oa `src/api/routers/backtest.py`); its failures are 500s.
+- **The page:** `app/backtesting/page.tsx` shows "Couldn't load backtest
+  options" when `backtestAPI.getMeta()` (`GET /api/backtest/meta`) fails.
+- **The job:** zerogex-oa `setup/systemd/zerogex-oa-db-vacuum-full.timer`
+  (`Sun 02:30`, box time is America/New_York) and `.service`
+  (`make db-maintain-managed`, stops the four services, `TimeoutStartSec=14400`,
+  `ExecStopPost` starts them again).
+
+## Reply
+
+Hi Sanjay,
+
+Sorry about this, and thanks for the screenshot. Nothing was wrong on your end. Every Sunday morning, US time, we take the platform's data offline for scheduled database maintenance, and you opened Backtesting while it was running. During that window the pages still load but the data behind them doesn't, which is the "HTTP 502" you saw. I know this came right after the account problem, so I'm sorry for the run of bad luck.
+
+Everything is back up now, so Backtesting should load normally. Please give it another try, and if you see the error again, reply here and I'll look into it right away.
+
+For planning around it: the maintenance starts at 2:30 AM US Eastern time on Sundays (07:30 UTC) and is normally finished by [END TIME] US Eastern.
+
+Best,
+Michael
+Founder, ZeroGEX
+
+Fill `[END TIME]` from the `Finished` line of today's run (see the chat for
+the command), rounded up to the next half hour.
