@@ -246,6 +246,8 @@ const config = {
     // header and as a meta tag — a one-line confirmation receipt reached only
     // from a link in an email is not a search result.
     '/levels-email/*',
+    // Today's Read by email: its stop-link confirmation, same reasoning.
+    '/preopen-read/*',
     // Defensive — none currently exist under app/, but match spec.
     '/api/*',
     '/checkout/*',

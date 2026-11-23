@@ -136,6 +136,31 @@ const refundedChurnAlert = (status: 'completed' | 'pending') =>
     },
     '2026-09-15T18:25:00.000Z',
   );
+// Today's Read by email: a Monday morning, SPX and the futures from Friday's
+// close and SPY refreshed pre-market, built the way the send script builds it.
+const { buildDigestModel } = await import('../../core/dailyLevelsDigest.ts');
+const { buildReportModel } = await import('../../app/live-bulletin/bulletinHelpers.ts');
+const { buildPreopenRead, renderPreopenReadEmail } = await import('../../core/preopenRead.ts');
+const preopenSummary = (symbol: string, timestamp: string, spot: number, flip: number, callWall: number, putWall: number) => ({
+  timestamp, symbol, spot_price: spot, total_call_gex: 6.1e9, total_put_gex: -4.4e9, net_gex: 1.7e9,
+  net_gex_at_spot: 1.32e9, gamma_flip: flip, max_pain: flip + 20, call_wall: callWall, put_wall: putWall,
+  put_call_ratio: 1.1, pin_strike: symbol === 'SPX' ? 6825 : null,
+});
+const PREOPEN_SNAPSHOTS = [
+  { symbol: 'SPX', data: preopenSummary('SPX', '2026-11-20T20:59:00.000Z', 6812.4, 6780, 6900, 6700) },
+  { symbol: 'SPY', data: preopenSummary('SPY', '2026-11-23T13:40:00.000Z', 680.12, 677, 690, 670) },
+  { symbol: 'QQQ', data: preopenSummary('QQQ', '2026-11-23T13:40:00.000Z', 612.4, 605, 620, 600) },
+  { symbol: 'NDX', data: preopenSummary('NDX', '2026-11-20T20:59:00.000Z', 25123.4, 24900, 25500, 24500) },
+  { symbol: 'ES', data: preopenSummary('ES', '2026-11-20T20:59:00.000Z', 6851.25, 6819, 6939, 6739) },
+  { symbol: 'NQ', data: preopenSummary('NQ', '2026-11-20T20:59:00.000Z', 25311.5, 25088, 25688, 24688) },
+];
+const preopenRead = (firstSend: boolean) => {
+  const digest = buildDigestModel({ snapshots: PREOPEN_SNAPSHOTS, sessionDate: '2026-11-23', basis: 'prior-session', primary: 'SPX' })!;
+  const spx = PREOPEN_SNAPSHOTS[0].data;
+  const report = buildReportModel({ symbol: 'SPX', spot: spx.spot_price, priorClose: null, summary: spx, vix: null, volIndex: 'VIX', horizon: 'daily' });
+  const stopUrl = `${APP_URL}/preopen-read/stop?u=user_123&t=abc123`;
+  return { ...renderPreopenReadEmail(buildPreopenRead({ digest, snapshots: PREOPEN_SNAPSHOTS, report }), { stopUrl, siteUrl: APP_URL, firstSend }), stopUrl };
+};
 // The cron's digest draft carries an unsigned placeholder unsubscribe link
 // (scripts/send-winback.mts), so this one does too.
 const WINBACK_DRAFT = M.renderWinbackEmail({ winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS, unsubUrl: `${APP_URL}/unsubscribe` });
@@ -205,6 +230,8 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   { id: 'tradeworkz-alert', variant: 'exit (win)', run: () => capture(() => M.sendTradeworkzNotification(TO, { botId: 'bot_1', botDisplayName: 'Gamma Scalper', eventType: 'exit', payload: { underlying: 'SPY', direction: 'bullish', strategy_type: 'long call', outcome: 'win', realized_pnl: 1203.44, pnl_percent: 8.3, reason: 'target hit', contracts: 5, entry_price: 4.2, exit_price: 6.61 } })) },
   { id: 'tradeworkz-alert', variant: 'entry', run: () => capture(() => M.sendTradeworkzNotification(TO, { botId: 'bot_1', botDisplayName: 'Gamma Scalper', eventType: 'entry', payload: { underlying: 'SPY', direction: 'bearish', strategy_type: 'long put', contracts: 5, entry_price: 4.2, target_price: 6.5, stop_price: 3.1, conviction: 0.72, rationale: 'Spot is above the gamma flip with a thick call wall at 660; dealers sell into strength here.' } })) },
 
+  { id: 'preopen-read', variant: "a member's first one", run: () => capture(() => M.sendPreopenReadEmail(TO, preopenRead(true))) },
+  { id: 'preopen-read', variant: 'a regular morning', run: () => capture(() => M.sendPreopenReadEmail(TO, preopenRead(false))) },
   { id: 'wall-alert', variant: 'single hit', run: () => capture(() => M.sendWallAlertEmail(TO, { appUrl: APP_URL, unsubUrl: `${APP_URL}/alerts/unsubscribe?u=user_123&t=abc123`, alerts: [{ at: '2026-10-13T14:15:23.000Z', payload: { v: 1, symbol: 'SPX', side: 'put', kind: 'hit', wall: 7700, price: 7702.5, distance: 2.5, confirm_minutes: 5, break_buffer: 7.7, strength_pctile: 88, strength_tier: 'strong', regime: 'positive', approach_number: 1, odds: [{ horizon_minutes: 60, break_prob: 0.34 }] } }] })) },
   { id: 'wall-alert', variant: 'batch (break + hit)', run: () => capture(() => M.sendWallAlertEmail(TO, { appUrl: APP_URL, unsubUrl: `${APP_URL}/alerts/unsubscribe?u=user_123&t=abc123`, alerts: [{ at: '2026-10-13T15:02:10.000Z', payload: { v: 1, symbol: 'SPX', side: 'call', kind: 'break', wall: 7720, price: 7731.2, last_price: 7731.2, confirm_minutes: 5, break_buffer: 7.9, strength_pctile: 81, strength_tier: 'strong', regime: 'negative', current_wall: 7750 } }, { at: '2026-10-13T15:02:10.000Z', payload: { v: 1, symbol: 'SPY', side: 'call', kind: 'hit', wall: 772, price: 771.71, distance: 0.29, strength_pctile: 64, strength_tier: 'above_typical', regime: 'negative', approach_number: 2 } }] })) },
 

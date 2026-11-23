@@ -334,6 +334,18 @@ export const CATALOG = {
     notes: 'Member-configured market alerts. Volume tracks the tape and the member\'s own rules; the detector (zerogex-oa src/alerts/) filters chop, and a per-member daily cap bounds the worst day.',
   },
 
+  'preopen-read': {
+    group: 'product', title: "Today's Read by email (before the open)", channel: 'member', autoSends: true,
+    trigger: 'systemd timer', triggerDetail: 'zerogex-web-preopen-read.timer → make preopen-read AUTO=1',
+    when: 'Weekdays 08:42 ET (+0–2 min), inside the 08:30–09:25 ET window. Aborts on a non-trading day or a stale SPX snapshot.',
+    cadence: 'Timer: Mon–Fri 08:42 America/New_York, Persistent=false',
+    cohort: "Members with paid access: users.tier basic or pro, not deleted, preopen_read_opt_out_at NULL. Until PREOPEN_READ_LIVE=1 is set, AUTO=1 mails ONE preview to the operator and nothing to members.",
+    latch: 'users.preopen_read_last_sent_on = the ET session date, stamped per member the moment the send is accepted',
+    optOut: "Its own: RFC 8058 List-Unsubscribe + footer link → /preopen-read/stop (GET confirms, POST stops), stamping users.preopen_read_opt_out_at. Separate from the marketing opt-out", foh: false,
+    source: 'core/preopenRead.ts · core/preopenReadRecipients.ts · core/mailer.ts sendPreopenReadEmail · scripts/send-preopen-read.mts',
+    notes: "The dashboard's Today's Read for SPX, word for word, plus the key levels and all six symbols. A member's first one says what it is and how to stop it.",
+  },
+
   // ------------------------------------------------------------ operator ----
   'cancellation-alert': {
     group: 'operator', title: 'Cancellation alert', channel: 'operator', autoSends: true,
