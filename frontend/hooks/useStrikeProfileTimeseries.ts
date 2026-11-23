@@ -27,6 +27,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { describeHttpError } from '@/core/api/httpError';
 import { pollDecision, STALE_POLL_FLOOR_MS } from '@/core/pollGate';
 
 export interface StrikeProfileStrike {
@@ -192,7 +193,7 @@ async function fetchBuckets(
   windowUnits: number,
 ): Promise<StrikeProfileBucket[]> {
   const response = await fetch(buildUrl(symbol, timeframe, expirations, windowUnits));
-  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  if (!response.ok) throw new Error(await describeHttpError(response));
   const raw = await response.json();
   const normalized = normalizeNumbers(raw);
   if (!Array.isArray(normalized)) return [];

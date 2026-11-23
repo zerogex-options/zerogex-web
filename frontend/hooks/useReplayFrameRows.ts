@@ -27,6 +27,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { describeHttpError } from '@/core/api/httpError';
 import type { ByStrikeRowLike } from '@/core/expirationGradient';
 
 export interface ReplayFrameRows {
@@ -106,7 +107,7 @@ async function fetchFrame(symbol: string, url: string): Promise<boolean> {
       remember(url, []);
       return true;
     }
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    if (!response.ok) throw new Error(await describeHttpError(response));
     remember(url, narrow(await response.json()));
     return true;
   } catch {

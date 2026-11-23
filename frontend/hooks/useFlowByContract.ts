@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { describeHttpError } from '@/core/api/httpError';
 
 import { etDateKeyFor } from '@/core/utils';
 
@@ -401,7 +402,7 @@ async function fetchByContract(
   const resp = await fetch(`${baseUrl}/api/flow/by-contract?${params.toString()}`);
   if (!resp.ok) {
     if (resp.status === 404) throw new Error('No data available yet');
-    throw new Error(`API error: ${resp.status}`);
+    throw new Error(await describeHttpError(resp));
   }
   const raw = await resp.json();
   if (!Array.isArray(raw)) return [];

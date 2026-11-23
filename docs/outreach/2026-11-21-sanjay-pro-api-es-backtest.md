@@ -605,11 +605,15 @@ Sorry about this, and thanks for the screenshot. Nothing was wrong on your end. 
 
 Everything is back up now, so Backtesting should load normally. Please give it another try, and if you see the error again, reply here and I'll look into it right away.
 
-For planning around it: the maintenance starts at 2:30 AM US Eastern time on Sundays (07:30 UTC) and is normally finished by [END TIME] US Eastern.
+For planning around it: the maintenance starts at 2:30 AM US Eastern time on Sundays (07:30 UTC) and is normally finished by 4:30 AM US Eastern.
 
 Best,
 Michael
 Founder, ZeroGEX
 
-Fill `[END TIME]` from the `Finished` line of today's run (see the chat for
-the command), rounded up to the next half hour.
+`4:30 AM` is the 2026-11-22 run rounded up: `journalctl` showed it start at
+02:31:54 and finish at 04:25:40 ET, and all four services were active after.
+
+**Follow-up (branch `claude/maintenance-message`):** during the window the site
+now says "Scheduled maintenance ... usually back by 4:30 AM ET" in place of
+"HTTP 502" (`core/maintenanceWindow.ts`).

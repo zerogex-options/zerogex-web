@@ -25,6 +25,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { describeHttpError } from '@/core/api/httpError';
 import { pollDecision, STALE_POLL_FLOOR_MS } from '@/core/pollGate';
 
 export interface TechnicalsVwapDeviation {
@@ -154,7 +155,7 @@ function buildUrl(symbol: string, interval?: number): string {
 
 async function fetchTechnicals(symbol: string, interval?: number): Promise<TechnicalsResponse> {
   const response = await fetch(buildUrl(symbol, interval));
-  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  if (!response.ok) throw new Error(await describeHttpError(response));
   return (await response.json()) as TechnicalsResponse;
 }
 
