@@ -12,7 +12,8 @@ show the time):
 
 Nothing says what he trades or whether he has an account.
 
-> **Status:** draft, unsent.
+> **Status:** ready to send, with the sale line. The account check, run Mon
+> Nov 23, found no account under this email.
 
 ## The read
 
@@ -43,11 +44,11 @@ Nothing says what he trades or whether he has an account.
   through the session (the plan list on `/gex-levels`), runs in a browser, so a
   tab or window next to thinkorswim works. The reply calls a second screen
   handy, not required.
-- **The reply works whether or not he's a member.** It names the dashboard
-  without selling a plan. If he has never subscribed, the Black Friday sale is
-  worth one extra line: half off the first year of any plan, first-time
-  members only, through Tue Dec 1 (`docs/black-friday-2026-runbook.md`). The
-  line and a 10-second check are under the reply.
+- **He has no account under this email, so the reply includes the sale.** The
+  check under the reply came back empty on Mon Nov 23. The Black Friday sale
+  is half off the first year of any plan, first-time members only, through
+  Tue Dec 1 (`docs/black-friday-2026-runbook.md`). It gets one line, after
+  the answer, and the rest of the reply sells nothing.
 - **Left out: NinjaTrader, Sierra Chart, Bookmap, SabrTrader, wall alerts and
   the morning email.** He asked about thinkorswim. They're in "If he replies".
 
@@ -67,28 +68,29 @@ One thing to know: thinkorswim doesn't let any study pull in data from outside t
 
 If you want levels that update as the market moves, that's our dashboard, where they're recalculated about once a minute during the session. It runs in your web browser, so a tab or window next to thinkorswim works fine. A second monitor is handy but not required.
 
+If you'd like to try the dashboard, our Black Friday sale runs through Tuesday, December 1: half off your first year on any plan, covered by our 7-day money-back guarantee. Details are here: https://zerogex.io/pricing
+
 If anything doesn't work when you set it up, just reply here.
 
 Best,
 Michael
 
-### Optional: the sale line, only if he has never subscribed
+### The account check behind the sale line
 
-Read-only check:
+Run Mon Nov 23. It returned no row, so the sale line is in the reply above.
+Read-only:
 
 ```bash
 sudo sqlite3 -readonly /var/lib/zerogex/auth.db "SELECT email, tier, created_at, stripe_subscription_id, subscription_status, paid_welcome_email_sent_at, subscription_lapsed FROM users WHERE lower(email) = 'don.brown@leveragesourcecapital.com';"
 ```
 
-Add the line if there's no row, or if `tier` is `public`,
-`stripe_subscription_id` and `paid_welcome_email_sent_at` are empty, and
-`subscription_lapsed` is 0. That matches what checkout counts as first-time
-(`hasHeldSubscriptionBefore` in `app/api/billing/checkout/route.ts`). Anything
-else: send the reply as is, because checkout would refuse him the sale.
-
-Paste it just above "If anything doesn't work":
-
-If you'd like to try the dashboard, our Black Friday sale runs through Tuesday, December 1: half off your first year on any plan, covered by our 7-day money-back guarantee. Details are here: https://zerogex.io/pricing
+No row means no account under this email, so a new account would count as
+first-time. So would a row with `tier` `public`, empty
+`stripe_subscription_id` and `paid_welcome_email_sent_at`, and
+`subscription_lapsed` 0: that is what checkout counts as first-time
+(`hasHeldSubscriptionBefore` in `app/api/billing/checkout/route.ts`). If he
+turns out to have an older account under another email that has held a
+subscription, checkout won't offer him the sale on it.
 
 ## If he replies
 
@@ -128,8 +130,7 @@ If you'd like to try the dashboard, our Black Friday sale runs through Tuesday, 
   and Max Pain for SPX, SPY, QQQ, NDX, ES and NQ, each one labeled. Sign up at
   https://zerogex.io/gex-levels#levels-email and click the confirmation link.
   He can type those into the study's settings instead of re-copying.
-- **"What does it cost?" or "Is there a trial?"** Run the check above first.
-  For a first-time member, the sale and the 7-day free trial exclude each
-  other: the free trial is on Basic monthly at the regular $39, and starting
-  it costs him the sale. `2026-11-21-joaquin-see-the-dashboard.md` has the
-  wording.
+- **"What does it cost?" or "Is there a trial?"** He's first-time (check
+  above), so the sale and the 7-day free trial exclude each other: the free
+  trial is on Basic monthly at the regular $39, and starting it costs him the
+  sale. `2026-11-21-joaquin-see-the-dashboard.md` has the wording.
