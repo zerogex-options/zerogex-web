@@ -88,7 +88,11 @@
 // run, so nobody clicks through to regular prices; a preview may go out before
 // it opens. The cohort is exactly who checkout sells the sale to: free members
 // who have never held a subscription. Referral, partner and campaign signups
-// stay in, because the sale replaces their discount at checkout.
+// stay in, because the sale replaces their discount at checkout. The last call
+// (2026-11-black-friday-last-call) reaches only members the announcement
+// reached who still have no plan, needs six hours of sale left instead of two
+// days, and is refused on any day but the sale's last, because it says the
+// sale ends tonight.
 //
 // Idempotency: a `<campaign key>_sent` row is written to audit_events on each
 // successful send; already-stamped users are skipped on re-run.
@@ -126,6 +130,7 @@ import {
   REQUIRED_SALE_PLACEHOLDERS,
   buildSaleEmailPlaceholders,
   saleEmailProblems,
+  saleLastDayProblem,
 } from '../core/blackFridayEmail.ts';
 
 type Audience = 'subscribers' | 'registrants' | 'cancelled';
@@ -196,9 +201,13 @@ type CampaignSpec = {
   // `${key}_sent`). A reminder goes to the people who got the offer, and the
   // cohort's own filters drop anyone who has subscribed since.
   onlyRecipientsOf?: string;
-  // How long the promotion code must still have to run when this email goes
-  // out. Default MIN_OFFER_LEAD_HOURS (two days); a last call passes less.
+  // How long the offer (the promotion code, or the Black Friday sale) must still
+  // have to run when this email goes out. Default two days; a last call passes
+  // less.
   minOfferLeadHours?: number;
+  // A blackFridaySale email that says the sale ends tonight: a real send is
+  // refused on any day but the sale's last, in New York time.
+  saleLastDayOnly?: boolean;
   // Set when the copy no longer matches the live offer. The campaign stays
   // registered so its cohort can still be counted with --dry-run, but a live
   // --send is refused: it would promise terms a new recipient can't get.
@@ -383,6 +392,30 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
         html: '2026-11-black-friday-registrants.html',
         text: '2026-11-black-friday-registrants.txt',
         subject: 'Black Friday: {{SALE_PERCENT}} off your first year of ZeroGEX, through {{SALE_DEADLINE_SHORT}}',
+      },
+    },
+  },
+  // The sale's last call, sent the morning of its final day, only to members
+  // the announcement reached who still have no plan (the cohort's own filters
+  // drop anyone who has subscribed since). A short note, not a second copy of
+  // the announcement.
+  '2026-11-black-friday-last-call': {
+    key: 'offer_2026_11_black_friday_last_call',
+    excludeOnboardingNudged: false,
+    grantsExtendedTrial: false,
+    blackFridaySale: true,
+    includeNeverSignedIn: true,
+    onlyRecipientsOf: 'offer_2026_11_black_friday',
+    // Six hours, as for the November code's last call, so a late send can't
+    // land after the sale has closed. The copy says "tonight", so it also has
+    // to go out on the last day itself.
+    minOfferLeadHours: 6,
+    saleLastDayOnly: true,
+    content: {
+      registrants: {
+        html: '2026-11-black-friday-last-call-registrants.html',
+        text: '2026-11-black-friday-last-call-registrants.txt',
+        subject: 'Last day: {{SALE_PERCENT}} off your first year of ZeroGEX ends tonight',
       },
     },
   },
@@ -924,6 +957,8 @@ if (campaignSpec.blackFridaySale) {
     window: saleWindow,
     nowMs: Date.now(),
     requireOpen: cli.send,
+    minLeadHours: campaignSpec.minOfferLeadHours,
+    lastDayOnly: campaignSpec.saleLastDayOnly,
   });
   if (problems.length > 0) {
     const stop = cli.send || cli.previewTo;
@@ -954,6 +989,10 @@ if (campaignSpec.blackFridaySale) {
         : saleWindow.startMs !== null && saleWindow.startMs > now
           ? `not open yet: opens ${newYork(saleWindow.startMs)}. Preview now; send once it's on`
           : `on now, ${((saleWindow.endMs - now) / 86_400_000).toFixed(1)} days left`;
+    // A last call can only really go out on the sale's last day; say so on a
+    // dry run too, so the day it's due isn't the day this is found out.
+    const lastDayNote = campaignSpec.saleLastDayOnly ? saleLastDayProblem(saleWindow.endMs, now) : null;
+    if (lastDayNote && saleWindow.endMs > now) saleStatus += `. Not today: ${lastDayNote}`;
   }
 }
 

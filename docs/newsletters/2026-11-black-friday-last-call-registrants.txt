@@ -1,0 +1,65 @@
+ZeroGEX · Last call · The sale ends tonight
+
+------------------------------------------------------------
+
+Hi there,
+
+A quick reminder: our Black Friday sale ends tonight, at
+{{SALE_DEADLINE}}. Until then, every plan is
+{{SALE_PERCENT}} off for your first year.
+
+There's no code to enter. The sale prices are on the pricing page,
+and checkout applies them:
+https://zerogex.io/pricing
+
+  Basic monthly   {{SALE_BASIC_MONTHLY}}
+                  {{SALE_BASIC_MONTHLY_THEN}}
+
+  Pro monthly     {{SALE_PRO_MONTHLY}}
+                  {{SALE_PRO_MONTHLY_THEN}}
+
+  Basic annual    {{SALE_BASIC_ANNUAL}}
+                  {{SALE_BASIC_ANNUAL_THEN}}
+
+  Pro annual      {{SALE_PRO_ANNUAL}}
+                  {{SALE_PRO_ANNUAL_THEN}}
+
+The sale price is paid when you subscribe, so it doesn't come with
+the free trial. Every sale purchase is covered by our 7-day
+money-back guarantee instead (one refund per customer). Cancel
+anytime.
+
+Not sure how you'd use it? This guide walks through five trades on
+real SPX days, a credit spread, a debit spread, a butterfly, an
+iron condor and a late-day put, and shows where each one sat
+against the gamma levels:
+https://zerogex.io/education/trading-spreads-with-gamma-levels
+
+This is the last email about the sale. If something other than
+price is in the way, hit reply and tell me what it is. I read every
+message myself.
+
+Trade well,
+Michael
+Founder, ZeroGEX
+
+------------------------------------------------------------
+
+Dealer positioning is modeled, not directly observed: public option data
+does not disclose which side a dealer holds at a strike. See
+https://zerogex.io/methodology
+
+ZeroGEX provides options market-structure data and analytics for
+educational and informational purposes only. Nothing here is investment
+advice or a recommendation to buy or sell any security. Options trading
+involves substantial risk and is not suitable for every investor.
+
+Free levels: https://zerogex.io/spx-gamma-levels
+Pricing:     https://zerogex.io/pricing
+Account:     https://zerogex.io/account
+Help & FAQ:  https://zerogex.io/help/faqs
+
+You're receiving this because you have a ZeroGEX account.
+Don't want ZeroGEX offers and updates? Unsubscribe: {{UNSUB_URL}}
+Questions? Just reply, or email Michael@zerogex.io
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US

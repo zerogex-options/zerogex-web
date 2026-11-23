@@ -77,11 +77,36 @@ export type SaleEmailCheck = {
   // prices. A preview may go out before it opens.
   requireOpen: boolean;
   minLeadHours?: number;
+  // A last-call email says the sale ends "tonight", which is only true on the
+  // sale's final day in New York. A real send on any other day is refused; a
+  // preview may still go out ahead of time.
+  lastDayOnly?: boolean;
 };
+
+// "2026-12-01": the calendar day in New York, for comparing two instants.
+function newYorkDay(ms: number): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(ms));
+}
+
+// "Tuesday, December 1": the sale's last day, for messages.
+function newYorkDayName(ms: number): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(ms));
+}
 
 /**
  * Every reason not to send the sale email. Empty means the sale is configured
- * and, for a real send, on now with at least minLeadHours to run.
+ * and, for a real send, on now with at least minLeadHours to run (and, for a
+ * last call, on the sale's final day in New York).
  */
 export function saleEmailProblems(check: SaleEmailCheck): string[] {
   const problems: string[] = [];
@@ -113,5 +138,24 @@ export function saleEmailProblems(check: SaleEmailCheck): string[] {
         'their email the hour it arrives',
     );
   }
+  if (check.requireOpen && check.lastDayOnly) {
+    const note = saleLastDayProblem(window.endMs, check.nowMs);
+    if (note) problems.push(note);
+  }
   return problems;
+}
+
+/**
+ * Why a last-call email ("the sale ends tonight") can't go out at nowMs, or null
+ * on the sale's last day in New York. An end at exactly midnight belongs to the
+ * day before, as the deadline wording has it (formatOfferDeadline), hence the
+ * millisecond back. The sender also prints it on a dry run, ahead of the day.
+ */
+export function saleLastDayProblem(endMs: number, nowMs: number): string | null {
+  const lastDay = endMs - 1;
+  if (newYorkDay(nowMs) === newYorkDay(lastDay)) return null;
+  return (
+    `this email says the sale ends tonight, so it can only go out on its last day, ` +
+    `${newYorkDayName(lastDay)} (New York time)`
+  );
 }

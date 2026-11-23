@@ -103,6 +103,44 @@ sqlite3 /var/lib/zerogex/auth.db \
     WHERE u.stripe_subscription_id IS NOT NULL;"
 ```
 
+### Last call, Tuesday, December 1 (`--campaign 2026-11-black-friday-last-call`)
+
+A short reminder on the sale's last morning, to the members the announcement
+reached who still have no plan. Files `2026-11-black-friday-last-call-registrants.html`
+/ `.txt`; subject "Last day: 50% off your first year of ZeroGEX ends tonight";
+idempotency key `offer_2026_11_black_friday_last_call`.
+
+- **Who:** only recipients of `offer_2026_11_black_friday`. Anyone who has
+  subscribed or unsubscribed since drops out through the cohort's usual filters.
+- **When:** the copy says the sale ends tonight, so a real send is refused on
+  any day but the sale's last (New York time), and with less than six hours of
+  the sale left. The dry run says "Not today" on any other day. A preview can go
+  out any time.
+- **Same rates and prices** as the announcement, filled from the sale. It also
+  links the trade examples guide, for readers unsure how they'd use ZeroGEX.
+
+```
+cd frontend
+
+# 1. Cohort and the sale as stated (shows "Not today" before December 1)
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
+  --campaign 2026-11-black-friday-last-call --audience registrants --since 2026-01-01 --dry-run
+
+# 2. One copy to yourself; open on desktop and phone
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
+  --campaign 2026-11-black-friday-last-call --audience registrants --since 2026-01-01 \
+  --preview-to Michael@zerogex.io
+
+# 3. On December 1: first 5 real recipients, then everyone else
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
+  --campaign 2026-11-black-friday-last-call --audience registrants --since 2026-01-01 --send --yes --limit 5
+node --experimental-strip-types --no-warnings scripts/send-product-update.mts \
+  --campaign 2026-11-black-friday-last-call --audience registrants --since 2026-01-01 --send --yes
+```
+
+Results: the two queries above, with `offer_2026_11_black_friday_last_call_sent`
+in place of `offer_2026_11_black_friday_sent`.
+
 ---
 
 ## Free-member offer, November 2026 (`--campaign 2026-11-free-member-offer`)

@@ -182,6 +182,7 @@ test('a registrants email stating the Black Friday sale belongs to a blackFriday
   // and a flagged one that never states the rate and deadline promises nothing.
   const flags = campaignFlags();
   assert.equal(flags.get('2026-11-black-friday')?.blackFridaySale, true);
+  assert.equal(flags.get('2026-11-black-friday-last-call')?.blackFridaySale, true);
   for (const [key, spec] of flags) {
     if (!spec.registrantHtml || !spec.registrantText) continue;
     const bodies = [spec.registrantHtml, spec.registrantText].map((f) =>

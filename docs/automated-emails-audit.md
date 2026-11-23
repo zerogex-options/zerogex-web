@@ -681,6 +681,14 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
 - The free daily levels email swaps its paid-plan paragraph for a sale line
   while the sale is on, for subscribers the sale is for. See
   `docs/daily-levels-email.md`, "During a sale".
+
+**Black Friday last call** — `send-product-update.mts --campaign 2026-11-black-friday-last-call` (copy in `docs/newsletters/2026-11-black-friday-last-call-registrants.{html,txt}`)
+- **Subject:** filled from the sale, e.g. `Last day: 50% off your first year of ZeroGEX ends tonight`
+- Sent by hand on the sale's last morning, only to recipients of the Black
+  Friday email who still have no plan (`onlyRecipientsOf`). Same rate and
+  prices, filled from the sale. A real send is refused on any other day (the
+  copy says "tonight") and with less than six hours of the sale left. See
+  `docs/newsletters/SEND-RUNBOOK.md`, "Last call, Tuesday, December 1".
 - No code: the sale prices are on `/pricing`. The sender fills the rate,
   deadline and prices from `core/blackFridaySale.ts` and the configured window
   (`core/blackFridayEmail.ts`), and refuses a real send unless the sale is on

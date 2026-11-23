@@ -10,6 +10,7 @@ import {
   REQUIRED_SALE_PLACEHOLDERS,
   buildSaleEmailPlaceholders,
   saleEmailProblems,
+  saleLastDayProblem,
 } from '../core/blackFridayEmail.ts';
 import { formatUsd } from '../core/billingPlans.ts';
 import { parseSaleWindow, salePriceUsd } from '../core/blackFridaySale.ts';
@@ -89,4 +90,52 @@ test('a sale that is not configured is refused, for a preview as much as a send'
   const noWindow = problems('2026-11-23T14:00:00Z', { window: null, requireOpen: false });
   assert.equal(noWindow.length, 1);
   assert.match(noWindow[0], /BLACK_FRIDAY_END_AT is missing/);
+});
+
+// --- the last call ------------------------------------------------------------
+//
+// The last-call email says the sale ends tonight, so a real send is refused on
+// any day but the last one in New York, and with less than its six hours left.
+
+const LAST_CALL = { minLeadHours: 6, lastDayOnly: true };
+
+test('the last call goes out on the last day, with six hours to spare', () => {
+  // 8:00 AM ET on Tuesday, December 1, and 5:59 PM ET with six hours to go.
+  assert.deepEqual(problems('2026-12-01T13:00:00Z', LAST_CALL), []);
+  assert.deepEqual(problems('2026-12-01T22:59:59Z', LAST_CALL), []);
+  // Midnight ET at the start of the last day already counts.
+  assert.deepEqual(problems('2026-12-01T05:00:00Z', LAST_CALL), []);
+});
+
+test('the last call is refused on any other day, naming the day it is for', () => {
+  const dayBefore = problems('2026-11-30T15:00:00Z', LAST_CALL);
+  assert.equal(dayBefore.length, 1);
+  assert.match(dayBefore[0], /says the sale ends tonight, so it can only go out on its last day, Tuesday, December 1/);
+  // 11:59 PM ET on Monday is still the day before.
+  assert.equal(problems('2026-12-01T04:59:00Z', LAST_CALL).length, 1);
+  // A week out: the lead time is fine, the day is not.
+  assert.equal(problems('2026-11-23T14:00:00Z', LAST_CALL).length, 1);
+});
+
+test('too late on the last day is refused by the lead time, and after the end, by the end', () => {
+  const late = problems('2026-12-02T00:00:00Z', LAST_CALL); // 7:00 PM ET
+  assert.equal(late.length, 1);
+  assert.match(late[0], /ends in 4 hour\(s\)\. This email needs at least 6/);
+  assert.deepEqual(problems(END, LAST_CALL), ['the sale has already ended']);
+});
+
+test('a last-call preview may go out ahead of the day', () => {
+  assert.deepEqual(problems('2026-11-30T15:00:00Z', { ...LAST_CALL, requireOpen: false }), []);
+});
+
+test('a sale ending exactly at midnight has the day before as its last day', () => {
+  const end = Date.parse('2026-12-02T05:00:00Z'); // 12:00 AM ET, Wednesday
+  assert.equal(saleLastDayProblem(end, Date.parse('2026-12-01T17:00:00Z')), null);
+  assert.match(saleLastDayProblem(end, Date.parse('2026-11-30T17:00:00Z')) ?? '', /Tuesday, December 1/);
+});
+
+test('the announcement keeps its two days, whatever the last call allows', () => {
+  // No minLeadHours and no lastDayOnly: the defaults the announcement runs on.
+  assert.equal(problems('2026-12-01T13:00:00Z').length, 1);
+  assert.deepEqual(problems('2026-11-23T14:00:00Z'), []);
 });

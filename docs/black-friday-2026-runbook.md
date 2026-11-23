@@ -62,7 +62,7 @@ If a page was loaded before the sale closed and the member clicks after, checkou
 
 ## 3a. Telling free members
 
-The announcement email to free members is ready: `--campaign 2026-11-black-friday` in `scripts/send-product-update.mts`. It goes to every verified free account that has never held a subscription, including accounts that verified and never came back. The send steps, who it reaches and when to send are in the "Black Friday sale" section of `docs/newsletters/SEND-RUNBOOK.md`. It fills its prices and deadline from the sale itself, and won't send until the sale is on.
+The announcement email to free members went out on Monday, November 23, to 1,055 accounts: `--campaign 2026-11-black-friday` in `scripts/send-product-update.mts`. It went to every verified free account that has never held a subscription, including accounts that verified and never came back. It fills its prices and deadline from the sale itself, and won't send until the sale is on. Its last call, `--campaign 2026-11-black-friday-last-call`, goes out the morning of Tuesday, December 1, to the recipients who still have no plan, and can't be sent on any other day. The send steps for both are in the "Black Friday sale" section of `docs/newsletters/SEND-RUNBOOK.md`.
 
 The free daily levels email carries the sale too, with nothing to run. While the sale is on, the paragraph that usually pitches the paid plans becomes a Black Friday line with a link to `/pricing`, for every subscriber whose address doesn't belong to an account that has, or had, a plan or trial. Everyone else gets the usual email. The line stops by itself when the sale closes, and each morning's log says how many got it (`docs/daily-levels-email.md`, "During a sale").
 
