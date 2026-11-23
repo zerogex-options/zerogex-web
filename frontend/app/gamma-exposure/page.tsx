@@ -8,6 +8,7 @@ import { FilterBar, FilterChip, FilterGroup } from "@/components/controls/Filter
 import {
   useGEXSummary,
   useGEXByStrike,
+  useSessionCloses,
   useGEXHistoricalContext,
   useMarketQuote,
   useVolatilityGauge,
@@ -23,7 +24,9 @@ import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import GexRegimeHeader from '@/components/GexRegimeHeader';
+import KeyLevelsStrip from '@/components/KeyLevelsStrip';
+import TodaysReadCard from '@/components/TodaysReadCard';
+import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
@@ -43,8 +46,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
-import { isFuturesSymbol, volatilityIndexFor } from '@/core/symbols';
-import FuturesLevelsChip from '@/components/FuturesLevelsChip';
+import { volatilityIndexFor } from '@/core/symbols';
 import {
   aggregateStrikes,
   chartExpirationOptions as deriveChartExpirationOptions,
@@ -91,7 +93,7 @@ const HEADER_TOOLTIP =
   "The most complete positioning view on the site, and the one the others are slices of. It reads the live option chain, models which side of each contract dealers are on, and sums the gamma that implies: the regime (long gamma dampens moves, short gamma amplifies them), the flip level where the sign changes, the strikes carrying the heaviest hedging, and how all of it is spread across expirations. Modeled from open interest, not observed\u00a0- a wall is where hedging flow would be largest if price got there, not a level anyone is obliged to defend. Decision-support context, not investment advice.";
 
 export default function GammaExposurePage() {
-  const { symbol, timeframe, setTimeframe } = useTimeframe();
+  const { symbol } = useTimeframe();
   const { activeOnly } = useStrikeFilter();
   // Both branches of these were identical, so the theme never actually chose
   // anything — they are the panel's own tokens, which already theme themselves.
@@ -102,6 +104,7 @@ export default function GammaExposurePage() {
   // Data fetching — all at page level, passed as props to children
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
 
   // "Aha" / first-value: the first time gamma-exposure data actually renders
   // for this user in this session. Fired once via a ref guard (the data hook
@@ -351,87 +354,31 @@ export default function GammaExposurePage() {
     return `${sign}$${value.toFixed(0)}`;
   };
 
-  const postureTag: 'Aggressive' | 'Balanced' | 'Defensive' = useMemo(() => {
-    const netGex = netGexAtSpot;
-    if (netGex != null && netGex < 0 && (vannaTrend === 'bearish' || vannaTrend === 'bullish') && ivRankPct != null && ivRankPct >= 60) {
-      return 'Aggressive';
-    }
-    if (netGex != null && netGex > 0 && ivRankPct != null && ivRankPct <= 40) {
-      return 'Defensive';
-    }
-    return 'Balanced';
-  }, [netGexAtSpot, vannaTrend, ivRankPct]);
-
-  const marketContextSummary = useMemo(() => {
-    const horizonLabel = timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday';
-    const spot = quoteData?.close;
-    const callWall = gexData?.call_wall ?? null;
-    const putWall = gexData?.put_wall ?? null;
-    const netGex = netGexAtSpot;
-    const pcr = gexData?.put_call_ratio ?? null;
-    const callDistance = spot != null && callWall != null ? Math.abs(callWall - spot) : null;
-    const putDistance = spot != null && putWall != null ? Math.abs(spot - putWall) : null;
-    const nearestWall = callDistance != null && putDistance != null
-      ? (callDistance < putDistance ? 'call' : 'put')
-      : null;
-
-    const locationText =
-      spot != null && callWall != null && putWall != null
-        ? spot > callWall
-          ? 'Spot is above the call wall, so upside continuation can squeeze quickly but failed breakouts can snap back hard.'
-          : spot < putWall
-            ? 'Spot is below the put wall, so downside can accelerate fast if support keeps failing.'
-            : nearestWall === 'put'
-              ? 'Spot is just above the put wall, where failed breakdowns often reverse sharply and trap late shorts.'
-              : 'Spot is leaning toward the call wall, where breakouts can run if buyers keep pressure on.'
-        : 'Wall placement is incomplete, so treat directional conviction as lower until structure is clearer.';
-
-    const gexText =
-      netGex == null
-        ? 'Dealer gamma at spot is unclear, so expect less reliable pinning behavior.'
-        : netGex > 2e9
-          ? 'Dealers are deeply long gamma at spot, which usually suppresses volatility and favors fade/mean-reversion over aggressive trend chasing.'
-          : netGex > 0
-            ? 'Dealers are net long gamma at spot, so price is more likely to mean-revert than sustain runaway moves.'
-            : netGex < -2e9
-              ? 'Dealers are deeply short gamma at spot, which often amplifies volatility and can punish late entries on both sides.'
-              : 'Dealers are net short gamma at spot, which supports trend extension and larger directional swings.';
-
-    const flowText =
-      vannaTrend === 'bullish' && charmLabel === 'Bullish'
-        ? 'Vanna flow and charm decay are both adding a bullish tailwind as dealers rebalance delta across vol and time.'
-        : vannaTrend === 'bearish' && charmLabel === 'Bearish'
-          ? 'Vanna flow and charm decay are both adding bearish pressure, so downside moves can snowball faster.'
-          : 'Vanna and charm are mixed, so directional follow-through is less trustworthy and fake-outs are more likely.';
-
-    const riskText =
-      ivRankPct == null
-        ? 'Volatility regime is unclear; size risk conservatively.'
-        : ivRankPct >= 70
-          ? 'Vol is elevated, so prioritize defined-risk structures and avoid oversized directional bets.'
-          : ivRankPct <= 30
-            ? 'Vol is relatively calm, which favors cleaner structure-driven entries but still requires trap awareness near walls.'
-            : 'Vol is in a middle regime; stay selective and demand confirmation before pressing size.';
-
-    const crowdingText =
-      pcr == null
-        ? ''
-        : pcr >= 1.2
-          ? 'Positioning is put-heavy, so failed downside can trigger sharp reflex squeezes.'
-          : pcr <= 0.8
-            ? 'Positioning is call-heavy, so upside failures can unwind quickly.'
-            : 'Positioning is fairly balanced, so wall behavior matters more than crowding extremes.';
-
-    const actionText =
-      netGex != null && netGex < 0
-        ? 'Trading posture: bias toward momentum when structure confirms, but avoid chasing extended candles because reversals can be violent.'
-        : 'Trading posture: favor disciplined entries near key levels, take profits faster on extensions, and be ready to fade obvious trap moves.';
-    const horizonText = horizonLabel === 'intraday'
-      ? 'Intraday lens: prioritize reaction at walls/flip and tighten risk quickly if tape fails to follow through.'
-      : 'Swing lens: focus on whether price can hold outside walls for multiple sessions before committing full size.';
-
-    return `${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText} ${horizonText}`.trim();
-  }, [quoteData?.close, gexData, netGexAtSpot, vannaTrend, charmLabel, ivRankPct, timeframe]);
+  // Today's Read: the same plain-English read, built from the same numbers, as
+  // the Main Dashboard's (buildReportModel, shared with /live-bulletin). This
+  // page used to open with its own paragraph of general advice that never named
+  // a level or a number; a member who reads both pages now reads one account of
+  // the book. Same inputs as app/dashboard/page.tsx, so the two never disagree.
+  const todaysReadModel = useMemo(
+    () =>
+      buildReportModel({
+        symbol,
+        spot: quoteData?.close ?? gexData?.spot_price ?? null,
+        priorClose: sessionClosesData?.current_session_close ?? null,
+        summary: gexData ?? null,
+        vix: volGauge?.index ?? null,
+        volIndex,
+        horizon: 'daily',
+      }),
+    [
+      symbol,
+      quoteData?.close,
+      gexData,
+      sessionClosesData?.current_session_close,
+      volGauge?.index,
+      volIndex,
+    ],
+  );
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -504,16 +451,11 @@ export default function GammaExposurePage() {
     );
   }, [closestStrikeToSpot, sortKey, sortDir]);
 
-  if (gexLoading && !gexData) {
-    return (
-      <PageShell>
-        <PageHeader title="Dealer Positioning" sub={HEADER_SUB} tooltip={HEADER_TOOLTIP} />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard />
-        </div>
-      </PageShell>
-    );
-  }
+  // The initial-load skeleton replaces only the BODY, as on the Main Dashboard.
+  // An early return of a second PageShell tree tore down the header and the Key
+  // Levels strip on every symbol change (the summary drops back to loading while
+  // the new one lands), and with them the strip's in-place symbol flip.
+  const awaitingFirstLoad = gexLoading && !gexData;
 
   return (
     <PageShell>
@@ -527,23 +469,21 @@ export default function GammaExposurePage() {
           </FilterGroup>
         }
       />
-      {/* ES / NQ levels are the SPX / NDX levels carried across at fair value. */}
-      {isFuturesSymbol(symbol) && (
-        <div className="mb-4 flex">
-          <FuturesLevelsChip symbol={symbol} />
-        </div>
-      )}
+      {/* Key Levels: flip, pin, walls and max pain, with how far each sits from
+          spot, read off the same book as the charts below (and the dashboard).
+          It carries the ES / NQ futures chip itself. */}
+      <KeyLevelsStrip className="mb-6" />
+
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
-      {/* Section 1: Regime Header */}
-      <GexRegimeHeader
-        gexSummary={gexData}
-        quoteData={quoteData}
-        symbol={symbol}
-        marketContextSummary={marketContextSummary}
-        postureTag={postureTag}
-        contextHorizon={timeframe === '1day' || timeframe === '1hr' ? 'swing' : 'intraday'}
-        onContextHorizonChange={(horizon) => setTimeframe(horizon === 'intraday' ? '5min' : '1day')}
-      />
+
+      {awaitingFirstLoad ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard />
+        </div>
+      ) : (
+        <>
+      {/* Section 1: Today's Read, the levels above in plain English. */}
+      <TodaysReadCard model={todaysReadModel} bulletinLink className="mb-8" />
 
       {/* Section 2: Metric Cards */}
       <section className="mb-8">
@@ -852,6 +792,9 @@ export default function GammaExposurePage() {
           </ChartPanel>
         </ExpandableCard>
       </section>
+
+        </>
+      )}
 
       {/* Every number on this page is signed by the positioning convention, so
           the disclosure closes the page rather than living only in tooltips. */}

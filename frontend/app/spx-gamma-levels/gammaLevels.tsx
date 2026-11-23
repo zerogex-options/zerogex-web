@@ -533,12 +533,11 @@ function buildShareSnippet(
   ].join('\n');
 }
 
-// Regime shown on each ticker card. Determined the same way as the live app
-// (GexRegimeHeader) and the Today's Read (buildReportModel → detectRegime):
-// purely by where spot sits relative to the gamma flip, with a ±0.25% "at the
-// flip" band — NOT by the sign of a net-GEX total. One shared methodology means
-// the card badge, the Today's Read badge, and the dashboard header can never
-// disagree for the same snapshot.
+// Regime shown on each ticker card. Determined the same way as the live app's
+// Today's Read (buildReportModel → detectRegime): purely by where spot sits
+// relative to the gamma flip, with a ±0.25% "at the flip" band — NOT by the
+// sign of a net-GEX total. One shared methodology means the card badge and the
+// Today's Read badge can never disagree for the same snapshot.
 export const REGIME_DISPLAY: Record<
   RegimeKey,
   { label: string; color: string; icon: 'up' | 'down' | 'flat' | 'none'; body: string }

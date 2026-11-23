@@ -120,9 +120,10 @@ export interface ReportModel {
   spotSourceLabel: string | null;
 }
 
-// Spot within this fraction of the flip is genuinely "at the flip" — mirrors
-// GexRegimeHeader's AT_FLIP_BAND_PCT so the card and the live app agree on
-// where the regime boundary sits.
+// Spot within this fraction of the flip is genuinely "at the flip": a real
+// regime-transition zone, ~0.25% of spot. The one definition the Today's Read
+// (dashboard and Dealer Positioning), the Live Bulletin and the free levels
+// cards share, so they all agree on where the regime boundary sits.
 const AT_FLIP_BAND_PCT = 0.0025;
 
 export function detectRegime(
