@@ -118,9 +118,8 @@ what to do about it.
 - A price chip per line, anchored on the last bar so there is one chip per
   level rather than one per bar.
 - Info chips along the top of the chart.
-- Four `Alert()` conditions on `close crosses <level>`, at `Alert.BAR` so they
-  fire on bar close rather than on every tick — an intrabar wick across the
-  Gamma Flip that closes back inside it is noise, not a regime change.
+- Four `Alert()` conditions on `close[1] crosses <level>`, at `Alert.BAR`, so
+  each fires once, at the start of the bar after one closes across a level.
 
 Colors are `DefineGlobalColor` globals rather than inputs, because thinkScript
 has no color input type; users recolor them under the study's **Globals**
@@ -132,6 +131,21 @@ dropdown would have duplicated a native feature — and `SetStyle()` /
 `SetLineWeight()` want a compile-time constant, so driving them from a computed
 `def` (which is a *series* in thinkScript, not a constant) is a good way to
 make the study fail to compile the first time someone pastes it.
+
+**The alerts read `close[1]`, not `close`, on purpose.** `Alert()` checks its
+condition on the live bar, where `close` is the current price and moves every
+tick, so `close crosses <level>` fires mid-bar the first time price trades
+through — including on a wick across the Gamma Flip that closes back inside
+it, which is noise, not a regime change. `close[1]` is the last completed bar
+and no longer moves, so the alert waits for a close across the level. The cost
+is latency: a 1-minute chart alerts sooner than a 15-minute one. `Alert.BAR`
+does not do the waiting by itself; thinkorswim [defines it][alert-bar] only as
+an alert that "can be triggered only once per bar", which limits how often it
+fires, not when. It stays because `close[1]` is true for the whole bar after
+the cross, and `Alert.BAR` keeps that to one alert.
+`tests/thinkorswimStudy.test.ts` pins `close[1]` and `Alert.BAR` on all four.
+
+[alert-bar]: https://toslc.thinkorswim.com/center/reference/thinkScript/Constants/Alert/Alert-BAR
 
 Every string the platform **renders** — labels, bubbles, alert text — is plain
 ASCII on purpose. The comments carry normal typography, but this file travels
