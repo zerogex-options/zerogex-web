@@ -152,8 +152,9 @@ function snapshotColumn(snap: LadderSnapshot | null, symbol: string): Omit<Heatm
       callWall: null,
       putWall: null,
       maxPain: null,
-      // The delayed view has no Expiry control: every column is whole-chain.
-      expiryScope: "all" as const,
+      // The delayed view has no Expiry control: every column is whole-chain,
+      // so only the whole chain's crown has a book to come from.
+      crowns: { today: null, all: [] },
       loading: false,
       error: null,
     };
@@ -161,8 +162,9 @@ function snapshotColumn(snap: LadderSnapshot | null, symbol: string): Omit<Heatm
   return {
     ...snap,
     positioningKind: "reachback" as const,
-    // Whole-chain, like every delayed column (see LadderSnapshot).
-    expiryScope: "all" as const,
+    // Whole-chain, like every delayed column (see LadderSnapshot): the rows
+    // serve the violet crown, and there is no same-day book for the teal one.
+    crowns: { today: null, all: snap.cells },
     // Δ-since-open needs a second per-symbol fetch the delayed view does not
     // make, so the triangles are simply absent rather than wrong.
     sessionBaseline: null,
@@ -431,12 +433,14 @@ export default function TerminalSurface({
   const laddersEnabled = live && laddersView;
   const leftLive = useGammaLadderColumn(sym1, laddersEnabled, {
     expirations: exp1.selection,
+    available: exp1.available,
     sessionDelta: showSessionDelta,
     basis: ladderBasis,
     rewindTime,
   });
   const rightLive = useGammaLadderColumn(sym2, laddersEnabled, {
     expirations: exp2.selection,
+    available: exp2.available,
     sessionDelta: showSessionDelta,
     basis: ladderBasis,
     rewindTime,

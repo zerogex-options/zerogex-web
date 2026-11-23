@@ -151,9 +151,10 @@ function replayColumn(
   const spot = closeAtOrBefore(replay.candles, frame?.timestamp ?? cursorTs);
   const open = firstOpen(replay.candles);
   const changePercent = spot != null && open != null && open !== 0 ? ((spot - open) / open) * 100 : null;
+  const cells = frameToCells(frame);
   return {
     symbol,
-    cells: frameToCells(frame),
+    cells,
     spot,
     gammaFlip: frame?.gamma_flip ?? null,
     callWall: frame?.call_wall ?? null,
@@ -161,8 +162,9 @@ function replayColumn(
     maxPain: frame?.max_pain ?? null,
     changePercent,
     isPositive: changePercent != null ? changePercent >= 0 : undefined,
-    // Replay frames are always the whole chain (the Expiry selector rests).
-    expiryScope: "all" as const,
+    // Replay frames are always the whole chain (the Expiry selector rests), so
+    // the rows serve the violet crown and there is no same-day book for teal.
+    crowns: { today: null, all: cells },
     loading: (sessions.loading || replay.loading) && !frame,
     error: replay.error || sessions.error,
   };
@@ -221,11 +223,13 @@ export default function PairComparisonClient() {
 
   const live1 = useGammaLadderColumn(sym1, liveEnabled, {
     expirations: exp1.selection,
+    available: exp1.available,
     sessionDelta: showSessionDelta,
     basis: ladderBasis,
   });
   const live2 = useGammaLadderColumn(sym2, liveEnabled, {
     expirations: exp2.selection,
+    available: exp2.available,
     sessionDelta: showSessionDelta,
     basis: ladderBasis,
   });

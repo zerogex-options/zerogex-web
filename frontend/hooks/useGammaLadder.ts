@@ -18,6 +18,11 @@
  * for that set alone, so the ladder's level markers follow the filter; Max
  * Pain has no per-set equivalent, so it reads NA while filtered.
  *
+ * The two crowns (core/crownScope) don't follow the filter: today's heaviest
+ * strike and the whole chain's are both drawn whatever it says. The rows serve
+ * the crown that shares their scope; the other polls its own small read once
+ * a minute.
+ *
  * Replay is deliberately NOT here: only Pair Comparison replays a session, and
  * it builds its columns from the buffered frames (see usePairReplay) instead.
  */
@@ -33,7 +38,7 @@ import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { bucketAtOrNearest, latestBookBucket, rewoundChangePercent } from "@/core/strikeHistory";
 import { expiredExcludedDates } from "@/core/expiredAtClose";
 import { volumeGammaUrl, volumeLadderCells, type LadderBasis, type VolumeGammaResponse } from "@/core/ladderBasis";
-import { ladderExpiryScope } from "@/core/crownScope";
+import { crownFeedsNeeded, crownSources, ladderExpiryScope, type LadderCrownSources } from "@/core/crownScope";
 import { etTodayDateKey } from "@/core/utils";
 
 /** Everything a ladder column renders except the header control, which the
@@ -72,6 +77,11 @@ export type GammaLadderColumnData = Omit<HeatmapColumnInput, "control">;
 // a 1s floor, so 10_000 → ~5s and 5_000 → ~2.5s effective.
 const TIP_REFRESH_MS = 10_000; // ~5s effective — matches the server GEX cache
 const SUMMARY_REFRESH_MS = 5_000; // ~2.5s effective — keeps the spot marker live-ish
+// The second crown's read (core/crownScope): the rows serve the crown that
+// shares their scope, and the other one polls its own small read. A crown only
+// moves when the analytics cycle writes (~60s), so once a minute is enough, and
+// keeps each extra read to a sixth of the tip's request rate.
+const CROWN_REFRESH_MS = 60_000;
 // The Δ-since-open baseline is one frozen frame per symbol per session: the
 // slow re-poll only exists to roll it over when a new session opens (and to
 // self-heal a failed fetch). 600_000 → ~5min effective.
@@ -122,6 +132,14 @@ function bucketCells(bucket: TipBucket | null): HeatmapCell[] {
   return out;
 }
 
+/** A crown read's cells: the tip's freshest bucket with positioning on the
+ *  open-interest basis, the per-strike response on the volume basis. Guarded
+ *  on shape, so a response from before a basis switch reads as empty. */
+function crownFeedCells(data: TipBucket[] | VolumeGammaResponse | null, volume: boolean): HeatmapCell[] {
+  if (volume) return Array.isArray(data) ? [] : volumeLadderCells(data);
+  return bucketCells(latestLiveBucket(Array.isArray(data) ? data : null));
+}
+
 // '5min' + a tiny window: the tip only has to catch the analytics engine's
 // latest write, and 5min keeps the request on the same bucket grid the other
 // ladder-adjacent caches use.
@@ -169,6 +187,12 @@ export interface GammaLadderOptions {
    * from; a second symbol seeds its own once.
    */
   rewindTime?: number | null;
+  /**
+   * Every expiration the symbol's chain lists (useChartExpirations
+   * `available`), so the column knows whether anything expires today and
+   * today's crown has a book to come from. Empty or omitted = not loaded yet.
+   */
+  available?: readonly string[];
 }
 
 /**
@@ -184,10 +208,15 @@ export function useGammaLadderColumn(
   const selection = options?.expirations ?? [];
   const expParam = selection.length === 0 ? "all" : [...selection].sort().join(",");
   const filtered = expParam !== "all";
-  // What the rows cover, for the crown's color (core/crownScope): today's
-  // expiration alone, all of them, or a selection. Read off the canonical
-  // param, not the caller's per-render array, so the memo keys off a string.
-  const expiryScope = ladderExpiryScope(filtered ? expParam.split(",") : [], etTodayDateKey());
+  // What the rows cover (core/crownScope): today's expiration alone, all of
+  // them, or a selection. It decides which crown the rows can serve and which
+  // needs its own read. Read off the canonical param, not the caller's
+  // per-render array, so the memos key off strings.
+  const todayKey = etTodayDateKey();
+  const expiryScope = ladderExpiryScope(filtered ? expParam.split(",") : [], todayKey);
+  const available = options?.available ?? null;
+  const availableKnown = available != null && available.length > 0;
+  const todayListed = availableKnown && available.includes(todayKey);
 
   const { data: summary } = useGEXSummary(symbol, SUMMARY_REFRESH_MS, enabled);
   const { data: tip, loading, error } = useApiData<TipBucket[]>(tipUrl(symbol, expParam), {
@@ -238,6 +267,42 @@ export function useGammaLadderColumn(
     enabled: enabled && volumeMode,
   });
 
+  // The rows, on whichever basis and moment the column shows.
+  const rowCells = useMemo(
+    () => (rewinding ? bucketCells(rewindBucket) : volumeMode ? volumeLadderCells(volumeData) : bucketCells(liveBucket)),
+    [rewinding, rewindBucket, volumeMode, volumeData, liveBucket],
+  );
+
+  // The two crowns (core/crownScope): today's heaviest strike and the whole
+  // chain's, both drawn whatever the Expiry filter says. The rows serve the
+  // crown that shares their scope; the other reads its own expirations on the
+  // rows' basis, so a crown and the rows always weigh gamma the same way. A
+  // selection that is neither needs both. Rewinding takes no extra read.
+  const needCrown = crownFeedsNeeded(expiryScope, todayListed, rewinding);
+  const crownUrl = (param: string) => (volumeMode ? volumeGammaUrl(symbol, param) : tipUrl(symbol, param));
+  const { data: todayCrownData } = useApiData<TipBucket[] | VolumeGammaResponse>(
+    needCrown.today ? crownUrl(todayKey) : "",
+    { refreshInterval: CROWN_REFRESH_MS, enabled: enabled && needCrown.today },
+  );
+  const { data: allCrownData } = useApiData<TipBucket[] | VolumeGammaResponse>(
+    needCrown.all ? crownUrl("all") : "",
+    { refreshInterval: CROWN_REFRESH_MS, enabled: enabled && needCrown.all },
+  );
+  const crowns = useMemo<LadderCrownSources>(
+    () =>
+      crownSources(expiryScope, rowCells, {
+        // Before the chain's expirations load there is no telling whether
+        // anything expires today: read that as "no data yet", not as "none".
+        today: needCrown.today
+          ? crownFeedCells(todayCrownData, volumeMode)
+          : !rewinding && !availableKnown
+            ? []
+            : null,
+        all: needCrown.all ? crownFeedCells(allCrownData, volumeMode) : null,
+      }),
+    [expiryScope, rowCells, needCrown.today, needCrown.all, todayCrownData, allCrownData, volumeMode, rewinding, availableKnown],
+  );
+
   // Session-open anchor: the ET session the ladder's own data belongs to, so
   // a weekend view baselines against Friday's open, not an empty Saturday.
   // The baseline is open-interest gamma, so the volume rows get no triangles.
@@ -279,9 +344,9 @@ export function useGammaLadderColumn(
       const pct = bucket ? rewoundChangePercent(rewoundSpot, bucket.timestamp, closes ?? null) : null;
       return {
         symbol,
-        cells: bucketCells(bucket),
+        cells: rowCells,
         basis: "oi" as const,
-        expiryScope,
+        crowns,
         positioningAsOf: bucket?.timestamp ?? null,
         positioningKind: "rewind" as const,
         expiredExcluded: expiredExcludedDates(bucket),
@@ -315,9 +380,9 @@ export function useGammaLadderColumn(
     const reachedBack = tipBucket == null && historyBucket != null;
     return {
       symbol,
-      cells: volumeMode ? volumeLadderCells(volumeData) : bucketCells(liveBucket),
+      cells: rowCells,
       basis: volumeMode ? ("volume" as const) : ("oi" as const),
-      expiryScope,
+      crowns,
       positioningAsOf: !reachedBack
         ? null
         : volumeMode && volumeData?.timestamp
@@ -343,5 +408,5 @@ export function useGammaLadderColumn(
       loading: volumeMode ? volumeLoading : loading,
       error: volumeMode ? volumeError : error,
     };
-  }, [symbol, tipBucket, historyBucket, liveBucket, rewinding, rewindBucket, historyLoading, summary, quote, closes, filtered, expiryScope, sessionBaseline, loading, error, volumeMode, volumeData, volumeLoading, volumeError]);
+  }, [symbol, tipBucket, historyBucket, liveBucket, rewinding, rewindBucket, historyLoading, summary, quote, closes, filtered, rowCells, crowns, sessionBaseline, loading, error, volumeMode, volumeData, volumeLoading, volumeError]);
 }

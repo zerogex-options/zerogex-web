@@ -129,9 +129,13 @@ test("the hook reads volume rows live only, and gives them no Session Δ baselin
   assert.match(hook, /volumeMode \? volumeGammaUrl\(symbol, expParam\) : ""/);
   assert.match(hook, /enabled: enabled && volumeMode,/);
   assert.match(hook, /const sessionDeltaOn = !!options\?\.sessionDelta && !volumeMode;/);
-  assert.match(hook, /cells: volumeMode \? volumeLadderCells\(volumeData\) : bucketCells\(liveBucket\),/);
-  // A rewinding column is the open-interest book, labeled as such.
-  assert.match(hook, /cells: bucketCells\(bucket\),\s*basis: "oi" as const,/);
+  // Live rows are the volume read in volume mode; a rewinding column is the
+  // open-interest book, labeled as such.
+  assert.match(
+    hook,
+    /rewinding \? bucketCells\(rewindBucket\) : volumeMode \? volumeLadderCells\(volumeData\) : bucketCells\(liveBucket\)/,
+  );
+  assert.match(hook, /cells: rowCells,\s*basis: "oi" as const,/);
 });
 
 test("every ladder surface passes the one shared basis to its columns", () => {

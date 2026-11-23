@@ -64,7 +64,7 @@ Due ladder affiancati. Ogni riga è uno strike, il più alto in cima, e il suo n
 - Le **righe arancioni** sono long gamma (positivo) e le **righe blu navy** sono short gamma (negativo). Più il colore è intenso, più grande è il numero.
 - La riga con lo strike in una pillola evidenziata è lo strike più vicino al prezzo. Sugli schermi larghi si trova all'altezza del prezzo sul grafico.
 - I tag `GF`, `CW`, `PW` e `MP` segnano Gamma Flip, Call Wall, Put Wall e Max Pain sulla riga più vicina. L'intestazione ne riporta i valori, oppure `NA` quando un livello non è disponibile.
-- La **corona** segna lo strike più pesante visibile in quel ladder, e il suo colore indica quali scadenze mostra il ladder: **verde acqua** solo per la scadenza di oggi (0DTE), il colore del Pin Strike, e **viola** per tutte le scadenze o una selezione fatta nel menu **Expiry**, il colore del GEX King. L'ultima voce dell'intestazione lo indica: `0DTE`, `All exp.` o `Selected`. Non è il GEX King del grafico, che è lo strike più pesante dell'intera catena.
+- Due **corone** segnano gli strike più pesanti visibili in quel ladder, ed entrambe compaiono qualunque sia l'impostazione del menu **Expiry**. La corona **verde acqua**, il colore del Pin Strike, è lo strike più pesante della scadenza di oggi (0DTE). La corona **viola**, il colore del GEX King, è il più pesante su tutte le scadenze. Quando entrambe scelgono lo stesso strike, quella riga le porta tutte e due. Le righe seguono il menu Expiry, le corone no, quindi una corona può stare su una riga con un numero piccolo; il suo tooltip dà la sua cifra. Le ultime due voci dell'intestazione sono la legenda delle corone, attenuata quando quella corona non è sul ladder: niente corona verde acqua quando oggi non scade nulla, solo quella viola nell'anteprima gratuita, e durante Rewind compare solo la corona che corrisponde alla tua selezione Expiry. La corona viola considera solo gli strike sul ladder, quindi non sempre è il GEX King del grafico, che è lo strike più pesante dell'intera catena.
 - Il chip **LONG Γ** / **SHORT Γ** in ogni intestazione confronta il prezzo con il flip di quel simbolo.
 
 Il primo ladder mostra il simbolo del grafico. Il secondo serve a confrontare qualsiasi altro simbolo e parte dal book abbinato: SPY con SPX, QQQ con NDX, ES con SPX, NQ con NDX e NVDA con QQQ. [Livelli di gamma SPY vs SPX](/education/spy-vs-spx-gamma-levels) spiega perché due book sullo stesso indice si leggono in modo diverso.
@@ -222,7 +222,7 @@ Senza un flip, il grafico non può disegnare nemmeno l'ombreggiatura Regime.
 
 **Come leggerlo.** Il King è la controparte strutturale e lenta del Pin del giorno: lo strike a cui è legato più hedging, qualunque sia la sua scadenza. Può essere uno strike short gamma.
 
-**Da tenere presente.** Ignora il filtro Expiry, perché restringerlo lo trasformerebbe in una misura diversa. La corona sui ladder segna lo strike più pesante nella vista di quel ladder, che non sempre è il King, anche quando la corona è viola. Non fa parte dell'anteprima gratuita.
+**Da tenere presente.** Ignora il filtro Expiry, perché restringerlo lo trasformerebbe in una misura diversa. Anche la corona viola sui ladder copre tutte le scadenze, ma solo tra gli strike mostrati dal ladder, quindi non sempre è il King. Non fa parte dell'anteprima gratuita.
 
 ### PD/PM Levels
 

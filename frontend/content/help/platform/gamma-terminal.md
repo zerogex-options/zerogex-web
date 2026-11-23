@@ -64,7 +64,7 @@ Two ladders side by side. Each row is a strike, highest at the top, and its numb
 - **Orange rows** are long gamma (positive) and **navy rows** are short gamma (negative). The deeper the color, the bigger the number.
 - The row with the strike in a highlighted pill is the strike nearest price. On wide screens it sits level with the price on the chart.
 - `GF`, `CW`, `PW` and `MP` tags mark the Gamma Flip, Call Wall, Put Wall and Max Pain on the nearest row. The header lists their values, or `NA` when a level isn't available.
-- The **crown** marks the heaviest strike visible in that ladder, and its color says which expirations the ladder is showing: **teal** for today's expiration only (0DTE), the Pin Strike's color, and **violet** for all expirations or a set picked in the **Expiry** menu, the GEX King's color. The last entry in the header names it: `0DTE`, `All exp.` or `Selected`. The crown isn't the chart's GEX King, which is the heaviest strike in the whole chain.
+- Two **crowns** mark the heaviest strikes visible in that ladder, and both show whatever the **Expiry** menu is set to. The **teal** crown, in the Pin Strike's color, is the heaviest strike in today's expiration (0DTE). The **violet** crown, in the GEX King's color, is the heaviest across all expirations. When both pick the same strike, that row wears both. The rows follow the Expiry menu but the crowns don't, so a crown can sit on a row with a small number; its tooltip gives its own figure. The last two entries in the header are the crowns' key, dimmed when that crown isn't on the ladder: there's no teal crown when nothing expires today, only the violet one shows in the free preview, and while rewinding only the crown that matches your Expiry pick shows. The violet crown only looks at the strikes on the ladder, so it isn't always the chart's GEX King, which is the heaviest strike in the whole chain.
 - The **LONG Γ** / **SHORT Γ** chip in each header compares price with that symbol's flip.
 
 The first ladder is the chart's symbol. The second compares any other symbol, and starts on the matching book: SPY with SPX, QQQ with NDX, ES with SPX, NQ with NDX, and a single stock with its benchmark ETF (QQQ for a Nasdaq-listed stock, SPY otherwise). [SPY vs SPX Gamma Levels](/education/spy-vs-spx-gamma-levels) explains why two books on the same index read differently.
@@ -242,7 +242,7 @@ Without a flip, the chart can't draw the Regime shading either.
 
 **How to read it.** The King is the slow-moving, structural counterpart to the same-day Pin: the strike with the most hedging attached, whatever its expiration. It can be a short-gamma strike.
 
-**Keep in mind.** It ignores the Expiry filter, since narrowing it would make it a different measure. The crown on the ladders marks the heaviest strike in that ladder's view, which isn't always the King, even when the crown is violet. It isn't part of the free preview.
+**Keep in mind.** It ignores the Expiry filter, since narrowing it would make it a different measure. The violet crown on the ladders also covers all expirations, but only among the strikes the ladder shows, so it isn't always the King. It isn't part of the free preview.
 
 ### PD/PM Levels
 

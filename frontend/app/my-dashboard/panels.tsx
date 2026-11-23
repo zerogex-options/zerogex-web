@@ -436,6 +436,7 @@ export function GammaLadderPanel() {
   const ladderZeroDte = useZeroDteOption(expirations.available, etTodayDateKey());
   const column = useGammaLadderColumn(symbol, true, {
     expirations: expirations.selection,
+    available: expirations.available,
     sessionDelta: showSessionDelta,
     basis: ladderBasis,
   });

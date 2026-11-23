@@ -61,8 +61,9 @@ const INFO_TEXT =
   "the same height, so the three instruments line up. The underlying you pick (from the first ladder's dropdown, " +
   "the chart's switcher or the header) drives the chart AND the first ladder; the second ladder compares any other " +
   "symbol and opens on the same index's other book (SPY↔SPX, ES→SPX, QQQ↔NDX, NQ→NDX). Both stay centered on spot " +
-  "and strike-aligned, with the Gamma Flip, Call/Put Walls and Max Pain marked and the heaviest strike in view " +
-  "crowned. After the options close, an ETF's latest analytics buckets can carry no positioning; the ladder then " +
+  "and strike-aligned, with the Gamma Flip, Call/Put Walls and Max Pain marked and two crowns on the heaviest " +
+  "strikes in view: teal for today's expiration and violet for all of them, whatever the Expiry filter shows. " +
+  "After the options close, an ETF's latest analytics buckets can carry no positioning; the ladder then " +
   "shows the newest bucket that did and marks the rows 'as of' that time, while the header levels stay live. " +
   "STRIKE PANEL puts the gamma-structure rail there instead: net dealer gamma by price, drawn across the tape's " +
   "own price band so a strike's bar sits level with that price on the candles. It is the same rail the chart used " +

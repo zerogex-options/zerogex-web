@@ -19,9 +19,10 @@
  * levels. The page's Strikes toggle (`activeOnly`) switches back to every
  * listed strike near spot.
  *
- * The centered spot strike is highlighted as a pill; the heaviest-|GEX| strike
- * in view is crowned, the crown filled teal or violet by the expirations the
- * column covers (core/crownScope); and the dealer-gamma levels (Gamma Flip,
+ * The centered spot strike is highlighted as a pill; two crowns mark the
+ * heaviest-|GEX| strikes in view, teal for today's expiration and violet for
+ * all of them, whatever the Expiry filter shows (core/crownScope); and the
+ * dealer-gamma levels (Gamma Flip,
  * Call/Put Walls, Max Pain) mark their rows with a colored inset rail + a one-letter tag, with
  * the live values echoed as chips in each column header. All chrome is bound to
  * theme tokens so it tracks light/dark and every palette; only the semantic
@@ -42,7 +43,18 @@ import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitCont
 import { selectActiveCells } from "@/core/strikeFilter";
 import { sessionDeltaMark, sessionDeltaTitle } from "@/core/sessionDelta";
 import { expiredAtCloseNote } from "@/core/expiredAtClose";
-import { crownColor, crownKeyTitle, crownLabel, crownScopeShort, type LadderExpiryScope } from "@/core/crownScope";
+import {
+  CROWN_SCOPES,
+  crownColor,
+  crownKeyTitle,
+  crownLabel,
+  crownScopeShort,
+  pickCrowns,
+  type CrownPick,
+  type CrownScope,
+  type CrownState,
+  type LadderCrownSources,
+} from "@/core/crownScope";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 
@@ -97,13 +109,13 @@ export interface HeatmapColumnInput {
   expiredExcluded?: readonly string[] | null;
   /** What the rows weight each strike's gamma by (core/ladderBasis). Absent /
    *  "oi" is the open-interest book; "volume" is the session's traded volume,
-   *  same units, which only relabels the value column and the crown. */
+   *  same units, which only relabels the value column and the crowns. */
   basis?: "oi" | "volume";
-  /** Which expirations the rows cover (core/crownScope): today's alone, all,
-   *  or a selection. Fills the crown, teal for today's expiration only and
-   *  violet otherwise, and names the scope in the header's key. Required, so
-   *  a new source of rows has to say what it covers. */
-  expiryScope: LadderExpiryScope;
+  /** The per-strike gamma each crown is picked from (core/crownScope): teal
+   *  for today's expiration, violet for all of them, whatever the rows cover.
+   *  A null source draws no crown and its header key says why. Required, so a
+   *  new source of rows has to say which crowns it can serve. */
+  crowns: LadderCrownSources;
   loading: boolean;
   error: string | null;
   /** The symbol dropdown, injected by the page so the ladder stays presentational. */
@@ -266,7 +278,12 @@ interface ColumnModel {
   levelValues: Record<LevelKey, number | null>;
   clip: number;
   gexScale: number;
-  peakOffset: number | null;
+  /** The crowns on each row, in draw order (CROWN_SCOPES). */
+  crownsByOffset: Map<number, CrownScope[]>;
+  /** Each crown's pick, for its tooltip figure. */
+  crownPicks: Record<CrownScope, CrownPick | null>;
+  /** Each crown's state, for the header key. */
+  crownStates: Record<CrownScope, CrownState>;
 }
 
 function buildModel(
@@ -287,21 +304,17 @@ function buildModel(
   };
 
   const absVals: number[] = [];
-  let peakOffset: number | null = null;
-  let peakAbs = -1;
+  // Strikes in view, top down, and the row each sits on, for the crowns.
+  const viewStrikes: number[] = [];
+  const offsetByStrike = new Map<number, number>();
   if (built) {
-    for (let o = -built.down; o <= built.up; o++) {
+    for (let o = built.up; o >= -built.down; o--) {
       const cell = built.sorted[built.centerIdx - o];
       if (cell) {
         cellByOffset.set(o, cell);
-        if (Number.isFinite(cell.net_gex)) {
-          const abs = Math.abs(cell.net_gex);
-          absVals.push(abs);
-          if (abs > peakAbs) {
-            peakAbs = abs;
-            peakOffset = o;
-          }
-        }
+        viewStrikes.push(cell.strike);
+        offsetByStrike.set(cell.strike, o);
+        if (Number.isFinite(cell.net_gex)) absVals.push(Math.abs(cell.net_gex));
       }
     }
     for (const key of LEVEL_ORDER) {
@@ -315,7 +328,23 @@ function buildModel(
 
   const clip = Math.max(1, percentile(absVals, 0.98));
   const gexScale = gexScaleFactor(gexUnit, input.spot);
-  return { input, built, cellByOffset, arrowsByOffset, levelValues, clip, gexScale, peakOffset };
+
+  // The crowns: each one's heaviest strike among those in view, by its own
+  // scope's gamma (core/crownScope). Both can land on the same row.
+  const crownPicks = pickCrowns(viewStrikes, input.crowns);
+  const crownsByOffset = new Map<number, CrownScope[]>();
+  const crownStates = {} as Record<CrownScope, CrownState>;
+  for (const scope of CROWN_SCOPES) {
+    const pick = crownPicks[scope];
+    const o = pick ? offsetByStrike.get(pick.strike) : undefined;
+    if (o != null) {
+      const list = crownsByOffset.get(o) ?? [];
+      list.push(scope);
+      crownsByOffset.set(o, list);
+    }
+    crownStates[scope] = o != null ? "shown" : input.crowns[scope] == null ? "unavailable" : "none-in-view";
+  }
+  return { input, built, cellByOffset, arrowsByOffset, levelValues, clip, gexScale, crownsByOffset, crownPicks, crownStates };
 }
 
 // The shared row grid, descending from the deepest "up" offset any column
@@ -366,13 +395,13 @@ function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value
   );
 }
 
-// The ladder's crown. The outline stays currentColor (the row's text color), so
-// it reads on any cell tint and in every palette, exactly as the plain crown
-// before it did; the fill carries the expiration scope (core/crownScope), teal
-// for today's expiration alone and violet otherwise. The fill goes through
-// style rather than the `fill` attribute: a CSS variable doesn't resolve in an
-// SVG presentation attribute.
-function ScopeCrown({ scope, label }: { scope: LadderExpiryScope; label: string }) {
+// A ladder crown. The outline stays currentColor (the row's text color), so it
+// reads on any cell tint and in every palette, exactly as the plain crown
+// before it did; the fill carries the crown's scope (core/crownScope), teal for
+// today's expiration and violet for all of them. The fill goes through style
+// rather than the `fill` attribute: a CSS variable doesn't resolve in an SVG
+// presentation attribute.
+function ScopeCrown({ scope, label }: { scope: CrownScope; label: string }) {
   const s = useLadderScale();
   return (
     <Crown
@@ -384,23 +413,29 @@ function ScopeCrown({ scope, label }: { scope: LadderExpiryScope; label: string 
   );
 }
 
-// Header key entry for the crown, after the level chips: the crown as the rows
-// draw it, then its scope in a word ("0DTE", "All exp.", "Selected"). Always
+// Header key entry for one crown, after the level chips: the crown as the rows
+// draw it, then its scope in a word ("0DTE", "All exp."). Both are always
 // rendered, like the level chips, so both columns' headers stay the same height
-// and their rows stay aligned. The crown sits in a slot as wide as a rail tag so
-// it lines up under the GF / PW codes.
-function CrownKey({ scope }: { scope: LadderExpiryScope }) {
+// and their rows stay aligned; a crown that isn't on the ladder right now is
+// muted, the way a missing level reads NA, and its tooltip says why. The crown
+// sits in a slot as wide as a rail tag so it lines up under the GF / PW codes.
+function CrownKey({ scope, state }: { scope: CrownScope; state: CrownState }) {
   const s = useLadderScale();
   const short = crownScopeShort(scope);
+  const shown = state === "shown";
   return (
-    <span className="inline-flex items-center gap-1 font-mono" title={crownKeyTitle(scope)} style={{ whiteSpace: "nowrap" }}>
+    <span
+      className="inline-flex items-center gap-1 font-mono"
+      title={crownKeyTitle(scope, state)}
+      style={{ whiteSpace: "nowrap", opacity: shown ? 1 : 0.45 }}
+    >
       <span
         className="inline-flex items-center justify-center"
         style={{ minWidth: 15 * s, height: 12 * s, color: "var(--text-primary)", flex: "0 0 auto" }}
       >
-        <ScopeCrown scope={scope} label={`Crown: ${short}`} />
+        <ScopeCrown scope={scope} label={`Crown: ${short}${shown ? "" : ", not on the ladder right now"}`} />
       </span>
-      <span style={{ fontSize: 10 * s, fontWeight: 600, color: "var(--text-primary)" }}>{short}</span>
+      <span style={{ fontSize: 10 * s, fontWeight: 600, color: shown ? "var(--text-primary)" : "var(--text-muted)" }}>{short}</span>
     </span>
   );
 }
@@ -564,7 +599,7 @@ function HeatmapColumn({
   narrow?: boolean;
   onBandHeight?: (height: number) => void;
 }) {
-  const { input, cellByOffset, arrowsByOffset, clip, gexScale, peakOffset } = model;
+  const { input, cellByOffset, arrowsByOffset, clip, gexScale, crownsByOffset, crownPicks, crownStates } = model;
   const s = useLadderScale();
   const rowH = ROW_H * s;
   const expiredNote = expiredAtCloseNote(input.expiredExcluded ?? []);
@@ -630,13 +665,15 @@ function HeatmapColumn({
             flex-wrap: four chips don't fit a ladder column on one line, and
             free wrapping broke them into a ragged 3+1 (MP orphaned on its own
             line). Content-sized columns keep the pairs compact and
-            left-aligned at any tile width; the crown's entry takes the third
-            row's first cell. */}
+            left-aligned at any tile width; the two crowns' entries take the
+            third row. */}
         <div className={`grid ${narrow ? "grid-cols-1" : "grid-cols-[auto_auto]"} justify-start gap-x-3 gap-y-1`}>
           {(["flip", "call", "put", "pain"] as LevelKey[]).map((k) => (
             <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k]} />
           ))}
-          <CrownKey scope={input.expiryScope} />
+          {CROWN_SCOPES.map((scope) => (
+            <CrownKey key={scope} scope={scope} state={crownStates[scope]} />
+          ))}
         </div>
       </div>
 
@@ -730,7 +767,7 @@ function HeatmapColumn({
             const cell = cellByOffset.get(o);
             const arrows = arrowsByOffset.get(o) ?? [];
             const isCenter = o === 0;
-            const isPeak = o === peakOffset;
+            const rowCrowns = crownsByOffset.get(o) ?? [];
 
             const bg = cell ? cellTint(cell.net_gex, clip) : "transparent";
             // The leading level for this row drives the inset rail color.
@@ -776,17 +813,20 @@ function HeatmapColumn({
                         ))}
                       </span>
                       <span className="whitespace-nowrap flex items-center gap-1">
-                        {isPeak && (
-                          // King node — the heaviest dealer gamma in view, filled
-                          // by the expirations this column covers (ScopeCrown).
-                          <span
-                            className="inline-flex items-center"
-                            title={crownLabel(input.expiryScope, input.basis)}
-                            style={{ flex: "0 0 auto" }}
-                          >
-                            <ScopeCrown scope={input.expiryScope} label={crownLabel(input.expiryScope, input.basis)} />
-                          </span>
-                        )}
+                        {rowCrowns.map((scope) => {
+                          // The heaviest gamma in view from this crown's
+                          // expirations. The row's own number follows the
+                          // Expiry filter, so the tooltip gives the crown's.
+                          const pick = crownPicks[scope];
+                          const label = pick
+                            ? `${crownLabel(scope, input.basis)}: ${fmtGex(pick.netGex * gexScale)} ${unitLabel}`
+                            : crownLabel(scope, input.basis);
+                          return (
+                            <span key={scope} className="inline-flex items-center" title={label} style={{ flex: "0 0 auto" }}>
+                              <ScopeCrown scope={scope} label={label} />
+                            </span>
+                          );
+                        })}
                         {baseline &&
                           (() => {
                             const mark = sessionDeltaMark(
