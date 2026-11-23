@@ -165,6 +165,11 @@ const PUBLIC_ROUTE_PATTERNS = [
   // it authenticates itself with an HMAC over the member id, not a login. An
   // exact path, so nothing else under /alerts is opened by it.
   '/alerts/unsubscribe',
+  // The "Stop these morning emails" link in Today's Read by email
+  // (app/preopen-read/stop). Same reasoning as the wall-alert opt-out: it must
+  // work signed out, from a mail client, and it authenticates itself with an
+  // HMAC over the member id. An exact path.
+  '/preopen-read/stop',
   // Shareable Live Bulletin snapshot cards (/live-bulletin/snapshot/{symbol})
   // are the public artifact for a streamed signal event — anonymous-accessible
   // for the same crawler + non-member reasons, while the live /live-bulletin

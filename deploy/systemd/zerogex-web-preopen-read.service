@@ -1,0 +1,43 @@
+[Unit]
+Description=ZeroGEX Today's Read by email, before the open (members)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+OnFailure=zerogex-web-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make preopen-read` shells through nvm for Node 22 (the script is a .mts
+# needing --experimental-strip-types), so HOME is all this needs.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+# AUTO=1: ONE preview to the operator each morning until PREOPEN_READ_LIVE=1 is
+# set in frontend/.env.local, then the real send to members. Going live is that
+# one line; this unit does not change (resolveAutoPlan in core/preopenRead.ts).
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web preopen-read AUTO=1
+
+# Six fetches plus one Resend call per member. Below the time left in the
+# 08:30-09:25 ET window after the 08:42 start: a run that overran it would be
+# delivering a "before the open" email after the open. Better killed than late.
+TimeoutStartSec=900
+
+# Security hardening (mirrors the other send units).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB dir. The run writes users.preopen_read_last_sent_on
+# and one audit_events row. Deploy step 099.preopen-read also writes a drop-in
+# mirroring ReadWritePaths onto the AUTH_DB_PATH in frontend/.env.local (on this
+# host /var/lib/zerogex, outside this default), as 099.daily-levels does.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-preopen-read

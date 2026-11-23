@@ -1,0 +1,26 @@
+[Unit]
+Description=ZeroGEX Today's Read by email timer (weekdays 08:42 ET, before the open)
+
+[Timer]
+# 08:42 Eastern, Monday to Friday. The timezone is explicit, not a UTC hour,
+# for the reason zerogex-web-daily-levels.timer gives: a UTC hour drifts by an
+# hour twice a year, and an hour late is after the open.
+#
+# WHY :42. Clear of the free daily levels email (:47), cancellation-alerts
+# (:37/:52), the signup alarm (:35), verified-never-paid (:30), verify-reminders
+# (:20) and the hourly auth backup (:00), and, with the 2-minute jitter, still
+# before checkout-recovery and trial-value-nudge at 12:45 UTC in summer.
+#
+# Mon..Fri covers weekends; NYSE holidays are enforced in the script against
+# NEXT_PUBLIC_NYSE_HOLIDAYS.
+OnCalendar=Mon..Fri 08:42:00 America/New_York
+RandomizedDelaySec=2m
+
+# PERSISTENT=FALSE, DELIBERATELY, as for the free daily levels email: a host
+# down at 08:42 and back at 14:00 must not fire a "before the open" email into
+# the session. A missed morning is a missed morning. The script's own
+# 08:30-09:25 ET guard is the second lock.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

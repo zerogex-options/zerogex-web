@@ -489,6 +489,18 @@ function initDb(): DatabaseSync {
   // account/billing/transactional email.
   ensureColumn('users', 'marketing_unsubscribed_at', 'TEXT');
 
+  // Today's Read by email before the open (scripts/send-preopen-read.mts).
+  // preopen_read_opt_out_at: NULL = getting it; the ISO time the member clicked
+  //   "Stop these morning emails" (app/preopen-read/stop). Its own column, not
+  //   marketing_unsubscribed_at: the read is part of the product, and stopping
+  //   it must not unsubscribe anyone from anything else, or the reverse.
+  // preopen_read_last_sent_on: the ET session date of the last one sent. It is
+  //   the per-day latch that makes a re-run skip anyone already mailed, and
+  //   NULL means they have never had one, which is when the email says what it
+  //   is and how to stop it.
+  ensureColumn('users', 'preopen_read_opt_out_at', 'TEXT');
+  ensureColumn('users', 'preopen_read_last_sent_on', 'TEXT');
+
   // Welcome-back vs upgrade discriminator for the Stripe webhook's welcome
   // email path. Flipped to 1 by clearSubscriptionFromUser on subscription
   // deletion, atomically cleared back to 0 by maybeSendPaidWelcomeEmail when

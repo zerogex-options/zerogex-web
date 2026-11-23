@@ -3883,6 +3883,36 @@ export async function sendVerifyReminderEmail(
  * Throws a ResendSendError rather than a bare Error so the send script can
  * tell a 429 (wait and retry) from a bad address (don't). Same message text.
  */
+/**
+ * Today's Read before the open, to a member (scripts/send-preopen-read.mts;
+ * the words are core/preopenRead.ts). The List-Unsubscribe pair points at the
+ * member's own signed stop link, whose POST is the RFC 8058 one-click endpoint
+ * (app/preopen-read/stop), so a mail client's native Unsubscribe button stops
+ * this email and nothing else. Throws a classified error (resendSendError) so
+ * the send loop can tell a 429 worth waiting out from a failure that would
+ * repeat.
+ */
+export async function sendPreopenReadEmail(
+  to: string,
+  opts: { subject: string; text: string; html: string; stopUrl: string },
+) {
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject: opts.subject,
+    text: opts.text,
+    html: opts.html,
+    headers: {
+      'List-Unsubscribe': `<${opts.stopUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
+  if (result.error) {
+    throw resendSendError(result.error, result.headers);
+  }
+}
+
 export async function sendDailyLevelsEmail(
   to: string,
   opts: { subject: string; text: string; html: string; unsubUrl: string },

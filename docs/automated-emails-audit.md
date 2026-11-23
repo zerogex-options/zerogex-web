@@ -707,6 +707,23 @@ auth/transactional emails, TradeWorkz alerts and wall alerts.
   Invisible `List-Unsubscribe` + `List-Unsubscribe-Post` headers. No Folds of Honor
   footer.
 
+**Today's Read by email (before the open)** — `sendPreopenReadEmail(to, { subject, text, html, stopUrl })` (copy in `core/preopenRead.ts`), sent by `scripts/send-preopen-read.mts`
+- **Subject:** `Today's Read · SPX: {heading}`, e.g. `Today's Read · SPX: Dealers long gamma above the 6,780 flip`
+- The dashboard's Today's Read for SPX, word for word (`buildReportModel`), then the SPX
+  key levels (flip, call wall, put wall, pin, max pain, net GEX) with their as-of time,
+  a row for each of the six symbols with its own time, and an "Open your dashboard"
+  button. A member's first one opens with "New for members: … the link at the bottom
+  turns it off." Footer: the modeled-positioning disclosure and "Stop these morning
+  emails" (`/preopen-read/stop`, GET confirms, POST stops; also the RFC 8058 one-click
+  target). No sales copy, no Folds of Honor footer.
+- Members with paid access: tier basic or pro, not deleted, not stopped
+  (`users.preopen_read_opt_out_at`). Its own opt-out, separate from
+  `marketing_unsubscribed_at`. Latched per ET session on
+  `users.preopen_read_last_sent_on`. Same three guards as the free daily levels email
+  (trading day, 08:30-09:25 ET, freshness). **The timer runs `AUTO=1`: one preview a
+  morning to the operator until `PREOPEN_READ_LIVE=1` is set, then members.**
+  See `docs/preopen-read-email.md`.
+
 **One-off: trial back-credit** — `back-credit-trial.mts` (inline copy)
 - **Subject:** `A small credit on your ZeroGEX account`
 - Notifies a pre-trial monthly subscriber they were credited ~7/31 of a month.
@@ -744,6 +761,7 @@ same second, and `Persistent=true` so a missed run catches up after a reboot.
 | `trial-reminders` | `00/6:15:00` | every 6h | 48h trial-end reminder | yes |
 | `checkout-recovery` | `00/6:45:00` | every 6h | Abandoned-checkout recovery | yes |
 | `trial-value-nudge` | `00/6:45:00` | every 6h | Mid-trial value nudge, or its comeback variant for a trialer who has not been back | yes |
+| `preopen-read` | `Mon..Fri 08:42 ET` | weekdays, before the open | Today's Read by email | **preview to the operator until `PREOPEN_READ_LIVE=1`, then yes** |
 | `card-expiry` | `04:20:00` | daily | Card expiring | yes |
 | `renewal-reminders` | `14:20:00` | daily | Renewal reminder (quarterly 7 days / annual 30 days out) | yes |
 | `money-back-sweep` | `*:25:00` | hourly | Money-back refund alert (stalled request) | operator only |
