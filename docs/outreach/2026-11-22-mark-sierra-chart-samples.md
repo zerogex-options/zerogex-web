@@ -18,8 +18,15 @@ further evaluate." The background he offered (marked "please skip if busy"):
   went back to Sierra Chart a few days ago and executes through Teton.
 - "Ultimately I seek a solution where I trade on the same screen as my lvls."
 
-> **Status:** draft ready. Run the two checks under "Before sending" on the
-> box, then reply in the same thread.
+> **Status:** both checks run Mon Nov 23; ready to send with the bracketed
+> sentence deleted. Check 1: free account `user_4d9615881c4289acaacf67f3`,
+> Google signup Sun Nov 22 at 8:56 AM ET (before his email), no referral
+> code, never held a plan or trial, so the sale applies as written. The
+> automated "verified, never paid" note also went to him at 12:33 PM ET that
+> day. Check 2: no output. The API is served from the same box (the site
+> reaches it on 127.0.0.1:8000), so no Sierra study has pulled levels in the
+> log's window. The fixed study is still unconfirmed in a real install, and
+> Mark would likely be the first to run it.
 
 ## The read
 
