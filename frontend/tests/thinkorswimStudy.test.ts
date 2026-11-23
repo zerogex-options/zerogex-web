@@ -188,6 +188,28 @@ test('a filled study still contains no non-ASCII in what the platform renders', 
 });
 
 // ---------------------------------------------------------------------------
+// The cross alerts
+// ---------------------------------------------------------------------------
+
+test('the cross alerts fire on a completed bar, not mid-bar', () => {
+  // Alert() checks its condition on the live bar, where `close` is the current
+  // price, so `close crosses <level>` fires the first time price trades
+  // through, even on a wick that closes back inside. Alert.BAR only caps an
+  // alert at once per bar; it does not wait for the close. Reading close[1]
+  // is what waits, and it is easy to "simplify" back to `close` unnoticed.
+  const alerts: string[] = TEMPLATE.match(/^Alert\([\s\S]*?\);/gm) ?? [];
+  const crossed = alerts.map((alert) => alert.match(/\bclose\[1\] crosses (\w+),/)?.[1]);
+  assert.deepEqual(
+    [...crossed].sort(),
+    ['callWall', 'gammaFlip', 'maxPain', 'putWall'],
+    `every level's alert must cross on close[1]: ${JSON.stringify(alerts)}`,
+  );
+  for (const alert of alerts) {
+    assert.match(alert, /\bAlert\.BAR\b/, `lost Alert.BAR: ${alert}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // The gate on the "today's levels" claim
 // ---------------------------------------------------------------------------
 

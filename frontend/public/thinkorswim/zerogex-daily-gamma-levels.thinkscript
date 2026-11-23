@@ -59,7 +59,7 @@ input showLevelsDate = no;  # Shows the snapshot-date chip. Set yes when levelsD
 input showPriceChips = yes; # Price bubble on each line.
 input showInfoLabels = yes; # Chips along the top of the chart.
 input showSource     = yes; # "zerogex.io" attribution chip.
-input enableAlerts   = yes; # Fire a thinkorswim alert when price crosses a level.
+input enableAlerts   = yes; # Fire a thinkorswim alert when a bar closes across a level.
 
 # Line color, weight and style are NOT inputs here. thinkorswim already gives
 # every plot its own controls for all three under Edit Studies, which is both
@@ -135,15 +135,24 @@ AddLabel(showSource, "zerogex.io - free delayed levels - informational only", Co
 
 # -----------------------------------------------------------------------------
 #  Level-cross alerts
-#  Alert.BAR fires once per bar close rather than on every tick, which is what
-#  you want for a level cross — an intrabar wick across the Gamma Flip that
-#  closes back inside it is noise, not a regime change.
+#  These test close[1], the last COMPLETED bar, not close. Alert() checks its
+#  condition on the live bar, where close is the current price and moves every
+#  tick, so a plain 'close crosses callWall' would fire mid-bar the first time
+#  price trades through a level — including on a wick across the Gamma Flip
+#  that closes back inside it, which is noise, not a regime change. close[1]
+#  is final, so each alert fires once, on the first tick of the bar after one
+#  closes across a level. The cost is latency: the alert waits for the bar to
+#  finish, so a 1-minute chart alerts sooner than a 15-minute one.
+#  Alert.BAR does not do that waiting. thinkorswim defines it only as an alert
+#  that can be triggered once per bar: a cap on how often it fires, not on
+#  when. It is still needed, because close[1] stays true for the whole bar
+#  after the cross, and Alert.BAR is what keeps that to a single alert.
 # -----------------------------------------------------------------------------
-Alert(enableAlerts and callWall > 0 and close crosses callWall,
+Alert(enableAlerts and callWall > 0 and close[1] crosses callWall,
       "ZeroGEX: price crossed the Call Wall", Alert.BAR, Sound.Chimes);
-Alert(enableAlerts and gammaFlip > 0 and close crosses gammaFlip,
+Alert(enableAlerts and gammaFlip > 0 and close[1] crosses gammaFlip,
       "ZeroGEX: price crossed the Gamma Flip - possible regime shift", Alert.BAR, Sound.Ring);
-Alert(enableAlerts and putWall > 0 and close crosses putWall,
+Alert(enableAlerts and putWall > 0 and close[1] crosses putWall,
       "ZeroGEX: price crossed the Put Wall", Alert.BAR, Sound.Chimes);
-Alert(enableAlerts and maxPain > 0 and close crosses maxPain,
+Alert(enableAlerts and maxPain > 0 and close[1] crosses maxPain,
       "ZeroGEX: price crossed Max Pain", Alert.BAR, Sound.Ding);
