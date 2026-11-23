@@ -25,6 +25,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { describeHttpError } from '@/core/api/httpError';
 import { withFresh } from '@/core/liveFreshness';
 import { pollDecision, STALE_POLL_FLOOR_MS } from '@/core/pollGate';
 
@@ -191,7 +192,7 @@ function buildUrl(symbol: string, timeframe: string, windowUnits: number, allowF
 
 async function fetchBars(symbol: string, timeframe: string, windowUnits: number, allowFutures = false): Promise<PriceBar[]> {
   const response = await fetch(buildUrl(symbol, timeframe, windowUnits, allowFutures));
-  if (!response.ok) throw new Error(`API error: ${response.status}`);
+  if (!response.ok) throw new Error(await describeHttpError(response));
   const raw = await response.json();
   const normalized = normalizeNumbers(raw);
   if (!Array.isArray(normalized)) return [];

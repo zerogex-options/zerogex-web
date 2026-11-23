@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { describeHttpError } from '@/core/api/httpError';
 import type { GEXHistoricalContext } from '@/core/types';
 import { isFresherServerTs } from '@/core/liveQuoteOrdering';
 import { httpOnlyQuoteFields } from '@/core/liveQuoteMerge';
@@ -427,31 +428,6 @@ function normalizeNumbers(value: unknown): unknown {
   return value;
 }
 
-/**
- * Turn a failed response into a sentence, not a status code.
- *
- * FastAPI's `detail` is where our endpoints put the reason a request could
- * not be served, and several of them are deliberately specific — "there is
- * nothing to compare yet this session" tells a reader what to do, where
- * "API error: 409" tells them only that something broke and invites a
- * support ticket. Falling back to the bare status keeps the old behavior
- * for responses that carry no body.
- */
-async function describeHttpError(response: Response): Promise<string> {
-  try {
-    const body = await response.json();
-    const detail = (body as { detail?: unknown })?.detail;
-    if (typeof detail === 'string' && detail.trim()) return detail;
-    // 422s from FastAPI's validator carry an array of field errors.
-    if (Array.isArray(detail) && detail.length > 0) {
-      const first = detail[0] as { msg?: unknown };
-      if (typeof first?.msg === 'string' && first.msg.trim()) return first.msg;
-    }
-  } catch {
-    // No body, or not JSON — the status is all we have.
-  }
-  return `API error: ${response.status}`;
-}
 
 export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = {}) {
   const { refreshInterval = 5000, enabled = true, onError, shouldAcceptData } = options;
@@ -935,7 +911,7 @@ async function fetchMarketQuote(symbol: string, force = false): Promise<void> {
     const response = await fetch(`${baseUrl}${endpoint}`, { signal: controller.signal });
     if (controller.signal.aborted) return;
     if (!response.ok) {
-      throw new Error(response.status === 404 ? 'No data available yet' : `API error: ${response.status}`);
+      throw new Error(response.status === 404 ? 'No data available yet' : await describeHttpError(response));
     }
     const raw = await response.json();
     if (controller.signal.aborted) return;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { describeHttpError } from '@/core/api/httpError';
 
 import { canonicalTimestamp, sortFlowRowsOldestFirst, type FlowTimeframe } from '@/core/flowSeriesCharts';
 import { flowSessionParams, isClosedFlowSession, type FlowSession } from '@/core/flowSessions';
@@ -259,7 +260,7 @@ async function fetchSeries(
   const resp = await fetchWithTimeout(`${baseUrl}/api/flow/series?${params.toString()}`);
   if (!resp.ok) {
     if (resp.status === 404) throw new Error('No data available yet');
-    throw new Error(`API error: ${resp.status}`);
+    throw new Error(await describeHttpError(resp));
   }
   const raw = await resp.json();
   if (!Array.isArray(raw)) return [];
@@ -468,7 +469,7 @@ async function fetchContractOptions(
   const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
   const params = new URLSearchParams({ symbol, underlying: symbol, ...flowSessionParams(session) });
   const resp = await fetchWithTimeout(`${baseUrl}/api/flow/contracts?${params.toString()}`);
-  if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+  if (!resp.ok) throw new Error(await describeHttpError(resp));
   const raw = (await resp.json()) as Partial<FlowContractOptions>;
   return {
     strikes: Array.isArray(raw.strikes) ? raw.strikes : [],

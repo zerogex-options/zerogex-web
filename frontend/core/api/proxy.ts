@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { hasTierAccess, normalizeTier } from '@/core/auth';
 import { mustNotStore } from '@/core/liveFreshness';
+import { unreachableUpstreamReply } from '@/core/maintenanceWindow';
 import { requireSession } from '@/core/serverAuth';
 import { mintEndUserToken } from './endUserToken';
 import { hasPercentEscape, isApiTierGateEnabled, requiredApiAccess } from './apiTierGate';
@@ -206,7 +207,11 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
   try {
     upstream = await fetch(targetUrl, init);
   } catch {
-    return NextResponse.json({ error: 'Upstream API unreachable' }, { status: 502 });
+    // The API didn't answer. During the Sunday maintenance that's expected and
+    // the member is told so; at any other time it's an outage, told plainly
+    // (core/maintenanceWindow.ts).
+    const reply = unreachableUpstreamReply(Date.now());
+    return NextResponse.json(reply.body, { status: reply.status, headers: reply.headers });
   }
 
   const headers = buildResponseHeaders(upstream);

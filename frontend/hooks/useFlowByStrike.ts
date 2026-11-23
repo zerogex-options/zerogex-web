@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { describeHttpError } from '@/core/api/httpError';
 import { mergeStrikeRows, type FlowStrikeRow } from '@/core/flowStrikes';
 import { flowSessionParams, isClosedFlowSession, type FlowSession } from '@/core/flowSessions';
 import type { FlowTimeframe } from '@/core/flowSeriesCharts';
@@ -66,7 +67,7 @@ async function fetchRows(
     const resp = await fetch(`${baseUrl}/api/flow/by-strike?${params.toString()}`, { signal: timeout.signal });
     // No such symbol, or an API that predates the endpoint: no ribbon.
     if (resp.status === 404) return [];
-    if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+    if (!resp.ok) throw new Error(await describeHttpError(resp));
     const raw = await resp.json();
     return Array.isArray(raw) ? (raw as FlowStrikeRow[]) : [];
   } finally {
