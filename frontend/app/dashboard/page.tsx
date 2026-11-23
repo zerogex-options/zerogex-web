@@ -21,6 +21,7 @@ import TradeBiasSection from '@/components/TradeBiasSection';
 import SignalsGuide from '@/components/SignalsGuide';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import Collapsible from '@/components/Collapsible';
+import DensityToggle from '@/components/DensityToggle';
 import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import TrialStartedBanner from './TrialStartedBanner';
 import NoCardTrialBanner from './NoCardTrialBanner';
@@ -43,35 +44,6 @@ function formatCompactUsd(value: number | null | undefined, showPositiveSign = f
   if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(2)}M`;
   if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(1)}K`;
   return `${sign}$${abs.toFixed(0)}`;
-}
-
-function DensityToggle() {
-  const { density, setDensity } = useDensity();
-  const t = usePageT(dict);
-  return (
-    <div
-      className="inline-flex rounded-md border overflow-hidden text-xs"
-      style={{ borderColor: 'var(--color-border)' }}
-      role="group"
-      aria-label={t('densityAriaLabel')}
-    >
-      {(['simple', 'detailed'] as const).map((d) => (
-        <button
-          key={d}
-          type="button"
-          onClick={() => setDensity(d)}
-          className="px-3 py-1.5 font-medium capitalize"
-          aria-pressed={density === d}
-          style={{
-            background: density === d ? 'var(--color-info-soft)' : 'transparent',
-            color: density === d ? 'var(--color-info)' : 'var(--color-text-secondary)',
-          }}
-        >
-          {d}
-        </button>
-      ))}
-    </div>
-  );
 }
 
 export default function DashboardPage() {

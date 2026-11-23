@@ -36,8 +36,11 @@ import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
+import Collapsible from '@/components/Collapsible';
+import DensityToggle from '@/components/DensityToggle';
 import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useDensity } from '@/core/DensityContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { selectActive } from '@/core/strikeFilter';
 import { etTodayDateKey } from '@/core/utils';
@@ -86,6 +89,65 @@ const StrikeTableScroll = React.forwardRef<HTMLDivElement, { children: React.Rea
 
 type SortKey = keyof StrikeAggregate;
 
+// Simple view folds the deeper panels into one-line rows, the way the Main
+// Dashboard folds its verbose sections; Detailed shows them open, exactly as
+// before. A folded panel is not mounted (see Collapsible), so it fetches
+// nothing until someone opens it.
+function DetailSection({
+  simple,
+  title,
+  subtitle,
+  children,
+}: {
+  simple: boolean;
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  if (simple) {
+    return (
+      <Collapsible title={title} subtitle={subtitle}>
+        {children}
+      </Collapsible>
+    );
+  }
+  return <section className="mb-8">{children}</section>;
+}
+
+// Centers the strike table on the row nearest spot. It sits inside the table's
+// section, so it runs whenever the table mounts (including when a folded
+// Simple-view row is opened, which a page-level effect would miss) and again
+// whenever the row set changes meaningfully: initial load, sort change,
+// expiration filter change, or spot crossing a strike midpoint. A layout
+// effect, so the user never sees a flash of top-aligned scroll.
+function CenterOnSpot({
+  scrollRef,
+  strike,
+  sortKey,
+  sortDir,
+}: {
+  scrollRef: { readonly current: HTMLDivElement | null };
+  strike: number | null;
+  sortKey: SortKey;
+  sortDir: 'asc' | 'desc';
+}) {
+  useLayoutEffect(() => {
+    if (strike == null) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const row = container.querySelector(`tr[data-strike="${strike}"]`);
+    if (!(row instanceof HTMLElement)) return;
+    const containerRect = container.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const rowOffsetWithinScroll = rowRect.top - containerRect.top + container.scrollTop;
+    container.scrollTop = Math.max(
+      0,
+      rowOffsetWithinScroll - container.clientHeight / 2 + row.clientHeight / 2,
+    );
+  }, [scrollRef, strike, sortKey, sortDir]);
+  return null;
+}
+
 const HEADER_SUB =
   "The whole dealer gamma surface\u00a0- regime, flip, walls and term structure\u00a0- off the current book.";
 
@@ -94,6 +156,9 @@ const HEADER_TOOLTIP =
 
 export default function GammaExposurePage() {
   const { symbol } = useTimeframe();
+  // Simple (the default) or Detailed: the same global switch as the Main Dashboard.
+  const { density } = useDensity();
+  const simple = density === 'simple';
   const { activeOnly } = useStrikeFilter();
   // Both branches of these were identical, so the theme never actually chose
   // anything — they are the panel's own tokens, which already theme themselves.
@@ -432,30 +497,47 @@ export default function GammaExposurePage() {
     };
   }, [sortedRows, gexData?.gamma_flip, gexData?.call_wall, gexData?.put_wall]);
 
-  // Center the scroll on the closest-to-spot row whenever the row set
-  // changes meaningfully (initial load, sort change, expiration filter
-  // change, or spot crossing a strike midpoint). useLayoutEffect runs
-  // before paint so the user never sees a flash of top-aligned scroll.
-  useLayoutEffect(() => {
-    if (closestStrikeToSpot == null) return;
-    const container = tableScrollRef.current;
-    if (!container) return;
-    const row = container.querySelector(`tr[data-strike="${closestStrikeToSpot}"]`);
-    if (!(row instanceof HTMLElement)) return;
-    const containerRect = container.getBoundingClientRect();
-    const rowRect = row.getBoundingClientRect();
-    const rowOffsetWithinScroll = rowRect.top - containerRect.top + container.scrollTop;
-    container.scrollTop = Math.max(
-      0,
-      rowOffsetWithinScroll - container.clientHeight / 2 + row.clientHeight / 2,
-    );
-  }, [closestStrikeToSpot, sortKey, sortDir]);
-
   // The initial-load skeleton replaces only the BODY, as on the Main Dashboard.
   // An early return of a second PageShell tree tore down the header and the Key
   // Levels strip on every symbol change (the summary drops back to loading while
   // the new one lands), and with them the strip's in-place symbol flip.
   const awaitingFirstLoad = gexLoading && !gexData;
+
+  // The four headline readings (rendered by view; see Section 2 below).
+  const metricCards = (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <MetricCard
+        title="Net GEX"
+        value={netGexAtSpot != null ? formatGexValue(netGexAtSpot) : '--'}
+        trend={netGexLong == null ? 'neutral' : netGexLong ? 'bullish' : 'bearish'}
+        tooltip="Cumulative dealer gamma at the current spot price&nbsp;- the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
+        contextBadge={
+          <HistoricalContextBadge
+            metric={historicalContext?.metrics?.net_gex_at_spot}
+            window="30d"
+            trackingStartedAt={historicalContext?.tracking_started_at}
+          />
+        }
+      />
+      <MetricCard
+        title="IV Rank"
+        value={ivRankPct != null ? `${ivRankPct}%` : '--'}
+        subtitle={volGauge?.level_label}
+        tooltip={`Implied volatility rank derived from ${volIndex} level. 0% = historically calm, 100% = extreme fear. Maps ${volIndex} to a 0-100 percentile scale.`}
+      />
+      <MetricCard
+        title="Vanna Flow"
+        value={vannaLabel}
+        trend={vannaTrend}
+        tooltip="Net vanna exposure across all strikes. Positive vanna = vol crush supports upside (tailwind). Negative vanna = vol crush pressures downside (headwind)."
+      />
+      <MetricCard
+        title="Charm Decay"
+        value={charmLabel}
+        tooltip="Net charm (delta decay over time) across all strikes. Shows whether time decay is systematically adding or removing directional delta pressure."
+      />
+    </div>
+  );
 
   return (
     <PageShell>
@@ -464,9 +546,14 @@ export default function GammaExposurePage() {
         sub={HEADER_SUB}
         tooltip={HEADER_TOOLTIP}
         actions={
-          <FilterGroup label="GEX unit">
-            <GexUnitToggle showHint={false} />
-          </FilterGroup>
+          <FilterBar>
+            <FilterGroup label="View">
+              <DensityToggle />
+            </FilterGroup>
+            <FilterGroup label="GEX unit">
+              <GexUnitToggle showHint={false} />
+            </FilterGroup>
+          </FilterBar>
         }
       />
       {/* Key Levels: flip, pin, walls and max pain, with how far each sits from
@@ -485,41 +572,9 @@ export default function GammaExposurePage() {
       {/* Section 1: Today's Read, the levels above in plain English. */}
       <TodaysReadCard model={todaysReadModel} bulletinLink className="mb-8" />
 
-      {/* Section 2: Metric Cards */}
-      <section className="mb-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <MetricCard
-            title="Net GEX"
-            value={netGexAtSpot != null ? formatGexValue(netGexAtSpot) : '--'}
-            trend={netGexLong == null ? 'neutral' : netGexLong ? 'bullish' : 'bearish'}
-            tooltip="Cumulative dealer gamma at the current spot price&nbsp;- the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
-            contextBadge={
-              <HistoricalContextBadge
-                metric={historicalContext?.metrics?.net_gex_at_spot}
-                window="30d"
-                trackingStartedAt={historicalContext?.tracking_started_at}
-              />
-            }
-          />
-          <MetricCard
-            title="IV Rank"
-            value={ivRankPct != null ? `${ivRankPct}%` : '--'}
-            subtitle={volGauge?.level_label}
-            tooltip={`Implied volatility rank derived from ${volIndex} level. 0% = historically calm, 100% = extreme fear. Maps ${volIndex} to a 0-100 percentile scale.`}
-          />
-          <MetricCard
-            title="Vanna Flow"
-            value={vannaLabel}
-            trend={vannaTrend}
-            tooltip="Net vanna exposure across all strikes. Positive vanna = vol crush supports upside (tailwind). Negative vanna = vol crush pressures downside (headwind)."
-          />
-          <MetricCard
-            title="Charm Decay"
-            value={charmLabel}
-            tooltip="Net charm (delta decay over time) across all strikes. Shows whether time decay is systematically adding or removing directional delta pressure."
-          />
-        </div>
-      </section>
+      {/* Section 2: Metric Cards. Detailed keeps them here; Simple folds them
+          below the walls, with the other deeper panels. */}
+      {!simple && <section className="mb-8">{metricCards}</section>}
 
       {/* Section 3: GEX Profile overlay — bars + spot-shift profile curve. */}
       <section className="mb-8">
@@ -569,18 +624,28 @@ export default function GammaExposurePage() {
         </div>
       </section>
 
+      {simple && (
+        <Collapsible title="Net GEX, IV Rank, Vanna and Charm" subtitle="the four headline readings">
+          {metricCards}
+        </Collapsible>
+      )}
+
       {/* GEX Heatmap · Strike × Time — SpotGamma-style candle-overlay surface,
           the price-context view (candles can be zoomed/expanded from its
           toolbar). Complements the Strike × DTE snapshot matrix below; reuses
           the same component as the standalone /gex-heatmap page. */}
-      <section className="mb-8">
+      <DetailSection simple={simple} title="GEX Heatmap Timeseries" subtitle="dealer gamma by strike through the day">
         <div className="grid grid-cols-1 gap-4">
           <GammaHeatmapCanvas />
         </div>
-      </section>
+      </DetailSection>
 
       {/* Section 5: Strike×DTE Heatmap + Charm/Vanna Flows */}
-      <section className="mb-8">
+      <DetailSection
+        simple={simple}
+        title="Strike × DTE Heatmap, Charm & Vanna"
+        subtitle="gamma by expiration, and how it drifts with time and vol"
+      >
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-3 h-full">
             <GexStrikeDteHeatmap byStrikeData={gexByStrike} spotPrice={quoteData?.close} />
@@ -594,17 +659,21 @@ export default function GammaExposurePage() {
             />
           </div>
         </div>
-      </section>
+      </DetailSection>
 
       {/* Section 6: Vol Surface */}
-      <section className="mb-8">
+      <DetailSection simple={simple} title="Volatility Surface" subtitle="implied vol across strikes and expirations">
         <div className="grid grid-cols-1 gap-4">
           <VolSurfaceChart symbol={symbol} />
         </div>
-      </section>
+      </DetailSection>
 
       {/* Section 7: Strike Data Table */}
-      <section className="mb-8">
+      <DetailSection
+        simple={simple}
+        title="GEX Metrics Snapshot"
+        subtitle="every strike: net GEX, vanna, charm, open interest and volume"
+      >
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
           <ChartPanel
             className=""
@@ -787,11 +856,17 @@ export default function GammaExposurePage() {
                     </tbody>
                   </table>
                 </StrikeTableScroll>
+                <CenterOnSpot
+                  scrollRef={tableScrollRef}
+                  strike={closestStrikeToSpot}
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                />
               </>
             )}
           </ChartPanel>
         </ExpandableCard>
-      </section>
+      </DetailSection>
 
         </>
       )}

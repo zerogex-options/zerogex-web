@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useSyncExternalStore, ReactNode } from 'react';
 
 // A global "how much do you want to see" preference. 'simple' keeps pages
 // glance-first (verbose sections collapsed by default); 'detailed' expands
@@ -20,8 +20,17 @@ interface DensityContextType {
 
 const DensityContext = createContext<DensityContextType | undefined>(undefined);
 
-function getInitialDensity(): Density {
-  if (typeof window === 'undefined') return 'simple';
+// A module-level store read through useSyncExternalStore, so hydration uses the
+// SERVER's value ('simple', since the server cannot see localStorage) and React
+// then re-renders with the saved one. Reading localStorage in a useState
+// initializer instead made the first client render disagree with the server
+// HTML for everyone on Detailed; React does not patch attributes after such a
+// mismatch, so the Simple / Detailed switch kept showing Simple as selected
+// while the page was Detailed, and clicking Detailed changed nothing on screen.
+let current: Density | null = null;
+const listeners = new Set<() => void>();
+
+function readSaved(): Density {
   try {
     return localStorage.getItem(STORAGE_KEY) === 'detailed' ? 'detailed' : 'simple';
   } catch {
@@ -29,18 +38,36 @@ function getInitialDensity(): Density {
   }
 }
 
+function getSnapshot(): Density {
+  if (current === null) current = readSaved();
+  return current;
+}
+
+function getServerSnapshot(): Density {
+  return 'simple';
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function setDensity(next: Density): void {
+  if (current === next) return;
+  current = next;
+  try {
+    localStorage.setItem(STORAGE_KEY, next);
+  } catch {
+    // Private-mode / disabled storage — in-memory only.
+  }
+  for (const listener of listeners) listener();
+}
+
 export function DensityProvider({ children }: { children: ReactNode }) {
-  const [density, setDensity] = useState<Density>(getInitialDensity);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, density);
-    } catch {
-      // Private-mode / disabled storage — in-memory only.
-    }
-  }, [density]);
-
-  const toggleDensity = () => setDensity((d) => (d === 'simple' ? 'detailed' : 'simple'));
+  const density = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const toggleDensity = () => setDensity(density === 'simple' ? 'detailed' : 'simple');
 
   return (
     <DensityContext.Provider value={{ density, setDensity, toggleDensity, detailed: density === 'detailed' }}>

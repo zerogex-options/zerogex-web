@@ -3,7 +3,6 @@ import type { PageDictionary } from '@/core/LanguageContext';
 export const dict: PageDictionary = {
   en: {
     dashboardTitle: 'Dashboard',
-    densityAriaLabel: 'View density',
     todaysReadTitle: "Today's Read",
     todaysReadSubtitle: 'auto-generated regime summary',
     marketOverviewTitle: 'Market Overview',
@@ -49,7 +48,6 @@ export const dict: PageDictionary = {
   },
   it: {
     dashboardTitle: 'Dashboard',
-    densityAriaLabel: 'Densità di visualizzazione',
     todaysReadTitle: 'Lettura di Oggi',
     todaysReadSubtitle: 'sintesi del regime generata automaticamente',
     marketOverviewTitle: 'Panoramica di Mercato',
@@ -93,7 +91,6 @@ export const dict: PageDictionary = {
   },
   de: {
     dashboardTitle: 'Dashboard',
-    densityAriaLabel: 'Ansichtsdichte',
     todaysReadTitle: 'Heutige Einschätzung',
     todaysReadSubtitle: 'automatisch generierte Regime-Zusammenfassung',
     marketOverviewTitle: 'Marktübersicht',
@@ -137,7 +134,6 @@ export const dict: PageDictionary = {
   },
   es: {
     dashboardTitle: 'Panel',
-    densityAriaLabel: 'Densidad de visualización',
     todaysReadTitle: 'Lectura de Hoy',
     todaysReadSubtitle: 'resumen de régimen generado automáticamente',
     marketOverviewTitle: 'Panorama del Mercado',
@@ -181,7 +177,6 @@ export const dict: PageDictionary = {
   },
   fr: {
     dashboardTitle: 'Tableau de Bord',
-    densityAriaLabel: 'Densité d’affichage',
     todaysReadTitle: 'Lecture du Jour',
     todaysReadSubtitle: 'résumé de régime généré automatiquement',
     marketOverviewTitle: 'Aperçu du Marché',
