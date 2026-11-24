@@ -41,37 +41,10 @@ import {
 
 // ── Email normalization ─────────────────────────────────────────────────────
 
-// Deliberately permissive. This is a marketing opt-in form, not an identity
-// system: the double opt-in below is what actually proves an address works, so
-// the only job here is to reject what can never be an address and to canonicalize
-// what can, before it reaches the UNIQUE index. Being stricter than this is how
-// you end up bouncing real addresses at unusual TLDs for no benefit — the
-// confirmation email is the real filter.
-//
-// Rules: one @, non-empty local part, a dot-bearing domain, no whitespace, no
-// angle brackets or commas (a pasted "Name <a@b.com>" or a comma-separated
-// list is a mistake, not an address), and a length ceiling well above RFC 5321's
-// 254 practical limit being pointless to exceed.
-const MAX_EMAIL_LENGTH = 254;
-const EMAIL_SHAPE = /^[^\s@,<>]+@[^\s@,<>]+\.[^\s@,<>]+$/;
-
-/**
- * Canonical storage form of an address, or null when it cannot be one.
- *
- * Lowercased because the UNIQUE index must treat Foo@x.com and foo@x.com as
- * one subscriber — otherwise the same human subscribes twice and gets two
- * copies of every send. Note this lowercases the LOCAL part too, which is
- * technically case-sensitive per RFC 5321; in practice no mail provider in use
- * treats it that way, and the alternative (two rows, two emails, one annoyed
- * reader) is the worse failure.
- */
-export function normalizeEmail(raw: string | null | undefined): string | null {
-  if (typeof raw !== 'string') return null;
-  const trimmed = raw.trim().toLowerCase();
-  if (!trimmed || trimmed.length > MAX_EMAIL_LENGTH) return null;
-  if (!EMAIL_SHAPE.test(trimmed)) return null;
-  return trimmed;
-}
+// Lives in core/emailAddress.ts, so the signup form applies the same check.
+// Re-exported so the levels modules and their tests import it from here as
+// before. The double opt-in below is still what proves an address works.
+export { normalizeEmail } from './emailAddress.ts';
 
 // ── Signed links ────────────────────────────────────────────────────────────
 //

@@ -33,6 +33,7 @@ import { isUnstartedSubscriptionStatus } from '@/core/billingUser';
 import { openSaleWindow, showsSaleBanner } from '@/core/blackFridaySale';
 import { accountOnMailbox, findAccountForSignIn, isGmailAddress, mailboxKey } from '@/core/mailboxKey';
 import { DELETED_ACCOUNT_MESSAGE, isReturningOAuthSignIn, resolveOAuthAccount } from '@/core/oauthAccount';
+import { normalizeEmail } from '@/core/emailAddress';
 
 // First-party cookie that carries an inbound ?ref= code from the landing page
 // through to account creation (incl. the OAuth round-trip).
@@ -138,6 +139,10 @@ export function selfSignupTier(): TierId {
   const configured = normalizeTier(process.env.SELF_SIGNUP_DEFAULT_TIER);
   return configured === 'basic' ? 'basic' : 'public';
 }
+
+// Shown on /register when the address can never receive mail
+// (core/emailAddress.ts): almost always a typo, like a dot right before the @.
+const INVALID_EMAIL_MESSAGE = 'That email address is not valid. Please check it for a typo.';
 
 // Shown on /register when the address is another spelling of a Gmail inbox
 // that already has an account (see registerUser). Names neither the other
@@ -658,6 +663,13 @@ export async function registerUser(
   }
 
   const normalizedEmail = email.trim().toLowerCase();
+  // An address no mail server will take ("name.@gmail.com", "name@gmailcom")
+  // makes an account that can never be verified, and on Gmail the typo also
+  // holds the inbox: registering again with the right spelling is refused as
+  // the same inbox (core/mailboxKey.ts). Refused here instead, while the person
+  // is still on the form to fix it. The browser's type="email" check lets both
+  // of those through.
+  if (!normalizeEmail(normalizedEmail)) throw new Error(INVALID_EMAIL_MESSAGE);
   if (getUserByEmail(normalizedEmail)) throw new Error('Email already registered');
 
   const db = getDb();
