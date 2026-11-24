@@ -45,7 +45,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
-import { normalizeEmail } from '../core/levelsEmail.ts';
+import { normalizeEmail } from '../core/emailAddress.ts';
 import { sendVerifyReminderEmail } from '../core/mailer.ts';
 import { isNoCardTrialEnabled } from '../core/noCardTrial.ts';
 
@@ -348,7 +348,11 @@ if (eligible.length > sample.length) {
 // lookback window, and each rejection exits non-zero and pages the operator via
 // OnFailure. Seen 2026-10-12: one such address alerted every 2 hours. No retry
 // can fix it, so skip it: no token minted, no latch stamped, not a failure. The
-// shape check is the one the daily-levels signup already applies.
+// shape check is core/emailAddress.ts, the one the signup form and the
+// daily-levels signup apply. It missed "name.@gmail.com" (a dot right before
+// the @) until 2026-11-24, when that shape paged every 2 hours the same way.
+// The signup form refuses these now too; this skip covers accounts made
+// before it did.
 const undeliverable = eligible.filter((u) => normalizeEmail(u.email) === null);
 const deliverable = eligible.filter((u) => normalizeEmail(u.email) !== null);
 for (const u of undeliverable) {

@@ -229,6 +229,7 @@
     "verify:mcp": "bash scripts/verify-mcp.sh",
     "test:appearance": "node --experimental-strip-types --test tests/appearance.test.ts",
     "test:saved-boards": "node --experimental-strip-types --test tests/savedBoards.test.ts",
+    "test:email-address": "node --experimental-strip-types --test tests/emailAddress.test.ts",
     "test:levels-email": "node --experimental-strip-types --test tests/levelsEmail.test.ts",
     "test:levels-subscribers": "node --experimental-strip-types --test tests/levelsSubscribers.test.ts",
     "test:levels-rate-limit": "node --experimental-strip-types --test tests/levelsRateLimit.test.ts",
@@ -252,6 +253,7 @@
     "test:flow-sessions": "node --experimental-strip-types --test tests/flowSessions.test.ts",
     "test:checkout-recovery": "node --experimental-strip-types --test tests/checkoutRecovery.test.ts",
     "test:verified-never-paid": "node --experimental-strip-types --test tests/verifiedNeverPaid.test.ts",
+    "test:verify-reminders": "node --experimental-strip-types --test tests/verifyReminders.test.ts",
     "test:scheduled-jobs-busy-db": "node --experimental-strip-types --test tests/scheduledJobsBusyDb.test.ts",
     "test:busy-database": "node --experimental-strip-types --test tests/busyDatabase*.test.ts"
   },
