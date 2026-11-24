@@ -26,7 +26,8 @@
   daily orphan-payment alert may name this customer until the refund is in. **Don't act
   on the command that alert suggests** (applied, it would restore their access); refund
   instead.
-- [ ] Step 2. Support inbox checked for anything from the customer
+- [x] Step 2. Nothing from the customer: per Michael (2026-11-16), they never responded
+  to any email
 - [x] Step 3. Evidence checked: all four checks pass (see Step 3)
 - [ ] Step 4. Evidence filed in Stripe (date: ____)
 - [ ] Outcome: ____
@@ -69,7 +70,7 @@ by hand adds the $15 dispute-countered fee, which Stripe returns if we win.
 - **Chase debit again**, the same issuer and card type as the August loss. Debit issuers
   lean toward the cardholder, which is exactly why the usage record matters here.
 - **We charged them again after the dispute opened** (the Nov 15 renewal). Refunding it
-  in full and saying so plainly in the evidence (last paragraph of A) is the honest
+  in full and saying so plainly in the evidence (the paragraph of A about the renewal) is the honest
   version, and it reads as good faith rather than a merchant that kept billing.
 
 ## Step 1: refund the renewal, then end the subscription
@@ -191,24 +192,25 @@ Submit a few days before the deadline (2026-11-30, 6:59:59 PM EST), not on the d
 
 ## Step 5 (optional): email the customer
 
-This costs nothing and sometimes gets a dispute withdrawn. Send it only after the $44.25
-refund has gone through, because the email says it has. If they reply that they'll withdraw it, still file the evidence and attach their
-reply as customer communication; a promise to withdraw is not a withdrawal.
+Purely tactical: a cardholder who sees the merchant has the records sometimes withdraws
+the dispute, which ends it weeks sooner. Send it only after both the refund and the
+filing, because it says both happened. If they reply that they'll withdraw, add the
+reply to the case; a promise to withdraw is not a withdrawal.
 
-> Subject: Your ZeroGEX Pro payment
+> Subject: Your ZeroGEX payment dispute
 >
-> Hi,
+> You told your bank you didn't receive ZeroGEX Pro, which you paid $59.00 for on
+> October 15.
 >
-> Your bank has told us you disputed your $59.00 ZeroGEX Pro payment from October 15,
-> saying the service wasn't received.
+> Our records show otherwise. After paying, you used Pro on 29 different days and used
+> our API through October 26. On November 7 you chose to keep your subscription at 25%
+> off instead of canceling, and you kept signing in until just before you filed the
+> dispute. We've sent these records to your bank.
 >
-> I want to make sure nothing went wrong on our end. Our records show your account using
-> Pro through November 13, and on November 7 you chose to keep your subscription. If
-> something wasn't working for you, reply and tell me what happened.
+> Your subscription is canceled, and the $44.25 renewal from November 15 has been
+> refunded.
 >
-> Either way, I've refunded the $44.25 renewal that went through on November 15 and
-> canceled your subscription, so you won't be charged again. If the dispute was a
-> mistake, you can ask your bank to withdraw it.
+> If you filed the dispute by mistake, you can withdraw it with your bank.
 >
 > Michael
 > ZeroGEX
@@ -220,60 +222,60 @@ reply as customer communication; a promise to withdraw is not a withdrawal.
 the time (see "What the customer saw"). Two sentences are only true once two things are
 done, so don't paste until both are:
 
-- the $44.25 refund (the last paragraph of A says it happened);
-- the inbox search coming up empty (item 6 of A says they never contacted us).
+- the $44.25 refund (the paragraph of A about the renewal says it happened);
+- the inbox search coming up empty (item 5 of A says they never contacted us). Done:
+  per Michael, they never responded to any email.
 
 ### A. Main explanation (`uncategorized_text`)
 
-> The customer received the service and used it heavily throughout the month they paid
-> for.
+> The cardholder's claim that they did not receive this service is false. Our records
+> show they bought it themselves, used it on 29 of the 32 days the charge covered, and
+> three weeks after paying chose to keep it instead of canceling.
 >
 > ZeroGEX Pro is an online subscription to an options-analytics website (zerogex.io) and
-> its API. Nothing is shipped: the customer receives the service by signing in to their
-> account. Our records show this customer bought Pro themselves, used it on nearly every
-> day of the paid period, and chose to keep it three weeks after the charge.
+> its API. Nothing is shipped. The customer receives the service by signing in to their
+> account, and it was live on their account from the moment of purchase.
 >
-> 1. The customer created their account on October 14, 2026, checking the box to agree to
-> our Terms of Service, and verified their email address.
->
-> 2. On October 15, 2026, the customer upgraded to Pro from inside their signed-in
-> account. Before taking payment, our confirmation screen told them: "Your free trial
+> 1. PURCHASE. On October 15, 2026, the cardholder upgraded to Pro from inside their own
+> signed-in account. Before charging, our confirmation screen told them: "Your free trial
 > ends today, and $59.00 is charged to your card on file now. Covered by our 7-day
 > money-back guarantee - limit one refund per customer." They clicked "Confirm and pay."
-> That is the disputed charge (invoice in_1UQsR74AOiqteMYY7F1VyxqS).
+> That is the disputed charge (invoice in_1UQsR74AOiqteMYY7F1VyxqS). They had created the
+> account the day before, checking the box to agree to our Terms of Service, and verified
+> their email address.
 >
-> 3. Pro access started at that moment and stayed on, without interruption, for the
-> entire period the charge paid for (October 15 to November 15, 2026). We never
+> 2. DELIVERY. Pro access started at that moment and stayed on, without interruption, for
+> the entire period the charge paid for (October 15 to November 15, 2026). We never
 > suspended, limited or withheld it.
 >
-> 4. The customer used it. After the purchase they opened 539 pages of the service on 29
-> different days, from October 15 through November 13, most often the charts page and
-> their dashboards, with about 26 hours of on-screen time. They created 23 Pro API keys
-> on their account page and used 17 of them to make requests to our API, most recently
-> on October 26. They kept signing in through November 13, the same week this dispute
-> was filed. An API key can only be created by a signed-in member with active Pro
-> access, so every one of those keys also shows Pro access working for them. The
-> attached log lists every sign-in and account action with its time and IP address,
-> every day's page views, and every API key with the last time it was used.
+> 3. USE. After the purchase, the cardholder opened 539 pages of the service on 29
+> different days, most often the charts page and their dashboards, with about 26 hours
+> on screen. They created 23 Pro API keys on their account page and used 17 of them to
+> make requests to our API, most recently on October 26. They were still signing in on
+> November 13, the day before this dispute reached us. An API key can only be created by
+> a signed-in member with active Pro access, so every key is itself proof that the
+> service was working for them.
 >
-> 5. On November 7, 2026, three weeks after the charge, the customer opened our
-> cancellation screen. We offered them 25% off to stay. They clicked "Keep my access &
-> apply 25% off" rather than "No thanks, continue to cancel." Someone who had not
-> received the service would have had no access to keep.
+> 4. CHOSE TO KEEP IT. On November 7, 2026, three weeks after the charge, the cardholder
+> opened our cancellation screen. We offered 25% off to stay. They clicked "Keep my
+> access & apply 25% off" instead of "No thanks, continue to cancel." A customer who had
+> not received the service would have had nothing to keep.
 >
-> 6. For 7 days after the payment, the customer's account page offered a full refund at
-> the click of a button ("Request a full refund"). They were on that page during that
-> week, creating API keys, and never asked for the refund. They have never contacted us
-> to report a problem with the service.
+> 5. NEVER ASKED FOR A REFUND. For 7 days after the payment, their account page offered a
+> full refund at the click of a button ("Request a full refund"). They were on that very
+> page that week, creating API keys, and never used it. They have never contacted us to
+> report a problem or ask for their money back.
 >
 > Every action in the attached log, from creating the account through the purchase to
 > the last sign-in, came from the same network (IPv6 2607:9540:40::/48).
 >
-> After this dispute was filed, the subscription renewed automatically on November 15,
-> 2026, charging $44.25. We have since refunded that renewal in full and ended the
-> subscription, so the customer has paid nothing beyond the disputed charge and will not
-> be charged again. The service the disputed charge paid for had already been delivered
-> in full.
+> After the dispute was filed, the subscription renewed automatically on November 15,
+> 2026, for $44.25. We refunded that renewal in full and ended the subscription, so the
+> cardholder has paid nothing beyond the disputed charge, for a month of service they
+> used almost daily.
+>
+> The service was delivered in full and used extensively. We ask the issuer to reverse
+> this chargeback.
 
 ### B. Access activity log (`access_activity_log`)
 
@@ -412,17 +414,18 @@ ZeroGEX Pro was provisioned at the moment of purchase on October 15, 2026 and st
 
 ### C. Refund policy disclosure (`refund_policy_disclosure`)
 
-> The customer was shown our refund policy at the moment of purchase, had a one-click
-> refund available for the week after it, and agreed to the policy when they signed up.
+> The refund policy was shown to the cardholder at the moment of purchase, a one-click
+> refund was available to them for the following week, and they agreed to the policy
+> when they signed up. They never used it.
 >
 > 1. At purchase on October 15, 2026, the confirmation screen they clicked through said:
 > "Covered by our 7-day money-back guarantee - limit one refund per customer."
 >
 > 2. From October 15 to October 22, 2026, their account page showed a "7-day money-back
 > guarantee" panel offering the full $59.00 back, with a "Request a full refund" button.
-> They did not use it.
+> They visited that page during that week and did not use it.
 >
-> 3. Our Terms of Service, which the customer accepted when they created their account on
+> 3. Our Terms of Service, which they agreed to when they created their account on
 > October 14, 2026, say in Section 4: "Plans without a free trial are covered by a
 > money-back guarantee: if you request a refund from your account page within 7 days of
 > the first payment on that subscription, we refund that payment (and any charge for an
