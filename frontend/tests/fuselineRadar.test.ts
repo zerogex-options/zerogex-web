@@ -10,6 +10,9 @@ import assert from 'node:assert/strict';
 import {
   EMPTY_PLAN,
   anchorCrossed,
+  barFraction,
+  percentileAbs,
+  viewScale,
   buildTerrain,
   convertPrice,
   describeBasisSource,
@@ -284,4 +287,55 @@ test('ladder figures stay short enough for the column', () => {
   assert.equal(formatLadderDelta(23.03e9), '23.0B');
   assert.equal(formatLadderDelta(-1.14e9), '1.14B');
   assert.equal(formatLadderDelta(440e6), '440M');
+});
+
+// ---- Ladder bar scale ----------------------------------------------------------
+
+test('normalize to view clamps one giant strike at the 95th percentile', () => {
+  // Twenty ordinary strikes and a put wall ten times their size.
+  const sizes = [...Array.from({ length: 20 }, (_, i) => 100 + i * 5), -2_000];
+  const scale = viewScale(sizes);
+  assert.ok(scale < 2_000 && scale >= 195, `scale ${scale}`);
+  assert.equal(barFraction(-2_000, scale, 'linear').clipped, true);
+  assert.equal(barFraction(150, scale, 'linear').clipped, false);
+});
+
+test('without a real outlier the largest strike is the scale and nothing clips', () => {
+  const sizes = [100, 120, 140, 150, 152];
+  assert.equal(viewScale(sizes), 152);
+  assert.equal(barFraction(152, viewScale(sizes), 'linear').clipped, false);
+  // A leading strike a quarter bigger than the next is not an outlier.
+  const zoomed = [200, 260, 310, 380, 420, 520, 610, 690, 760, 940];
+  assert.equal(viewScale(zoomed), 940);
+});
+
+test('a zoomed view with a handful of strikes still clamps the giant one', () => {
+  // Eight strikes on screen, one of them the put wall.
+  const sizes = [-5_600, 300, 240, 220, 180, 150, 120, 90];
+  const scale = viewScale(sizes);
+  assert.equal(scale, 300);
+  assert.equal(barFraction(-5_600, scale, 'linear').clipped, true);
+  assert.equal(barFraction(240, scale, 'linear').frac, 0.8);
+});
+
+test('an empty view has no scale of its own', () => {
+  assert.equal(viewScale([]), 0);
+  assert.equal(viewScale([null, undefined, 0]), 0);
+  assert.equal(percentileAbs([-3, 1, 2], 1), 3);
+});
+
+test('every curve keeps order and fills the room at the scale', () => {
+  for (const curve of ['linear', 'sqrt', 'log'] as const) {
+    let prev = -1;
+    for (const v of [0, 10, 25, 50, 75, 100]) {
+      const f = barFraction(v, 100, curve).frac;
+      assert.ok(f >= prev, `${curve} must not shrink as size grows`);
+      prev = f;
+    }
+    assert.ok(Math.abs(barFraction(100, 100, curve).frac - 1) < 1e-12);
+    assert.equal(barFraction(250, 100, curve).frac, 1);
+  }
+  // Sqrt and log lift the small strikes that linear leaves as ticks.
+  assert.ok(barFraction(4, 100, 'sqrt').frac > barFraction(4, 100, 'linear').frac);
+  assert.ok(barFraction(4, 100, 'log').frac > barFraction(4, 100, 'linear').frac);
 });

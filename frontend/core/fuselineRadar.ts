@@ -465,6 +465,76 @@ export function placeLabels<K>(items: { key: K; y: number; priority: number }[],
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Ladder bar scale
+// ---------------------------------------------------------------------------
+
+/** How a bar's length follows its size: proportional, square root, or log. */
+export type LadderCurve = 'linear' | 'sqrt' | 'log';
+export const LADDER_CURVES: LadderCurve[] = ['linear', 'sqrt', 'log'];
+
+/**
+ * Normalize to view: the bars are scaled to this percentile of the sizes in
+ * view, so one giant strike (a put wall, say) cannot shrink every other strike
+ * on screen to a tick. Barrie's spec: about the 95th.
+ */
+export const VIEW_SCALE_PERCENTILE = 0.95;
+
+/**
+ * What counts as an outlier: a size more than twice the 95th percentile.
+ * Anything within it fits on the scale, so a leading strike that is merely the
+ * biggest is never capped (a tighter factor capped bars for overshooting by a
+ * few percent, which drew a cap where the bar would have fit); only a strike
+ * that would otherwise shrink the rest of the view gets one.
+ */
+const CLAMP_MIN_EXCESS = 2;
+
+/**
+ * `p` (0..1) percentile of the sizes |v|, at the rank at or below it (no
+ * interpolation); 0 when none. The lower rank matters on a zoomed view: with
+ * eight strikes on screen an interpolated 95th percentile sits most of the way
+ * up to the giant one, which is exactly the strike it is meant to clamp.
+ */
+export function percentileAbs(values: readonly (number | null | undefined)[], p: number): number {
+  const sizes = values
+    .filter((v): v is number => v != null && Number.isFinite(v) && v !== 0)
+    .map(Math.abs)
+    .sort((a, b) => a - b);
+  if (sizes.length === 0) return 0;
+  return sizes[Math.floor(Math.min(1, Math.max(0, p)) * (sizes.length - 1))];
+}
+
+/**
+ * The scale for the bars in view: the largest size within twice their 95th
+ * percentile. Only a size beyond that is an outlier, drawn clipped; everything
+ * else fits. 0 when nothing is in view, which the caller treats as "fall back
+ * to the whole-board scale".
+ */
+export function viewScale(values: readonly (number | null | undefined)[], p = VIEW_SCALE_PERCENTILE): number {
+  const q = percentileAbs(values, p);
+  if (q <= 0) return 0;
+  let scale = q;
+  for (const v of values) {
+    if (v == null || !Number.isFinite(v)) continue;
+    const a = Math.abs(v);
+    if (a > scale && a <= q * CLAMP_MIN_EXCESS) scale = a;
+  }
+  return scale;
+}
+
+/**
+ * A bar's length as a fraction (0..1) of the room it has, and whether it ran
+ * past the scale and was clipped (drawn full length, with a cap and its value).
+ * The curve keeps order: a bigger size is never a shorter bar, so a bar past
+ * its outline still means strengthening under every curve.
+ */
+export function barFraction(value: number, scale: number, curve: LadderCurve): { frac: number; clipped: boolean } {
+  const r = Math.abs(value) / (scale > 0 ? scale : 1);
+  const c = Math.min(1, r);
+  const frac = curve === 'sqrt' ? Math.sqrt(c) : curve === 'log' ? Math.log10(1 + 9 * c) : c;
+  return { frac, clipped: r > 1 + 1e-9 };
+}
+
 /** A size change for the ladder's narrow column: 23.0B, 1.14B, 440M. */
 export function formatLadderDelta(value: number): string {
   const a = Math.abs(value);

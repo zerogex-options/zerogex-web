@@ -1,9 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { ChartSideColumnContext } from '@/components/GammaTerminalChart';
-import { formatLadderDelta, placeLabels, type ChangeState, type Instrument, type LadderView } from '@/core/fuselineRadar';
+import {
+  barFraction,
+  formatLadderDelta,
+  placeLabels,
+  viewScale,
+  type ChangeState,
+  type Instrument,
+  type LadderCurve,
+  type LadderView,
+} from '@/core/fuselineRadar';
 
 /**
  * The Fuseline Radar's gamma ladder, drawn inside the dashboard chart in the
@@ -27,6 +36,16 @@ import { formatLadderDelta, placeLabels, type ChangeState, type Instrument, type
  *   and the net's outline.
  * The arrows and figures are the NET change in every view, so switching views
  * never changes which strikes are flagged.
+ *
+ * Bar SCALE (Barrie's request): by default the bars are normalized to the
+ * strikes in view (core/fuselineRadar viewScale: the largest bar within twice
+ * the 95th percentile), so a giant strike elsewhere no longer shrinks everything
+ * on screen to a tick. An outlier past that is drawn full length with an end
+ * cap and its value. With
+ * normalizing off they measure against the whole board, as before. Either way
+ * the scale eases to its new value as the reader pans and zooms rather than
+ * jumping, and the ▲/▼ flags never depend on it: they measure against the
+ * whole board, so zooming cannot change which strikes are flagged.
  *
  * Pointer events stop at the column, so hovering or clicking a strike never
  * pans the chart, moves its crosshair, or resets its zoom.
@@ -57,8 +76,11 @@ export interface LadderColumnProps {
   ctx: ChartSideColumnContext;
   rows: LadderRow[];
   view: LadderView;
-  /** The bar scale: the largest net (Net) or the largest side (Split, Combined) on the board. */
+  /** The whole-board scale: the largest net (Net) or the largest side (Split, Combined). */
   maxAbs: number;
+  /** Scale to the strikes in view, clamping outliers, instead of the whole board. */
+  normalize: boolean;
+  curve: LadderCurve;
   windowMin: number;
   display: Instrument;
   selected: number | null;
@@ -71,8 +93,62 @@ export interface LadderColumnProps {
 
 const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
 
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+
+/**
+ * The scale as drawn: eases to each new target over a fifth of a second, in
+ * log space so a tenfold change moves as evenly as a twofold one. A pan that
+ * moves the target every frame simply keeps re-aiming the ease, which is what
+ * reads as smooth. Snaps when the reader prefers reduced motion.
+ */
+function useEasedScale(target: number, ms = 200): number {
+  const [shown, setShown] = useState(target);
+  const shownRef = useRef(target);
+  useEffect(() => {
+    const from = shownRef.current;
+    if (from === target) return;
+    let id = 0;
+    if (!(from > 0) || !(target > 0) || prefersReducedMotion()) {
+      shownRef.current = target;
+      id = requestAnimationFrame(() => setShown(target));
+      return () => cancelAnimationFrame(id);
+    }
+    const a = Math.log(from);
+    const b = Math.log(target);
+    // The clock starts on the first frame, not when the target changed: the
+    // render that moved the target can itself take longer than the whole ease,
+    // and timing from before it would skip straight to the end.
+    let t0: number | null = null;
+    const step = () => {
+      const now = performance.now();
+      if (t0 == null) t0 = now;
+      const u = Math.min(1, (now - t0) / ms);
+      const v = Math.exp(a + (b - a) * (1 - (1 - u) ** 3));
+      shownRef.current = v;
+      setShown(v);
+      if (u < 1) id = requestAnimationFrame(step);
+    };
+    id = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(id);
+  }, [target, ms]);
+  return shown;
+}
+
+/**
+ * The sizes that set the view's scale: a row's solid bars, one vote each.
+ * Outlines are left out, so a giant strike does not vote twice (bar and
+ * outline) and pull the scale up to itself; an outline past the scale is
+ * simply clipped with its bar.
+ */
+function drawnSizes(r: LadderRow, view: LadderView): (number | null)[] {
+  if (view === 'net') return [r.now];
+  if (view === 'split') return [r.call, r.put];
+  return [r.call, r.put, r.now];
+}
+
 export default function LadderColumn({
-  ctx, rows, view, maxAbs, windowMin, display, selected, onSelect, describe, dimmed,
+  ctx, rows, view, maxAbs, normalize, curve, windowMin, display, selected, onSelect, describe, dimmed,
 }: LadderColumnProps) {
   const [hoverK, setHoverK] = useState<number | null>(null);
   const { left, right, top, bottom, yPrice, compact } = ctx;
@@ -92,7 +168,16 @@ export default function LadderColumn({
   }
   const rowSp = Number.isFinite(gap) ? gap : 12;
   const barH = Math.max(2.5, Math.min(11, rowSp * 0.5));
-  const len = (v: number) => Math.max(1.5, (Math.abs(v) / Math.max(1, maxAbs)) * half);
+  const visible = rows.filter((r) => {
+    const y = yPrice(r.price);
+    return y >= top && y <= bottom;
+  });
+  // The scale: the strikes in view, or the whole board. An empty view falls
+  // back to the board, so the bars never divide by nothing.
+  const inView = normalize ? viewScale(visible.flatMap((r) => drawnSizes(r, view))) : 0;
+  const scale = useEasedScale(Math.max(1, inView > 0 ? inView : maxAbs));
+  const len = (v: number) => Math.max(1.5, barFraction(v, scale, curve).frac * half);
+  const clipped = (v: number | null) => v != null && barFraction(v, scale, curve).clipped;
   const x0 = (v: number, l: number) => (v >= 0 ? cx : cx - l);
   const POS = 'var(--color-gamma-pos)';
   const NEG = 'var(--color-gamma-neg)';
@@ -121,11 +206,38 @@ export default function LadderColumn({
     }
     return out;
   };
-  const visible = rows.filter((r) => {
-    const y = yPrice(r.price);
-    return y >= top && y <= bottom;
-  });
   const mono = { fontFamily: 'var(--font-mono)' } as const;
+
+  // Clipped bars: the solid bars that ran past the scale. Each gets a cap at
+  // its tip and, where it fits, its size. Outlines are clipped silently: the
+  // cap on the bar already says the row is off the scale.
+  const solidBars = (r: LadderRow): { side: 1 | -1; v: number }[] => {
+    if (view === 'net') return [{ side: r.now >= 0 ? 1 : -1, v: r.now }];
+    const out: { side: 1 | -1; v: number }[] = [];
+    if (r.call != null) out.push({ side: 1, v: r.call });
+    if (r.put != null) out.push({ side: -1, v: r.put });
+    if (view === 'combined') out.push({ side: r.now >= 0 ? 1 : -1, v: r.now });
+    return out;
+  };
+  const clips = visible.flatMap((r) =>
+    solidBars(r).filter((b) => clipped(b.v)).map((b) => ({ r, ...b, key: `${r.k}:${b.side}` })),
+  );
+  // One label per side of a row (Combined's net shares its side with a faded
+  // bar, and the larger of the two is the one worth naming), placed biggest
+  // first so neighbors never overprint.
+  const clipLabelSets = ([1, -1] as const).map((side) => {
+    const best = new Map<number, { v: number; y: number }>();
+    for (const c of clips) {
+      if (c.side !== side) continue;
+      const v = Math.max(best.get(c.r.k)?.v ?? 0, Math.abs(c.v));
+      best.set(c.r.k, { v, y: yPrice(c.r.price) });
+    }
+    return {
+      side,
+      best,
+      kept: placeLabels([...best].map(([k, b]) => ({ key: k, y: b.y, priority: b.v })), font + 2),
+    };
+  });
 
   // Labels that fit. Strike numbers: the selected and next strikes first, then
   // round strikes, then the rest where there is room. Change figures: the
@@ -200,6 +312,23 @@ export default function LadderColumn({
           return (
             <g key={r.k} opacity={r.faded && selected !== r.k ? 0.4 : 1}>
               {bars(r, y)}
+              {clips.filter((c) => c.r.k === r.k).map((c) => {
+                const tip = cx + c.side * half;
+                return <line key={`cap${c.key}`} x1={tip} x2={tip} y1={y - barH / 2 - 2} y2={y + barH / 2 + 2} stroke="var(--text-primary)" strokeWidth={1.5} />;
+              })}
+              {clipLabelSets.map(({ side, best, kept }) => {
+                if (!kept.has(r.k)) return null;
+                const text = formatLadderDelta(best.get(r.k)?.v ?? 0);
+                const w = text.length * (font - 1) * 0.62 + 4;
+                const tip = cx + side * half;
+                const x = side > 0 ? tip - 3 - w : tip + 3;
+                return (
+                  <g key={`clip${side}`} pointerEvents="none">
+                    <rect x={x} y={y - (font - 1) / 2 - 1.5} width={w} height={font + 2} rx={2} fill="var(--bg-card)" opacity={0.85} />
+                    <text x={x + 2} y={y + (font - 1) * 0.35} fontSize={font - 1} fill="var(--text-primary)" style={mono}>{text}</text>
+                  </g>
+                );
+              })}
               {showLabel && (
                 <text x={left + 2} y={y + font * 0.35} fontSize={font} fill="var(--text-primary)" style={mono}>{r.label}</text>
               )}

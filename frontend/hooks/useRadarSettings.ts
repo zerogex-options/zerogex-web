@@ -5,9 +5,11 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import {
   DEFAULT_WIDE_POINTS,
   EMPTY_PLAN,
+  LADDER_CURVES,
   LADDER_VIEWS,
   type ChangeWindow,
   type Instrument,
+  type LadderCurve,
   type LadderView,
   type RadarPlan,
   type ViewMode,
@@ -44,6 +46,10 @@ export interface RadarSettings {
   showLadder: boolean;
   /** Net, Split (call and put) or Combined bars on the ladder. */
   ladderView: LadderView;
+  /** Scale the bars to the strikes in view, clamping outliers, not the whole board. */
+  ladderNormalize: boolean;
+  /** Linear, square-root or log bar lengths. */
+  ladderCurve: LadderCurve;
   /** The live Hedging Flow session drawn under the chart. */
   showHedgingFlow: boolean;
   mode: UpdateMode;
@@ -60,6 +66,8 @@ export const DEFAULT_SETTINGS: RadarSettings = {
   tall: false,
   showLadder: true,
   ladderView: 'net',
+  ladderNormalize: true,
+  ladderCurve: 'linear',
   showHedgingFlow: true,
   mode: '1m',
 };
@@ -121,6 +129,8 @@ export function parseSettings(raw: string | null): RadarSettings {
     tall: typeof obj.tall === 'boolean' ? obj.tall : d.tall,
     showLadder: typeof obj.showLadder === 'boolean' ? obj.showLadder : d.showLadder,
     ladderView: pick(obj.ladderView, LADDER_VIEWS, d.ladderView),
+    ladderNormalize: typeof obj.ladderNormalize === 'boolean' ? obj.ladderNormalize : d.ladderNormalize,
+    ladderCurve: pick(obj.ladderCurve, LADDER_CURVES, d.ladderCurve),
     showHedgingFlow: typeof obj.showHedgingFlow === 'boolean' ? obj.showHedgingFlow : d.showHedgingFlow,
     mode: pick(obj.mode, ['manual', '1m', '5m'] as const, d.mode),
   };
