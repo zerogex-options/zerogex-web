@@ -71,6 +71,7 @@ This is separate from how often the page refreshes (see **Freshness** below).
 - **Height: Standard / Tall.** Tall makes the chart about twice as tall, with the extra room going to the price pane, so levels sit further apart at any zoom.
 - **Ladder** shows or hides the ladder column. With it hidden the candles get the width.
 - **Bars: Net / Split / Combined** sets how the ladder draws each strike. See **Reading the ladder**, below.
+- **Normalize to view** (on by default) and **Scale: Linear / Sqrt / Log** set how long the bars are. See **Bar length**, below.
 - **Hedging Flow** shows or hides the live Hedging Flow session under the chart. See **Hedging Flow under the radar**, below.
 
 These choices are remembered in this browser.
@@ -91,7 +92,7 @@ The gamma rail, ribbons, GEX King and centroids are left off this page, because 
 
 ## Reading the ladder
 
-Each row is one strike, drawn at that strike's height on the chart. **Blue is positive gamma, amber is negative.** Neither color means bullish or bearish. Bar lengths are measured against the largest strike on the whole board today, not just the strikes in view, so zooming or moving a target never changes how big a strike looks.
+Each row is one strike, drawn at that strike's height on the chart. **Blue is positive gamma, amber is negative.** Neither color means bullish or bearish.
 
 **Bars** chooses one of three views of the same strikes:
 
@@ -99,7 +100,15 @@ Each row is one strike, drawn at that strike's height on the chart. **Blue is po
 - **Split**: two bars. The **call** side to the right in blue and the **put** side to the left in amber. A strike whose net barely moved can still have both sides growing, and Split shows that.
 - **Combined**: the call and put bars faded, with the **net** as a narrower solid bar on top, so you see what the net is made of.
 
-In Split and Combined the bars share one scale, set by the largest single side (call or put) on the board, so a strike's call, put and net can be compared directly.
+In Split and Combined the bars share one scale, so a strike's call, put and net can be compared directly.
+
+### Bar length
+
+- **Normalize to view** (on by default) scales the bars to the strikes on screen, so one giant strike elsewhere on the board, a put wall far below price say, no longer shrinks everything you are looking at to a tick. The scale is the largest strike in view within twice the 95th percentile of the bars in view. A strike beyond that, an outlier, is drawn full length with an **end cap** and its size, so you still know it is there and how big it is.
+- With **Normalize to view** off, bars measure against the largest strike on the whole board today, so zooming or panning never changes how big a strike looks.
+- **Scale: Linear / Sqrt / Log.** Linear draws length in proportion to size. Sqrt and Log compress the big strikes so the small ones stay visible beside them. Every scale keeps order: a bigger strike is never a shorter bar, so a bar past its outline still means strengthening.
+- The bars ease to their new length as you pan and zoom rather than jumping.
+- None of this moves the **▲ and ▼** flags, the rank or the share: those always measure against every tracked strike today, so zooming never changes which strikes are flagged.
 
 - **The outline** is the same bar at the start of the change window. A bar that reaches past its outline is **strengthening**; one inside its outline is **weakening**. In Split each side has its own outline; in Net and Combined the outline is the net. Strengthening and weakening are about size, whatever the sign: a negative strike going from -760M to -420M is weakening.
 - **▲ and ▼ with a figure** mark a change in the size of the **net** beyond the noise threshold, with the size of the change. They are the net change in every view, so switching views never changes which strikes are flagged (the column header says **net** in Split and Combined as a reminder). When strikes sit close together, figures are placed biggest change first and any that would overprint are left off; the outline still shows the change.

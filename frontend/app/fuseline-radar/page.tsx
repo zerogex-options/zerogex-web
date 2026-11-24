@@ -30,6 +30,7 @@ import { etTodayDateKey } from '@/core/utils';
 import { safeTimeLabel } from '@/core/flowSeriesCharts';
 import {
   CHANGE_WINDOWS,
+  LADDER_CURVES,
   LADDER_VIEWS,
   ROUTE_ZONE_TEXT,
   anchorCrossed,
@@ -52,6 +53,7 @@ import {
   targetPassed,
   type ChangeWindow,
   type Instrument,
+  type LadderCurve,
   type LadderView,
   type PlanLevels,
   type StrikeChange,
@@ -91,6 +93,12 @@ const LADDER_VIEW_TITLE: Record<LadderView, string> = {
   net: 'One bar per strike: its net gamma',
   split: 'Two bars per strike: calls to the right, puts to the left',
   combined: 'Calls and puts faded, with the net as a narrower solid bar on top',
+};
+const LADDER_CURVE_TEXT: Record<LadderCurve, string> = { linear: 'Linear', sqrt: 'Sqrt', log: 'Log' };
+const LADDER_CURVE_TITLE: Record<LadderCurve, string> = {
+  linear: 'Bar length in proportion to size',
+  sqrt: 'Square root: small strikes stay visible beside big ones',
+  log: 'Log: compresses the largest strikes the most',
 };
 const PLAN_COLOR = 'var(--color-king)';
 
@@ -296,9 +304,10 @@ export default function FuselineRadarPage() {
 
   const ladderOn = settings.showLadder;
   const ladderView = settings.ladderView;
-  // Net bars are measured against the largest net strike; Split and Combined
-  // against the largest single side, so a strike's call, put and net share one
-  // scale. Either way the whole board, never just the strikes in view.
+  // The whole-board scale, used when Normalize to view is off (and as the
+  // fallback when nothing is in view). Net bars measure against the largest net
+  // strike; Split and Combined against the largest single side, so a strike's
+  // call, put and net share one scale.
   const ladderScale = ladderView === 'net' ? ctx.maxAbs : Math.max(ctx.maxAbs, sideMaxAbs(terrain));
   const renderLadder = (c: ChartSideColumnContext) => (
     <LadderColumn
@@ -306,6 +315,8 @@ export default function FuselineRadarPage() {
       rows={rows}
       view={ladderView}
       maxAbs={ladderScale}
+      normalize={settings.ladderNormalize}
+      curve={settings.ladderCurve}
       windowMin={settings.window}
       display={display}
       selected={selected}
@@ -450,17 +461,6 @@ export default function FuselineRadarPage() {
                 <FilterChip key={w} active={settings.window === w} onClick={() => update({ window: w })}>{w} min</FilterChip>
               ))}
             </FilterGroup>
-            <FilterDivider />
-            <FilterToggle active={settings.showLadder} onChange={(v) => update({ showLadder: v })}>Ladder</FilterToggle>
-            {settings.showLadder && (
-              <FilterGroup label="Bars">
-                {LADDER_VIEWS.map((v) => (
-                  <FilterChip key={v} active={ladderView === v} onClick={() => update({ ladderView: v })} title={LADDER_VIEW_TITLE[v]}>
-                    {LADDER_VIEW_TEXT[v]}
-                  </FilterChip>
-                ))}
-              </FilterGroup>
-            )}
           </FilterBar>
           <FilterBar>
             <FilterGroup label="On the chart">
@@ -502,6 +502,37 @@ export default function FuselineRadarPage() {
             >
               Hedging Flow
             </FilterToggle>
+          </FilterBar>
+          <FilterBar>
+            <FilterToggle active={settings.showLadder} onChange={(v) => update({ showLadder: v })}>Ladder</FilterToggle>
+            {settings.showLadder && (
+              <>
+                <FilterDivider />
+                <FilterGroup label="Bars">
+                  {LADDER_VIEWS.map((v) => (
+                    <FilterChip key={v} active={ladderView === v} onClick={() => update({ ladderView: v })} title={LADDER_VIEW_TITLE[v]}>
+                      {LADDER_VIEW_TEXT[v]}
+                    </FilterChip>
+                  ))}
+                </FilterGroup>
+                <FilterDivider />
+                <FilterToggle
+                  active={settings.ladderNormalize}
+                  onChange={(v) => update({ ladderNormalize: v })}
+                  title="On: bars scale to the strikes in view, and an outlier (more than twice the 95th percentile) gets an end cap and its size. Off: bars measure against the largest strike on the whole board."
+                >
+                  Normalize to view
+                </FilterToggle>
+                <FilterDivider />
+                <FilterGroup label="Scale">
+                  {LADDER_CURVES.map((c) => (
+                    <FilterChip key={c} active={settings.ladderCurve === c} onClick={() => update({ ladderCurve: c })} title={LADDER_CURVE_TITLE[c]}>
+                      {LADDER_CURVE_TEXT[c]}
+                    </FilterChip>
+                  ))}
+                </FilterGroup>
+              </>
+            )}
           </FilterBar>
           <p className="text-xs" style={{ color: esUnavailable || (ratio != null && basisSource.flag) ? 'var(--color-warning)' : 'var(--color-text-secondary)' }}>
             {coordLine}
@@ -608,8 +639,9 @@ export default function FuselineRadarPage() {
           reaction. Nothing here is a trade recommendation.
         </p>
         <p>
-          The change threshold and the next-strike marker are provisional until the adjustable lens is built. Sizes are
-          ranked against every tracked strike today, so zooming or moving a target never changes them.
+          The change threshold and the next-strike marker are provisional until the adjustable lens is built. The ▲/▼
+          flags, rank and share are measured against every tracked strike today, so zooming or moving a target never
+          changes them.
         </p>
         <p>Concept and product specification: Plus3 Forecasting.</p>
       </div>
