@@ -16,7 +16,7 @@ gamma on NDX. Thanks.") Same member as
 `2026-11-09-michasbausrl-yellow-button-annual.md`: Pro annual, paid through
 Oct 20, 2027, so Dealer Positioning is open to him.
 
-> **Status:** draft, unsent.
+> **Status:** sent Wed Nov 25.
 
 ## The read
 
