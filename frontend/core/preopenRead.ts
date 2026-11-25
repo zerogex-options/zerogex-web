@@ -117,20 +117,23 @@ export type BuildPreopenReadInput = {
 };
 
 /**
- * The read's one-line heading. Regime is spot against the flip, the same rule
- * as the dashboard's badge (detectRegime), so the two never disagree.
+ * The read's one-line heading. The regime is the dashboard badge's own
+ * (detectRegime), so the two never disagree: spot against the flip, or with no
+ * flip, the sign of net GEX at spot. A morning with no flip near spot still
+ * names the regime; only a snapshot with neither reads as unresolved.
  */
 export function preopenHeading(report: Pick<ReportModel, 'regime' | 'gammaFlip'>): string {
   const flip = fmtPrice(report.gammaFlip);
+  const hasFlip = report.gammaFlip != null;
   switch (report.regime) {
     case 'positive':
-      return `Dealers long gamma above the ${flip} flip.`;
+      return hasFlip ? `Dealers long gamma above the ${flip} flip.` : 'Dealers long gamma, with no flip near spot.';
     case 'negative':
-      return `Dealers short gamma below the ${flip} flip.`;
+      return hasFlip ? `Dealers short gamma below the ${flip} flip.` : 'Dealers short gamma, with no flip near spot.';
     case 'neutral':
       return `Price is sitting on the ${flip} flip.`;
     default:
-      return 'The gamma flip is unresolved this morning.';
+      return 'The gamma regime is unresolved this morning.';
   }
 }
 
@@ -152,9 +155,11 @@ export function buildPreopenRead(input: BuildPreopenReadInput): PreopenReadModel
   });
 
   // The levels a reader acts on, in the order the dashboard's strip shows
-  // them. A level the snapshot lacks is left out rather than printed as a dash.
+  // them. A level the snapshot lacks is left out rather than printed as a dash,
+  // except the flip: a missing flip says "unresolved", as in the rows below,
+  // whether or not net GEX at spot still gave the heading its regime.
   const levels: PreopenLevel[] = [
-    { label: 'Gamma flip', value: report.regime === 'unresolved' ? 'unresolved' : fmtPrice(report.gammaFlip) },
+    { label: 'Gamma flip', value: report.gammaFlip == null ? 'unresolved' : fmtPrice(report.gammaFlip) },
     { label: 'Call wall', value: fmtPrice(report.callWall) },
     { label: 'Put wall', value: fmtPrice(report.putWall) },
     { label: 'Pin strike', value: fmtPrice(report.pinStrike) },

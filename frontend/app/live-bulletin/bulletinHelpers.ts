@@ -4,6 +4,8 @@
 // shared between the live preview and the PNG export.
 
 import { volIndexPricesSymbol } from '../../core/symbols.ts';
+import { longGammaAtSpot, netGexAtSpotOrNull } from '../../core/gammaRegime.ts';
+import { firstLevel } from '../../core/levelValue.ts';
 
 export type RegimeKey = 'positive' | 'negative' | 'neutral' | 'unresolved';
 
@@ -126,18 +128,52 @@ export interface ReportModel {
 // cards share, so they all agree on where the regime boundary sits.
 const AT_FLIP_BAND_PCT = 0.0025;
 
+/**
+ * The dealer-gamma regime that Today's Read, the Live Bulletin and the free
+ * levels cards all show. One function, so the three can't disagree.
+ *
+ * With a flip, it is where spot sits against it: inside the ±0.25% at-flip
+ * band ('neutral') or on one side of it.
+ *
+ * With no flip, it is the sign of `netGexAtSpot`. The engine publishes no flip
+ * when no zero crossing sits near enough to spot, as when spot is deep inside
+ * one regime: the session a trader most wants the answer. `net_gex_at_spot` is
+ * read off the same spot-shift curve as the flip, so its sign is the regime
+ * with or without a crossing (core/gammaRegime). Zero reads long, as in
+ * `longGammaAtSpot`, which drives the Key Levels chip and the chart's Dealer
+ * Gamma @ Spot badge, so those and this read the same regime.
+ *
+ * Pass the at-spot value only, never the whole-chain `net_gex` total, which can
+ * carry the opposite sign. The parameter is required so a new caller can't
+ * drop it and bring "unresolved" back on a one-sided book.
+ *
+ * 'unresolved' only when there is neither a flip to place spot against nor a
+ * dealer-gamma reading at spot.
+ */
 export function detectRegime(
   gammaFlip: number | null | undefined,
   spot: number | null | undefined,
+  netGexAtSpot: number | null | undefined,
 ): RegimeKey {
-  if (gammaFlip == null || !Number.isFinite(gammaFlip)) return 'unresolved';
-  if (spot == null || !Number.isFinite(spot) || spot <= 0) return 'unresolved';
-  const rel = (spot - gammaFlip) / spot;
-  if (Math.abs(rel) <= AT_FLIP_BAND_PCT) return 'neutral';
-  return rel > 0 ? 'positive' : 'negative';
+  if (
+    gammaFlip != null &&
+    Number.isFinite(gammaFlip) &&
+    spot != null &&
+    Number.isFinite(spot) &&
+    spot > 0
+  ) {
+    const rel = (spot - gammaFlip) / spot;
+    if (Math.abs(rel) <= AT_FLIP_BAND_PCT) return 'neutral';
+    return rel > 0 ? 'positive' : 'negative';
+  }
+  const long = longGammaAtSpot(netGexAtSpotOrNull(netGexAtSpot), null, null);
+  if (long == null) return 'unresolved';
+  return long ? 'positive' : 'negative';
 }
 
-const REGIME_COPY: Record<RegimeKey, { badge: string; label: string; short: string; explain: string }> = {
+type RegimeCopy = { badge: string; label: string; short: string; explain: string };
+
+const REGIME_COPY: Record<RegimeKey, RegimeCopy> = {
   positive: {
     badge: '+ GAMMA REGIME',
     label: 'Positive GEX · pinned, low vol',
@@ -159,41 +195,67 @@ const REGIME_COPY: Record<RegimeKey, { badge: string; label: string; short: stri
     explain:
       'Spot is sitting on the flip\u00a0- the sign of dealer hedging is unstable here and a small move tips the market into the next regime.',
   },
+  // Neither a flip nor dealer gamma at spot (see detectRegime), so the snapshot
+  // can't say which regime spot is in. Net GEX is missing too here, so the
+  // auto-lead's posture sentence already calls the levels provisional; this
+  // line says why the regime is blank rather than repeat it.
   unresolved: {
     badge: '? GAMMA REGIME',
-    label: 'Flip unresolved this snapshot',
-    short: 'Gamma Flip Unresolved',
+    label: 'Regime unresolved this snapshot',
+    short: 'Gamma Regime Unresolved',
     explain:
-      'The dealer gamma flip could not be resolved from this snapshot\u00a0- treat positioning levels below as provisional.',
+      'Without a gamma flip or a dealer-gamma reading at spot, this snapshot cannot say which regime spot is in.',
   },
 };
 
-export function regimeCopy(regime: RegimeKey) {
-  return REGIME_COPY[regime];
+// A positive / negative regime read off the sign of dealer gamma at spot,
+// because no flip sits near spot (see detectRegime). Same badge and headline as
+// with a flip; only the lines that place spot against a flip change, since the
+// card has no flip to place it against. Nothing here says "provisional": a
+// one-sided book with no nearby crossing is a finding, not a gap in the data.
+const NO_FLIP_COPY: Record<'positive' | 'negative', Pick<RegimeCopy, 'label' | 'explain'>> = {
+  positive: {
+    label: 'Positive GEX · no flip near spot',
+    explain:
+      'Dealer hedging leans against direction here\u00a0- moves get sold into, ranges compress and dips tend to mean-revert.',
+  },
+  negative: {
+    label: 'Negative GEX · no flip near spot',
+    explain:
+      'Dealer hedging amplifies the tape here\u00a0- moves accelerate, ranges expand and trends extend rather than fade.',
+  },
+};
+
+/**
+ * The regime's badge, label, headline phrase and mechanics line. Pass
+ * `hasFlip: false` when the snapshot has no flip, so a positive / negative
+ * regime (read off dealer gamma at spot) gets copy that doesn't mention one.
+ */
+export function regimeCopy(regime: RegimeKey, hasFlip = true): RegimeCopy {
+  if (hasFlip || (regime !== 'positive' && regime !== 'negative')) return REGIME_COPY[regime];
+  return { ...REGIME_COPY[regime], ...NO_FLIP_COPY[regime] };
 }
 
 // Alternate phrasings of each regime's mechanics so the closing line of the
 // auto-lead isn't word-for-word identical every time the same regime shows up.
-// This line lands right after the wall sentence, so it describes what dealer
-// hedging does, never whether the walls hold: our study of 737 wall tests found
-// the regime did not change how often walls broke
-// (content/articles/how-often-do-gamma-walls-break.md).
-const MECHANICS_VARIANTS: Record<RegimeKey, string[]> = {
+// The first choice is always the regime copy's own `explain` (the no-flip one
+// when there is no flip), then these. This line lands right after the wall
+// sentence, so it describes what dealer hedging does, never whether the walls
+// hold: our study of 737 wall tests found the regime did not change how often
+// walls broke (content/articles/how-often-do-gamma-walls-break.md).
+const MECHANICS_ALTERNATES: Record<RegimeKey, string[]> = {
   positive: [
-    REGIME_COPY.positive.explain,
     'Dealers hedge against direction here, selling into rallies and buying into dips\u00a0- the net effect is range compression.',
     'Dealer hedging works against momentum here, leaning on pushes in either direction, and the tape leans mean-reverting.',
   ],
   negative: [
-    REGIME_COPY.negative.explain,
     'Dealer hedging runs with momentum here: a break has hedging behind it, dips can cascade, and intraday ranges widen out.',
     'Short-gamma hedging chases price here, so moves can feed on themselves and stretch the range.',
   ],
   neutral: [
-    REGIME_COPY.neutral.explain,
     'With hedging flow indeterminate right at the flip, the first decisive break is likely to set the tone for the session.',
   ],
-  unresolved: [REGIME_COPY.unresolved.explain],
+  unresolved: [],
 };
 
 // Small deterministic hash → the generated prose stays stable across refreshes
@@ -376,7 +438,12 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   // price off the gex-profile curve) takes precedence over the summary's
   // `net_gex_at_spot`, which was frozen at the cash spot on the far side of the
   // flip — see ReportInputs.impliedNetGex.
-  const netGex = pickNumber(inputs.impliedNetGex, summary?.net_gex_at_spot);
+  //
+  // With no flip, this value IS the regime (detectRegime), so it is coerced the
+  // way the free levels cards coerce theirs (netGexAtSpotOrNull, via
+  // firstLevel): a served "-1.03e9" string reads as a number on both, and
+  // Today's Read can't call a regime the card beside it doesn't.
+  const netGex = firstLevel(inputs.impliedNetGex, summary?.net_gex_at_spot);
   const putCallRatio = pickNumber(summary?.put_call_ratio);
 
   const priorClose = pickNumber(inputs.priorClose);
@@ -386,8 +453,12 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
       ? ((spot - priorClose) / priorClose) * 100
       : null;
 
-  const regime = detectRegime(gammaFlip, spot);
-  const copy = REGIME_COPY[regime];
+  // With no flip the regime is the sign of `netGex`, the same at-spot figure
+  // the card prints and the auto-lead's posture sentence reads, so the badge,
+  // the Net GEX stat and "dealers are long/short gamma" tell one story. During
+  // a futures-implied open that is the figure resampled at the implied open.
+  const regime = detectRegime(gammaFlip, spot, netGex);
+  const copy = regimeCopy(regime, gammaFlip != null);
   const flipDistance = spot != null && gammaFlip != null ? spot - gammaFlip : null;
 
   // No range for a single stock: VIX / VXN measure the market, not the name,
@@ -411,6 +482,7 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
     callWall,
     putWall,
     regime,
+    explain: copy.explain,
   });
 
   return {
@@ -551,17 +623,21 @@ function buildLead(args: {
   callWall: number | null;
   putWall: number | null;
   regime: RegimeKey;
+  /** The regime copy's mechanics line: the no-flip one when there is no flip. */
+  explain: string;
 }): string {
-  const { spot, netGex, flipDistance, gammaFlip, callWall, putWall, regime } = args;
+  const { spot, netGex, flipDistance, gammaFlip, callWall, putWall, regime, explain } = args;
   // Seed from structural levels only (not raw spot) so the wording is stable
   // intraday but distinct across symbols/conditions.
   const seed = hashSeed(netGex == null ? 0 : Math.round(netGex / 1e8), gammaFlip, callWall, putWall);
 
   const sentences = [
     describePosture(regime, netGex, seed),
-    describeFlipPosition({ spot, flipDistance, gammaFlip, regime, seed: seed + 7 }),
+    gammaFlip == null
+      ? describeNoFlip(regime, seed + 7)
+      : describeFlipPosition({ spot, flipDistance, gammaFlip, regime, seed: seed + 7 }),
     describeMagnets({ spot, callWall, putWall, seed: seed + 13 }),
-    pick(MECHANICS_VARIANTS[regime], seed + 23),
+    pick([explain, ...MECHANICS_ALTERNATES[regime]], seed + 23),
   ];
 
   return sentences.filter((s): s is string => Boolean(s)).join(' ');
@@ -670,6 +746,22 @@ function describeFlipPosition(args: {
       `Spot is ${adj} ${ptsStr} pts below the ${flipP} flip, holding dealers in short-gamma territory.`,
       `At ${adj} ${ptsStr} pts under the ${flipP} flip, the negative-gamma regime is firmly in control.`,
       `Price sits ${adj} ${ptsStr} pts beneath the ${flipP} flip on the short-gamma side.`,
+    ],
+    seed,
+  );
+}
+
+// The sentence that stands in for the flip position when there is no flip: the
+// regime came off the sign of dealer gamma at spot (detectRegime), so say that
+// plainly, and that no flip sits near spot, rather than go quiet about the
+// missing level or call the read provisional.
+function describeNoFlip(regime: RegimeKey, seed: number): string | null {
+  if (regime !== 'positive' && regime !== 'negative') return null;
+  const side = regime === 'positive' ? 'long-gamma' : 'short-gamma';
+  return pick(
+    [
+      `No gamma flip sits near spot this snapshot: price is in ${side} territory, with no nearby level where that turns.`,
+      `There is no flip close enough to spot to publish, so the ${side} read comes from the sign of dealer gamma at spot.`,
     ],
     seed,
   );

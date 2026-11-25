@@ -11,7 +11,6 @@ import {
   fmtPrice,
   fmtSignedPct,
   fmtSignedPts,
-  regimeCopy,
   type ExpectedRange,
   type ReportModel,
 } from './bulletinHelpers';
@@ -161,7 +160,6 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
   const FONT_STACK = 'var(--font-body), var(--font-display), -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif';
 
   const accent = REGIME_ACCENT[model.regime];
-  const copy = regimeCopy(model.regime);
 
   return (
     <div
@@ -315,8 +313,10 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
               >
                 {model.regimeBadge}
               </span>
+              {/* The model's own label: with no flip near spot it says so
+                  instead of describing a flip the card doesn't draw. */}
               <span style={{ fontSize: 12, color: C.textSecondary, fontWeight: 600, letterSpacing: 0.2 }}>
-                {copy.label}
+                {model.regimeLabel}
               </span>
             </div>
 

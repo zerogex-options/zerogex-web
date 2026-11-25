@@ -9,13 +9,12 @@ import Footer from '@/app/spx-gamma-levels/Footer';
 import { ComparePlansButton, TrialButton } from '@/app/spx-gamma-levels/TrialCtaButtons';
 import {
   GAMMA_LEVEL_SYMBOLS,
-  REGIME_DISPLAY,
   SYMBOL_CHAIN,
   loadSnapshots,
   snapshotFreshness,
   type GammaLevelSymbol,
 } from '@/app/spx-gamma-levels/gammaLevels';
-import { detectRegime } from '@/app/live-bulletin/bulletinHelpers';
+import { noFlipNearSpot, regimeDisplayFor } from '@/app/spx-gamma-levels/regimeDisplay';
 import { LEVELS_PAGE_STOCKS } from '@/core/symbols';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { fmtNetGex, fmtPrice, fmtTimestampET, type GexSummary } from '@/core/gexSummary';
@@ -193,11 +192,16 @@ function InstrumentPanel({
   data: GexSummary | null;
   status: 'ok' | 'stale' | 'missing';
 }) {
-  const regime = REGIME_DISPLAY[detectRegime(data?.gamma_flip, data?.spot_price)];
+  // The same regime as the ticker card and Today's Read: with no flip it is the
+  // sign of net GEX at spot, not "unresolved".
+  const regime = regimeDisplayFor(data);
   const chain = SYMBOL_CHAIN[symbol];
+  // No flip but a signed net GEX at spot: the regime above came off that sign
+  // because no flip sits near spot, so the row says so instead of a bare dash.
+  const flipValue = noFlipNearSpot(data) ? 'None near spot' : fmtPrice(data?.gamma_flip);
   const rows: { label: string; value: string; color?: string }[] = [
     { label: 'Reference spot (delayed)', value: fmtPrice(data?.spot_price), color: INK.spot },
-    { label: 'Gamma flip', value: fmtPrice(data?.gamma_flip), color: INK.flip },
+    { label: 'Gamma flip', value: flipValue, color: INK.flip },
     { label: 'Call wall', value: fmtPrice(data?.call_wall), color: INK.call },
     { label: 'Put wall', value: fmtPrice(data?.put_wall), color: INK.put },
     { label: 'Net GEX (at spot)', value: fmtNetGex(netGexAtSpotOrNull(data?.net_gex_at_spot)) },
