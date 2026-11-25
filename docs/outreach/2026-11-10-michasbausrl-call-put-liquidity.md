@@ -7,7 +7,9 @@ wrapping, so it can be pasted straight into a mail client.
 liquidity?" Same member as `2026-11-09-michasbausrl-yellow-button-annual.md`:
 Pro annual, paid through Oct 20, 2027, so every page is open to them.
 
-> **Status:** draft, unsent.
+> **Status:** sent Tue Nov 10, lightly edited (it opened "Hi Mihai (or do you
+> go by Micha?)"). He didn't answer the name question. His next message is in
+> `2026-11-25-michasbausrl-ndx-positive-negative-gamma.md`.
 
 ## The read
 
