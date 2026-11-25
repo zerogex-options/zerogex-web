@@ -120,11 +120,15 @@ test('auto plan: members only with PREOPEN_READ_LIVE=1, otherwise one preview to
 
 // ── The words ───────────────────────────────────────────────────────────────
 
-test('heading: where dealers sit, by the same spot-vs-flip rule as the dashboard', () => {
+test('heading: where dealers sit, by the same rule as the dashboard badge', () => {
   assert.equal(preopenHeading({ regime: 'positive', gammaFlip: 6780 }), 'Dealers long gamma above the 6,780 flip.');
   assert.equal(preopenHeading({ regime: 'negative', gammaFlip: 6780 }), 'Dealers short gamma below the 6,780 flip.');
   assert.equal(preopenHeading({ regime: 'neutral', gammaFlip: 6780 }), 'Price is sitting on the 6,780 flip.');
-  assert.equal(preopenHeading({ regime: 'unresolved', gammaFlip: null }), 'The gamma flip is unresolved this morning.');
+  // No flip near spot: the regime came off net GEX at spot. Named plainly, never
+  // "below the — flip".
+  assert.equal(preopenHeading({ regime: 'positive', gammaFlip: null }), 'Dealers long gamma, with no flip near spot.');
+  assert.equal(preopenHeading({ regime: 'negative', gammaFlip: null }), 'Dealers short gamma, with no flip near spot.');
+  assert.equal(preopenHeading({ regime: 'unresolved', gammaFlip: null }), 'The gamma regime is unresolved this morning.');
 });
 
 test("the read is the dashboard's Today's Read, word for word, with its levels", () => {
@@ -153,12 +157,41 @@ test('every row is printed with its own time, and a missing ticker is named, not
 });
 
 test('a level the snapshot lacks is left out, and an unresolved flip says so', () => {
+  // Net GEX at spot is still +$1.32B here, so the heading names the regime;
+  // the flip itself still reads "unresolved", as in the rows.
   const { model } = modelFor({ pin_strike: null, gamma_flip: null });
-  assert.equal(model.heading, 'The gamma flip is unresolved this morning.');
+  assert.equal(model.heading, 'Dealers long gamma, with no flip near spot.');
   assert.ok(!model.levels.some((l) => l.label === 'Pin strike'));
   assert.equal(model.levels.find((l) => l.label === 'Gamma flip')!.value, 'unresolved');
   assert.equal(model.rows.find((r) => r.symbol === 'SPX')!.flip, 'unresolved');
   assert.ok(!model.levels.some((l) => l.value === '—'));
+});
+
+// The 2026-11-25 morning: no flip, and net GEX at spot clearly negative. The
+// heading is the dashboard's regime, said plainly, and nothing calls the read
+// provisional just because the flip is missing.
+test('no flip + negative net GEX at spot: short gamma, not unresolved', () => {
+  const { model, report } = modelFor({ gamma_flip: null, net_gex_at_spot: -1.03e9 });
+  assert.equal(report.regime, 'negative');
+  assert.equal(model.heading, 'Dealers short gamma, with no flip near spot.');
+  assert.equal(model.subject, "Today's Read · SPX: Dealers short gamma, with no flip near spot");
+  assert.equal(model.levels.find((l) => l.label === 'Net GEX')!.value, '−$1.03B');
+  assert.doesNotMatch(model.lead, /provisional|unresolved/i);
+});
+
+test('no flip + positive net GEX at spot: long gamma, not unresolved', () => {
+  const { model, report } = modelFor({ gamma_flip: null, net_gex_at_spot: 2.4e9 });
+  assert.equal(report.regime, 'positive');
+  assert.equal(model.heading, 'Dealers long gamma, with no flip near spot.');
+  assert.doesNotMatch(model.lead, /provisional|unresolved/i);
+});
+
+test('no flip + no net GEX at spot: the one morning that reads unresolved', () => {
+  const { model, report } = modelFor({ gamma_flip: null, net_gex_at_spot: null });
+  assert.equal(report.regime, 'unresolved');
+  assert.equal(model.heading, 'The gamma regime is unresolved this morning.');
+  assert.equal(model.levels.find((l) => l.label === 'Gamma flip')!.value, 'unresolved');
+  assert.ok(!model.levels.some((l) => l.label === 'Net GEX'));
 });
 
 test('rendered: the read, the levels, the six rows, the dashboard and the stop link', () => {

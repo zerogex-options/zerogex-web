@@ -5,7 +5,8 @@ import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, Trending
 import { serverApiGet, serverApiGetDelayed } from '@/core/api/serverFetch';
 import { summarizeForecastHistory, FORECAST_HISTORY_LIMIT, type ForecastDateEntry, type HistorySummary } from '@/core/trackRecord';
 import TrackRecordStrip from '@/components/TrackRecordStrip';
-import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
+import { buildReportModel } from '../live-bulletin/bulletinHelpers';
+import { regimeDisplayFor } from './regimeDisplay';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import { getArticle, PUBLISHER_REF, SITE_TWITTER_HANDLE, WEBSITE_ID } from '@/core/articleRegistry';
@@ -533,42 +534,6 @@ function buildShareSnippet(
   ].join('\n');
 }
 
-// Regime shown on each ticker card. Determined the same way as the live app's
-// Today's Read (buildReportModel → detectRegime): purely by where spot sits
-// relative to the gamma flip, with a ±0.25% "at the flip" band — NOT by the
-// sign of a net-GEX total. One shared methodology means the card badge and the
-// Today's Read badge can never disagree for the same snapshot.
-export const REGIME_DISPLAY: Record<
-  RegimeKey,
-  { label: string; color: string; icon: 'up' | 'down' | 'flat' | 'none'; body: string }
-> = {
-  positive: {
-    label: 'Positive gamma (suppressed vol)',
-    color: 'var(--color-positive)',
-    icon: 'up',
-    body: 'Dealers are net long gamma at spot\u00a0- mean-reversion is favored, pinning is more likely, and hedging leans against breakouts.',
-  },
-  negative: {
-    label: 'Negative gamma (amplified vol)',
-    color: 'var(--color-negative)',
-    icon: 'down',
-    body: 'Dealers are net short gamma at spot\u00a0- moves can accelerate, and if a wall gives way, hedging adds to the break.',
-  },
-  neutral: {
-    label: 'At the gamma flip',
-    color: 'var(--color-warning)',
-    icon: 'flat',
-    body: 'Spot is sitting on the gamma flip\u00a0- the sign of dealer hedging is unstable here, and a small move tips the tape into the next regime.',
-  },
-  unresolved: {
-    label: 'Gamma flip unresolved',
-    color: 'var(--color-text-secondary)',
-    icon: 'none',
-    body:
-      'This snapshot produced no gamma flip: the modeled dealer-gamma profile had no zero crossing close enough to spot to be tradable and backed by real open interest, so no level is published rather than one we can’t stand behind. Read these levels as provisional\u00a0- it normally resolves again on a later snapshot.',
-  },
-};
-
 /**
  * The Gamma flip row's sub-label. Its normal hint explains what the level IS;
  * when the level is missing, that hint is answering a question nobody asked and
@@ -788,7 +753,7 @@ function SymbolCard({
   /** Name the CME contract beside the reference spot, when the API sent one. */
   nameContract?: boolean;
 }) {
-  const regime = REGIME_DISPLAY[detectRegime(data?.gamma_flip, data?.spot_price)];
+  const regime = regimeDisplayFor(data);
   const regimeColor = regime.color;
   const href = isPrimary ? `/gamma-exposure?symbol=${symbol}` : gammaPath(symbol);
   const ctaLabel = isPrimary ? `Live ${symbol} dashboard` : `${symbol} gamma levels`;

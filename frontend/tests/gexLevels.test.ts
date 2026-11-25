@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { isPublicRoute, requiredTierForRoute } from '../core/auth.ts';
+import { buildReportModel, type GexSummaryInput } from '../app/live-bulletin/bulletinHelpers.ts';
+import { REGIME_DISPLAY, noFlipNearSpot, regimeDisplayFor } from '../app/spx-gamma-levels/regimeDisplay.ts';
+import { longGammaAtSpot, netGexAtSpotOrNull } from '../core/gammaRegime.ts';
+import { keyLevelsRegime } from '../core/keyLevels.ts';
 
 // /gex-levels is the broad "gex levels / gex data / gex charts" landing above
 // the six ticker pages. These checks pin what makes it work as one: crawlable
@@ -78,4 +82,81 @@ test('the hub is linked from the pages that should send readers to it', () => {
   ]) {
     assert.match(read(file), /href(?:=|: )["']\/gex-levels["']/, `${file} should link /gex-levels`);
   }
+});
+
+// ── The regime badge when no flip sits near spot ────────────────────────────
+// On 2026-11-25 five of the six panels read "Gamma flip unresolved" with net
+// GEX at spot clearly negative, while the chart's Key Levels chip said SHORT Γ.
+// With no flip the badge is the sign of net GEX at spot: the same regime Today's
+// Read and the chip show. "Unresolved" is left for a snapshot with neither.
+
+// The NDX snapshot from that morning. The whole-chain total has the OPPOSITE
+// sign on purpose: it must never decide the badge.
+const NDX_NO_FLIP: GexSummaryInput = {
+  symbol: 'NDX',
+  spot_price: 20750,
+  gamma_flip: null,
+  net_gex_at_spot: -1.03e9,
+  net_gex: 2.1e9,
+  call_wall: 21500,
+  put_wall: 20500,
+};
+
+// What the other two surfaces on the same page say for the same snapshot.
+const todaysRead = (d: GexSummaryInput) =>
+  buildReportModel({ symbol: 'NDX', spot: d.spot_price ?? null, priorClose: null, summary: d, vix: null, volIndex: 'VXN', horizon: 'daily' });
+const keyLevelsChip = (d: GexSummaryInput) =>
+  keyLevelsRegime(longGammaAtSpot(netGexAtSpotOrNull(d.net_gex_at_spot), d.spot_price ?? null, d.gamma_flip ?? null));
+
+test('no flip + negative net GEX at spot: negative gamma on the card, Today\'s Read and the chip', () => {
+  const display = regimeDisplayFor(NDX_NO_FLIP);
+  assert.equal(display.label, 'Negative gamma (amplified vol)');
+  assert.match(display.body, /net short gamma at spot, and no gamma flip sits near spot/);
+  assert.doesNotMatch(display.body, /provisional|unresolved/i);
+  assert.equal(display.label, REGIME_DISPLAY[todaysRead(NDX_NO_FLIP).regime].label);
+  assert.equal(keyLevelsChip(NDX_NO_FLIP)?.long, false);
+  assert.equal(noFlipNearSpot(NDX_NO_FLIP), true);
+});
+
+test('no flip + positive net GEX at spot: positive gamma on the card, Today\'s Read and the chip', () => {
+  const d = { ...NDX_NO_FLIP, net_gex_at_spot: 1.32e9 };
+  const display = regimeDisplayFor(d);
+  assert.equal(display.label, 'Positive gamma (suppressed vol)');
+  assert.match(display.body, /net long gamma at spot, and no gamma flip sits near spot/);
+  assert.doesNotMatch(display.body, /provisional|unresolved/i);
+  assert.equal(display.label, REGIME_DISPLAY[todaysRead(d).regime].label);
+  assert.equal(keyLevelsChip(d)?.long, true);
+  assert.equal(noFlipNearSpot(d), true);
+});
+
+test('no flip + no net GEX at spot: the only snapshot that reads unresolved', () => {
+  const d = { ...NDX_NO_FLIP, net_gex_at_spot: null };
+  const display = regimeDisplayFor(d);
+  assert.equal(display.label, 'Gamma regime unresolved');
+  assert.match(display.body, /provisional/);
+  assert.equal(todaysRead(d).regime, 'unresolved');
+  assert.equal(keyLevelsChip(d), null);
+  assert.equal(noFlipNearSpot(d), false);
+});
+
+test('a served numeric string at spot reads the same on the card and in Today\'s Read', () => {
+  const d = { ...NDX_NO_FLIP, net_gex_at_spot: '-1030000000' as unknown as number };
+  assert.equal(regimeDisplayFor(d).label, 'Negative gamma (amplified vol)');
+  assert.equal(todaysRead(d).regime, 'negative');
+});
+
+test('with a flip the card is unchanged: spot against the flip, no no-flip wording', () => {
+  const d = { ...NDX_NO_FLIP, gamma_flip: 20600 };
+  assert.deepEqual(regimeDisplayFor(d), REGIME_DISPLAY.positive);
+  assert.equal(noFlipNearSpot(d), false);
+});
+
+test('the ticker card and the /gex-levels panel both read the regime through regimeDisplayFor', () => {
+  const levels = read('app/spx-gamma-levels/gammaLevels.tsx');
+  for (const [name, src] of [['gammaLevels.tsx', levels], ['gex-levels/page.tsx', page]]) {
+    assert.match(src, /const regime = regimeDisplayFor\(data\);/, name);
+    assert.doesNotMatch(src, /detectRegime\(/, `${name} must not call the flip-only read directly`);
+  }
+  // A missing flip on a panel with a regime says why, instead of a bare dash.
+  assert.match(page, /noFlipNearSpot\(data\) \? 'None near spot'/);
 });
