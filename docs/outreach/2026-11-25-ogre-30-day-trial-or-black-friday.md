@@ -9,9 +9,10 @@ ZeroGEX - and your discount's ready`, sent Mon Nov 23 at 10:55 PM:
 
 > Give me 30 day free trial and ill be back
 
-> **Status:** draft, not sent. Your call (Nov 25): offer the 30-day free trial
-> or the Black Friday price, not both. Their account hasn't been checked yet:
-> run the two read-only checks under "Before sending" first.
+> **Status:** the first reply went out Wed Nov 25: the 30-day free trial or the
+> Black Friday price, not both. They answered the same day: the trial, but
+> starting after they're back from traveling in December. The reply to that is
+> under "Follow-up" at the end. Next: switch the trial on when they write back.
 
 ## The read
 
@@ -142,3 +143,50 @@ ends with `Next charge (after all discounts): 19.50 USD.`, the same with
   them the 50% again, like anyone whose plan ends. You review that batch first
   (the timer only sends you the digest), so you'll see them in it. There's no
   way to skip one member today; only worth building if it actually happens.
+
+## Follow-up: the trial, but after their December travel (Wed Nov 25)
+
+> Yes, please!
+> I want the 30 days trials
+> But not for next month cuz im traveling ..
+> When u send me link can i turn it on when ever i want ?
+
+### The read
+
+- **No link can do this.** Checkout never gives a returning member a trial,
+  and `?reactivate=1`, the 30-day link in the reactivation email, does nothing
+  for anyone who has held a plan before (`reactivationEligible` in
+  `app/api/billing/checkout/route.ts`). The trial exists only as
+  `make reactivate-member`, which starts it the moment you run it. It can't be
+  scheduled ahead. A link they could click themselves would be new billing
+  code; not worth it for one member.
+- **So they reply when they're back, and you switch it on that day.** The 30
+  days count from when you run the command, so none of it is spent while they
+  travel.
+- **Don't start it now with a longer trial to cover the trip.** That's 60 or
+  more days free, double what you offered.
+- **Check the card if you didn't before sending the first reply.** The trial
+  preview shows it with its expiry (`exp 9/2027`, say). With a January start,
+  the first charge lands around February, and a card that has expired by then
+  fails it.
+
+### Reply
+
+Same thread.
+
+Hi there,
+
+Glad to hear it! There's no link for this one, but you don't need one: when you're back from your trip, just reply to this email and I'll turn on your trial the same day. Your 30 days start then, so none of it gets used up while you're away.
+
+If you already know the day you'll be back, send it over and I'll have it on and ready that morning.
+
+Safe travels!
+
+Best,
+Michael
+
+### When they're back
+
+Switch it on and send the "Done" reply, as in "If they reply 'trial'" above.
+If they give you a return date instead, put it in your calendar: nothing else
+will remind you.
