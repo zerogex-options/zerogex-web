@@ -413,29 +413,35 @@ function ScopeCrown({ scope, label }: { scope: CrownScope; label: string }) {
   );
 }
 
-// Header key entry for one crown, after the level chips: the crown as the rows
-// draw it, then its scope in a word ("0DTE", "All exp."). Both are always
-// rendered, like the level chips, so both columns' headers stay the same height
-// and their rows stay aligned; a crown that isn't on the ladder right now is
-// muted, the way a missing level reads NA, and its tooltip says why. The crown
-// sits in a slot as wide as a rail tag so it lines up under the GF / PW codes.
-function CrownKey({ scope, state }: { scope: CrownScope; state: CrownState }) {
+// Header entry for one crown, after the level chips and read the same way: the
+// crown as the rows draw it, then its strike, or NA when that crown isn't on
+// the ladder right now (the crown is muted too, and the tooltip says why). The
+// scope's name ("0DTE", "All exp.") lives in the tooltip and aria-label: a
+// word AND a strike per entry don't fit two to a row in a ladder column, and
+// the strike is the reading members asked for. Both are always rendered, like
+// the level chips, so both columns' headers stay the same height and their rows
+// stay aligned. The crown sits in a slot as wide as a rail tag so it lines up
+// under the GF / PW codes.
+function CrownKey({ scope, state, pick }: { scope: CrownScope; state: CrownState; pick: CrownPick | null }) {
   const s = useLadderScale();
   const short = crownScopeShort(scope);
-  const shown = state === "shown";
+  const strike = state === "shown" && pick ? fmtStrike(pick.strike) : null;
+  const label = strike ? `${short} crown: ${strike}` : `${short} crown: not on the ladder right now`;
   return (
     <span
       className="inline-flex items-center gap-1 font-mono"
-      title={crownKeyTitle(scope, state)}
-      style={{ whiteSpace: "nowrap", opacity: shown ? 1 : 0.45 }}
+      title={`${strike ? `${short} crown: ${strike}. ` : ""}${crownKeyTitle(scope, state)}`}
+      style={{ whiteSpace: "nowrap" }}
     >
       <span
         className="inline-flex items-center justify-center"
-        style={{ minWidth: 15 * s, height: 12 * s, color: "var(--text-primary)", flex: "0 0 auto" }}
+        style={{ minWidth: 15 * s, height: 12 * s, color: "var(--text-primary)", flex: "0 0 auto", opacity: strike ? 1 : 0.45 }}
       >
-        <ScopeCrown scope={scope} label={`Crown: ${short}${shown ? "" : ", not on the ladder right now"}`} />
+        <ScopeCrown scope={scope} label={label} />
       </span>
-      <span style={{ fontSize: 10 * s, fontWeight: 600, color: shown ? "var(--text-primary)" : "var(--text-muted)" }}>{short}</span>
+      <span style={{ fontSize: 10 * s, fontWeight: 600, color: strike ? "var(--text-primary)" : "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+        {strike ?? "NA"}
+      </span>
     </span>
   );
 }
@@ -672,7 +678,7 @@ function HeatmapColumn({
             <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k]} />
           ))}
           {CROWN_SCOPES.map((scope) => (
-            <CrownKey key={scope} scope={scope} state={crownStates[scope]} />
+            <CrownKey key={scope} scope={scope} state={crownStates[scope]} pick={crownPicks[scope]} />
           ))}
         </div>
       </div>
