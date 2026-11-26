@@ -17,155 +17,130 @@ and for the format, usage and attribution terms. He'll publish methodology and
 aggregate results (negatives included) with attribution and a link, and won't
 republish the data, sell signals or build a competing service.
 
-> **Status:** draft, unsent. Two lines to fill in (below). No deadline: the
-> data isn't going anywhere.
+> **Status:** draft final, unsent. It promises him two answers by a follow-up
+> email (see "Owed after sending"). No deadline.
 
 ## The read
 
 - **No custom export. What he wants is already in the Pro API.**
-  `/api/gex/historical` serves the whole-chain call wall, put wall, flip, net
-  GEX and max pain in 1-minute bars, kept forever, starting June 29, 2026 for
-  SPY and QQQ (`data-coverage.md`, "Historical depth"). His window starts on
-  the first day we have. His count of 106 sessions is right. A hand-built
-  export would mean running queries against production for a non-customer,
-  with no end date on what he holds. The API gives him exactly what a $59
-  customer gets, and nothing more.
-- **Recommended: give him one free month of Pro through a one-time Stripe
-  code.** It costs you one $59 month and about five minutes in Stripe. When he
-  cancels, his plan drops and the webhook switches his API key off by itself
-  (`revokeApiKeysIfTierDropped`, Stripe webhook), so there's nothing to
-  remember to clean up. In return you get an independent study with a link to
-  you.
-- **The code only works from Wed Dec 2,** if he's never had a plan. Until the
-  Black Friday sale closes (end of Dec 1), checkout applies the sale discount
-  to first-time members and hides the promotion-code box
-  (`app/api/billing/checkout/route.ts`). The draft says so. Research isn't
-  urgent, so a six-day wait costs nothing.
-- **If you'd rather he pay,** swap the free-month paragraph for the one under
-  "If you'd rather not give it free". It's $29.50 for his first month on the
-  sale through Dec 1.
-- **The real risk is the result, not the data.** He says he'll publish
-  negative results, and the study will carry your name. That fits the brand:
-  the site already publishes its own receipts, and your own wall study found
-  that nothing measured predicted which walls break. The draft asks for a copy
-  before it goes up so you can catch a data mistake (look-ahead, the wrong
-  history). It promises you won't ask him to change his conclusions. Asking
-  for that would cost you more than a bad result.
-- **The Terms require your written permission to publish.** Section 6 bars
-  redistributing content "without our written permission", and the license is
-  personal or internal use. The publishing paragraph in the draft is that
-  permission, with his own limits written back to him: aggregate results,
-  attribution and a link, no full data series, and the key stays with him.
-- **Point him away from Replay.** He says he checked a sample from the public
-  Replay against saved responses. Replay's strike detail only goes back about
-  60 days, and its per-strike gamma was restated for every past session in the
-  November fix (`data-coverage.md`). For "original recorded levels", the
-  summary history is the right source: "the walls and net GEX are the values
-  recorded with each summary snapshot."
-- **The bar-stamp trap matters for his design.** History rows are stamped at
-  the start of the minute and carry that minute's last snapshot (API guide, per
-  the Sanjay and Val notes). A closed-bar study that lines rows up by their
-  stamp gets a small look-ahead and won't notice it.
-- **"DEFAULT_CHAIN" isn't a term anywhere in this repo.** It may be a backend
-  label, or his own name for the whole chain. The draft doesn't repeat it. It
-  just says "whole chain".
-- **Point him to your wall study.** It answers his question over late June to
-  early September and states its definitions exactly. That's useful for him,
-  and it's a fair benchmark for his results.
+  `/api/gex/historical` gives the call wall, put wall, flip, net GEX and max
+  pain in 1-minute rows, starting June 29, 2026 for SPY and QQQ
+  (`data-coverage.md`, "Historical depth"). His count of 106 sessions is
+  right. A hand-built export would mean running queries against production for
+  a non-customer, with no end date on what he holds.
+- **Recommended: one free month of Pro through a one-time Stripe code.** It
+  costs one $59 month. When he cancels, his plan drops and the Stripe webhook
+  switches his API key off by itself (`revokeApiKeysIfTierDropped`), so
+  there's nothing to clean up.
+- **The code only works from Wed Dec 2.** He has no account
+  (`diagnose-user`, Nov 26), so he'll sign up as a first-time member. Until the
+  sale closes at the end of Dec 1, checkout gives first-time members the sale
+  discount and hides the promotion-code box
+  (`app/api/billing/checkout/route.ts`).
+- **The risk is the result, not the data.** He'll publish negative results
+  with your name on them. That fits a site that publishes its own receipts.
+  The draft asks for a copy beforehand, to catch data mistakes only.
+- **The Terms need your written permission to publish** (Section 6, "redistribute
+  content without our written permission"). The publishing paragraph is that
+  permission, with his own limits written back to him.
+- **"DEFAULT_CHAIN" isn't ours.** It's not in this repo or the public API
+  schema. With no account, he's reading the free pages or the free MCP server.
+  The draft doesn't repeat the term.
 
-## Fill in before sending
+## What's verified, and what isn't
 
-1. **Methodology changes (point 5 in the draft).** He asked for them
-   directly. Did the way the call and put walls are picked in the summary change
-   at any point between June 29 and November 25? Did the November per-strike
-   fix touch the summary walls, or only Replay and the Heatmap? I couldn't
-   check this from here because the backend repo isn't in this session. In your
-   zerogex-oa checkout:
+Checked against the public API schema (`api.zerogex.io/openapi.json`) and this
+repo on Nov 26.
 
-   ```bash
-   git log --since=2026-06-29 --until=2026-11-26 --oneline -i --grep=wall --grep=summary
-   ```
+- **Verified: one timestamp per row.** The history row (`GEXSummary`) has a
+  single `timestamp` field. Nothing else is a time. Historical endpoints stamp
+  the bucket start, and `/api/gex/historical` returns "the last snapshot
+  inside" each bucket. Parameters: `symbol`, `start_date`, `end_date`,
+  `timeframe` (default `1min`), `window_units` (max 90), newest first.
+- **Verified: the chain today is the ten nearest expirations** around the
+  price (`content/methodology.md`; production env checked Nov 4 in the Paolo
+  note: `INGEST_EXPIRATIONS=10`). The two extra monthlies are SPX and NDX only.
+  So the first draft's "every listed expiration" was wrong.
+- **Not verified: whether the depth was always ten.** Several zerogex-oa docs
+  said production kept only the three nearest expirations (Ron note). If
+  that was true at some point after June 29, the walls in his window were
+  built from different chains. That's exactly the methodology change he asked
+  about.
+- **Not verified: whether recent rows are stored or rebuilt.** The endpoint's
+  own description says "buckets older than [the per-strike window] carry the
+  walls and `net_gex` stored with the snapshot". That implies newer rows
+  (roughly the last 60 days, so about Sept 27 onward) are built from
+  strike-level detail. If so, the first draft's "the summary history isn't
+  recomputed" was wrong for a third of his window.
+- **Your git log doesn't answer either question.** It ran in `zerogex-web`,
+  the website. Wall and chain logic live in `zerogex-oa`, which this session
+  couldn't open.
 
-   - **If nothing changed:** use the default line in the draft.
-   - **If something changed:** replace it with one line per change, with the
-     date and what moved, e.g. "From October 14, the walls are picked from the
-     total across expirations rather than the average."
+## Owed after sending
 
-2. **Per-row timestamps (end of point 3).** Open
-   [api.zerogex.io/docs](https://api.zerogex.io/docs), find
-   `/api/gex/historical`, and try SPY, 1-minute bars, for one day. If each row
-   has only the one timestamp, keep the sentence as written. If there's a second
-   time field (observed-at, computed-at, anything like that), change the
-   sentence to name it.
+The draft promises him answers to points 3 and 5. To get them, open a Claude
+session on zerogex-oa and paste:
+
+> For /api/gex/historical (`src/api`), do rows inside the per-strike
+> retention window return the call_wall and put_wall stored in gex_summary,
+> or are they recomputed from gex_by_strike at request time? Then list every
+> change between 2026-06-29 and 2026-11-25 that affects how gex_summary's
+> call_wall and put_wall are computed for SPY and QQQ, with dates. Include any
+> change to how many expirations are ingested (INGEST_EXPIRATIONS), and how
+> strikes are aggregated across expirations.
+
+Bring me the answer and I'll write the follow-up email.
 
 ## Steps
 
-### 1. Check his account (on the server, in `~/zerogex-web`)
+1. **Create the code in Stripe** (Live mode, not a sandbox). Product catalog,
+   Coupons, **+ Create coupon**:
 
-```bash
-make diagnose-user EMAIL=adamax.you@gmail.com
-```
+   | Field | Value |
+   |---|---|
+   | Name | `Pro research month` (he sees this at checkout) |
+   | Type | Fixed amount discount, **$59.00 USD** |
+   | Apply to specific products | On, **Pro** only |
+   | Duration | **Once** |
+   | Use customer-facing coupon codes | On, code **`ZGXRESEARCH`** |
+   | Eligible for first-time order only | Off |
+   | Limit to a specific customer | Off |
+   | Limit the number of times this code can be redeemed | **1** |
+   | Add an expiration date | **Thu Dec 31, 2026, 11:59 PM** ET |
+   | Require minimum order value | Off |
 
-- **No account found:** fine. He'll sign up at checkout. Send as written.
-- **Tier is already `pro`:** drop the free-month paragraph and the code. Write
-  instead: "Your Pro key already reaches all of it."
-- **Has held a plan before:** the sale doesn't apply to him, so the code box
-  shows now. Change "It works from Wednesday, December 2" to "It works now".
-- **`Referred by code` shows a code:** checkout applies that discount and
-  hides the code box for good. Stop and bring me the output.
+   $59 off once is one free month of Pro monthly. On annual he'd pay $240,
+   which is why the draft says monthly. A coupon's products can't be changed
+   after it's made, so check "Pro only" before saving.
 
-### 2. Create the code in Stripe (Live mode, not a sandbox)
+2. **Send the draft** in his thread.
 
-Product catalog, Coupons, **+ Create coupon**:
-
-| Field | Value |
-|---|---|
-| Name | `Pro research month` (he sees this at checkout) |
-| Type | Fixed amount discount, **$59.00 USD** |
-| Apply to specific products | On, **Pro** only |
-| Duration | **Once** |
-| Use customer-facing coupon codes | On, code **`ZGXRESEARCH`** |
-| Eligible for first-time order only | Off (would block him if he's had a plan before) |
-| Limit to a specific customer | Off |
-| Limit the number of times this code can be redeemed | **1** |
-| Add an expiration date | **Thu Dec 31, 2026, 11:59 PM** ET |
-| Require minimum order value | Off |
-
-$59 off once is one free month of Pro monthly. If he picks annual instead, he
-pays $240, which is why the draft says monthly. A coupon's products can't be
-changed after it's made, so check "Pro only" before saving.
-
-### 3. Fill in the two lines above, then send the reply in his thread
-
-### 4. Later (optional)
-
-After he redeems it, `make diagnose-user EMAIL=adamax.you@gmail.com` should
-show `pro`. If he forgets to cancel, month two bills $59, and the 7-day
-money-back guarantee runs from that first real charge.
+3. **Later (optional):** once he's redeemed it,
+   `make diagnose-user EMAIL=adamax.you@gmail.com` should show `pro`. If he
+   forgets to cancel, month two bills $59, and the 7-day money-back guarantee
+   runs from that first real charge.
 
 ## Draft
-
-Reply in his thread. Your Gmail signature goes under the sign-off.
 
 Hi Maxim,
 
 Thanks for the careful note, and for asking before pulling anything.
 
-You don't need a custom export: what you're describing is already in the Pro API. /api/gex/historical returns the whole-chain call wall, put wall, gamma flip, net GEX and max pain for SPY and QQQ in 1-minute bars. That history is kept permanently and starts on June 29, 2026, so all 106 of your sessions are there. It's JSON, up to 90 rows per request, and you page through it with start_date and end_date. That's several hundred requests per symbol, which fits within the rate limit if you pace them. The reference is at api.zerogex.io/docs.
+You don't need a custom export: what you're describing is already in our Pro API. /api/gex/historical returns the call wall, put wall, gamma flip, net GEX and max pain for SPY and QQQ, one row per minute with timeframe=1min. That history starts on June 29, 2026, so all 106 of your sessions are there. It's JSON, newest first, up to 90 rows per request, and you page back with start_date and end_date. That's several hundred requests per symbol, which fits within the rate limit if you pace them. The reference is at api.zerogex.io/docs.
 
-I'm glad to support the study, so a month of Pro is on me. Go to zerogex.io/pricing, choose Pro monthly, and enter ZGXRESEARCH under "Add promotion code". The total due today will show $0. It works from Wednesday, December 2, once our holiday sale ends (the sale takes over checkout until then), through December 31. Stripe will still ask for a card. Generate your key under Account, then API Access, pull what you need, and cancel from the Account page before the month is up so you won't be charged. Canceling also switches the key off.
+I'm glad to support the study, so a month of Pro is on me. Go to zerogex.io/pricing, choose Pro monthly, and enter ZGXRESEARCH under "Add promotion code". The total due today will show $0. The code works from Wednesday, December 2, once our holiday sale ends (the sale takes over checkout until then), through December 31. Stripe will still ask for a card. Generate your key under Account, then API Access, pull what you need, and cancel from the Account page before the month is up so you won't be charged. Canceling also switches the key off.
 
-A few points about the data that matter for your design:
+Some details that matter for your design:
 
-1. These are the levels as recorded at the time. The summary history isn't recomputed, so each minute shows the walls we published then.
+1. Timestamps. Each row has one timestamp, the start of its minute, and carries the last snapshot taken during that minute. Treat it as known at the end of the minute, not the start. Lining rows up by their stamp with price from inside the same minute gives the test a small look-ahead. We don't store a separate input-availability time.
 
-2. The expiry scope is the whole chain: every expiration listed and trading at that minute, including that day's 0DTE options until the close.
+2. Expiry scope. The walls come from the chain we load for each symbol, which today is the ten nearest expirations, at the strikes around the price. That includes the day's 0DTE options until the close.
 
-3. Each row is stamped at the start of its minute and carries the last value computed during that minute, so treat it as known at the end of that minute, not the start. If you line rows up by their stamp with price from inside the same minute, the test gets a small look-ahead. There's one timestamp per row; we don't keep a separate input-availability time in this history.
+3. Recorded versus rebuilt. Rows older than about 60 days carry the walls exactly as they were stored with that minute's snapshot. For newer rows, I'm confirming whether the history returns those stored walls or rebuilds them from the strike-level detail we keep for 60 days. Either way, save your pull once and work from that file, so your record doesn't shift as rows age past that line.
 
-4. Use this history rather than Daily Replay. Replay's strike detail only goes back about 60 days, and its per-strike gamma was restated for every past session in a fix this November, so it isn't a record of what was published at the time.
+4. Daily Replay. Use the history rather than Replay. Replay's strike detail only goes back about 60 days, and its per-strike gamma was restated for every past session in a fix this November, so it isn't a record of what was published at the time.
 
-5. The way the call and put walls are picked didn't change during your window.
+5. Methodology changes. I'm putting together the list of changes in your window that affect the walls, including whether the number of expirations in the chain changed. I'll send it along with the answer to point 3.
 
 On publishing: you have my permission to publish your methodology, aggregate findings and limitations, including negative or inconclusive results, credited as "Data: ZeroGEX" with a link to zerogex.io. A few example sessions in a chart are fine. The full series isn't, and please keep the key and the data to yourself. I'd appreciate a copy a few days before it goes up, only so I can check that the data is described correctly. I won't ask you to change your conclusions.
 
@@ -180,23 +155,19 @@ Replace the "I'm glad to support the study" paragraph with:
 
 Access is through a Pro plan, which is $59 a month. Through Tuesday, December 1, our holiday sale makes your first month $29.50. Choose Pro monthly at zerogex.io/pricing, generate your key under Account, then API Access, pull what you need, and cancel from the Account page whenever you like.
 
-(The sale is half off for the first year and only for people who've never had a
-plan. If `diagnose-user` shows he's had one, drop the sale sentence.)
-
-Skip Step 2.
+Skip Step 1.
 
 ## If he replies
 
-- **"Can you just send a CSV?"** No. The API is the export. It's the same
-  data, and you don't have to run anything on production.
+- **"Can you just send a CSV?"** No. The API is the export.
 - **He wants per-strike history, or the call/put split, for the whole window.**
   Not available. Per-strike data is kept about 60 days, so most of his window
-  is gone. The summary walls are what's left, which is what he asked for.
+  is gone.
 - **He wants contract quotes after all.** Not on any plan. Point him to his
-  broker or a data vendor, as the API help page does.
-- **He needs more than a month.** Reasonable for a study. Make a second
-  one-use code the same way rather than comping the account. A comp has no end
-  date, so the key would stay live until you remembered to revoke it.
-- **He sends the draft study.** Check three things: that he used the
-  summary history and not Replay, that he lined rows up at the end of the
-  minute, and that the credit and link are there. Anything else is his call.
+  broker or a data vendor.
+- **He needs more than a month.** Make a second one-use code the same way.
+  Don't comp the account: a comp has no end date, so the key would stay live
+  until you remembered to revoke it.
+- **He sends the draft study.** Check that he used the history and not
+  Replay, that he lined rows up at the end of the minute, and that the credit
+  and link are there. Anything else is his call.
