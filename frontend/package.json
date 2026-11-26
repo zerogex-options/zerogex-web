@@ -121,6 +121,7 @@
     "test:cancellation-reason": "node --experimental-strip-types --test tests/cancellationReason.test.ts",
     "test:cancellation-email": "node --experimental-strip-types --test tests/cancellationEmail.test.ts",
     "test:cancel-retention": "node --experimental-strip-types --test tests/cancelRetention.test.ts",
+    "test:pending-plan-change": "node --experimental-strip-types --test tests/pendingPlanChange.test.ts",
     "test:cancel-decisions": "node --experimental-strip-types --test tests/cancelDecisions.test.ts",
     "test:growth-losses": "node --experimental-strip-types --test tests/growthLosses.test.ts",
     "test:cancellation-alert": "node --experimental-strip-types --test tests/cancellationAlert.test.ts",

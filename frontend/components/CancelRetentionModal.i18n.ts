@@ -123,5 +123,9 @@ export const dict: PageDictionary = {
       "The one exception is your API key: it switches off with the pause and can't be turned back on, so generate a new one under API Access on your Account page once Pro is back.",
 
     genericError: 'Something went wrong. Please try again in a minute.',
+    // A cancel that didn't go through: say so plainly, and give a way out that
+    // doesn't depend on this window working.
+    cancelError:
+      'Your subscription wasn’t canceled. Please try again in a minute. If it still doesn’t work, email support@zerogex.io and I’ll cancel it for you.',
   },
 };

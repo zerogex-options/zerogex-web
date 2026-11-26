@@ -13,6 +13,11 @@
 //          subscription has its pause ended in the same update, exactly as the
 //          Account page's Cancel does (core/subscriptionPause.ts
 //          scheduleCancelParams), so it is never paused and canceling at once.
+//          A plan change the billing portal is holding until period end (a
+//          downgrade) is released first, also as the Account page's Cancel
+//          does: Stripe won't set the cancel while a schedule governs the
+//          subscription, and the plan ends as it is now
+//          (core/pendingPlanChange.ts). The preview shows it.
 //
 // This only sets a flag; Stripe does the rest at period end. Clearing it on a
 // trialing sub is what turns "trial then cancel" into "trial then convert".
@@ -42,6 +47,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import Stripe from 'stripe';
 
 import { derivePauseState, scheduleCancelParams } from '../core/subscriptionPause.ts';
+import { pendingScheduleId, releasePendingPlanChange } from '../core/pendingPlanChange.ts';
 
 const AUDIT_TYPE = 'billing_cancellation_set';
 
@@ -107,7 +113,9 @@ Direction (exactly one required):
               ending. Use to let a customer who had canceled convert after all.
       --on    Schedule cancellation at period end — she keeps access until then,
               then it ends with no further charge. A paused subscription has
-              its pause ended too, as the Account page's Cancel does.
+              its pause ended too, and a plan change the billing portal is
+              holding until period end is dropped, as the Account page's
+              Cancel does.
 
 Other:
       --dry-run   Print the plan; no Stripe or DB writes.
@@ -329,6 +337,12 @@ const pausedUntil = pause.resumesAtIso ?? 'no resume date';
 // --on ends a pause in the same update (scheduleCancelParams).
 const endsPause = desired && pause.paused;
 
+// A plan change the billing portal is holding until period end keeps the
+// subscription on a schedule, and Stripe won't set the cancel while one is
+// attached. --on releases it first (core/pendingPlanChange.ts).
+const pendingSchedule = pendingScheduleId(subscription);
+const dropsPlanChange = desired && pendingSchedule !== null;
+
 // Plain-English consequence of the requested state.
 const consequence = (() => {
   const at = periodEndIso ?? 'period end';
@@ -336,7 +350,10 @@ const consequence = (() => {
     const ending = isTrial
       ? `At ${at} the trial will END and the subscription will cancel — she will NOT be charged.`
       : `The subscription stays active until ${at}, then CANCELS — no further charge.`;
-    return endsPause ? `The pause ENDS now, so access comes back. ${ending}` : ending;
+    const afterPause = endsPause ? `The pause ENDS now, so access comes back. ${ending}` : ending;
+    return dropsPlanChange
+      ? `The waiting plan change is DROPPED, so the plan stays as it is now. ${afterPause}`
+      : afterPause;
   }
   if (pause.paused) {
     // Taking the cancel off a paused plan leaves the pause in place.
@@ -352,6 +369,9 @@ console.log(`Customer:           ${user.email} (id=${user.id})`);
 console.log(`Subscription:       ${subscription.id}`);
 console.log(`Status:             ${subscription.status} (${endLabel} ${periodEndIso ?? '—'})`);
 console.log(`Paused:             ${pause.paused ? `yes, until ${pausedUntil}` : 'no'}`);
+console.log(
+  `Plan change:        ${pendingSchedule ? `waiting until period end (schedule ${pendingSchedule})` : 'none waiting'}`,
+);
 console.log(`cancel_at_period_end: ${subscription.cancel_at_period_end ? 'true' : 'false'}  →  ${desired ? 'true' : 'false'}`);
 
 if (subscription.cancel_at_period_end === desired) {
@@ -387,6 +407,19 @@ if (!cliArgs.yes) {
 
 // --- Apply -----------------------------------------------------------------
 
+// --on releases a waiting plan change first, or Stripe refuses the cancel.
+let releasedSchedule: string | null = null;
+if (desired) {
+  try {
+    releasedSchedule = await releasePendingPlanChange(stripe, subscription);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`\nError: releasing the waiting plan change (schedule ${pendingSchedule}) failed: ${message}`);
+    console.error('Nothing was changed, in Stripe or the DB.');
+    process.exit(1);
+  }
+}
+
 try {
   await stripe.subscriptions.update(
     subscription.id,
@@ -398,6 +431,12 @@ try {
 } catch (err) {
   const message = err instanceof Error ? err.message : 'unknown error';
   console.error(`\nError: Stripe subscription update failed: ${message}`);
+  if (releasedSchedule) {
+    console.error(
+      `The waiting plan change (schedule ${releasedSchedule}) WAS released first, so the plan stays as it is. ` +
+        'Run the same command again: with no schedule left, it goes straight to the cancel.',
+    );
+  }
   console.error('No DB changes were made.');
   process.exit(1);
 }
@@ -422,7 +461,7 @@ INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, 
      NULL,
      '${escapeSqlLiteral(user.email)}',
      'manual-script',
-     '${escapeSqlLiteral(`cancel_at_period_end ${subscription.cancel_at_period_end ? 'true' : 'false'} → ${desired ? 'true' : 'false'} for sub ${subscription.id} (status=${subscription.status})${endsPause ? `; ended its pause (was paused until ${pausedUntil})` : ''}`)}',
+     '${escapeSqlLiteral(`cancel_at_period_end ${subscription.cancel_at_period_end ? 'true' : 'false'} → ${desired ? 'true' : 'false'} for sub ${subscription.id} (status=${subscription.status})${endsPause ? `; ended its pause (was paused until ${pausedUntil})` : ''}${releasedSchedule ? `; released its waiting plan change (schedule ${releasedSchedule}) first` : ''}`)}',
      '${escapeSqlLiteral(stamp)}'
    );`;
 try {

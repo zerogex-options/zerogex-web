@@ -28,6 +28,7 @@ import {
   type CancelNowAndVoidResult,
 } from '@/core/pastDueCancel';
 import { acknowledgeEndedCancel } from '@/core/cancelAck';
+import { pendingScheduleId, releasePendingPlanChange } from '@/core/pendingPlanChange';
 import { subscriptionPaidAt } from '@/core/subscriberBucket';
 import { sendCancellationEmail } from '@/core/mailer';
 
@@ -64,6 +65,10 @@ import { sendCancellationEmail } from '@/core/mailer';
 //     subscription is ended NOW and its open bill voided, so no retry can charge
 //     someone who canceled, and the member is acknowledged from here
 //     (core/pastDueCancel.ts, acknowledgeEndedCancel in core/cancelAck.ts).
+//     A plan change the billing portal is holding until period end is
+//     released first, because Stripe won't set the cancel on a subscription a
+//     schedule governs (core/pendingPlanChange.ts). A cancel that still fails
+//     leaves a billing_cancel_failed row with Stripe's reason.
 //
 // CSRF + session gated exactly like app/api/billing/change-plan/route.ts.
 
@@ -98,6 +103,26 @@ function loadBillingRow(userId: string): UserBillingRow | null {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+// A scheduled cancel that didn't go through. The member only sees "try again
+// or email support", so this row is the record of what Stripe said, and of the
+// command that finishes the cancel by hand.
+function recordScheduledCancelFailure(row: UserBillingRow, ip: string, what: string) {
+  appendAuditEvent({
+    type: 'billing_cancel_failed',
+    userId: row.id,
+    email: row.email,
+    ip,
+    message:
+      `In-app cancel of sub ${row.stripe_subscription_id} did not go through: ${what}. ` +
+      'The member was told to try again or email support. To cancel it for them: ' +
+      `make set-cancellation EMAIL=${row.email} ON=1 DRY_RUN=1, then YES=1.`,
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -503,9 +528,35 @@ export async function POST(request: NextRequest) {
     comment,
   }) as Stripe.SubscriptionUpdateParams;
 
+  // A plan change the billing portal is holding until period end keeps the
+  // subscription on a schedule, and Stripe refuses to set the cancel while one
+  // is attached. The cancel makes that change moot, so release it first: the
+  // plan stays as it is and ends at period end (core/pendingPlanChange.ts).
+  let releasedSchedule: string | null;
+  try {
+    releasedSchedule = await releasePendingPlanChange(stripe, live);
+  } catch (err) {
+    recordScheduledCancelFailure(
+      row,
+      getClientIp(request),
+      `releasing its pending plan change ${pendingScheduleId(live)} failed (${errorMessage(err)}); nothing was changed`,
+    );
+    return NextResponse.json(
+      { error: "Couldn't schedule the cancellation just now. Please try again in a minute." },
+      { status: 502 },
+    );
+  }
+
   try {
     await stripe.subscriptions.update(row.stripe_subscription_id, updateParams);
-  } catch {
+  } catch (err) {
+    recordScheduledCancelFailure(
+      row,
+      getClientIp(request),
+      (releasedSchedule
+        ? `its pending plan change ${releasedSchedule} was released (the plan stays as it is), then the cancel failed`
+        : 'the cancel failed') + ` (${errorMessage(err)})`,
+    );
     return NextResponse.json(
       { error: "Couldn't schedule the cancellation just now. Please try again in a minute." },
       { status: 502 },
@@ -525,7 +576,9 @@ export async function POST(request: NextRequest) {
     ip: getClientIp(request),
     message: `In-app cancellation scheduled for sub ${row.stripe_subscription_id}${
       feedback ? ` (reason ${feedback})` : ' (no reason given)'
-    }${livePause.paused ? `; ended its pause (was paused until ${livePause.resumesAtIso ?? 'no date'})` : ''}`,
+    }${livePause.paused ? `; ended its pause (was paused until ${livePause.resumesAtIso ?? 'no date'})` : ''}${
+      releasedSchedule ? `; released its pending plan change ${releasedSchedule} first (the plan ends as it is)` : ''
+    }`,
   });
 
   return NextResponse.json({

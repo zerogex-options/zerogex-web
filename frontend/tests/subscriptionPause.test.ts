@@ -535,6 +535,7 @@ function runOnPaused(
   name: string,
   sub: ReturnType<typeof pausedSubscription>,
   args: string[],
+  extraRoutes: Record<string, unknown> = {},
 ) {
   const f = busy.fixture(t, `${script.replace(/\.mts$/, '')}-${name}`);
   const email = `${name}@example.com`;
@@ -555,6 +556,7 @@ function runOnPaused(
     routes: {
       [`GET api.stripe.com/v1/subscriptions/${sub.id}`]: sub,
       [`POST api.stripe.com/v1/subscriptions/${sub.id}`]: { ...sub, cancel_at_period_end: true, pause_collection: null },
+      ...extraRoutes,
     },
   });
   const calls = httpCalls(f);
@@ -592,10 +594,78 @@ test('set-cancellation ON=1 on a plan that is not paused sends a plain cancel', 
   const { result, calls } = runOnPaused(t, 'set-cancellation.mts', 'on-live', sub, ['--on', '--yes']);
   assert.equal(result.status, 0, result.stderr + result.stdout);
   assert.match(result.stdout, /^Paused:\s+no$/m);
+  assert.match(result.stdout, /^Plan change:\s+none waiting$/m);
   assert.doesNotMatch(result.stdout, /pause ENDS/);
+  assert.doesNotMatch(result.stdout, /plan change is DROPPED/);
   const sent = new URLSearchParams(calls[1].body ?? '');
   assert.equal(sent.get('cancel_at_period_end'), 'true');
   assert.equal(sent.has('pause_collection'), false);
+});
+
+// --- A cancel drops a plan change the billing portal is holding ---------------
+// The portal holds a downgrade until period end on a subscription schedule, and
+// Stripe won't set the cancel while one is attached ("updating any cancelation
+// behavior directly is not allowed"), so a member who had scheduled Pro -> Basic
+// couldn't cancel from the Account page, and neither could this script
+// (docs/outreach/2026-11-26-nolan-trial-refund-sandro-cancel-blocked.md). Now
+// both release the schedule first (core/pendingPlanChange.ts).
+
+const SCHEDULE_ID = 'sub_sched_portal_downgrade';
+const RELEASE_ROUTE = `POST api.stripe.com/v1/subscription_schedules/${SCHEDULE_ID}/release`;
+
+function scheduledSubscription(id: string) {
+  return {
+    ...pausedSubscription(id, 'price_pro_monthly', { cancelAtPeriodEnd: false, billStatus: 'paid', billCents: 5900, paused: false }),
+    schedule: SCHEDULE_ID,
+  };
+}
+
+test('set-cancellation ON=1 DRY_RUN=1 shows a waiting plan change and changes nothing', { skip: sqlite3Missing }, (t) => {
+  const sub = scheduledSubscription('sub_dry_scheduled');
+  const { f, userId, result, paths } = runOnPaused(t, 'set-cancellation.mts', 'dry-scheduled', sub, ['--on', '--dry-run']);
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.match(result.stdout, new RegExp(`^Plan change:\\s+waiting until period end \\(schedule ${SCHEDULE_ID}\\)$`, 'm'));
+  assert.match(result.stdout, /The waiting plan change is DROPPED, so the plan stays as it is now\. The subscription stays active until .+, then CANCELS/);
+  assert.match(result.stdout, /\[dry-run\] No Stripe or DB writes\./);
+  assert.deepEqual(paths, ['GET /v1/subscriptions/sub_dry_scheduled'], 'a preview only reads');
+  assert.equal(column(f, userId, 'cancel_at_period_end'), 0);
+});
+
+test('set-cancellation ON=1 with a portal downgrade waiting releases it, then cancels, and records both', { skip: sqlite3Missing }, (t) => {
+  const sub = scheduledSubscription('sub_on_scheduled');
+  const { f, userId, result, calls, paths } = runOnPaused(t, 'set-cancellation.mts', 'on-scheduled', sub, ['--on', '--yes'], {
+    [RELEASE_ROUTE]: { id: SCHEDULE_ID, object: 'subscription_schedule', status: 'released', released_subscription: sub.id },
+  });
+  assert.equal(result.status, 0, result.stderr + result.stdout);
+  assert.deepEqual(paths, [
+    'GET /v1/subscriptions/sub_on_scheduled',
+    `POST /v1/subscription_schedules/${SCHEDULE_ID}/release`,
+    'POST /v1/subscriptions/sub_on_scheduled',
+  ]);
+  assert.equal(calls[1].body ?? '', '', 'a plain release: no other change to the subscription');
+  const sent = new URLSearchParams(calls[2].body ?? '');
+  assert.equal(sent.get('cancel_at_period_end'), 'true');
+  assert.equal(column(f, userId, 'cancel_at_period_end'), 1);
+  const { message } = f.db
+    .prepare(`SELECT message FROM audit_events WHERE type = 'billing_cancellation_set' AND user_id = ?`)
+    .get(userId) as { message: string };
+  assert.match(message, new RegExp(`; released its waiting plan change \\(schedule ${SCHEDULE_ID}\\) first$`));
+});
+
+test('set-cancellation ON=1: if the release fails, nothing else is touched', { skip: sqlite3Missing }, (t) => {
+  // No route for the release, so the stub answers 404, as Stripe would for a
+  // schedule it doesn't know.
+  const sub = scheduledSubscription('sub_release_fails');
+  const { f, userId, result, paths } = runOnPaused(t, 'set-cancellation.mts', 'release-fails', sub, ['--on', '--yes']);
+  assert.equal(result.status, 1, result.stderr + result.stdout);
+  assert.match(result.stderr, new RegExp(`releasing the waiting plan change \\(schedule ${SCHEDULE_ID}\\) failed`));
+  assert.match(result.stderr, /Nothing was changed, in Stripe or the DB\./);
+  // The stub logs only the calls it answers, so the refused release shows in
+  // Stripe's error, and the cancel (which is stubbed) was never sent.
+  assert.match(result.stderr, new RegExp(`No stub for POST api\\.stripe\\.com/v1/subscription_schedules/${SCHEDULE_ID}/release`));
+  assert.deepEqual(paths, ['GET /v1/subscriptions/sub_release_fails']);
+  assert.equal(column(f, userId, 'cancel_at_period_end'), 0);
+  assert.equal(auditCount(f, 'billing_cancellation_set', userId), 0);
 });
 
 test('set-cancellation on a plan left paused and canceling says so, either way', { skip: sqlite3Missing }, (t) => {

@@ -233,7 +233,7 @@ export default function CancelRetentionModal({
     try {
       const csrf = await fetchCsrf();
       if (!csrf) {
-        setError(t('genericError'));
+        setError(t('cancelError'));
         return;
       }
       const res = await fetch('/api/billing/cancel-flow', {
@@ -277,9 +277,9 @@ export default function CancelRetentionModal({
         if (j.endedPause) window.setTimeout(onChanged, 4000);
         return;
       }
-      setError(t('genericError'));
+      setError(t('cancelError'));
     } catch {
-      setError(t('genericError'));
+      setError(t('cancelError'));
     } finally {
       setBusy(false);
     }
