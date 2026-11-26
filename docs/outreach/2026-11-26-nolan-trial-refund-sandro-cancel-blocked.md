@@ -168,9 +168,11 @@ On the server, in `~/zerogex-web`.
    - **`Error: Stripe subscription update failed: The subscription is managed
      by the subscription schedule ...`:** that's the cause, confirmed, and
      nothing was changed. Merge `claude/cancel-with-pending-plan-change`, then
-     run steps 2 and 3 again. The preview now shows the waiting plan change,
-     and the apply drops it before scheduling the cancel, so his plan simply
-     ends on that date instead of switching.
+     run steps 2 and 3 again. The preview now has a line `Plan change:
+     waiting until period end (schedule sub_sched_...)`, and the apply drops
+     that change before scheduling the cancel, so his plan simply ends on that
+     date instead of switching. Nothing to deploy for this part: the script
+     runs from the checkout.
    - **Any other error:** don't send the reply. Bring me the output.
 
    This normally sends him nothing (the script records the cancel itself, so
