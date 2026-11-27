@@ -20,6 +20,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 import { formatCardBrand } from '../core/stripeCard.ts';
+import { canonicalEmail } from '../core/moneyBackGuarantee.ts';
 import { buildPayUrl } from '../core/payLink.ts';
 import { classifyTrialEngagement, daysSinceLastSeen } from '../core/trialEngagement.ts';
 import { classifySubscriberBucket, subscriptionPaidAt } from '../core/subscriberBucket.ts';
@@ -452,6 +453,39 @@ kv('Win-back email sent', orDash(user.winback_email_sent_at));
       ? 'attachable via /pricing?winback=1'
       : 'no — needs subscription_lapsed=1 AND winback_email_sent_at set',
   );
+}
+{
+  // The one-refund limit as hasPriorMoneyBackRefund (core/moneyBackServer.ts)
+  // reads it: a money-back guarantee refund, or a courtesy refund given outside
+  // it (core/courtesyRefunds.ts), on this account or its email. A card shared
+  // with another account counts too, but only checkout can see the card.
+  // docs/refund-requests.md: "yes" here means no courtesy refund either.
+  const idKey = escapeSqlLiteral(user.id);
+  const emailKey = escapeSqlLiteral(canonicalEmail(user.email));
+  let oneRefund: string;
+  try {
+    const used: string[] = [];
+    for (const row of querySqlite<{ status: string; subscription_id: string; at: string }>(
+      dbPath,
+      `SELECT status, subscription_id, COALESCE(completed_at, requested_at) AS at FROM money_back_refunds
+        WHERE status IN ('pending', 'completed') AND (user_id = '${idKey}' OR email_canonical = '${emailKey}')
+        ORDER BY at;`,
+    )) {
+      used.push(`money-back refund ${row.status} ${row.at} (sub ${row.subscription_id})`);
+    }
+    for (const row of querySqlite<{ refunded_at: string; charge_id: string }>(
+      dbPath,
+      `SELECT refunded_at, charge_id FROM courtesy_refunds
+        WHERE user_id = '${idKey}' OR email_canonical = '${emailKey}'
+        ORDER BY refunded_at;`,
+    )) {
+      used.push(`courtesy refund ${row.refunded_at} (charge ${row.charge_id})`);
+    }
+    oneRefund = used.length > 0 ? `yes — ${used.join('; ')}` : 'no';
+  } catch {
+    oneRefund = 'unknown — no courtesy_refunds table yet (it arrives with the deploy that adds it)';
+  }
+  kv('One refund used', oneRefund);
 }
 
 // Which line of the admin Total Subscribers chart this member is on RIGHT NOW,

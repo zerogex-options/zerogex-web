@@ -40,6 +40,7 @@
 import { randomBytes } from 'node:crypto';
 import type Stripe from 'stripe';
 import { getDb } from './db.ts';
+import { hasPriorCourtesyRefund } from './courtesyRefunds.ts';
 import { getStripe, priceIdToSku, skuHasMoneyBackGuarantee } from './stripe.ts';
 import { MONEY_BACK_GUARANTEE_DAYS, type BillingCadence, type BillableTier } from './billingPlans.ts';
 import {
@@ -198,7 +199,10 @@ function findUnfinishedLedgerForUser(userId: string): LedgerRow | null {
 }
 
 // The one-refund-per-customer limit: a pending or completed guarantee refund on
-// ANY OTHER subscription that shares this account, canonical email or card.
+// ANY OTHER subscription that shares this account, canonical email or card, or
+// a courtesy refund given outside the guarantee to any of them
+// (core/courtesyRefunds.ts). A resumed request is never stopped by it:
+// requestMoneyBackRefund and decideMoneyBack both skip the limit when resuming.
 export function hasPriorMoneyBackRefund(input: {
   userId: string;
   email: string;
@@ -217,7 +221,10 @@ export function hasPriorMoneyBackRefund(input: {
     .get(input.subscriptionId, input.userId, canonicalEmail(input.email), input.cardFingerprint ?? '') as
     | { hit: number }
     | undefined;
-  return !!row;
+  return (
+    !!row ||
+    hasPriorCourtesyRefund({ userId: input.userId, email: input.email, cardFingerprint: input.cardFingerprint })
+  );
 }
 
 function cardFromCharge(charge: Stripe.Charge | null | undefined): CardInfo | null {

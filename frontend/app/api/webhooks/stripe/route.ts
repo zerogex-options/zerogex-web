@@ -75,6 +75,7 @@ import {
 import { MONEY_BACK_GUARANTEE_DAYS } from '@/core/billingPlans';
 import { lookupInvoiceDecline } from '@/core/stripeDeclineLookup';
 import { lookupChargeInvoice, refundAuditMessage } from '@/core/chargeInvoice';
+import { recordCourtesyRefundForCharge } from '@/core/courtesyRefunds';
 import {
   collectPaymentFailureDiagnostics,
   describeDiagnosticProblems,
@@ -3009,6 +3010,40 @@ export async function POST(request: NextRequest) {
           // scripts/repair-refund-commissions.mts.
           message: refundAuditMessage(charge, paidInvoice),
         });
+
+        // A full refund the customer asked for, given outside the money-back
+        // flow, is a courtesy refund (docs/refund-requests.md): their one
+        // refund. Recorded where the guarantee's one-refund limit looks
+        // (core/courtesyRefunds.ts), so they can't get a second through it.
+        // Best-effort, like the row above: a miss is caught by
+        // scripts/backfill-courtesy-refunds.mts, which re-reads Stripe.
+        try {
+          const courtesy = await recordCourtesyRefundForCharge(getStripe(), charge, {
+            invoice: paidInvoice,
+            user: refundedUser ? { id: refundedUser.id, email: refundedUser.email } : null,
+            nowIso: nowIso(),
+          });
+          if (courtesy.state === 'recorded') {
+            logAudit({
+              type: 'courtesy_refund_recorded',
+              userId: refundedUser?.id,
+              email: refundedUser?.email,
+              message:
+                `Charge ${charge.id} refunded in full at the customer's request, outside the money-back ` +
+                'guarantee: their one refund. The guarantee is off for this account, email and card.',
+            });
+          }
+        } catch (err) {
+          logAudit({
+            type: 'courtesy_refund_record_failed',
+            userId: refundedUser?.id,
+            email: refundedUser?.email,
+            message:
+              `Could not check the refund on charge ${charge.id} for a courtesy refund: ` +
+              `${err instanceof Error ? err.message : String(err)}. ` +
+              'Run make backfill-courtesy-refunds (a dry run), then YES=1, to record it.',
+          });
+        }
 
         // Any refund on a paid invoice reverses that invoice's accrued
         // commission. Partial vs full refund is treated identically —

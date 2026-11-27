@@ -1180,6 +1180,37 @@ function initDb(): DatabaseSync {
   // stall, re-armed whenever the request moves again.
   ensureColumn('money_back_refunds', 'stale_alert_for', 'TEXT');
 
+  // ── Courtesy refunds ──────────────────────────────────────────────────────
+  // The customer's one refund when it was given outside the guarantee: a full
+  // refund marked "Requested by customer" in the Stripe Dashboard (a trial that
+  // converted, or a renewal, refunded once as a courtesy). hasPriorMoneyBackRefund
+  // reads this beside money_back_refunds, so the one-refund limit sees both.
+  // One row per refunded charge; what counts is decided in
+  // core/courtesyRefunds.ts. Written by the charge.refunded webhook and by
+  // scripts/backfill-courtesy-refunds.mts. Not a foreign key and never deleted
+  // with the account, for the same reason as money_back_refunds above.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS courtesy_refunds (
+      charge_id TEXT PRIMARY KEY,
+      refund_ids TEXT NOT NULL,
+      customer_id TEXT,
+      user_id TEXT,
+      email TEXT,
+      email_canonical TEXT,
+      card_fingerprint TEXT,
+      invoice_id TEXT,
+      amount_refunded INTEGER NOT NULL,
+      currency TEXT,
+      refunded_at TEXT NOT NULL,
+      source TEXT NOT NULL,
+      recorded_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_courtesy_refunds_user ON courtesy_refunds(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_courtesy_refunds_email ON courtesy_refunds(email_canonical);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_courtesy_refunds_card ON courtesy_refunds(card_fingerprint);');
+
   // ── Free daily levels email ───────────────────────────────────────────────
   // Subscribers to the pre-open levels digest, captured from the public
   // /<ticker>-gamma-levels pages.

@@ -40,17 +40,22 @@ make diagnose-user EMAIL=<their email>
 - **Asked within a day:** their email's time, against the charge.
 - **Unused:** `Last seen`, and any `login_success` lines after the charge. The
   login right before the cancel is fine. Days of use before canceling is a no.
-- **Never refunded:** no `refund_issued` or `money_back_refund_issued` line in
-  the recent events, and no refunded payment on their Stripe customer page.
-  You'll be on that page anyway for the refund.
+- **Never refunded:** `One refund used` reads `no`. It covers money-back
+  refunds and courtesy refunds, on this account or another with the same
+  email. A shared card shows up only at checkout, so also glance at their
+  Stripe customer page for a refunded payment. You'll be there anyway for the
+  refund.
 
 ## A yes
 
 1. **Refund in the Stripe Dashboard.** Open the customer and the payment
    they're asking about. Not an earlier one: on a renewal, there's more than
-   one. Choose Refund, full amount, reason **Requested by customer**. Never
-   "Fraudulent", which puts their card and email on your block list. If the
-   payment shows as disputed, stop and answer the dispute instead.
+   one. Choose Refund, full amount, reason **Requested by customer**. That
+   reason is what records it as their one refund: the site sees the refund and
+   switches off the money-back guarantee for their account, email and card,
+   so they can't get a second refund on a later plan. Never "Fraudulent",
+   which puts their card and email on your block list. If the payment shows
+   as disputed, stop and answer the dispute instead.
 2. **Preview the cancel**, in `~/zerogex-web` on the server:
 
    ```bash
@@ -104,11 +109,19 @@ usually cheaper than the dispute. Your call.
 All four fit the rule and were refunded: Lee (Oct 30), Jose (Nov 18), Nolan
 (Nov 26) and Jesse (Nov 27). Notes in `docs/outreach/`.
 
-## Worth knowing (can wait)
+## Refunds that fix your own mistakes
 
-The money-back guarantee's one-refund limit reads only its own ledger
-(`hasPriorMoneyBackRefund` in `frontend/core/moneyBackServer.ts`), and a
-Dashboard refund never reaches that ledger. So a customer who got a courtesy
-refund and later buys a plan with the guarantee could still get a second
-refund through it. Rare. The fix is to have that check count these refunds
-too.
+A refund for something that was your fault, like a double charge or a billing
+bug, shouldn't cost the customer their guarantee. Give it the reason
+**Duplicate**, or **Other**, never "Requested by customer". Partial refunds
+(say, a credit for an outage) never count either.
+
+## How the one refund is tracked
+
+A full refund marked "Requested by customer", outside the money-back flow, is
+recorded as the customer's one refund the moment Stripe reports it
+(`frontend/core/courtesyRefunds.ts`). The guarantee's one-refund limit reads
+those records alongside its own, by account, email and card. So does the
+pricing page, checkout and the Account page's refund button.
+`make backfill-courtesy-refunds` records the ones given before this existed:
+a dry run first, then `YES=1`.
