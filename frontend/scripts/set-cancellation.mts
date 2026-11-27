@@ -17,7 +17,9 @@
 //          downgrade) is released first, also as the Account page's Cancel
 //          does: Stripe won't set the cancel while a schedule governs the
 //          subscription, and the plan ends as it is now
-//          (core/pendingPlanChange.ts). The preview shows it.
+//          (core/pendingPlanChange.ts). The preview shows it. The row is then
+//          left for the webhook to write, with the cancellation email held
+//          (below).
 //
 // This only sets a flag; Stripe does the rest at period end. Clearing it on a
 // trialing sub is what turns "trial then cancel" into "trial then convert".
@@ -28,7 +30,26 @@
 // (reactivation) transition — clears cancel_ack_email_sent_at so a future
 // re-cancel can re-send the acknowledgment. This script writes those same
 // values straight to the row too, so state is correct immediately; the webhook
-// reconciles to the same values later (idempotent).
+// reconciles to the same values later (idempotent). For --on, that write is
+// also what keeps the cancellation email ("Sorry to see you go") from going
+// out: the webhook sends it on a 0→1 change it reads off the row, and with the
+// row already at 1, as it almost always is by then, it sees none.
+//
+// Except after releasing a waiting plan change. The release sends its own
+// customer.subscription.updated, still not canceling, and Stripe can deliver it
+// late. Landing after the row was set to 1, it would read as an un-cancel (1→0)
+// and clear cancel_ack_email_sent_at, and the cancel's own event would then
+// send the email. So after a release, the script leaves the flag for the
+// webhook to write and, just before asking Stripe for the cancel, sets
+// cancel_ack_email_sent_at itself: the latch the webhook must claim before it
+// sends (core/cancelAck.ts). A late release event then finds the row still at
+// 0 and changes nothing, or, landing after the cancel's event, is dropped as
+// stale (RELEASE_SETTLE_MS in core/pendingPlanChange.ts). The cancel's event
+// records the cancel the way an in-app cancel's does, a
+// stripe_cancellation_requested row that the cancel reports and the Growth tab
+// count, minus the email. The row shows the cancel once that event lands,
+// usually within seconds. If the cancel fails, the latch is cleared again, so
+// a later cancel is acknowledged as usual.
 //
 // Only operates on a subscription Stripe reports as 'trialing' or 'active'.
 // Idempotent: if the flag is already in the requested state, it no-ops.
@@ -120,6 +141,8 @@ Direction (exactly one required):
 Other:
       --dry-run   Print the plan; no Stripe or DB writes.
   -y, --yes       Apply: update Stripe, mirror the row, write an audit row.
+                  After dropping a waiting plan change, the webhook mirrors
+                  the row instead, with the cancellation email held.
   -h, --help      Show this help.
 
 Only operates on a subscription Stripe reports as 'trialing' or 'active'.
@@ -186,11 +209,11 @@ function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): 
 // itself. Safe to repeat: every write here is a single statement or a whole
 // BEGIN ... COMMIT, the CLI stops at the first failing statement, and it rolls
 // back an open transaction when it exits, so a failed attempt wrote nothing.
-function execSqlite(dbPath: string, sql: string, attempts = 3) {
+// Returns the CLI's -json output, for a write that reads its result back.
+function execSqlite(dbPath: string, sql: string, attempts = 3): string {
   for (let attempt = 1; ; attempt++) {
     try {
-      runSqlite(dbPath, sql);
-      return;
+      return runSqlite(dbPath, sql);
     } catch (err) {
       if (attempt >= attempts || !isLockError((err as Error).message)) throw err;
       sleepSync(attempt * 500);
@@ -215,6 +238,32 @@ function currentPeriodEndUnix(subscription: Stripe.Subscription): number | null 
     .current_period_end;
   if (typeof subValue === 'number') return subValue;
   return null;
+}
+
+// The cancellation email ("Sorry to see you go", core/cancelAck.ts) is latched
+// on users.cancel_ack_email_sent_at: the webhook sends it only if it can set
+// that from empty. Setting it here first, the way the webhook does, holds the
+// email back. Returns the stamp when this run set it, or null when it was
+// already set: held all the same, but not this run's to clear. Throws when the
+// email is not held, so the caller doesn't go on to the cancel.
+function holdCancelEmail(dbPath: string, userId: string): string | null {
+  const stamp = nowIso();
+  const output = execSqlite(
+    dbPath,
+    `UPDATE users SET cancel_ack_email_sent_at = '${escapeSqlLiteral(stamp)}', updated_at = '${escapeSqlLiteral(stamp)}'
+     WHERE id = '${escapeSqlLiteral(userId)}' AND cancel_ack_email_sent_at IS NULL;
+     SELECT cancel_ack_email_sent_at AS held FROM users WHERE id = '${escapeSqlLiteral(userId)}';`,
+  ).trim();
+  const held = output ? (JSON.parse(output) as Array<{ held: string | null }>)[0]?.held ?? null : null;
+  if (!held) throw new Error('cancel_ack_email_sent_at is still empty after setting it');
+  return held === stamp ? stamp : null;
+}
+
+// Undoes holdCancelEmail's stamp, and only that stamp, so a cancel that didn't
+// go through leaves the member's next cancel acknowledged as usual.
+function clearHeldCancelEmailSql(userId: string, stamp: string): string {
+  return `UPDATE users SET cancel_ack_email_sent_at = NULL, updated_at = '${escapeSqlLiteral(nowIso())}'
+   WHERE id = '${escapeSqlLiteral(userId)}' AND cancel_ack_email_sent_at = '${escapeSqlLiteral(stamp)}';`;
 }
 
 // ---------------------------------------------------------------------------
@@ -420,6 +469,27 @@ if (desired) {
   }
 }
 
+const releasedFirst = (schedule: string) =>
+  `The waiting plan change (schedule ${schedule}) WAS released first, so the plan stays as it is. ` +
+  'Run the same command again: with no schedule left, it goes straight to the cancel.';
+
+// After a release, the cancellation email is held before the cancel is asked
+// for, and the flag is left for the webhook to write (see the header). Held
+// last thing before the cancel, so an interrupted run has almost no chance to
+// leave it held with no cancel behind it.
+let heldEmailStamp: string | null = null;
+if (releasedSchedule) {
+  try {
+    heldEmailStamp = holdCancelEmail(dbPath, user.id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`\nError: holding the cancellation email failed, so the cancel was NOT sent: ${message}`);
+    console.error(releasedFirst(releasedSchedule));
+    console.error('No DB changes were made.');
+    process.exit(1);
+  }
+}
+
 try {
   await stripe.subscriptions.update(
     subscription.id,
@@ -431,11 +501,26 @@ try {
 } catch (err) {
   const message = err instanceof Error ? err.message : 'unknown error';
   console.error(`\nError: Stripe subscription update failed: ${message}`);
-  if (releasedSchedule) {
-    console.error(
-      `The waiting plan change (schedule ${releasedSchedule}) WAS released first, so the plan stays as it is. ` +
-        'Run the same command again: with no schedule left, it goes straight to the cancel.',
-    );
+  if (releasedSchedule) console.error(releasedFirst(releasedSchedule));
+  if (heldEmailStamp) {
+    // Held for a cancel that didn't happen. Left held, the member's next
+    // cancel would go unacknowledged. If Stripe did apply it and only the reply
+    // was lost, clearing it lets the usual email go out: the harmless way to be
+    // wrong.
+    const clearSql = clearHeldCancelEmailSql(user.id, heldEmailStamp);
+    try {
+      execSqlite(dbPath, clearSql);
+    } catch (clearErr) {
+      const clearMessage = clearErr instanceof Error ? clearErr.message : 'unknown error';
+      console.error(`The cancellation email is still held: clearing it failed: ${clearMessage}`);
+      console.error(
+        'Until it is cleared, the member\'s next cancel gets no "Sorry to see you go" email and no save offer. Clear it now:',
+      );
+      console.error(`sqlite3 -bail -cmd ".timeout ${SQLITE_BUSY_TIMEOUT_MS}" '${dbPath}' <<'SQL'\n${clearSql}\nSQL`);
+      process.exit(1);
+    }
+    console.error('Nothing is left changed in the DB: the cancellation email it held is cleared again.');
+    process.exit(1);
   }
   console.error('No DB changes were made.');
   process.exit(1);
@@ -444,16 +529,20 @@ try {
 const stamp = nowIso();
 // Mirror the flag. On stopping a cancellation (→ false), also clear
 // cancel_ack_email_sent_at, matching the webhook's reactivation branch so a
-// future re-cancel can re-fire the acknowledgment email.
+// future re-cancel can re-fire the acknowledgment email. After a release the
+// flag is the webhook's to write (see the header): only the audit row is here.
 const clearAckClause = desired ? '' : ", cancel_ack_email_sent_at = NULL";
-const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
-// The mirrored flag and the audit row go in one transaction: one lock to wait
-// for instead of two, and never one without the other.
-const recordSql = `UPDATE users SET
+const mirrorSql = releasedSchedule
+  ? ''
+  : `UPDATE users SET
      cancel_at_period_end = ${desired ? 1 : 0}${clearAckClause},
      updated_at = '${escapeSqlLiteral(stamp)}'
    WHERE id = '${escapeSqlLiteral(user.id)}';
-INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+`;
+const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+// The mirrored flag and the audit row go in one transaction: one lock to wait
+// for instead of two, and never one without the other.
+const recordSql = `${mirrorSql}INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
    VALUES (
      '${escapeSqlLiteral(auditId)}',
      '${escapeSqlLiteral(AUDIT_TYPE)}',
@@ -461,7 +550,7 @@ INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, 
      NULL,
      '${escapeSqlLiteral(user.email)}',
      'manual-script',
-     '${escapeSqlLiteral(`cancel_at_period_end ${subscription.cancel_at_period_end ? 'true' : 'false'} → ${desired ? 'true' : 'false'} for sub ${subscription.id} (status=${subscription.status})${endsPause ? `; ended its pause (was paused until ${pausedUntil})` : ''}${releasedSchedule ? `; released its waiting plan change (schedule ${releasedSchedule}) first` : ''}`)}',
+     '${escapeSqlLiteral(`cancel_at_period_end ${subscription.cancel_at_period_end ? 'true' : 'false'} → ${desired ? 'true' : 'false'} for sub ${subscription.id} (status=${subscription.status})${endsPause ? `; ended its pause (was paused until ${pausedUntil})` : ''}${releasedSchedule ? `; released its waiting plan change (schedule ${releasedSchedule}) first, so left the flag for the webhook to record, with the cancellation email held (cancel_ack_email_sent_at)` : ''}`)}',
      '${escapeSqlLiteral(stamp)}'
    );`;
 try {
@@ -472,7 +561,9 @@ try {
     `\ncancel_at_period_end is now ${desired ? 'true' : 'false'} on ${subscription.id} in Stripe, but not recorded here: ${message}`,
   );
   console.error(
-    "Unrecorded, the site goes by the old setting until Stripe's webhook catches up, and nothing here shows it was changed by hand: a re-run finds Stripe already set and records nothing. Record it now:",
+    releasedSchedule
+      ? 'The webhook still records the cancel, with no email, but nothing here shows it was set by hand: a re-run finds Stripe already set and records nothing. Record it now:'
+      : "Unrecorded, the site goes by the old setting until Stripe's webhook catches up, and nothing here shows it was changed by hand: a re-run finds Stripe already set and records nothing. Record it now:",
   );
   // A quoted heredoc, so the shell passes the SQL through untouched, and
   // -bail, so a statement that fails stops the rest and nothing is half-written.
@@ -486,4 +577,9 @@ console.log(
 console.log(consequence);
 if (endsPause) {
   console.log('Access comes back as soon as the webhook lands. Check with make diagnose-user if in doubt.');
+}
+if (releasedSchedule) {
+  console.log(
+    "The site records the cancel when Stripe's webhook lands, usually within seconds (make diagnose-user shows it then). The cancellation email was held, so the member gets none.",
+  );
 }

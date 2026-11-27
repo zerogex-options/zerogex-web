@@ -71,6 +71,12 @@ function wait(ms: number): Promise<void> {
 // the released schedule's id, or null when none was attached (no Stripe call
 // and no wait then). Throws what Stripe throws: the caller has not changed
 // anything yet and can say so.
+//
+// After this, leave cancel_at_period_end on the users row to the webhook. The
+// release's own event can land after a local write of 1, read as an un-cancel
+// (1→0), clear the cancellation email's latch, and let the cancel's event send
+// that email after all. The in-app cancel never writes it, and
+// scripts/set-cancellation.mts holds the email it promises not to send.
 export async function releasePendingPlanChange(
   stripe: ScheduleReleaser,
   subscription: { schedule?: ScheduleRef },

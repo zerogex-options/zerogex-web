@@ -14,6 +14,11 @@
 //   • a save: app/save, the in-app cancel flow, and the honor-winback-discount
 //     and set-cancellation scripts clear it themselves.
 //
+// One caller takes it on purpose: make set-cancellation --on, when it has had
+// to release a waiting plan change first. It sets the latch just before asking
+// Stripe for the cancel, so the 0→1 below records the cancel but sends nothing
+// (the script promises no email), and clears it again if the cancel fails.
+//
 // A member whose payment had already failed is the exception. Their Cancel
 // ends the subscription on the spot and voids its bill (core/pastDueCancel.ts),
 // so there is no pending cancel and no 0→1 transition: the in-app cancel flow

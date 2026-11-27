@@ -1403,7 +1403,9 @@ signup-alarm:
 # end (access until then, no further charge); on a paused plan ON=1 ends the
 # pause in the same update, as the Account page's Cancel does, so the plan is
 # never paused and canceling at once. The webhook mirrors the flag onto the
-# users row automatically; this also writes it directly for immediacy.
+# users row automatically; this also writes it directly for immediacy, except
+# when ON=1 first drops a plan change the billing portal was holding: then the
+# webhook alone writes it, with the cancellation email held.
 # Only touches trialing/active subs. Sends NO email. NOTE: clearing the flag on
 # someone who chose to cancel means she'll be charged at period end unless she
 # cancels again — tell her, or a surprise charge invites a dispute.
