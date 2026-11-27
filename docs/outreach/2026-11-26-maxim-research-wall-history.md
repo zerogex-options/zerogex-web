@@ -17,8 +17,9 @@ and for the format, usage and attribution terms. He'll publish methodology and
 aggregate results (negatives included) with attribution and a link, and won't
 republish the data, sell signals or build a competing service.
 
-> **Status:** draft final, unsent. It promises him two answers by a follow-up
-> email (see "Owed after sending"). No deadline.
+> **Status:** sent Nov 27. Stripe code `ZGXRESEARCH` created. Owed: a
+> follow-up email with the answers to points 3 and 5 (see "Owed after
+> sending"). No deadline; his code works from Dec 2.
 
 ## The read
 
