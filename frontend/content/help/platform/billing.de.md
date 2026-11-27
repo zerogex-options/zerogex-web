@@ -78,8 +78,6 @@ Deine Kontoseite weist auf die fehlgeschlagene Zahlung hin, und mit ihrem Button
 
 Unsere [Pricing](/pricing)-Seite dokumentiert die Rückerstattungs- und Kündigungsrichtlinie. Kurz gesagt: Die Testphase von Basic monatlich ist bedingungslos - kündige, bevor sie endet, und dir wird nie etwas berechnet - und für alle anderen Pläne gilt die oben beschriebene 7-tägige Geld-zurück-Garantie (eine Erstattung pro Kunde). Darüber hinaus werden Abonnements im Voraus abgerechnet und bei einer Kündigung nicht anteilig erstattet.
 
-Für Ausnahmen schreibe eine E-Mail an [support@zerogex.io](mailto:support@zerogex.io).
-
 ## Wechsel zu einem längeren Abrechnungszeitraum
 
 Die Rechnung geht zu deinen Gunsten auf - je länger der Zeitraum, desto niedriger der monatliche Gegenwert. Wähle den längeren Zeitraum auf der [Pricing](/pricing)-Seite: Du siehst vorher den genauen Betrag, der heute berechnet wird - den Preis des neuen Plans abzüglich einer Gutschrift für den ungenutzten Teil deines aktuellen Zeitraums - und bestätigst ihn. Der neue Zeitraum beginnt am selben Tag. Im Portal geht derselbe Wechsel ebenfalls. Befindest du dich noch in der kostenlosen Testphase von Basic, beendet der Wechsel die Testphase und der neue Plan wird noch am selben Tag abgerechnet (siehe oben).

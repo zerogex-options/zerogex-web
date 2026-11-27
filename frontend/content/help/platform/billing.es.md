@@ -78,8 +78,6 @@ Tu página Cuenta avisa del pago fallido, y su botón **Abrir el portal de factu
 
 Nuestra página de [Pricing](/pricing) documenta la política de reembolsos y cancelación. En resumen: la prueba de Basic mensual es incondicional - cancela antes de que termine y nunca se te cobrará - y todos los demás planes tienen la garantía de devolución del dinero de 7 días descrita arriba (un reembolso por cliente). Aparte de eso, las suscripciones se facturan por adelantado y no se prorratean al cancelar.
 
-Para excepciones, escribe a [support@zerogex.io](mailto:support@zerogex.io).
-
 ## Cambio a un periodo de facturación más largo
 
 Los números salen a tu favor: cuanto más largo es el periodo, menor es el equivalente mensual. Elige el periodo más largo en la página de [Pricing](/pricing): verás antes el importe exacto que se cobra hoy - el precio del nuevo plan, menos un crédito por la parte no utilizada de tu periodo actual - y lo confirmarás. El nuevo periodo empieza ese mismo día. El portal también puede hacer el mismo cambio. Si aún estás en la prueba gratuita de Basic, el cambio termina la prueba y factura el nuevo plan ese mismo día (ver arriba).

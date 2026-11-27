@@ -3,8 +3,11 @@
 American English, and each paragraph in the drafts is a single line with no
 hard wrapping, so it can be pasted straight into a mail client.
 
-> **Status:** drafts, unsent. Your call between the two below. Nothing is run
-> yet.
+> **Status, Fri Nov 27:** Option A. You refunded the Nov 26 renewal in the
+> Stripe Dashboard ("at least he was friendly about it"), then ran
+> `make cancel-subscription ... FORCE=1 YES=1`: plan canceled, tier `public`,
+> one active API key revoked. Fits the courtesy rule in
+> `docs/refund-requests.md`, so a second request from him is a no.
 
 **Inbound.** Thu Nov 26, 4:48 PM ET, to support@, "Courtesy Refund Request",
 from Jesse Sanchez
@@ -104,5 +107,10 @@ Michael
 
 - **He says why.** Note it. If it's a bug or a missing feature, look before
   promising anything.
+- **Basic or a discount?** Not before he answers. Offering one now is a guess,
+  and a pitch right after a refund reads as pushy. If he says price: Basic at
+  $39 a month, or the standard 50%-off win-back. Either way, he lands in your
+  Monday win-back digest about 30 days after the plan closed (around Dec 28),
+  and you can approve or skip him there.
 - **Option B, and he pushes back or mentions his bank:** refund (Option A).
   A dispute costs more than $59.

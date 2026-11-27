@@ -11,6 +11,9 @@
 ## Production server
 - The auth database is at `/var/lib/zerogex/auth.db` (`AUTH_DB_PATH=/var/lib/zerogex/auth.db`). Use that path in any `sqlite3` command you give me, not the `frontend/data/auth.db` default the scripts fall back to.
 
+## Refund requests
+- For a refund the money-back guarantee doesn't cover (a trial that converted, or a renewal), apply the courtesy rule in `docs/refund-requests.md`: one courtesy refund per customer, only if they canceled, asked within a day of the charge, and haven't used the time since. The reply calls it a one-time courtesy. Everyone else gets the terms, politely. Don't open a reply with "no problem" or other reassurance.
+
 ## How to end every reply
 End every reply with these two sections:
 

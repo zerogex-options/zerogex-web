@@ -32,9 +32,11 @@ hard wrapping, so it can be pasted straight into a mail client.
 > sudo zgrep -h 'POST /api/billing/cancel-flow' /var/log/nginx/access.log* | grep '26/Nov/2026'
 > ```
 >
-> Each line is one click. His are the 502s that morning (server time is
-> probably UTC, so about 13:30 to 15:35). Jesse's cancel that afternoon shows
-> as a 200, for contrast.
+> Each line is one click. **Ran Nov 27:** one browser (Firefox on Windows)
+> failed 12 times, between 8:30 and 10:47 AM ET (the server logs in ET). The
+> first failure came six minutes before his first email. Every other cancel-flow
+> request that day succeeded, from four other browsers, Jesse's at 4:46 PM among
+> them. So it was broken, and only for him.
 
 ## Nolan Tantay: forgot to cancel the trial, asks for a refund
 

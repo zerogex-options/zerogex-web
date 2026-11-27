@@ -78,8 +78,6 @@ La tua pagina Account segnala il pagamento non riuscito, e il suo pulsante **Apr
 
 La nostra pagina [Pricing](/pricing) documenta la politica di rimborso e annullamento. In breve: la prova di Basic mensile è incondizionata - annulla prima che finisca e non ti verrà mai addebitato nulla - e tutti gli altri piani hanno la garanzia soddisfatti o rimborsati di 7 giorni descritta sopra (un rimborso per cliente). Oltre a ciò, gli abbonamenti vengono fatturati in anticipo e non sono rimborsati pro rata in caso di annullamento.
 
-Per le eccezioni, scrivi a [support@zerogex.io](mailto:support@zerogex.io).
-
 ## Passaggio a un periodo di fatturazione più lungo
 
 I conti tornano a tuo favore: più lungo è il periodo, più basso è l'equivalente mensile. Scegli il periodo più lungo nella pagina [Pricing](/pricing): vedrai prima l'importo esatto addebitato oggi - il prezzo del nuovo piano, meno un credito per la parte non utilizzata del periodo corrente - e lo confermerai. Il nuovo periodo inizia il giorno stesso. Il portale può fare lo stesso cambio. Se sei ancora nella prova gratuita di Basic, il cambio termina la prova e addebita il nuovo piano il giorno stesso (vedi sopra).

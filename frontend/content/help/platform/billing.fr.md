@@ -78,8 +78,6 @@ Votre page Compte signale l'échec du paiement, et son bouton **Ouvrir le portai
 
 Notre page [Pricing](/pricing) détaille la politique de remboursement et d'annulation. En bref : l'essai de Basic mensuel est sans condition - annulez avant qu'il ne se termine et vous ne serez jamais facturé - et toutes les autres formules bénéficient de la garantie satisfait ou remboursé de 7 jours décrite ci-dessus (un remboursement par client). Au-delà, les abonnements sont facturés à l'avance et ne sont pas remboursés au prorata en cas d'annulation.
 
-Pour les cas particuliers, écrivez à [support@zerogex.io](mailto:support@zerogex.io).
-
 ## Passage à une période de facturation plus longue
 
 Le calcul joue en votre faveur : plus la période est longue, plus l'équivalent mensuel est bas. Choisissez la période plus longue sur la page [Pricing](/pricing) : vous voyez d'abord le montant exact facturé aujourd'hui - le prix de la nouvelle formule, moins un crédit pour la partie non utilisée de votre période en cours - et le confirmez. La nouvelle période commence le jour même. Le portail peut faire le même changement. Si vous êtes encore dans l'essai gratuit de Basic, le changement met fin à l'essai et facture la nouvelle formule le jour même (voir ci-dessus).

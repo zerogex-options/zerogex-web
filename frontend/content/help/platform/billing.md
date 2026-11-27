@@ -78,8 +78,6 @@ Your Account page flags the failed payment, and its **Open billing portal** butt
 
 Our [Pricing](/pricing) page documents the refund and cancellation policy. Short version: the Basic monthly trial is unconditional - cancel before it ends and you're never charged - and every other plan has the 7-day money-back guarantee above (one refund per customer). Beyond that, subscriptions are billed in advance and not pro-rated on cancellation.
 
-For exceptions, email [support@zerogex.io](mailto:support@zerogex.io).
-
 ## Switching to a longer billing period
 
 The math works out in your favor - the longer the period, the lower the monthly equivalent. Choose the longer period on the [Pricing](/pricing) page: you'll see the exact amount charged today - the new plan's price, less a credit for the unused part of your current period - and confirm it first. The new period starts that day. The portal can make the same switch. If you're still in the Basic free trial, the switch ends the trial and bills the new plan that day (see above).

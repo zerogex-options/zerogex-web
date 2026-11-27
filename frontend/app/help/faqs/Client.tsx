@@ -171,7 +171,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'refunds',
         q: 'Do you offer refunds?',
-        a: 'Two protections, one per plan. The Basic monthly free trial is unconditional\u00a0- cancel before it ends and you are never charged. Every other plan comes with a 7-day money-back guarantee: request a full refund from the Account page within 7 days of your first payment and it is refunded in full, with your access ending when the refund is issued (one refund per customer). Beyond that, subscriptions are billed in advance and not pro-rated on cancellation. For anything else, email support@zerogex.io and we will work it out.',
+        a: 'Two protections, one per plan. The Basic monthly free trial is unconditional\u00a0- cancel before it ends and you are never charged. Every other plan comes with a 7-day money-back guarantee: request a full refund from the Account page within 7 days of your first payment and it is refunded in full, with your access ending when the refund is issued (one refund per customer). Beyond that, subscriptions are billed in advance and not pro-rated on cancellation.',
       },
       {
         id: 'billing-issue',
