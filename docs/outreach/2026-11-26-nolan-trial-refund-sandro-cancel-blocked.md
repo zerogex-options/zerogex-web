@@ -3,9 +3,38 @@
 American English, and each paragraph in the drafts is a single line with no
 hard wrapping, so it can be pasted straight into a mail client.
 
-> **Status:** drafts, unsent. I couldn't see either account from here (no
-> server or Stripe access), so each part starts with a check. Nolan's email is
-> a day old. Sandro wrote twice this morning and can't cancel on his own.
+> **Status, Thu Nov 26, evening.** Both plans are canceled. Replies not sent
+> yet.
+>
+> - **Nolan:** plan closed with `make cancel-subscription ... FORCE=1 YES=1`
+>   (canceled now, tier `public`), and refunded in full in the Stripe
+>   Dashboard: `refund_issued`, 3900 of 3900, Thu Nov 26, 11:52 PM ET. His
+>   trial converted to a $39 charge on Wed Nov 25, and he canceled in the app
+>   minutes later. The reply below is the firmer one.
+> - **Sandro: the cause is confirmed.** The preview showed a plan change
+>   waiting until period end: the switch he set up on Nov 8, held until Dec 7.
+>   That's what the cancel window couldn't get past. The fixed
+>   `make set-cancellation` dropped it and scheduled the cancel. He keeps Pro
+>   until Mon Dec 7, 7:47 AM ET, and nothing more is charged. No automatic
+>   cancellation email went out: the release's notice reached the site before
+>   the script wrote the cancel.
+>
+> **Was the button really broken for him, or did he not know how?** Broken.
+> He knew how to cancel: "50 per cent" is the third screen of the cancel
+> window, after the 25% offer and the reason, and on Nov 8 he set up the
+> Basic switch in the portal himself, 17 minutes after emailing you. But with
+> that switch waiting, Stripe refuses every cancel, so the last screen could
+> only answer "Something went wrong. Please try again in a minute." His last
+> activity was 10:34 AM ET, two hours after his first email. The old code
+> logged none of those failures. nginx did:
+>
+> ```bash
+> sudo zgrep -h 'POST /api/billing/cancel-flow' /var/log/nginx/access.log* | grep '26/Nov/2026'
+> ```
+>
+> Each line is one click. His are the 502s that morning (server time is
+> probably UTC, so about 13:30 to 15:35). Jesse's cancel that afternoon shows
+> as a 200, for contrast.
 
 ## Nolan Tantay: forgot to cancel the trial, asks for a refund
 
@@ -48,7 +77,7 @@ On the server, in `~/zerogex-web`.
    - **No paid invoice** (the charge never cleared): there's nothing to
      refund, so skip step 2. If the status is still `active` or `past_due`, add
      `VOID_INVOICE=1` to steps 3 and 4. If it's already `canceled`, skip those
-     too. Use the other first paragraph under the draft.
+     too. (Not his case: his charge cleared.)
 
 2. **Refund, in the Stripe Dashboard.** Open the customer, open the payment,
    choose Refund: full amount, reason **Requested by customer**. Not
@@ -79,21 +108,20 @@ On the server, in `~/zerogex-web`.
 
 ### Draft
 
-Reply in his thread.
+Reply in his thread. Firmer, on purpose: he got the 2-day reminder (the plain
+version, "Your ZeroGEX free trial ends in 2 days", which says up front that the
+trial turns into a paid subscription automatically), and the Terms say fees are
+non-refundable, with the guarantee excluding "a trial that converts to a paid
+subscription". The refund is a courtesy, and the reply says so.
 
 Hi Nolan,
 
-No problem, it happens. I've refunded your payment in full and closed your plan, so nothing more will be charged. The refund usually shows up within 5 to 10 business days, depending on your bank.
+I've refunded the $39 and closed your plan. The refund usually shows up within 5 to 10 business days.
 
-Thanks for giving ZeroGEX a try.
+Just so you know, charges after the trial ends aren't refundable under our terms, which is why the reminder goes out 2 days before. This one was a one-time courtesy.
 
 Best,
 Michael
-
-**If the charge never cleared** (step 1), use this as the first paragraph
-instead:
-
-No problem, it happens. Your payment never went through, so there's nothing to refund. I've closed your plan and canceled the bill, so you won't be charged anything.
 
 ## Sandro Rigato: asked to cancel, and the cancel window wouldn't let him
 
@@ -182,14 +210,15 @@ On the server, in `~/zerogex-web`.
 ### Draft
 
 Reply in his "subsription" thread. It answers both emails. Short sentences, so
-a translator handles them cleanly. Replace **[DATE]** with the date from step 2,
-written out, like December 7.
+a translator handles them cleanly. The date is from the run. "You do not need
+to do anything else" covers the automatic cancellation email, in case it went
+out too (see the end).
 
 Hi Sandro,
 
 I'm sorry. The cancel button on our website did not work for you. That was a problem on our side, not yours.
 
-I have canceled your subscription for you. You will not be charged again. You can keep using ZeroGEX until [DATE], and then it stops.
+I have canceled your subscription for you. You will not be charged again. You can keep using ZeroGEX until December 7, and then it stops. You do not need to do anything else.
 
 Thank you for trying ZeroGEX. I understand. It is made mostly for active day traders.
 
@@ -210,5 +239,16 @@ your call. A refund would end his access on the spot, so say that if you agree.
   `make set-cancellation` drop the waiting change first (the plan ends at
   period end anyway, which is when the change would have applied), records a
   failed cancel where `make diagnose-user` shows it, and tells the member to
-  email support if a cancel still fails. Merge and deploy when you're ready. If
-  Sandro's step 3 shows the error, sooner is better.
+  email support if a cancel still fails. Merged Nov 26. The script part works
+  already (Sandro's run used it). The cancel window part goes live with the
+  next `make deploy`.
+- **The Nov 8 note guessed a Pro to Basic switch in the portal happens right
+  away.** Sandro's shows it doesn't: the portal held it until his period ended.
+  So any Pro member who downgrades in the portal is in this state until then.
+- **`make set-cancellation` on a plan with a waiting change can let the
+  automatic "Sorry to see you go" email through.** It writes the cancel to the
+  database right away. If Stripe's notice of the release reaches the site after
+  that write, the site reads it as an un-cancel, and the cancel's own notice
+  then sends the email. The plan still ends correctly, and the email gives the
+  same date. The in-app cancel doesn't have this gap. Queued as a separate
+  task.
