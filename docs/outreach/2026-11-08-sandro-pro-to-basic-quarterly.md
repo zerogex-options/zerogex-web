@@ -12,10 +12,10 @@ gives). The questions:
 2. Pro is more than Sandro needs. Is a switch to Basic possible?
 3. Instead of a refund, can the subscription move to Basic quarterly?
 
-> **Status:** not sent. I couldn't see the account from here (no access to the
-> server or Stripe). The draft works whichever Pro billing period Sandro is on.
-> To check first, run `make diagnose-user EMAIL=rigatosandro@yahoo.it`: the
-> Plan line should say Pro monthly.
+> **Status:** a reply went out Sun Nov 8, 1:27 PM ET (19:27 CET; Sandro's
+> Nov 26 email quotes it). **Follow-up, Nov 26:** Sandro asked to cancel and
+> couldn't get the cancel window to work. See
+> `2026-11-26-nolan-trial-refund-sandro-cancel-blocked.md`.
 
 ## The read
 
