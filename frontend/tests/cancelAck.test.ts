@@ -187,6 +187,51 @@ test('un-canceling releases the latch, so a second cancel is acknowledged', asyn
   assert.equal(h.acks(m.id).length, 2);
 });
 
+// make set-cancellation --on, when it has to release a plan change the billing
+// portal was holding first (core/pendingPlanChange.ts). The release sends its
+// own customer.subscription.updated, still not canceling, and Stripe can deliver
+// it after the cancel has been set. The script promises no email, so it takes
+// the latch just before asking Stripe for the cancel, and leaves the flag for
+// the webhook to write.
+test('set-cancellation after a release: a late release event changes nothing, and the cancel sends no email', async () => {
+  const h = harness();
+  const m = seedMember('u_script_release');
+  sync(m.id, { id: 'sub_R', cancelAtPeriodEnd: 0 });
+  // What the script leaves: the latch taken, the flag still 0.
+  db.prepare('UPDATE users SET cancel_ack_email_sent_at = ? WHERE id = ?').run('2026-07-01T12:00:00.000Z', m.id);
+
+  // The release's event, late, then the cancel's. (Landing after the cancel's,
+  // the release event is dropped as stale by the webhook's ordering guard: see
+  // RELEASE_SETTLE_MS.)
+  assert.equal(await handleCancelAckTransition(m, sync(m.id, { id: 'sub_R', cancelAtPeriodEnd: 0 }), h.deps), 'no_transition');
+  assert.equal(
+    await handleCancelAckTransition(m, sync(m.id, { id: 'sub_R', cancelAtPeriodEnd: 1 }), h.deps),
+    'already_acknowledged',
+  );
+  assert.equal(h.sent.length, 0);
+  assert.equal(latchOf(m.id), '2026-07-01T12:00:00.000Z');
+  // Recorded the way an in-app cancel is, so the cancel reports count it.
+  assert.deepEqual(
+    h.audits.filter((a) => a.userId === m.id).map((a) => a.type),
+    ['stripe_cancellation_requested'],
+  );
+});
+
+test('set-cancellation after a release: with the flag written locally, a late release event reads as an un-cancel and the cancel is emailed', async () => {
+  const h = harness();
+  const m = seedMember('u_script_mirrored');
+  sync(m.id, { id: 'sub_M', cancelAtPeriodEnd: 0 });
+  // The flag written straight to the row, even with the latch taken as well.
+  db.prepare('UPDATE users SET cancel_at_period_end = 1, cancel_ack_email_sent_at = ? WHERE id = ?').run(
+    '2026-07-01T12:00:00.000Z',
+    m.id,
+  );
+
+  assert.equal(await handleCancelAckTransition(m, sync(m.id, { id: 'sub_M', cancelAtPeriodEnd: 0 }), h.deps), 'released');
+  assert.equal(await handleCancelAckTransition(m, sync(m.id, { id: 'sub_M', cancelAtPeriodEnd: 1 }), h.deps), 'sent');
+  assert.equal(h.sent.length, 1);
+});
+
 // A failed send keeps the latch: the claim happens before the send, so a
 // redelivery can't turn one outage into a string of duplicate emails.
 test('a failed send is recorded, and a repeat does not resend', async () => {

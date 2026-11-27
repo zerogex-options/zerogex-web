@@ -12,7 +12,18 @@ import {
   endPauseParam,
   scheduleCancelParams,
 } from '../core/subscriptionPause.ts';
-import { auditCount, column, createBusyDb, httpCalls, sqlite3Missing } from './support/busyDb.ts';
+import {
+  auditCount,
+  blockWrites,
+  column,
+  createBusyDb,
+  httpCalls,
+  printedCommand,
+  runPrinted,
+  sqlite3Missing,
+  unblockWrites,
+  type Fixture,
+} from './support/busyDb.ts';
 
 // core/stripe.ts builds its price table at module load, so the env goes first.
 // Every cadence is mapped for one tier, so priceIdToSku resolves the real thing,
@@ -528,7 +539,9 @@ test('scheduleCancelParams: an unpaused plan gets a plain cancel, with only the 
 });
 
 // The operator side, run for real against the stubs. set-cancellation and
-// honor-winback-discount write through the sqlite3 CLI.
+// honor-winback-discount write through the sqlite3 CLI. A route set to
+// undefined drops its stub (the routes travel as JSON), so Stripe answers 404.
+// `beforeRun` gets the seeded fixture, e.g. to make a write fail.
 function runOnPaused(
   t: TestContext,
   script: string,
@@ -536,6 +549,7 @@ function runOnPaused(
   sub: ReturnType<typeof pausedSubscription>,
   args: string[],
   extraRoutes: Record<string, unknown> = {},
+  beforeRun?: (f: Fixture) => void,
 ) {
   const f = busy.fixture(t, `${script.replace(/\.mts$/, '')}-${name}`);
   const email = `${name}@example.com`;
@@ -547,6 +561,7 @@ function runOnPaused(
     cancel_at_period_end: sub.cancel_at_period_end ? 1 : 0,
     paused_until: resumesAt ? new Date(resumesAt * 1000).toISOString() : null,
   });
+  beforeRun?.(f);
   const result = busy.run(f, script, ['--email', email, ...args], {
     env: {
       STRIPE_SECRET_KEY: 'sk_test_cancel_ends_pause',
@@ -591,7 +606,7 @@ test('set-cancellation ON=1 on a plan that is not paused sends a plain cancel', 
     billCents: 3900,
     paused: false,
   });
-  const { result, calls } = runOnPaused(t, 'set-cancellation.mts', 'on-live', sub, ['--on', '--yes']);
+  const { f, userId, result, calls } = runOnPaused(t, 'set-cancellation.mts', 'on-live', sub, ['--on', '--yes']);
   assert.equal(result.status, 0, result.stderr + result.stdout);
   assert.match(result.stdout, /^Paused:\s+no$/m);
   assert.match(result.stdout, /^Plan change:\s+none waiting$/m);
@@ -600,6 +615,11 @@ test('set-cancellation ON=1 on a plan that is not paused sends a plain cancel', 
   const sent = new URLSearchParams(calls[1].body ?? '');
   assert.equal(sent.get('cancel_at_period_end'), 'true');
   assert.equal(sent.has('pause_collection'), false);
+  // Nothing released, so the flag is written here, as before: with the row
+  // already at 1, the webhook sees no new cancel to email about. The
+  // cancellation email's latch is left alone.
+  assert.equal(column(f, userId, 'cancel_at_period_end'), 1);
+  assert.equal(column(f, userId, 'cancel_ack_email_sent_at'), null);
 });
 
 // --- A cancel drops a plan change the billing portal is holding ---------------
@@ -631,10 +651,14 @@ test('set-cancellation ON=1 DRY_RUN=1 shows a waiting plan change and changes no
   assert.equal(column(f, userId, 'cancel_at_period_end'), 0);
 });
 
-test('set-cancellation ON=1 with a portal downgrade waiting releases it, then cancels, and records both', { skip: sqlite3Missing }, (t) => {
+function releasedSchedule(subscriptionId: string) {
+  return { id: SCHEDULE_ID, object: 'subscription_schedule', status: 'released', released_subscription: subscriptionId };
+}
+
+test('set-cancellation ON=1 with a portal downgrade waiting releases it, holds the cancellation email, cancels, and leaves the row to the webhook', { skip: sqlite3Missing }, (t) => {
   const sub = scheduledSubscription('sub_on_scheduled');
   const { f, userId, result, calls, paths } = runOnPaused(t, 'set-cancellation.mts', 'on-scheduled', sub, ['--on', '--yes'], {
-    [RELEASE_ROUTE]: { id: SCHEDULE_ID, object: 'subscription_schedule', status: 'released', released_subscription: sub.id },
+    [RELEASE_ROUTE]: releasedSchedule(sub.id),
   });
   assert.equal(result.status, 0, result.stderr + result.stdout);
   assert.deepEqual(paths, [
@@ -645,11 +669,25 @@ test('set-cancellation ON=1 with a portal downgrade waiting releases it, then ca
   assert.equal(calls[1].body ?? '', '', 'a plain release: no other change to the subscription');
   const sent = new URLSearchParams(calls[2].body ?? '');
   assert.equal(sent.get('cancel_at_period_end'), 'true');
-  assert.equal(column(f, userId, 'cancel_at_period_end'), 1);
+  // The release's own event may still be on its way. With the flag written
+  // here, it would read as an un-cancel and let the cancel's event send the
+  // email (tests/cancelAck.test.ts). So the webhook writes the flag, and the
+  // email's latch is already taken when the cancel's event comes to claim it.
+  assert.equal(column(f, userId, 'cancel_at_period_end'), 0);
+  assert.match(String(column(f, userId, 'cancel_ack_email_sent_at')), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   const { message } = f.db
     .prepare(`SELECT message FROM audit_events WHERE type = 'billing_cancellation_set' AND user_id = ?`)
     .get(userId) as { message: string };
-  assert.match(message, new RegExp(`; released its waiting plan change \\(schedule ${SCHEDULE_ID}\\) first$`));
+  assert.match(
+    message,
+    new RegExp(
+      `; released its waiting plan change \\(schedule ${SCHEDULE_ID}\\) first, so left the flag for the webhook to record, with the cancellation email held \\(cancel_ack_email_sent_at\\)$`,
+    ),
+  );
+  // The line docs/outreach/2026-11-26-nolan-trial-refund-sandro-cancel-blocked.md
+  // tells the operator to look for, then where the site's record comes from.
+  assert.match(result.stdout, /^Done\. on-scheduled@example\.com: cancel_at_period_end is now true \(will cancel at period end\)\.$/m);
+  assert.match(result.stdout, /^The site records the cancel when Stripe's webhook lands, .+ The cancellation email was held, so the member gets none\.$/m);
 });
 
 test('set-cancellation ON=1: if the release fails, nothing else is touched', { skip: sqlite3Missing }, (t) => {
@@ -665,7 +703,74 @@ test('set-cancellation ON=1: if the release fails, nothing else is touched', { s
   assert.match(result.stderr, new RegExp(`No stub for POST api\\.stripe\\.com/v1/subscription_schedules/${SCHEDULE_ID}/release`));
   assert.deepEqual(paths, ['GET /v1/subscriptions/sub_release_fails']);
   assert.equal(column(f, userId, 'cancel_at_period_end'), 0);
+  assert.equal(column(f, userId, 'cancel_ack_email_sent_at'), null);
   assert.equal(auditCount(f, 'billing_cancellation_set', userId), 0);
+});
+
+test('set-cancellation ON=1: if the cancellation email cannot be held, the cancel is not sent', { skip: sqlite3Missing }, (t) => {
+  const sub = scheduledSubscription('sub_hold_fails');
+  const { f, userId, result, paths } = runOnPaused(
+    t,
+    'set-cancellation.mts',
+    'hold-fails',
+    sub,
+    ['--on', '--yes'],
+    { [RELEASE_ROUTE]: releasedSchedule(sub.id) },
+    (fixture) => blockWrites(fixture, 'UPDATE', 'users', 'NEW.cancel_ack_email_sent_at IS NOT NULL'),
+  );
+  assert.equal(result.status, 1, result.stderr + result.stdout);
+  assert.match(result.stderr, /^Error: holding the cancellation email failed, so the cancel was NOT sent: .*write blocked by the test/m);
+  assert.match(result.stderr, new RegExp(`The waiting plan change \\(schedule ${SCHEDULE_ID}\\) WAS released first, so the plan stays as it is\\. Run the same command again`));
+  assert.deepEqual(
+    paths,
+    ['GET /v1/subscriptions/sub_hold_fails', `POST /v1/subscription_schedules/${SCHEDULE_ID}/release`],
+    'released, but the cancel was never asked for',
+  );
+  assert.equal(column(f, userId, 'cancel_at_period_end'), 0);
+  assert.equal(column(f, userId, 'cancel_ack_email_sent_at'), null);
+  assert.equal(auditCount(f, 'billing_cancellation_set', userId), 0);
+});
+
+test('set-cancellation ON=1: if the cancel fails after the release, the held email is cleared again', { skip: sqlite3Missing }, (t) => {
+  const sub = scheduledSubscription('sub_cancel_fails');
+  const { f, userId, result, paths } = runOnPaused(t, 'set-cancellation.mts', 'cancel-fails', sub, ['--on', '--yes'], {
+    [RELEASE_ROUTE]: releasedSchedule(sub.id),
+    [`POST api.stripe.com/v1/subscriptions/${sub.id}`]: undefined,
+  });
+  assert.equal(result.status, 1, result.stderr + result.stdout);
+  assert.match(result.stderr, /^Error: Stripe subscription update failed: No stub for POST api\.stripe\.com\/v1\/subscriptions\/sub_cancel_fails$/m);
+  assert.match(result.stderr, new RegExp(`The waiting plan change \\(schedule ${SCHEDULE_ID}\\) WAS released first`));
+  assert.match(result.stderr, /^Nothing is left changed in the DB: the cancellation email it held is cleared again\.$/m);
+  assert.deepEqual(paths, ['GET /v1/subscriptions/sub_cancel_fails', `POST /v1/subscription_schedules/${SCHEDULE_ID}/release`]);
+  assert.equal(column(f, userId, 'cancel_ack_email_sent_at'), null, "the member's next cancel is acknowledged as usual");
+  assert.equal(column(f, userId, 'cancel_at_period_end'), 0);
+  assert.equal(auditCount(f, 'billing_cancellation_set', userId), 0);
+});
+
+test('set-cancellation ON=1: a held email that cannot be cleared after a failed cancel comes with the command that clears it', { skip: sqlite3Missing }, (t) => {
+  const sub = scheduledSubscription('sub_clear_fails');
+  const { f, userId, result } = runOnPaused(
+    t,
+    'set-cancellation.mts',
+    'clear-fails',
+    sub,
+    ['--on', '--yes'],
+    { [RELEASE_ROUTE]: releasedSchedule(sub.id), [`POST api.stripe.com/v1/subscriptions/${sub.id}`]: undefined },
+    // Taking the latch works; giving it back doesn't.
+    (fixture) =>
+      blockWrites(fixture, 'UPDATE', 'users', 'OLD.cancel_ack_email_sent_at IS NOT NULL AND NEW.cancel_ack_email_sent_at IS NULL'),
+  );
+  assert.equal(result.status, 1, result.stderr + result.stdout);
+  assert.match(result.stderr, /^The cancellation email is still held: clearing it failed: .*write blocked by the test/m);
+  assert.match(result.stderr, /^Until it is cleared, the member's next cancel gets no "Sorry to see you go" email/m);
+  assert.notEqual(column(f, userId, 'cancel_ack_email_sent_at'), null);
+
+  unblockWrites(f);
+  const command = printedCommand(result.stderr);
+  assert.ok(command, 'prints the command that clears it');
+  const fix = runPrinted(command);
+  assert.equal(fix.status, 0, fix.stderr + fix.stdout);
+  assert.equal(column(f, userId, 'cancel_ack_email_sent_at'), null);
 });
 
 test('set-cancellation on a plan left paused and canceling says so, either way', { skip: sqlite3Missing }, (t) => {
