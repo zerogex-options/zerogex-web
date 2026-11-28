@@ -3,7 +3,9 @@
 American English, and each paragraph in the draft is a single line with no
 hard wrapping, so it can be pasted straight into a mail client.
 
-> **Status, Sat Nov 28:** drafted, not sent. Recommendation: a short no.
+> **Status, Sat Nov 28:** drafted, not sent. Recommendation: a short, polite
+> no. Revised the same day after you asked about the networking value: the
+> site check is below, and the draft no longer says "No need to follow up."
 
 **Inbound.** Sat Nov 28, 5:49 PM, to support@, "Data source for your gold COT /
 gamma coverage: ZeroGEX", from Zak, "Founder, AurumGamma"
@@ -43,9 +45,38 @@ It closes: "If this is not for you, tell me and I will not write again."
   `frontend/core/articleRegistry.ts` is the author on all of them, so a guest
   piece would either go out under your name or break that.
 - **Reply rather than ignore.** The opt-out line means silence usually brings
-  follow-ups. Two lines end the thread.
+  follow-ups. "This one isn't for us" is Zak's own opt-out wording, so the
+  draft needs no colder "don't follow up" line on top.
 - **Left out on purpose: GLD.** Gold is on the list through GLD (John's
   thread). No reason to tell another gold-data site that.
+
+## Networking value: checked the site (Nov 28)
+
+Read `https://aurumgamma.cloud/` and `/gold-gamma-levels/` only. The About,
+Pricing, Docs and wiki pages weren't opened.
+
+- **Nothing comes back.** The menus link only to the site's own pages, its
+  social accounts and its checkout. There's no resources or partners page to
+  be listed on, and no other GEX provider is named. Zak is asking for a link
+  the site gives no one.
+- **A paid product heading into the GLD lane.** One-time Pro passes from $29
+  for one month to $299 for lifetime, with checkout on
+  `aurumgamma.pocketsflow.com`, and a wiki page on GLD versus gold futures
+  gamma levels. GLD is the gold coverage on our list, so a link now points
+  gold traders at the competitor we'd face then.
+- **The feed is real.** Dated daily levels for each CME session, one session
+  behind, from COMEX gold options open interest and settlements (OG on GC),
+  priced with Black-76, with an honest model disclaimer. Free shows the
+  previous session; the rest is Pro.
+- **Not a name to vouch for.** A Black Friday countdown to Dec 1, 33
+  "verified" testimonials in one identical "The Shock:" format, no founder or
+  company number on the pages read, and levels that disagree: the homepage
+  "LIVE PRICE" widget shows walls at $4,000 and $4,500, while the levels page
+  has 3,500 and 3,900 for Nov 25.
+- **Possible value later.** Its logo strip lists CME Group and Databento among
+  its data sources, with no details. Real GC options would raise exactly that
+  vendor and license question (John's thread), which is not now. A polite no
+  doesn't stop you from writing to Zak then.
 
 ## Draft
 
@@ -55,12 +86,14 @@ Hi Zak,
 
 Thanks for the note. This one isn't for us, so I'll pass on the link, the listing and the explainer. The guide stays focused on index and equity options, which is what our readers trade, and everything on the site is written in-house.
 
-No need to follow up. Good luck with AurumGamma.
+Good luck with AurumGamma.
 
 Michael
 ZeroGEX
 
 ## If Zak writes again
 
-Don't reply. A follow-up after "no need to follow up" is an automated
-sequence; a mail filter on `aurumgamma.cloud` keeps it out of the inbox.
+Don't reply. A follow-up after "this one isn't for us" is an automated
+sequence; a mail filter on `aurumgamma.cloud` keeps it out of the inbox. If you
+ever want to talk gold data, write to Zak then; nothing in this reply closes
+that.
