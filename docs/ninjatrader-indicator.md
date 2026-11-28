@@ -140,9 +140,15 @@ setting can't produce a `422`).
 
 ## Install
 
-1. In NinjaTrader 8: **New → NinjaScript Editor**.
-2. Right-click **Indicators → New Indicator** (or **Import…** the `.cs`),
-   paste in `ZeroGexGammaLevels.cs`, and **Compile** (F5).
+1. Open the downloaded `.cs` in Notepad and copy all of its text. Copying the
+   file itself in File Explorer puts a file on the clipboard, which pastes
+   nothing into a text box.
+2. In NinjaTrader 8 open **New → NinjaScript Editor**, right-click
+   **Indicators → New Indicator**, name it `ZeroGexGammaLevels`, and click
+   **Generate**. The wizard has no box for code; Generate is what opens the
+   editor. Select all of the starter code, paste over it, save (Ctrl+S), and
+   **Compile** (F5). A customer stuck on the wizard is how we learned the page
+   needed every one of these clicks spelled out.
 3. Open a chart of ES / NQ / SPX / SPY / QQQ / NDX, right-click → **Indicators…**, add
    **ZeroGEX Gamma Levels**.
 4. In the indicator settings:

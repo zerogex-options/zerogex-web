@@ -269,11 +269,18 @@ export default function PlotOnNinjaTrader({ hasPackage = false, standalone = fal
           </li>
         ) : (
           <li>
-            <strong style={{ color: 'var(--color-text-primary)' }}>Compile the indicator.</strong> In NinjaTrader 8
-            open <strong style={{ color: 'var(--color-text-primary)' }}>New → NinjaScript Editor</strong>,
-            right-click{' '}
-            <strong style={{ color: 'var(--color-text-primary)' }}>Indicators → New Indicator</strong>, paste in
-            the downloaded file, and press{' '}
+            {/* Every click is spelled out because a customer got stuck here:
+                New Indicator opens NinjaTrader's wizard, which has no box for
+                code, and only Generate opens the editor the code goes into.
+                "Paste in the downloaded file" also left him copying the file
+                itself, which pastes nothing into a text box. */}
+            <strong style={{ color: 'var(--color-text-primary)' }}>Compile the indicator.</strong> Open the
+            downloaded file in Notepad and copy all of its text (Ctrl+A, then Ctrl+C). In NinjaTrader 8 open{' '}
+            <strong style={{ color: 'var(--color-text-primary)' }}>New → NinjaScript Editor</strong>, right-click{' '}
+            <strong style={{ color: 'var(--color-text-primary)' }}>Indicators → New Indicator</strong>, type{' '}
+            <strong style={{ color: 'var(--color-text-primary)' }}>ZeroGexGammaLevels</strong> as the name, and
+            click <strong style={{ color: 'var(--color-text-primary)' }}>Generate</strong>. In the code window that
+            opens, select everything (Ctrl+A) and paste over it (Ctrl+V), then save (Ctrl+S) and press{' '}
             <strong style={{ color: 'var(--color-text-primary)' }}>F5</strong> to compile.
           </li>
         )}
