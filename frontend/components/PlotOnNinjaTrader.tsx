@@ -243,9 +243,13 @@ export default function PlotOnNinjaTrader({ hasPackage = false, standalone = fal
         </li>
         {packageReady ? (
           <li>
+            {/* NinjaTrader 8's menu, per its help guide. The old "File →
+                Utilities → Import NinjaScript…" path is not in NinjaTrader 8,
+                which has no File menu. This importer takes only exported .zip
+                archives, never a raw .cs. */}
             <strong style={{ color: 'var(--color-text-primary)' }}>Import it.</strong> In NinjaTrader 8 open{' '}
             <strong style={{ color: 'var(--color-text-primary)' }}>
-              File → Utilities → Import NinjaScript…
+              Tools → Import → NinjaScript Add-On…
             </strong>{' '}
             and pick the downloaded <code>.zip</code>. It compiles on import.
             {/* The escape hatch to the raw source is a download link like any

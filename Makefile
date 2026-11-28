@@ -2140,8 +2140,8 @@ blog-images:
 
 # Publish the packaged NinjaTrader import archive, when one has been dropped in.
 #
-# Only NinjaTrader itself can produce an archive its importer accepts (File ->
-# Utilities -> Export NinjaScript). We deliberately do NOT synthesize one here:
+# Only NinjaTrader itself can produce an archive its importer accepts (Tools ->
+# Export -> NinjaScript Add-On). We deliberately do NOT synthesize one here:
 # a hand-rolled zip that NT8 rejects is worse than no zip at all, because the
 # download button would be live and broken. So this is a guarded copy in the
 # same spirit as `make logo` -- drop the real export at

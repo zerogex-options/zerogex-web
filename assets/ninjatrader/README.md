@@ -61,9 +61,9 @@ catching it during a deploy is later than catching it now.
 
 1. Compile `frontend/public/ninjatrader/ZeroGexGammaLevels.cs` in the
    NinjaScript Editor (F5) and confirm it draws against a live key.
-2. **File → Utilities → Export NinjaScript…**, select **ZeroGEX Gamma Levels**.
+2. **Tools → Export → NinjaScript Add-On…**, select **ZeroGEX Gamma Levels**.
 3. Save the archive here as `ZeroGexGammaLevels.zip`.
 4. Run the verifier above; it must pass.
 5. Verify the round trip on a clean NT8 install:
-   **File → Utilities → Import NinjaScript…**
+   **Tools → Import → NinjaScript Add-On…**
 6. Commit it, then deploy.

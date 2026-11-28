@@ -177,7 +177,7 @@ setting can't produce a `422`).
    - Toggle levels, colors, labels, info panel, and alerts to taste.
 
 If a packaged export has been published, the gamma pages offer it instead and
-step 2 collapses to **File → Utilities → Import NinjaScript…**.
+step 2 collapses to **Tools → Import → NinjaScript Add-On…**.
 
 ## ES and NQ (futures charts)
 
