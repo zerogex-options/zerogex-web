@@ -31,6 +31,8 @@ const MARKETING_SURFACES: Array<[string, string]> = [
   ['menthorq comparison', '../content/articles/zerogex-vs-menthorq.md'],
   ['tradegex comparison', '../content/articles/zerogex-vs-tradegex.md'],
   ['spotgamma comparison', '../content/articles/zerogex-vs-spotgamma.md'],
+  ['volland comparison', '../content/articles/zerogex-vs-volland.md'],
+  ['unusual whales comparison', '../content/articles/zerogex-vs-unusual-whales.md'],
 ];
 
 // Each pattern is an AFFIRMATIVE overclaim. Written narrowly on purpose: the

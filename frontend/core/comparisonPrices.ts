@@ -19,6 +19,7 @@
 //   {{menthorq:pro:firstMonth}}      "$174.50"   a discounted first month
 //   {{tradegex:platform:sixMonths}}  "$299"      billed every six months
 //   {{spotgamma:essential:annual}}   "$891"
+//   {{volland:api:pack}}             "$500"      a block of API calls
 //   {{bullflow:checked}}             "September 29, 2026"
 //
 // A translated page (zerogex-vs-bullflow.de.md, ...) carries the same tokens
@@ -58,7 +59,9 @@ export type ComparedCadence = 'monthly' | 'annual';
 // a vendor may round the monthly figure ($1,499.99 a year shown as $124.99 a
 // month) and the page should match what readers see on the vendor's site.
 export type CompetitorPlanPrice = {
-  monthly: number;
+  // Absent only for a product with no monthly price, such as a block of API
+  // calls; a `monthly` token for it throws like any figure not published.
+  monthly?: number;
   annual?: number;
   annualPerMonth?: number;
   // The price of the first month on the monthly plan, when the vendor
@@ -67,6 +70,11 @@ export type CompetitorPlanPrice = {
   // The single charge for a plan billed every six months, when the vendor
   // sells one. ZeroGEX has no six-month plan, so it has no counterpart.
   sixMonths?: number;
+  // The price of a fixed block of requests, as the vendor lists it ("2,000
+  // Volland API Calls, $500"), when it states no billing period. Recorded as
+  // a pack rather than as monthly so the page never claims a period the
+  // vendor did not. ZeroGEX sells no packs, so it has no counterpart.
+  pack?: number;
 };
 
 export type CompetitorPrices = {
@@ -154,6 +162,51 @@ export const COMPETITOR_PRICES = {
       alpha: { monthly: 299, annual: 2691 },
     },
   },
+  // Volland's pricing page, read first-hand on the date below: six tiers, each
+  // a monthly price. Its help center says the plans are monthly only ("We do
+  // not offer daily, weekly, yearly, etc. plans"), so no yearly figure exists
+  // to record. Exposure charts start at Swing, the 0DTE widget and delta decay
+  // at 0DTE, the /ES and /NQ futures at Universe. `api` is the one priced item
+  // on vol.land/api, "2,000 Volland API Calls" for $500, sold only to
+  // subscribers on 0DTE, Insight, Universe or Institutional; the page states
+  // no billing period, so it is a pack. Enterprise API access shows no price
+  // and is not recorded.
+  volland: {
+    checked: '2026-11-28',
+    source: 'https://vol.land/pricing',
+    plans: {
+      volhacks: { monthly: 99 },
+      swing: { monthly: 150 },
+      zerodte: { monthly: 250 },
+      insight: { monthly: 400 },
+      universe: { monthly: 1000 },
+      institutional: { monthly: 5000 },
+      api: { pack: 500 },
+    },
+  },
+  // Unusual Whales' pricing page, read first-hand on the date below, while a
+  // Black Friday sale took 25% off a monthly plan's first three months. These
+  // are the list prices the page printed beside the sale prices: what the
+  // plans cost outside the sale and what a renewal charges. Dashboard & Tools:
+  // Retail Basic (the GEX heatmap, no True GEX), Retail Pro (True GEX for SPX
+  // every 10 minutes), Retail Max (every minute). `apiStarter` is the cheapest
+  // API plan, API Options Starter, which the pricing FAQ says is data-only,
+  // with no website or app; `bundleBasic` is the cheapest plan with both,
+  // Bundle Basic (Retail Max, Predictions and API Basic). The page sells
+  // yearly plans as well; their prices were not recorded that day, so the
+  // comparison page quotes monthly list prices and sends readers to the
+  // vendor for yearly. Business plans are sold to companies and not compared.
+  unusualwhales: {
+    checked: '2026-11-28',
+    source: 'https://unusualwhales.com/pricing',
+    plans: {
+      basic: { monthly: 50 },
+      pro: { monthly: 75 },
+      max: { monthly: 120 },
+      apiStarter: { monthly: 99 },
+      bundleBasic: { monthly: 199 },
+    },
+  },
 } satisfies Record<string, CompetitorPrices>;
 
 export type CompetitorId = keyof typeof COMPETITOR_PRICES;
@@ -205,7 +258,7 @@ function formatUsd(amount: number, locale: Locale): string {
 }
 
 function competitorAmount(plan: CompetitorPlanPrice, cadence: ComparedCadence, perMonth: boolean): number | null {
-  if (cadence === 'monthly') return plan.monthly;
+  if (cadence === 'monthly') return plan.monthly ?? null;
   if (!perMonth) return plan.annual ?? null;
   if (plan.annualPerMonth !== undefined) return plan.annualPerMonth;
   return plan.annual !== undefined ? plan.annual / 12 : null;
@@ -220,9 +273,10 @@ function resolveToken(body: string, locale: Locale): string | null {
   const [vendor, plan, cadence, unit] = parts;
   if (unit !== undefined && unit !== 'mo') return null;
 
-  // A discounted first month and a six-month plan are competitor figures only,
-  // and each is already the price of its own period, so neither takes `:mo`.
-  if (cadence === 'firstMonth' || cadence === 'sixMonths') {
+  // A discounted first month, a six-month plan and a pack of requests are
+  // competitor figures only, and each is already a single charge, so none
+  // takes `:mo`.
+  if (cadence === 'firstMonth' || cadence === 'sixMonths' || cadence === 'pack') {
     if (unit !== undefined || !isCompetitorId(vendor)) return null;
     const plans: Record<string, CompetitorPlanPrice> = COMPETITOR_PRICES[vendor].plans;
     const amount = Object.hasOwn(plans, plan) ? plans[plan][cadence] : undefined;

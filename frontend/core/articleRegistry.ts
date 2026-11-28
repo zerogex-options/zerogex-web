@@ -281,7 +281,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'The best GEX tools and gamma exposure platforms of 2026, compared fairly\u00a0- real-time vs delayed data, 0DTE coverage, methodology, signals, free tiers and price.',
     datePublished: '2026-06-11',
-    dateModified: '2026-11-10',
+    // 2026-11-28: Unusual Whales' paragraph re-checked against its own pages
+    // (True GEX is on Retail Pro and Max, not every plan) and Volland added.
+    dateModified: '2026-11-28',
     readMinutes: 14,
     kind: 'article',
   },
@@ -727,6 +729,36 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 8,
     kind: 'article',
   },
+  'zerogex-vs-volland': {
+    slug: 'zerogex-vs-volland',
+    href: '/education/zerogex-vs-volland',
+    // For readers searching the competitor ("volland alternative", "volland
+    // vs", "volland pricing"). Same rule as the other comparisons: no prices
+    // in the title or description.
+    title: 'ZeroGEX vs Volland (2026): Positioning, Greeks & Pricing',
+    blurb:
+      'A fair side-by-side of ZeroGEX and Volland: trade-by-trade dealer positioning against open-interest GEX, the greeks and levels each shows, how often each updates, what each plan costs, and where each one is the stronger choice.',
+    description:
+      'Looking for a Volland alternative? ZeroGEX vs Volland, compared fairly: how each models dealer positioning, vanna and charm, update speed, pricing, and fit.',
+    datePublished: '2026-11-28',
+    readMinutes: 9,
+    kind: 'article',
+  },
+  'zerogex-vs-unusual-whales': {
+    slug: 'zerogex-vs-unusual-whales',
+    href: '/education/zerogex-vs-unusual-whales',
+    // For readers searching the competitor with gamma intent ("unusual whales
+    // gex", "unusual whales alternative", "unusual whales true gex"). Same
+    // rule as the other comparisons: no prices in the title or description.
+    title: 'ZeroGEX vs Unusual Whales (2026): GEX, True GEX & Pricing',
+    blurb:
+      'A fair side-by-side of ZeroGEX and Unusual Whales on gamma exposure: how each computes GEX, what their walls and flips mean, True GEX for SPX, how often each updates, what each plan costs, and where each one is the stronger choice.',
+    description:
+      'Looking for an Unusual Whales alternative for GEX? ZeroGEX vs Unusual Whales, compared fairly: GEX methods, SPX True GEX, walls, pricing, and which fits.',
+    datePublished: '2026-11-28',
+    readMinutes: 8,
+    kind: 'article',
+  },
 };
 
 /**
@@ -782,15 +814,19 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'gamma-exposure-explained',
     'best-gex-tools',
   ],
+  // The roundup links every comparison page. Nine cards fill the three-wide
+  // grid; the gamma-flip explainer gave up its card to make room, since the
+  // footer already links it from every page.
   'best-gex-tools': [
     'gamma-exposure-explained',
     '0dte-dealer-positioning-explained',
-    'how-to-read-a-gamma-flip',
     'zerogex-vs-bullflow',
     'zerogex-vs-quant-data',
     'zerogex-vs-menthorq',
     'zerogex-vs-tradegex',
     'zerogex-vs-spotgamma',
+    'zerogex-vs-volland',
+    'zerogex-vs-unusual-whales',
   ],
   'eod-pressure-and-trap-detection': [
     'eod-pressure-explained',
@@ -963,17 +999,23 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-read-a-gamma-flip',
     'forced-flow-and-zero-flow-explained',
   ],
-  // The five comparison pages link every sibling. SpotGamma's page shipped
-  // last (Oct 11) and only MenthorQ's list was updated, so the comparison with
-  // the most-searched competitor name had the fewest internal links of the
-  // five (crawl of 2026-11-22). Each list stays at six: the related grid is
-  // three wide, so a seventh card would sit alone on its own row.
+  // The comparison pages. Each list stays at six, because the related grid is
+  // three wide and a seventh card would sit alone on its own row, and with
+  // seven comparisons that is too few to link every sibling. So each page
+  // links the siblings its reader is most likely to weigh next: the flow-first
+  // platforms (Bullflow, Quant Data, Unusual Whales) link one another, the
+  // research-led ones (SpotGamma, Volland, MenthorQ) likewise, and
+  // best-gex-tools links all seven. Every comparison page has at least two
+  // siblings pointing at it besides the roundup (TradeGEX, with two, is also
+  // linked from the ES and NQ levels pages). SpotGamma's shipped last of the
+  // first five and was missing from three sibling lists until the crawl of
+  // 2026-11-22.
   'zerogex-vs-bullflow': [
     'best-gex-tools',
     'zerogex-vs-spotgamma',
     'zerogex-vs-quant-data',
     'zerogex-vs-menthorq',
-    'zerogex-vs-tradegex',
+    'zerogex-vs-unusual-whales',
     'gamma-levels-in-claude',
   ],
   'zerogex-vs-quant-data': [
@@ -981,7 +1023,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'zerogex-vs-spotgamma',
     'zerogex-vs-bullflow',
     'zerogex-vs-menthorq',
-    'zerogex-vs-tradegex',
+    'zerogex-vs-unusual-whales',
     'hedging-flow-explained',
   ],
   'zerogex-vs-menthorq': [
@@ -990,7 +1032,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'zerogex-vs-quant-data',
     'zerogex-vs-bullflow',
     'zerogex-vs-tradegex',
-    'zero-gamma-level-explained',
+    'zerogex-vs-volland',
   ],
   'zerogex-vs-tradegex': [
     'best-gex-tools',
@@ -1004,9 +1046,25 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'best-gex-tools',
     'zerogex-vs-menthorq',
     'zerogex-vs-tradegex',
+    'zerogex-vs-volland',
     'gamma-walls-explained',
-    'zero-gamma-level-explained',
     'how-often-do-gamma-walls-break',
+  ],
+  'zerogex-vs-volland': [
+    'best-gex-tools',
+    'zerogex-vs-spotgamma',
+    'zerogex-vs-menthorq',
+    'zerogex-vs-unusual-whales',
+    'vanna-and-charm-explained',
+    'why-we-dont-publish-dex',
+  ],
+  'zerogex-vs-unusual-whales': [
+    'best-gex-tools',
+    'zerogex-vs-bullflow',
+    'zerogex-vs-quant-data',
+    'zerogex-vs-spotgamma',
+    'zerogex-vs-volland',
+    'hedging-flow-explained',
   ],
 };
 

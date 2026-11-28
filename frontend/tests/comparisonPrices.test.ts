@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { LIST_PRICE_USD } from '../core/billingPlans.ts';
 import {
   COMPETITOR_PRICES,
@@ -26,10 +26,18 @@ const PAGES: Array<[CompetitorId, string]> = [
   ['menthorq', 'zerogex-vs-menthorq'],
   ['tradegex', 'zerogex-vs-tradegex'],
   ['spotgamma', 'zerogex-vs-spotgamma'],
+  ['volland', 'zerogex-vs-volland'],
+  ['unusualwhales', 'zerogex-vs-unusual-whales'],
 ];
 
-const readArticle = (slug: string) =>
-  readFileSync(new URL(`../content/articles/${slug}.md`, import.meta.url), 'utf8');
+// Pages shipped in English first. Their competitor facts are reviewed before
+// they are translated, so a correction is made once rather than five times.
+// The translated pages get the token checks below; a page leaves this set the
+// moment its translations exist, which the test after the loop enforces.
+const TRANSLATIONS_PENDING = new Set(['zerogex-vs-volland', 'zerogex-vs-unusual-whales']);
+
+const articleUrl = (slug: string) => new URL(`../content/articles/${slug}.md`, import.meta.url);
+const readArticle = (slug: string) => readFileSync(articleUrl(slug), 'utf8');
 
 const priceTokens = (markdown: string) => (markdown.match(/\{\{[^{}]*\}\}/g) ?? []).sort();
 
@@ -52,6 +60,7 @@ for (const [competitor, slug] of PAGES) {
   // wrote a price out by hand would go stale on the next price change, and a
   // mistyped token throws at render, which would take the page down for every
   // reader of that language.
+  if (TRANSLATIONS_PENDING.has(slug)) continue;
   for (const locale of LOCALES.filter((l) => l !== DEFAULT_LOCALE)) {
     test(`${slug}.${locale}: the same price tokens as the English page, every one resolving`, () => {
       const page = readArticle(`${slug}.${locale}`);
@@ -63,6 +72,19 @@ for (const [competitor, slug] of PAGES) {
     });
   }
 }
+
+test('a page waiting on translations has none yet, so none skips the token checks', () => {
+  for (const slug of TRANSLATIONS_PENDING) {
+    assert.ok(PAGES.some(([, s]) => s === slug), `${slug} is not a comparison page`);
+    for (const locale of LOCALES.filter((l) => l !== DEFAULT_LOCALE)) {
+      assert.equal(
+        existsSync(articleUrl(`${slug}.${locale}`)),
+        false,
+        `${slug}.${locale}.md exists: take ${slug} out of TRANSLATIONS_PENDING so its translations are checked`,
+      );
+    }
+  }
+});
 
 test('a translated page gets its dates and dollar figures in its own format', () => {
   assert.equal(formatCheckedDate('2026-09-29', 'de'), '29. September 2026');
@@ -138,6 +160,21 @@ test('competitor figures print the way their sources quote them', () => {
   assert.equal(fillComparisonPrices('{{spotgamma:alpha:monthly}}'), '$299');
   assert.equal(fillComparisonPrices('{{spotgamma:alpha:annual}}'), '$2,691');
   assert.equal(fillComparisonPrices('{{spotgamma:checked}}'), 'October 11, 2026');
+  assert.equal(fillComparisonPrices('{{volland:volhacks:monthly}}'), '$99');
+  assert.equal(fillComparisonPrices('{{volland:swing:monthly}}'), '$150');
+  assert.equal(fillComparisonPrices('{{volland:zerodte:monthly}}'), '$250');
+  assert.equal(fillComparisonPrices('{{volland:insight:monthly}}'), '$400');
+  assert.equal(fillComparisonPrices('{{volland:universe:monthly}}'), '$1,000');
+  assert.equal(fillComparisonPrices('{{volland:institutional:monthly}}'), '$5,000');
+  // "2,000 Volland API Calls, $500": a pack, with no billing period stated.
+  assert.equal(fillComparisonPrices('{{volland:api:pack}}'), '$500');
+  assert.equal(fillComparisonPrices('{{volland:checked}}'), 'November 28, 2026');
+  assert.equal(fillComparisonPrices('{{unusualwhales:basic:monthly}}'), '$50');
+  assert.equal(fillComparisonPrices('{{unusualwhales:pro:monthly}}'), '$75');
+  assert.equal(fillComparisonPrices('{{unusualwhales:max:monthly}}'), '$120');
+  assert.equal(fillComparisonPrices('{{unusualwhales:apiStarter:monthly}}'), '$99');
+  assert.equal(fillComparisonPrices('{{unusualwhales:bundleBasic:monthly}}'), '$199');
+  assert.equal(fillComparisonPrices('{{unusualwhales:checked}}'), 'November 28, 2026');
 });
 
 // A plan that records both a yearly total and a per-month figure has to agree
@@ -178,6 +215,15 @@ test('a malformed or unknown token throws instead of printing braces', () => {
     // did not charge, so none is recorded.
     '{{spotgamma:essential:firstMonth}}',
     '{{spotgamma:institutional:monthly}}',
+    // Volland sells monthly plans only, and its API as a pack with no period.
+    '{{volland:swing:annual}}',
+    '{{volland:api:monthly}}',
+    '{{volland:api:pack:mo}}',
+    '{{bullflow:basic:pack}}',
+    '{{zgx:basic:pack}}',
+    // Unusual Whales' yearly prices were not recorded.
+    '{{unusualwhales:basic:annual}}',
+    '{{unusualwhales:pro:annual:mo}}',
   ]) {
     assert.throws(() => fillComparisonPrices(bad), /unknown price token/, bad);
   }
@@ -242,4 +288,32 @@ test('the price comparisons the pages make in words still hold', () => {
     }
   }
   assert.equal(LIST_PRICE_USD.pro.annual, spotgamma.alpha.monthly);
+
+  // "Both ZeroGEX plans cost less than Volland's cheapest plan"
+  const volland = COMPETITOR_PRICES.volland.plans;
+  const vollandCheapest = Math.min(
+    ...Object.values(volland as Record<string, CompetitorPlanPrice>)
+      .map((plan) => plan.monthly)
+      .filter((monthly): monthly is number => monthly !== undefined),
+  );
+  assert.equal(vollandCheapest, volland.volhacks.monthly, 'VolHacks is no longer the cheapest Volland plan');
+  for (const tier of ['basic', 'pro'] as const) {
+    assert.ok(LIST_PRICE_USD[tier].monthly < vollandCheapest, `${tier} monthly`);
+  }
+  // "a month of ZeroGEX Pro costs less than half a month of Volland Swing"
+  assert.ok(LIST_PRICE_USD.pro.monthly < volland.swing.monthly / 2);
+  // "A year of ZeroGEX Pro costs about the same as two months of Volland Swing"
+  assert.ok(Math.abs(LIST_PRICE_USD.pro.annual - 2 * volland.swing.monthly) <= 1);
+
+  // "ZeroGEX Basic costs less than any Unusual Whales dashboard plan, and
+  // ZeroGEX Pro costs less than Retail Pro, the first Unusual Whales plan with
+  // True GEX" (so both ZeroGEX plans cost less than Retail Pro)
+  const whales = COMPETITOR_PRICES.unusualwhales.plans;
+  for (const plan of [whales.basic, whales.pro, whales.max]) {
+    assert.ok(LIST_PRICE_USD.basic.monthly < plan.monthly);
+  }
+  assert.ok(LIST_PRICE_USD.pro.monthly < whales.pro.monthly);
+  // ZeroGEX Pro, with API access, costs less than Unusual Whales' cheapest API
+  // plan on its own (the FAQ's "Pro includes API access" comparison)
+  assert.ok(LIST_PRICE_USD.pro.monthly < whales.apiStarter.monthly);
 });

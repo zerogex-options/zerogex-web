@@ -2095,6 +2095,8 @@ function PricingClientInner({
               { href: '/education/zerogex-vs-tradegex', label: 'ZeroGEX vs TradeGEX' },
               { href: '/education/zerogex-vs-quant-data', label: 'ZeroGEX vs Quant Data' },
               { href: '/education/zerogex-vs-bullflow', label: 'ZeroGEX vs Bullflow' },
+              { href: '/education/zerogex-vs-unusual-whales', label: 'ZeroGEX vs Unusual Whales' },
+              { href: '/education/zerogex-vs-volland', label: 'ZeroGEX vs Volland' },
               { href: '/education/best-gex-tools', label: t('stillComparingBestTools') },
               { href: '/track-record', label: t('stillComparingTrackRecord') },
               { href: '/methodology', label: t('stillComparingMethodology') },

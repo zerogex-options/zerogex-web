@@ -376,6 +376,50 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'No. The Volatility Trigger is a proprietary SpotGamma level, which SpotGamma describes as derived from its estimated distribution of gamma rather than a zero crossing. ZeroGEX\u2019s nearest level is the gamma flip, the price where modeled dealer gamma crosses zero, computed from a gamma profile across a range of prices.',
     },
   ],
+  'zerogex-vs-volland': [
+    {
+      q: 'Is ZeroGEX a Volland alternative?',
+      a: 'For dealer-positioning levels on the index complex, yes: ZeroGEX publishes the gamma flip, call wall, put wall, max pain, and Pin Strike for SPX, SPY, QQQ, NDX, ES, and NQ, plus NVDA and MSFT, recomputed about once a minute on both of its plans. For exposure charts across ten greeks and thousands of tickers, or a model built trade by trade from the options tape, no: Volland has those, and ZeroGEX does not.',
+    },
+    {
+      q: 'How is Volland different from GEX?',
+      a: 'Volland builds dealer positioning from individual trades: its help center says it reads every option trade on the OPRA feed and decides whether the dealer side bought or wrote it, using the trade\u2019s price, its implied volatility, a binomial fair value, and the bid/ask spread. Classic GEX, which ZeroGEX uses, models positioning from open interest under the standard convention that dealers are long calls and short puts. Neither one sees dealer inventory directly.',
+    },
+    {
+      q: 'Does ZeroGEX show vanna and charm like Volland?',
+      a: 'In part. ZeroGEX shows aggregate vanna and charm flow, an end-of-day charm estimate for hedging pressure into the close, and per-strike vanna and charm in its GEX table. Volland charts vanna and charm by strike as full exposure charts, alongside delta, delta decay, vega, theta, rho, and vomma.',
+    },
+    {
+      q: 'Is ZeroGEX cheaper than Volland?',
+      a: `On list prices, yes: both ZeroGEX plans cost less than Volland\u2019s cheapest plan, and ZeroGEX Pro includes API access, which Volland sells separately to subscribers on its 0DTE plan or higher. Volland\u2019s price covers thousands of tickers and ten greeks. Volland prices as its pricing page showed them, checked ${competitorCheckedLabel('volland')}.`,
+    },
+    {
+      q: 'Does Volland have a free trial?',
+      a: 'No. Volland\u2019s help center says it does not offer a traditional free trial of its live dashboard and points to the Volland Academy, a free self-directed course, instead, and its terms say all sales are final. ZeroGEX Basic monthly starts with a 7-day free trial, and ZeroGEX\u2019s delayed levels are free with no signup.',
+    },
+  ],
+  'zerogex-vs-unusual-whales': [
+    {
+      q: 'Is ZeroGEX an Unusual Whales alternative?',
+      a: 'For gamma exposure on the index complex, yes: ZeroGEX publishes the gamma flip, call wall, put wall, max pain, and Pin Strike for SPX, SPY, QQQ, NDX, ES, and NQ, plus NVDA and MSFT, recomputed about once a minute on both of its plans. For the options flow tape, alerts, dark pool prints, news, and a GEX heatmap for every ticker, no: Unusual Whales has those, and ZeroGEX does not.',
+    },
+    {
+      q: 'What is Unusual Whales True GEX?',
+      a: 'True GEX, which Unusual Whales also calls Periscope, is its gamma exposure for SPX only, built on a Cboe dataset that, it says, separates market-maker orders from customer orders. It refreshes every 10 minutes on the Retail Pro plan and every minute on Retail Max; Retail Basic does not include it.',
+    },
+    {
+      q: 'Is ZeroGEX cheaper than Unusual Whales?',
+      a: `On list prices, ZeroGEX Basic costs less than any Unusual Whales dashboard plan, and ZeroGEX Pro, which includes API access, costs less than Retail Pro, the first Unusual Whales plan with True GEX. Unusual Whales\u2019 price covers the whole options tape and much more than gamma. Unusual Whales prices as its pricing page showed them, checked ${competitorCheckedLabel('unusualwhales')}.`,
+    },
+    {
+      q: 'Are Unusual Whales\u2019 call and put walls the same as ZeroGEX\u2019s?',
+      a: 'Not quite. Unusual Whales\u2019 API documentation defines its call wall and put wall as the strikes above and below spot with the largest positive net gamma, built from directionalized volume by default. ZeroGEX\u2019s call wall is the strike above spot with the heaviest call-side gamma, and its put wall the strike below spot with the heaviest put-side gamma, from open interest. The two can land on different strikes.',
+    },
+    {
+      q: 'Does Unusual Whales have a free plan?',
+      a: 'Yes. A free Unusual Whales account shows options flow, dashboards, and screeners delayed two trading days. ZeroGEX\u2019s free pages show the gamma flip, call wall, put wall, and net GEX for all eight of its symbols about 15 minutes behind, with no signup.',
+    },
+  ],
   'how-to-trade-around-gamma-flip': [
     {
       q: 'How do you trade around the gamma flip?',
