@@ -7,7 +7,7 @@
 ## The short version
 
 - **Quant Data** is built around real-time options order flow, with dark and lit pool prints, news, alerts, and iOS and Android apps. Its exposure tools, including the Interval Map, cover any U.S. stock or index with listed options.
-- **ZeroGEX** is built around one job: modeled dealer positioning - the gamma flip, the call and put walls, and the signals built on them - for six symbols: SPX, SPY, QQQ, NDX, and the ES and NQ futures.
+- **ZeroGEX** is built around one job: modeled dealer positioning - the gamma flip and the call and put walls - for eight symbols: SPX, SPY, QQQ, NDX, the ES and NQ futures, NVDA, and MSFT, with signals built on the levels for the six index products.
 
 If your trades start from order flow across the whole market, Quant Data is closer to what you need. If you day trade the index complex and want its levels in depth, ZeroGEX is.
 
@@ -19,7 +19,7 @@ ZeroGEX's closest view is the GEX Heatmap, included with Basic: net dealer gamma
 
 The differences run both ways:
 
-- **More exposures and tickers on Quant Data.** ZeroGEX maps gamma only, on six symbols. It reads vanna and charm as a signal rather than a map, and it does not publish delta exposure, on purpose: [why ZeroGEX does not publish DEX](/education/why-we-dont-publish-dex).
+- **More exposures and tickers on Quant Data.** ZeroGEX maps gamma only, on eight symbols. It reads vanna and charm as a signal rather than a map, and it does not publish delta exposure, on purpose: [why ZeroGEX does not publish DEX](/education/why-we-dont-publish-dex).
 - **The regime line on ZeroGEX.** The gamma flip is drawn on the heatmap itself, from a gamma profile computed across a range of prices, so price, the strikes, and the regime line sit in one picture. The method is on the [Methodology](/methodology) page.
 
 Both tools model dealer gamma the same basic way: from the options chain, counting calls as positive and puts as negative. Quant Data's help center describes its figures as an estimate, not a direct look into any dealer's inventory, and ZeroGEX says the same.
@@ -39,16 +39,16 @@ List prices before promotions and tax, checked {{quantdata:checked}}. Quant Data
 | Quant Data, non-professional | {{quantdata:platform:monthly}}/mo | {{quantdata:platform:annual}}/yr (about {{quantdata:platform:annual:mo}}/mo) |
 | Quant Data API plan | {{quantdata:api:monthly}}/mo | {{quantdata:api:annual}}/yr (about {{quantdata:api:annual:mo}}/mo) |
 
-Both ZeroGEX plans cost less than Quant Data's platform plan, monthly or yearly, and ZeroGEX Pro includes the API access that Quant Data sells as a separate plan. The prices buy different things, though: Quant Data's covers order flow, dark pool prints, news, and exposure maps across 6,000+ tickers, and ZeroGEX's covers six symbols in depth.
+Both ZeroGEX plans cost less than Quant Data's platform plan, monthly or yearly, and ZeroGEX Pro includes the API access that Quant Data sells as a separate plan. The prices buy different things, though: Quant Data's covers order flow, dark pool prints, news, and exposure maps across 6,000+ tickers, and ZeroGEX's covers eight symbols in depth.
 
-The two APIs are not the same size either. Quant Data's covers 30+ endpoints across 6,000+ tickers, including dark pool prints and implied volatility surfaces, with a year of history and a hosted MCP server. ZeroGEX's covers the six symbols it tracks: levels, GEX, flow, signals, and their history.
+The two APIs are not the same size either. Quant Data's covers 30+ endpoints across 6,000+ tickers, including dark pool prints and implied volatility surfaces, with a year of history and a hosted MCP server. ZeroGEX's covers the eight symbols it tracks: levels, GEX, flow, signals for the six index products, and their history.
 
 ZeroGEX Basic monthly starts with a 7-day free trial, and every other ZeroGEX plan is covered by a 7-day money-back guarantee. The full breakdown is on the [Pricing](/pricing) page.
 
 ## Where Quant Data is the stronger choice
 
-- **Breadth.** Order flow and exposure maps for any U.S. stock or index with listed options. ZeroGEX covers six symbols.
-- **Order flow, dark pool prints, and news in one feed.** That is Quant Data's core. ZeroGEX has no dark pool data or news feed, and its flow pages cover only the index complex.
+- **Breadth.** Order flow and exposure maps for any U.S. stock or index with listed options. ZeroGEX covers eight symbols.
+- **Order flow, dark pool prints, and news in one feed.** That is Quant Data's core. ZeroGEX has no dark pool data or news feed, and its flow pages cover only its eight symbols.
 - **More exposure types on the map.** Delta, vanna, and charm alongside gamma, at intervals you choose.
 - **Mobile apps and push alerts.** Quant Data has native iOS and Android apps with push notifications. ZeroGEX runs in the browser, on desktop or phone, and its signal triggers show inside the app.
 - **A bigger API.** 30+ endpoints, a year of history, and dark pool data, for building your own tools across many tickers.
@@ -56,12 +56,12 @@ ZeroGEX Basic monthly starts with a 7-day free trial, and every other ZeroGEX pl
 
 ## Where ZeroGEX is the stronger choice
 
-- **Depth on the index complex.** Everything ZeroGEX builds is aimed at SPX, SPY, QQQ, NDX, ES, and NQ: the gamma flip, the walls, gamma by expiration, vanna and charm flow, hedging flow, and fourteen signals built on the levels, with their methods set out in the [signals guide](/guides/signals-explained).
+- **Depth on the index complex.** ZeroGEX goes deepest on SPX, SPY, QQQ, NDX, ES, and NQ: the gamma flip, the walls, gamma by expiration, vanna and charm flow, hedging flow, and fourteen signals built on the levels, with their methods set out in the [signals guide](/guides/signals-explained).
 - **The regime line on every chart.** The gamma flip is drawn on the GEX Heatmap and the price charts: the level where modeled dealer hedging tends to switch from damping moves to extending them.
 - **A published method and a graded record.** ZeroGEX documents how it calculates the gamma flip on its [Methodology](/methodology) page and grades every forecast it publishes, misses included, on its [Track Record](/track-record).
 - **Levels where you already chart.** Free TradingView and thinkorswim scripts, and NinjaTrader, Sierra Chart, and Bookmap indicators that update themselves on Pro. See [Integrations](/integrations).
 - **A lower price, with the API included.** Both ZeroGEX plans cost less than Quant Data's platform plan, and API access comes with Pro instead of a separate plan.
-- **A free way to check first.** The [SPX gamma levels](/spx-gamma-levels) page and its siblings need no signup, and neither does the [MCP server](/education/gamma-levels-in-claude) that puts the same levels in AI assistants.
+- **A free way to check first.** The [SPX gamma levels](/spx-gamma-levels) page and its siblings need no signup, and neither does the [MCP server](/education/gamma-levels-in-claude) that puts the levels for the six index products in AI assistants.
 
 ## How to decide
 

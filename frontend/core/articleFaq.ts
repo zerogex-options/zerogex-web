@@ -289,7 +289,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Does Bullflow have GEX?',
-      a: 'Yes. Bullflow lists gamma and net GEX levels on its Basic plan, and its Premium plan adds a GEX bubble chart, a multi-map view, a GEX heatmap replay, and vanna exposure data. ZeroGEX goes deeper on six symbols instead of wider across many.',
+      a: 'Yes. Bullflow lists gamma and net GEX levels on its Basic plan, and its Premium plan adds a GEX bubble chart, a multi-map view, a GEX heatmap replay, and vanna exposure data. ZeroGEX goes deeper on eight symbols instead of wider across many.',
     },
     {
       q: 'Can I use Bullflow and ZeroGEX together?',
@@ -305,7 +305,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Does ZeroGEX have something like the Quant Data Interval Map?',
-      a: 'Yes. The GEX Heatmap on ZeroGEX Basic plots net dealer gamma by strike through the session, with the gamma flip drawn on top, and its Dots view draws it the way the Interval Map does: one dot per strike per interval, sized by the gamma there, green for positive and red for negative. The Interval Map also shows delta, vanna, and charm exposure and covers many more tickers; ZeroGEX maps gamma only, on six symbols.',
+      a: 'Yes. The GEX Heatmap on ZeroGEX Basic plots net dealer gamma by strike through the session, with the gamma flip drawn on top, and its Dots view draws it the way the Interval Map does: one dot per strike per interval, sized by the gamma there, green for positive and red for negative. The Interval Map also shows delta, vanna, and charm exposure and covers many more tickers; ZeroGEX maps gamma only, on eight symbols.',
     },
     {
       q: 'Why does gamma build up at one strike during the day?',
@@ -320,7 +320,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'zerogex-vs-menthorq': [
     {
       q: 'Is ZeroGEX a MenthorQ alternative?',
-      a: 'For gamma levels on SPX, SPY, QQQ, NDX, ES, and NQ, yes: both publish the call and put levels and the gamma flip, and both deliver them into charting platforms. For stocks, forex, crypto, or other futures, or for an academy and live coaching, no: MenthorQ covers those, and ZeroGEX does not.',
+      a: 'For gamma levels on SPX, SPY, QQQ, NDX, ES, and NQ, yes: both publish the call and put levels and the gamma flip, and both deliver them into charting platforms. For stocks beyond NVDA and MSFT, forex, crypto, or other futures, or for an academy and live coaching, no: MenthorQ covers those, and ZeroGEX does not.',
     },
     {
       q: 'What are the MenthorQ HVL, Call Resistance, and Put Support in ZeroGEX terms?',
@@ -339,7 +339,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'zerogex-vs-tradegex': [
     {
       q: 'Is ZeroGEX a TradeGEX alternative?',
-      a: 'For gamma levels on ES and NQ, yes: both draw the call and put walls and the gamma flip on the futures chart, and ZeroGEX also covers SPX, SPY, QQQ, and NDX themselves. For the Dow, the Russell, gold, crude oil, or single tech stocks, or for a desktop app with a trade simulator, no: TradeGEX covers those, and ZeroGEX does not.',
+      a: 'For gamma levels on ES and NQ, yes: both draw the call and put walls and the gamma flip on the futures chart, and ZeroGEX also covers SPX, SPY, QQQ, and NDX themselves, plus NVDA and MSFT. For the Dow, the Russell, gold, crude oil, or tech stocks other than NVDA and MSFT, or for a desktop app with a trade simulator, no: TradeGEX covers those, and ZeroGEX does not.',
     },
     {
       q: 'Are TradeGEX’s call and put walls the same as ZeroGEX’s?',

@@ -9,7 +9,7 @@
 MenthorQ und ZeroGEX verkaufen im Kern dasselbe: aus Optionen abgeleitete Key Levels - die Strikes, an denen sich Call- und Put-Gamma konzentrieren, und den Gamma Flip dazwischen - geliefert in die Charting-Plattformen, die Trader ohnehin nutzen. Die Unterschiede liegen in Breite, Tiefe, Extras und Preis.
 
 - **MenthorQ** deckt Aktien, ETFs, Indizes, Futures, Forex und Krypto ab, mit 20+ Trading-Modellen, 10+ Plattform-Integrationen, einer Academy, einem KI-Assistenten namens QUIN und Live-Coaching im Pro-Plan.
-- **ZeroGEX** deckt sechs Symbole ab - SPX, SPY, QQQ, NDX sowie die Futures ES und NQ - und geht bei ihnen tiefer: Levels, die über die Sitzung hinweg etwa einmal pro Minute neu berechnet werden, eine Gamma-Heatmap, Hedging-Flow und vierzehn auf den Levels aufbauende Signale.
+- **ZeroGEX** deckt acht Symbole ab - SPX, SPY, QQQ, NDX, die Futures ES und NQ, NVDA und MSFT - und geht bei ihnen tiefer: Levels, die über die Sitzung hinweg etwa einmal pro Minute neu berechnet werden, eine Gamma-Heatmap, Hedging-Flow und vierzehn auf den Levels aufbauende Signale für die sechs Indexprodukte.
 
 Wenn du viele Märkte handelst oder zu deinen Levels Lektionen und Coaching willst, liegt MenthorQ näher an dem, was du brauchst. Wenn du im Index-Komplex Daytrading betreibst und seine Levels in der Tiefe für weniger Geld willst, ist es ZeroGEX.
 
@@ -43,13 +43,13 @@ Listenpreise vor Rabattaktionen und Steuern, geprüft am {{menthorq:checked}}. M
 | MenthorQ Premium | {{menthorq:premium:monthly}}/Monat | {{menthorq:premium:annual}}/Jahr (etwa {{menthorq:premium:annual:mo}}/Monat) |
 | MenthorQ Pro, mit Coaching | {{menthorq:pro:monthly}}/Monat | {{menthorq:pro:annual}}/Jahr (etwa {{menthorq:pro:annual:mo}}/Monat) |
 
-Beide ZeroGEX-Pläne kosten weniger als jeder der beiden MenthorQ-Pläne, ob monatlich oder jährlich. Der rabattierte erste Monat von MenthorQ Premium kostet genauso viel wie ein regulärer Monat ZeroGEX Basic. Für diese Preise bekommst du allerdings Unterschiedliches: Bei MenthorQ sind es weit mehr Märkte, mehr Integrationen, eine Academy und bei Pro Coaching; bei ZeroGEX sind es sechs Symbole in der Tiefe.
+Beide ZeroGEX-Pläne kosten weniger als jeder der beiden MenthorQ-Pläne, ob monatlich oder jährlich. Der rabattierte erste Monat von MenthorQ Premium kostet genauso viel wie ein regulärer Monat ZeroGEX Basic. Für diese Preise bekommst du allerdings Unterschiedliches: Bei MenthorQ sind es weit mehr Märkte, mehr Integrationen, eine Academy und bei Pro Coaching; bei ZeroGEX sind es acht Symbole in der Tiefe.
 
 ZeroGEX Basic monatlich beginnt mit einer 7-tägigen kostenlosen Testphase, und jeder andere ZeroGEX-Plan ist durch eine 7-Tage-Geld-zurück-Garantie abgesichert. Prüfe die aktuellen Bedingungen von MenthorQ für Testphase und Erstattung auf dessen Website. Die vollständige Aufstellung findest du auf der Seite [Preise](/pricing).
 
 ## Wo MenthorQ die stärkere Wahl ist
 
-- **Breite.** Aktien, ETFs, Indizes, Futures, Forex und Krypto. ZeroGEX deckt sechs Symbole ab.
+- **Breite.** Aktien, ETFs, Indizes, Futures, Forex und Krypto. ZeroGEX deckt acht Symbole ab.
 - **Mehr Plattformen.** Integrationen mit TradingView, NinjaTrader, Sierra Chart, Bookmap, ATAS, Quantower, MotiveWave, Tickblaze und TrendSpider. ZeroGEX funktioniert mit sechs: TradingView, thinkorswim, NinjaTrader, Sierra Chart, Bookmap und SabrTrader, das auch die Levels von MenthorQ zeichnet.
 - **Lernen und Coaching.** Eine Academy mit 350+ Lektionen, 350+ Leitfäden sowie Webinaren und Podcasts, und bei Pro Live-Trading-Sessions, wöchentliche Mentoring-Treffen und eine monatliche Strategie-Session. ZeroGEX hat Bildungsartikel und ein Hilfe-Center, aber kein Coaching.
 - **Mehr Modelle.** 20+ Trading-Modelle, darunter Blind-Spot-Levels und der Q-Score, sowie QUIN, ein KI-Assistent, der Setups screent und Assets anhand seiner Kennzahlen vergleicht. Der KI-Zugang von ZeroGEX ist sein kostenloser MCP-Server, der die Levels in Assistenten wie Claude und ChatGPT bringt.
@@ -65,7 +65,7 @@ ZeroGEX Basic monatlich beginnt mit einer 7-tägigen kostenlosen Testphase, und 
 
 ## So entscheidest du
 
-- **Du handelst Aktien, Forex, Krypto oder Futures über ES und NQ hinaus:** MenthorQ.
+- **Du handelst Aktien über NVDA und MSFT hinaus, Forex, Krypto oder Futures über ES und NQ hinaus:** MenthorQ.
 - **Du willst zu deinen Levels eine Academy, Mentoring oder Live-Trading-Sessions:** MenthorQ.
 - **Du betreibst Daytrading mit SPX, SPY, QQQ, NDX, ES oder NQ und willst den Flip, die Walls und Signale zur Dealer-Positionierung in der Tiefe, für weniger Geld:** ZeroGEX.
 - **Du bist noch unsicher:** Öffne die kostenlose Seite [SPX-Gamma-Levels](/spx-gamma-levels), ohne Registrierung, und vergleiche sie mit den Levels, die du heute nutzt.

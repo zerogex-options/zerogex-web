@@ -44,7 +44,7 @@ export default async function ZeroGexVsSpotGammaPage() {
 
       <LiveLevelsCTA
         headline="See the levels before you decide"
-        intro="The quickest comparison is a look: the free pages show the same gamma flip and walls the paid plans do, for all six symbols."
+        intro="The quickest comparison is a look: the free pages show the same gamma flip and walls the paid plans do, for all eight symbols."
       />
     </div>
   );

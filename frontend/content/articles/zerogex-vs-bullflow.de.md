@@ -9,7 +9,7 @@
 Die beiden überschneiden sich weniger, als ihre Preislisten vermuten lassen.
 
 - **Bullflow** ist um ungewöhnlichen Options-Flow in Echtzeit herum gebaut, mit Dark-Pool-Trades, Alerts für Mobilgerät und Desktop, einer Discord-Community sowie Apps für iOS und Android. Gamma Exposure ist ein Werkzeugset innerhalb der Plattform, und ihre Werkzeuge reichen weit über den Index hinaus.
-- **ZeroGEX** ist um eine einzige Aufgabe herum gebaut: modellierte Dealer-Positionierung - der Gamma Flip, die Call Wall und die Put Wall und die darauf aufbauenden Signale - für sechs Symbole: SPX, SPY, QQQ, NDX sowie die Futures ES und NQ.
+- **ZeroGEX** ist um eine einzige Aufgabe herum gebaut: modellierte Dealer-Positionierung - der Gamma Flip, die Call Wall und die Put Wall - für acht Symbole: SPX, SPY, QQQ, NDX, die Futures ES und NQ, NVDA und MSFT, mit auf den Levels aufbauenden Signalen für die sechs Indexprodukte.
 
 Wenn deine Trade-Ideen aus großen Optionsorders in Einzelaktien kommen, liegt Bullflow näher an dem, was du brauchst. Wenn du im Index-Komplex Daytrading betreibst und seine Levels in der Tiefe willst, ist es ZeroGEX. Manche Trader nutzen beide.
 
@@ -43,17 +43,17 @@ Bullflow veröffentlicht außerdem Apps für iOS und Android.
 
 ### ZeroGEX
 
-ZeroGEX deckt sechs Symbole ab und sonst nichts: SPX, SPY, QQQ, NDX sowie die Futures ES und NQ, deren Levels die Options-Levels von SPX und NDX sind, übertragen auf den Futures-Preis. Einzelaktien und Dark-Pool-Prints deckt es bewusst nicht ab.
+ZeroGEX deckt acht Symbole ab und sonst nichts: SPX, SPY, QQQ, NDX, ES, NQ, NVDA und MSFT. Die Levels von ES und NQ sind die Options-Levels von SPX und NDX, übertragen auf den Futures-Preis. Dark-Pool-Prints deckt es bewusst nicht ab.
 
 - **Basic:** Gamma-Levels in Echtzeit (Gamma Flip, Call Wall und Put Wall sowie Max Pain), das Haupt-Dashboard und das Gamma Terminal in Echtzeit, ein Dashboard, das du dir aus Widgets zusammenstellst, alle Metrik-Seiten (Dealer-Positionierung, GEX-Heatmap und Strike-Profil, Options-Flow, Smart Money, Hedging Flow, Volatilität und technische Analyse), die sechs Basic-Signale, der Strategie-Builder und Live-Optionskurse.
 - **Pro:** alles aus Basic, dazu Trade Bias, der Gesamtscore, die acht erweiterten Signale, API-Zugang, automatisch aktualisierte Indikatoren für NinjaTrader, Sierra Chart und Bookmap sowie TradeWorkz™ (Beta): Bot-Trading, Backtesting und Muster-Einblicke.
-- **Kostenlos, ohne Konto:** um 15 Minuten verzögerte Levels für alle sechs Symbole, Skripte für TradingView und thinkorswim, ein gehosteter MCP-Server, der dieselben Levels in KI-Assistenten wie Claude und ChatGPT bringt, Session-Replay und eine öffentliche Bilanz jeder Prognose.
+- **Kostenlos, ohne Konto:** um 15 Minuten verzögerte Levels für alle acht Symbole, Skripte für TradingView und thinkorswim, ein gehosteter MCP-Server, der die Levels der sechs Indexprodukte in KI-Assistenten wie Claude und ChatGPT bringt, Session-Replay und eine öffentliche Bilanz jeder Prognose.
 
 Die vollständige Aufstellung findest du auf der Seite [Preise](/pricing).
 
 ## Wo Bullflow die stärkere Wahl ist
 
-- **Breite.** Die Flow- und GEX-Werkzeuge von Bullflow reichen weit über den Index hinaus. Wenn deine Ideen aus der Optionsaktivität in Einzelaktien kommen, deckt ZeroGEX diese nicht ab.
+- **Breite.** Die Flow- und GEX-Werkzeuge von Bullflow reichen weit über den Index hinaus. Wenn deine Ideen aus der Optionsaktivität in Einzelaktien kommen, deckt ZeroGEX nur NVDA und MSFT ab.
 - **Dark-Pool-Trades.** Bullflow Premium hat sie. ZeroGEX hat keine.
 - **Alerts und Mobil-Apps.** Bullflow verschickt Alerts auf Mobilgerät und Desktop und hat native Apps. ZeroGEX läuft im Browser, auf dem Desktop oder dem Smartphone, und seine Signal-Trigger erscheinen in der App statt als Push-Benachrichtigungen.
 - **Community.** Zu Bullflow gehört eine Discord-Community. ZeroGEX betreibt keine.
@@ -61,7 +61,7 @@ Die vollständige Aufstellung findest du auf der Seite [Preise](/pricing).
 
 ## Wo ZeroGEX die stärkere Wahl ist
 
-- **Tiefe im Index-Komplex.** Alles, was ZeroGEX baut, zielt auf SPX, SPY, QQQ, NDX, ES und NQ: Gamma je Verfall, Vanna- und Charm-Flow, Hedging-Flow und vierzehn auf den Levels aufbauende Signale, deren Methoden im [Leitfaden zu den Signalen](/guides/signals-explained) dargelegt sind.
+- **Tiefe im Index-Komplex.** Am tiefsten geht ZeroGEX bei SPX, SPY, QQQ, NDX, ES und NQ: Gamma je Verfall, Vanna- und Charm-Flow, Hedging-Flow und vierzehn auf den Levels aufbauende Signale, deren Methoden im [Leitfaden zu den Signalen](/guides/signals-explained) dargelegt sind.
 - **Dieselben Echtzeit-Levels in beiden Plänen.** ZeroGEX Basic bekommt dieselben Levels wie Pro, etwa einmal pro Minute neu berechnet. Bullflow führt schnellere GEX-Updates als Premium-Feature auf.
 - **Eine veröffentlichte Methode und eine bewertete Bilanz.** ZeroGEX dokumentiert auf seiner Seite [Methodik](/methodology), wie es den Gamma Flip berechnet, und bewertet jede Prognose, die es veröffentlicht, Fehlprognosen eingeschlossen, auf seiner Seite [Track Record](/track-record).
 - **Levels dort, wo du ohnehin chartest.** Kostenlose Skripte für TradingView und thinkorswim sowie Indikatoren für NinjaTrader, Sierra Chart und Bookmap, die sich mit Pro selbst aktualisieren. Siehe [Integrationen](/integrations).

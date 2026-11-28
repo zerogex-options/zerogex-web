@@ -9,9 +9,9 @@
 Les deux plateformes tirent des niveaux gamma du marché des options et les tracent sur des graphiques de futures. Elles diffèrent par ce qu'elles couvrent, par la façon dont elles construisent les niveaux et par ce qui les accompagne.
 
 - **TradeGEX** est conçu pour les day traders de futures. Il trace en temps réel des barres d'exposition gamma et delta, un call wall et un put wall, un gamma flip et son propre indicateur Hedge Flow sur les futures ES, NQ, YM, RTY, or et pétrole brut, ainsi que sur sept grandes valeurs technologiques, avec des applications natives Mac et Windows, un simulateur de trading intégré et des indicateurs pour TradingView, Tradovate, ATAS et NinjaTrader.
-- **ZeroGEX** couvre six symboles - SPX, SPY, QQQ, NDX, et les futures ES et NQ - et va plus en profondeur sur ceux-ci : des walls pondérés par le gamma, un gamma flip calculé à partir d'un profil de gamma sur une plage de prix, une heatmap gamma tout au long de la séance, le flux de couverture, et quatorze signaux construits sur les niveaux, avec une méthode publiée et un historique noté.
+- **ZeroGEX** couvre huit symboles - SPX, SPY, QQQ, NDX, les futures ES et NQ, NVDA et MSFT - et va plus en profondeur sur ceux-ci : des walls pondérés par le gamma, un gamma flip calculé à partir d'un profil de gamma sur une plage de prix, une heatmap gamma tout au long de la séance, le flux de couverture, et quatorze signaux construits sur les niveaux pour les six produits indiciels, avec une méthode publiée et un historique noté.
 
-Si vous tradez le Dow, le Russell, l'or, le pétrole brut ou les grandes valeurs technologiques, ou voulez une application de bureau avec un simulateur de trading, TradeGEX est plus proche de ce qu'il vous faut. Si vous faites du day trading sur le complexe S&P et Nasdaq et voulez savoir comment chaque niveau est construit et à quelle fréquence les walls ont tenu, c'est le cas de ZeroGEX.
+Si vous tradez le Dow, le Russell, l'or, le pétrole brut ou les grandes valeurs technologiques autres que NVDA et MSFT, ou voulez une application de bureau avec un simulateur de trading, TradeGEX est plus proche de ce qu'il vous faut. Si vous faites du day trading sur le complexe S&P et Nasdaq et voulez savoir comment chaque niveau est construit et à quelle fréquence les walls ont tenu, c'est le cas de ZeroGEX.
 
 ## Les niveaux, côte à côte
 
@@ -53,13 +53,13 @@ Prix catalogue, hors promotions et hors taxes, vérifiés le {{tradegex:checked}
 | ZeroGEX Pro, avec accès API | {{zgx:pro:monthly}}/mois | {{zgx:pro:annual}}/an (environ {{zgx:pro:annual:mo}}/mois) |
 | TradeGEX | {{tradegex:platform:monthly}}/mois | {{tradegex:platform:annual}}/an (environ {{tradegex:platform:annual:mo}}/mois) |
 
-En facturation mensuelle, ZeroGEX Basic coûte moins cher que TradeGEX, et ZeroGEX Pro coûte à peu près le même prix. En facturation annuelle, ZeroGEX Pro coûte environ moitié moins cher que TradeGEX - le même prix que l'offre semestrielle de TradeGEX - et inclut l'accès API. Ces prix n'achètent toutefois pas la même chose : celui de TradeGEX couvre plus de marchés, des applications de bureau et un simulateur de trading, et celui de ZeroGEX couvre six symboles en profondeur.
+En facturation mensuelle, ZeroGEX Basic coûte moins cher que TradeGEX, et ZeroGEX Pro coûte à peu près le même prix. En facturation annuelle, ZeroGEX Pro coûte environ moitié moins cher que TradeGEX - le même prix que l'offre semestrielle de TradeGEX - et inclut l'accès API. Ces prix n'achètent toutefois pas la même chose : celui de TradeGEX couvre plus de marchés, des applications de bureau et un simulateur de trading, et celui de ZeroGEX couvre huit symboles en profondeur.
 
 Les essais et les remboursements diffèrent aussi. ZeroGEX Basic mensuel commence par un essai gratuit de 7 jours, sans aucun prélèvement avant la fin de l'essai, et toutes les autres offres ZeroGEX sont couvertes par une garantie satisfait ou remboursé de 7 jours. TradeGEX propose un essai gratuit de 3 jours qui demande un numéro de mobile mais pas de carte et ne se transforme pas tout seul en offre payante, et ses conditions indiquent que les remboursements ne sont accordés que dans des circonstances exceptionnelles.
 
 ## Là où TradeGEX est le choix le plus solide
 
-- **Plus de marchés.** Les futures ES, NQ, YM (Dow), RTY (Russell 2000), or et pétrole brut, plus NVDA, TSLA, AAPL, MSFT, AMZN, META et GOOGL. ZeroGEX couvre six symboles.
+- **Plus de marchés.** Les futures ES, NQ, YM (Dow), RTY (Russell 2000), or et pétrole brut, plus NVDA, TSLA, AAPL, MSFT, AMZN, META et GOOGL. ZeroGEX couvre huit symboles.
 - **Un rafraîchissement plus rapide.** TradeGEX indique que ses niveaux GEX se rafraîchissent à quelques secondes d'intervalle. ZeroGEX recalcule ses niveaux environ une fois par minute.
 - **Applications de bureau et simulateur de trading.** Des applications natives Mac et Windows (Windows en bêta), et un simulateur intégré pour s'entraîner à trader les futures sur des prix en direct, avec des ordres bracket et des statistiques de performance. ZeroGEX fonctionne dans le navigateur et n'a pas de simulateur pour vous entraîner sur vos propres trades.
 - **Tradovate et ATAS.** TradeGEX trace ses niveaux sur le graphique web de Tradovate et dans ATAS, ainsi que sur TradingView et NinjaTrader. ZeroGEX fonctionne avec TradingView, thinkorswim, NinjaTrader, Sierra Chart et Bookmap.
@@ -76,7 +76,7 @@ Les essais et les remboursements diffèrent aussi. ZeroGEX Basic mensuel commenc
 
 ## Comment choisir
 
-- **Vous tradez YM, RTY, l'or, le pétrole brut ou des valeurs technologiques individuelles :** TradeGEX.
+- **Vous tradez YM, RTY, l'or, le pétrole brut ou des valeurs technologiques autres que NVDA et MSFT :** TradeGEX.
 - **Vous voulez une application de bureau, un simulateur de trading intégré, ou vos niveaux sur Tradovate ou ATAS :** TradeGEX.
 - **Vous faites du day trading sur ES, NQ, SPX, SPY, QQQ ou NDX et voulez savoir comment chaque niveau est construit et à quelle fréquence les walls ont tenu :** ZeroGEX.
 - **Vous n'êtes pas encore sûr :** ouvrez la page gratuite [niveaux gamma ES](/es-gamma-levels), sans inscription, et comparez-la avec les niveaux que vous utilisez aujourd'hui.

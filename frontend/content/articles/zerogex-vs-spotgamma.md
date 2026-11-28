@@ -9,7 +9,7 @@
 SpotGamma and ZeroGEX both publish options-derived key levels: the call wall and put wall where gamma concentrates, and the price where modeled dealer gamma crosses zero. They differ in what comes around those levels and how often they move.
 
 - **SpotGamma** is a research service as much as a data tool. Every plan gets its Founder's Note before the open and after the close each trading day, key levels for the major US indices, and daily GEX levels for more than 3,500 stocks, indices, and ETFs. Its homepage puts its real-time tools, such as TRACE (an S&P 500 heatmap) and HIRO (its real-time hedging indicator), on its higher plan.
-- **ZeroGEX** covers six symbols - SPX, SPY, QQQ, NDX, and the ES and NQ futures - and goes deeper on them: levels recomputed about once a minute through the session on both plans, a gamma heatmap, hedging flow, and fourteen signals built on the levels, with a published method and a graded record.
+- **ZeroGEX** covers eight symbols - SPX, SPY, QQQ, NDX, the ES and NQ futures, NVDA, and MSFT - and goes deeper on them: levels recomputed about once a minute through the session on both plans, a gamma heatmap, hedging flow, and fourteen signals for the six index products built on the levels, with a published method and a graded record.
 
 If you want a daily research note, single-stock GEX across thousands of names, or SpotGamma's own proprietary levels, SpotGamma is closer to what you need. If you day trade the index complex and want its levels moving through the session for less, ZeroGEX is.
 
@@ -50,19 +50,19 @@ List prices before promotions and tax, as SpotGamma's checkout forms charged the
 | SpotGamma Essential | {{spotgamma:essential:monthly}}/mo | {{spotgamma:essential:annual}}/yr (about {{spotgamma:essential:annual:mo}}/mo) |
 | SpotGamma Alpha | {{spotgamma:alpha:monthly}}/mo | {{spotgamma:alpha:annual}}/yr (about {{spotgamma:alpha:annual:mo}}/mo) |
 
-Both ZeroGEX plans cost less than either SpotGamma plan, monthly or yearly, and a year of ZeroGEX Pro costs the same as one month of SpotGamma Alpha. The prices buy different things, though: SpotGamma's covers thousands of stocks, a twice-daily research note, webinars, and on Alpha, its real-time tools; ZeroGEX's covers six symbols in depth, with levels that move through the session on both plans.
+Both ZeroGEX plans cost less than either SpotGamma plan, monthly or yearly, and a year of ZeroGEX Pro costs the same as one month of SpotGamma Alpha. The prices buy different things, though: SpotGamma's covers thousands of stocks, a twice-daily research note, webinars, and on Alpha, its real-time tools; ZeroGEX's covers eight symbols in depth, with levels that move through the session on both plans.
 
 The trials and refunds differ too. ZeroGEX Basic monthly starts with a 7-day free trial with nothing charged until it ends, and every other ZeroGEX plan is covered by a 7-day money-back guarantee. SpotGamma's pricing page lists no free trial on its paid plans; separately, it offers a free week of its Opening Setup daily report, with no card needed. Its terms say subscription payments are non-refundable unless otherwise indicated.
 
 ## What you can see for free
 
 - **SpotGamma** publishes a free [SPX gamma exposure chart](https://spotgamma.com/free-tools/spx-gamma-exposure/), which it says is updated daily, along with an options profit calculator and an implied earnings chart.
-- **ZeroGEX** publishes the gamma flip, call wall, put wall, and net GEX for all six of its symbols, about 15 minutes delayed and refreshed through the session, with no signup: every symbol on one page at [GEX levels today](/gex-levels), and one page per symbol, such as [SPX gamma levels](/spx-gamma-levels). The [Gamma Terminal](/chart) shows a delayed SPY gamma chart for free, and the [MCP server](/education/gamma-levels-in-claude) puts the delayed levels in AI assistants like Claude and ChatGPT.
+- **ZeroGEX** publishes the gamma flip, call wall, put wall, and net GEX for all eight of its symbols, about 15 minutes delayed and refreshed through the session, with no signup: the six index products together at [GEX levels today](/gex-levels), and one page per symbol, such as [SPX gamma levels](/spx-gamma-levels). The [Gamma Terminal](/chart) shows a delayed SPY gamma chart for free, and the [MCP server](/education/gamma-levels-in-claude) puts the same six symbols' delayed levels in AI assistants like Claude and ChatGPT.
 
 ## Where SpotGamma is the stronger choice
 
 - **Research and commentary.** The Founder's Note before the open and after the close every trading day, on every plan, plus live weekly webinars, a Discord community, and on Alpha, live daily training sessions. ZeroGEX has education articles and a help center, and no daily note.
-- **Breadth.** Daily GEX levels for more than 3,500 US stocks, indices, and ETFs in its Equity Hub, and on Alpha, HIRO across more than 3,000 stocks. ZeroGEX covers six symbols.
+- **Breadth.** Daily GEX levels for more than 3,500 US stocks, indices, and ETFs in its Equity Hub, and on Alpha, HIRO across more than 3,000 stocks. ZeroGEX covers eight symbols.
 - **Its own positioning model and levels.** SGOI, its estimate of market-maker and buyside positioning, and the Volatility Trigger and Risk Pivot. ZeroGEX uses the standard convention and publishes no equivalent of either level.
 - **More platforms.** SpotGamma lists integrations with TradingView, thinkorswim, NinjaTrader, Sierra Chart, Bookmap, TrendSpider, Jigsaw, eSignal, and EdgePro. ZeroGEX works with six: TradingView, thinkorswim, NinjaTrader, Sierra Chart, Bookmap, and SabrTrader.
 
@@ -71,7 +71,7 @@ The trials and refunds differ too. ZeroGEX Basic monthly starts with a 7-day fre
 - **Price.** Both ZeroGEX plans cost less than either SpotGamma plan, and ZeroGEX Pro includes API access. SpotGamma's Essential and Alpha plan lists do not include an API.
 - **Levels that move through the session on both plans.** About once a minute, on Basic as well as Pro. SpotGamma's pages describe levels updated before the open each day, and its homepage puts its real-time tools on Alpha.
 - **ES and NQ on the futures price.** ZeroGEX builds ES levels from the SPX chain and NQ levels from the NDX chain and projects them onto the futures contract it quotes ([how it works](/help/platform/futures-contract-months)), free on a delay at [ES gamma levels](/es-gamma-levels) and [NQ gamma levels](/nq-gamma-levels). SpotGamma's site says its levels integrate with futures platforms, but the pages checked do not say it publishes levels on the futures price.
-- **More free.** All six symbols' levels, refreshed through the session on a delay, against SpotGamma's daily SPX chart.
+- **More free.** All eight symbols' levels, refreshed through the session on a delay, against SpotGamma's daily SPX chart.
 - **A published method and a graded record.** The [Methodology](/methodology) page sets out how the levels are computed, the [Track Record](/track-record) grades every forecast ZeroGEX publishes, misses included, and the [wall study](/education/how-often-do-gamma-walls-break) publishes how often walls actually broke.
 - **Depth on the index complex.** A gamma heatmap through the session, gamma by expiration, vanna and charm flow, hedging flow, and fourteen signals built on the levels, with their methods set out in the [signals guide](/guides/signals-explained).
 

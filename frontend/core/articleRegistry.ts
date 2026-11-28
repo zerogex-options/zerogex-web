@@ -659,7 +659,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Looking for a Bullflow alternative? ZeroGEX vs Bullflow, compared fairly: plan prices, GEX depth, options flow, integrations, and which one fits how you trade.',
     datePublished: '2026-09-29',
-    dateModified: '2026-11-10',
+    dateModified: '2026-11-28',
     readMinutes: 6,
     kind: 'article',
   },
@@ -675,7 +675,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Looking for a Quant Data alternative? ZeroGEX vs Quant Data, compared fairly: Interval Map vs GEX Heatmap, pricing, coverage, and which fits how you trade.',
     datePublished: '2026-09-30',
-    dateModified: '2026-11-10',
+    dateModified: '2026-11-28',
     readMinutes: 7,
     kind: 'article',
   },
@@ -691,7 +691,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Looking for a MenthorQ alternative? ZeroGEX vs MenthorQ, compared fairly: HVL vs gamma flip, pricing, coverage, integrations, and which fits how you trade.',
     datePublished: '2026-09-30',
-    dateModified: '2026-11-10',
+    dateModified: '2026-11-28',
     readMinutes: 7,
     kind: 'article',
   },
@@ -707,7 +707,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Looking for a TradeGEX alternative? ZeroGEX vs TradeGEX, compared fairly: call and put walls, ES and NQ levels, pricing, and which fits how you trade.',
     datePublished: '2026-10-09',
-    dateModified: '2026-11-10',
+    dateModified: '2026-11-28',
     readMinutes: 7,
     kind: 'article',
   },
@@ -723,7 +723,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'Looking for a SpotGamma alternative? ZeroGEX vs SpotGamma, compared fairly: call walls and zero gamma, update speed, pricing, free levels, and which fits.',
     datePublished: '2026-10-11',
-    dateModified: '2026-11-10',
+    dateModified: '2026-11-28',
     readMinutes: 8,
     kind: 'article',
   },

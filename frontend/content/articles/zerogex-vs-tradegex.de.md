@@ -9,9 +9,9 @@
 Beide Plattformen beziehen Gamma-Levels aus dem Optionsmarkt und zeichnen sie in Futures-Charts. Sie unterscheiden sich darin, was sie abdecken, wie sie die Levels bilden und was rund um sie dazukommt.
 
 - **TradeGEX** ist für Futures-Daytrader gebaut. Es zeichnet Echtzeit-Balken für Gamma- und Delta-Exposure, Call Wall und Put Wall, einen Gamma Flip und seinen eigenen Hedge-Flow-Indikator für die Futures ES, NQ, YM, RTY, Gold und Rohöl sowie für sieben große Tech-Aktien, mit nativen Apps für Mac und Windows, einem eingebauten Trade-Simulator und Indikatoren für TradingView, Tradovate, ATAS und NinjaTrader.
-- **ZeroGEX** deckt sechs Symbole ab - SPX, SPY, QQQ, NDX sowie die Futures ES und NQ - und geht bei ihnen tiefer: nach Gamma gewichtete Walls, ein Gamma Flip, berechnet aus einem Gamma-Profil über eine Spanne von Preisen, eine Gamma-Heatmap über die Sitzung, Hedging-Flow und vierzehn auf den Levels aufbauende Signale, mit einer veröffentlichten Methode und einer bewerteten Bilanz.
+- **ZeroGEX** deckt acht Symbole ab - SPX, SPY, QQQ, NDX, die Futures ES und NQ, NVDA und MSFT - und geht bei ihnen tiefer: nach Gamma gewichtete Walls, ein Gamma Flip, berechnet aus einem Gamma-Profil über eine Spanne von Preisen, eine Gamma-Heatmap über die Sitzung, Hedging-Flow und vierzehn auf den Levels aufbauende Signale für die sechs Indexprodukte, mit einer veröffentlichten Methode und einer bewerteten Bilanz.
 
-Wenn du den Dow, den Russell, Gold, Rohöl oder die großen Tech-Aktien handelst oder eine Desktop-App mit Trade-Simulator willst, liegt TradeGEX näher an dem, was du brauchst. Wenn du im S&P- und Nasdaq-Komplex Daytrading betreibst und wissen willst, wie jedes Level gebildet wird und wie oft Walls gehalten haben, ist es ZeroGEX.
+Wenn du den Dow, den Russell, Gold, Rohöl oder große Tech-Aktien außer NVDA und MSFT handelst oder eine Desktop-App mit Trade-Simulator willst, liegt TradeGEX näher an dem, was du brauchst. Wenn du im S&P- und Nasdaq-Komplex Daytrading betreibst und wissen willst, wie jedes Level gebildet wird und wie oft Walls gehalten haben, ist es ZeroGEX.
 
 ## Die Levels nebeneinander
 
@@ -53,13 +53,13 @@ Listenpreise vor Rabattaktionen und Steuern, geprüft am {{tradegex:checked}}. T
 | ZeroGEX Pro, mit API-Zugang | {{zgx:pro:monthly}}/Monat | {{zgx:pro:annual}}/Jahr (etwa {{zgx:pro:annual:mo}}/Monat) |
 | TradeGEX | {{tradegex:platform:monthly}}/Monat | {{tradegex:platform:annual}}/Jahr (etwa {{tradegex:platform:annual:mo}}/Monat) |
 
-Bei monatlicher Abrechnung kostet ZeroGEX Basic weniger als TradeGEX, und ZeroGEX Pro kostet etwa gleich viel. Bei jährlicher Abrechnung kostet ZeroGEX Pro etwa halb so viel wie TradeGEX - genauso viel wie der Sechsmonatsplan von TradeGEX - und enthält API-Zugang. Für diese Preise bekommst du allerdings Unterschiedliches: Bei TradeGEX sind es mehr Märkte, Desktop-Apps und ein Trade-Simulator, bei ZeroGEX sechs Symbole in der Tiefe.
+Bei monatlicher Abrechnung kostet ZeroGEX Basic weniger als TradeGEX, und ZeroGEX Pro kostet etwa gleich viel. Bei jährlicher Abrechnung kostet ZeroGEX Pro etwa halb so viel wie TradeGEX - genauso viel wie der Sechsmonatsplan von TradeGEX - und enthält API-Zugang. Für diese Preise bekommst du allerdings Unterschiedliches: Bei TradeGEX sind es mehr Märkte, Desktop-Apps und ein Trade-Simulator, bei ZeroGEX acht Symbole in der Tiefe.
 
 Auch Testphasen und Erstattungen unterscheiden sich. ZeroGEX Basic monatlich beginnt mit einer 7-tägigen kostenlosen Testphase, in der bis zu ihrem Ende nichts abgebucht wird, und jeder andere ZeroGEX-Plan ist durch eine 7-Tage-Geld-zurück-Garantie abgesichert. TradeGEX bietet eine 3-tägige kostenlose Testphase, die eine Handynummer, aber keine Karte erfordert und nicht von selbst in einen bezahlten Plan übergeht, und laut seinen Bedingungen werden Erstattungen nur unter außergewöhnlichen Umständen gewährt.
 
 ## Wo TradeGEX die stärkere Wahl ist
 
-- **Mehr Märkte.** Die Futures ES, NQ, YM (Dow), RTY (Russell 2000), Gold und Rohöl, dazu NVDA, TSLA, AAPL, MSFT, AMZN, META und GOOGL. ZeroGEX deckt sechs Symbole ab.
+- **Mehr Märkte.** Die Futures ES, NQ, YM (Dow), RTY (Russell 2000), Gold und Rohöl, dazu NVDA, TSLA, AAPL, MSFT, AMZN, META und GOOGL. ZeroGEX deckt acht Symbole ab.
 - **Schnellere Aktualisierung.** Laut TradeGEX aktualisieren sich seine GEX-Levels alle paar Sekunden. ZeroGEX berechnet seine Levels etwa einmal pro Minute neu.
 - **Desktop-Apps und ein Trade-Simulator.** Native Apps für Mac und Windows (Windows in der Beta) und ein eingebauter Simulator, um Futures-Trades zu Live-Kursen zu üben, mit Bracket-Orders und Performance-Statistiken. ZeroGEX läuft im Browser und hat keinen Simulator, um eigene Trades zu üben.
 - **Tradovate und ATAS.** TradeGEX zeichnet seine Levels in das Web-Chart von Tradovate und in ATAS, außerdem in TradingView und NinjaTrader. ZeroGEX funktioniert mit TradingView, thinkorswim, NinjaTrader, Sierra Chart und Bookmap.
@@ -76,7 +76,7 @@ Auch Testphasen und Erstattungen unterscheiden sich. ZeroGEX Basic monatlich beg
 
 ## So entscheidest du
 
-- **Du handelst YM, RTY, Gold, Rohöl oder einzelne Tech-Aktien:** TradeGEX.
+- **Du handelst YM, RTY, Gold, Rohöl oder Tech-Aktien außer NVDA und MSFT:** TradeGEX.
 - **Du willst eine Desktop-App, einen eingebauten Trade-Simulator oder deine Levels in Tradovate oder ATAS:** TradeGEX.
 - **Du betreibst Daytrading mit ES, NQ, SPX, SPY, QQQ oder NDX und willst wissen, wie jedes Level gebildet wird und wie oft Walls gehalten haben:** ZeroGEX.
 - **Du bist noch unsicher:** Öffne die kostenlose Seite [ES-Gamma-Levels](/es-gamma-levels), ohne Registrierung, und vergleiche sie mit den Levels, die du heute nutzt.

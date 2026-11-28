@@ -9,7 +9,7 @@
 MenthorQ and ZeroGEX sell the same core thing: options-derived key levels - the strikes where call and put gamma concentrate, and the gamma flip between them - delivered into the charting platforms traders already use. The differences are in breadth, depth, extras, and price.
 
 - **MenthorQ** covers stocks, ETFs, indices, futures, forex, and crypto, with 20+ trading models, 10+ platform integrations, an academy, an AI assistant called QUIN, and live coaching on its Pro plan.
-- **ZeroGEX** covers six symbols - SPX, SPY, QQQ, NDX, and the ES and NQ futures - and goes deeper on them: levels recomputed about once a minute through the session, a gamma heatmap, hedging flow, and fourteen signals built on the levels.
+- **ZeroGEX** covers eight symbols - SPX, SPY, QQQ, NDX, the ES and NQ futures, NVDA, and MSFT - and goes deeper on them: levels recomputed about once a minute through the session, a gamma heatmap, hedging flow, and fourteen signals for the six index products built on the levels.
 
 If you trade many markets, or want lessons and coaching with your levels, MenthorQ is closer to what you need. If you day trade the index complex and want its levels in depth for less, ZeroGEX is.
 
@@ -43,13 +43,13 @@ List prices before promotions and tax, checked {{menthorq:checked}}. MenthorQ di
 | MenthorQ Premium | {{menthorq:premium:monthly}}/mo | {{menthorq:premium:annual}}/yr (about {{menthorq:premium:annual:mo}}/mo) |
 | MenthorQ Pro, with coaching | {{menthorq:pro:monthly}}/mo | {{menthorq:pro:annual}}/yr (about {{menthorq:pro:annual:mo}}/mo) |
 
-Both ZeroGEX plans cost less than either MenthorQ plan, monthly or yearly. MenthorQ's discounted first month of Premium costs the same as a regular month of ZeroGEX Basic. The prices buy different things, though: MenthorQ's covers far more markets, more integrations, an academy, and on Pro, coaching; ZeroGEX's covers six symbols in depth.
+Both ZeroGEX plans cost less than either MenthorQ plan, monthly or yearly. MenthorQ's discounted first month of Premium costs the same as a regular month of ZeroGEX Basic. The prices buy different things, though: MenthorQ's covers far more markets, more integrations, an academy, and on Pro, coaching; ZeroGEX's covers eight symbols in depth.
 
 ZeroGEX Basic monthly starts with a 7-day free trial, and every other ZeroGEX plan is covered by a 7-day money-back guarantee. Check MenthorQ's site for its current trial and refund terms. The full breakdown is on the [Pricing](/pricing) page.
 
 ## Where MenthorQ is the stronger choice
 
-- **Breadth.** Stocks, ETFs, indices, futures, forex, and crypto. ZeroGEX covers six symbols.
+- **Breadth.** Stocks, ETFs, indices, futures, forex, and crypto. ZeroGEX covers eight symbols.
 - **More platforms.** Integrations with TradingView, NinjaTrader, Sierra Chart, Bookmap, ATAS, Quantower, MotiveWave, Tickblaze, and TrendSpider. ZeroGEX works with six: TradingView, thinkorswim, NinjaTrader, Sierra Chart, Bookmap, and SabrTrader, which draws MenthorQ's levels too.
 - **Learning and coaching.** An academy with 350+ lessons, 350+ guides, and webinars and podcasts, and on Pro, live trading sessions, weekly mentorship meetings, and a monthly strategy session. ZeroGEX has education articles and a help center, and no coaching.
 - **More models.** 20+ trading models, including Blind Spot levels and the Q-Score, and QUIN, an AI assistant that screens setups and compares assets across its metrics. ZeroGEX's AI access is its free MCP server, which puts the levels in assistants like Claude and ChatGPT.
@@ -65,7 +65,7 @@ ZeroGEX Basic monthly starts with a 7-day free trial, and every other ZeroGEX pl
 
 ## How to decide
 
-- **You trade stocks, forex, crypto, or futures beyond ES and NQ:** MenthorQ.
+- **You trade stocks beyond NVDA and MSFT, forex, crypto, or futures beyond ES and NQ:** MenthorQ.
 - **You want an academy, mentorship, or live trading sessions with your levels:** MenthorQ.
 - **You day trade SPX, SPY, QQQ, NDX, ES, or NQ and want the flip, the walls, and dealer-positioning signals in depth, for less:** ZeroGEX.
 - **You are not sure yet:** open the free [SPX gamma levels](/spx-gamma-levels) page, no signup needed, and compare it with the levels you use today.
