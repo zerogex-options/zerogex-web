@@ -17,9 +17,11 @@
 
 - [x] ~~Step 1. Renewal stopped before 2026-11-15 17:27 UTC~~ Missed: the renewal charged
   $44.25 at 2026-11-15 18:28 UTC (`in_1Uc7DU4AOiqteMYYuSr66Ygp`). See Step 1 for the fix.
-- [ ] Step 1 fix. **Renewal refunded in full in Stripe. Not done yet, and it now comes
-  first:** the subscription is already canceled, so until the refund goes through the
-  customer has paid $44.25 for a month they can't use.
+- [x] Step 1 fix. Renewal refunded in full in Stripe, $44.25, on 2026-11-16 UTC. Marked
+  "Requested by customer", so the Nov 28 courtesy-refund backfill recorded it as her one
+  refund. Not a courtesy refund in the `docs/refund-requests.md` sense (she never asked;
+  she disputed), but kept on purpose: it keeps the money-back guarantee off for her if she
+  ever comes back.
 - [x] Step 1 fix. Evidence pulled (Step 3 commands) on 2026-11-16 UTC, before the cancel.
 - [x] Step 1 fix. Subscription canceled immediately (`cancel-subscription FORCE=1`) on
   2026-11-16 UTC: tier `public`, 1 API key revoked. This ran before the refund, so the
@@ -29,8 +31,8 @@
 - [x] Step 2. Nothing from the customer: per Michael (2026-11-16), they never responded
   to any email
 - [x] Step 3. Evidence checked: all four checks pass (see Step 3)
-- [ ] Step 4. Evidence filed in Stripe (date: ____)
-- [ ] Outcome: ____
+- [x] Step 4. Handled by Michael in Stripe (filing date not recorded here)
+- [x] Outcome: **lost** (per Michael, 2026-11-28). The $59 went back to the cardholder.
 
 ## Recommendation: counter it, and file by hand
 
