@@ -13,8 +13,12 @@ Signed "Joaquin Rodriguez, JLM Group, LLC/ Triple 8 Enterprises", with a link
 to a promotional-products catalog. Nothing says what he trades.
 
 > **Status:** first reply sent as drafted (confirmed Tue Nov 24). He wrote
-> back that he trades ES and asked whether the levels are converted for it.
-> The second draft ("Follow-up: he trades ES", at the end) is unsent.
+> back that he trades ES and asked whether the levels are converted for it
+> (second draft, "Follow-up: he trades ES"; not recorded as sent). By Sat
+> Nov 28 he had written again in a new thread, "INDICATOR FOR NINJA": he has
+> our NinjaTrader indicator and can't find where to paste it. That draft
+> ("Follow-up: where to paste the NinjaTrader indicator", at the end) is
+> unsent.
 
 ## The read
 
@@ -241,3 +245,112 @@ Founder, ZeroGEX
   cheap to fair value.
 - **He started the trial and asks for the sale price.** As before: the page
   won't sell it mid-trial, so it's your call, by hand (runbook section 6).
+
+## Follow-up: where to paste the NinjaTrader indicator (received by Sat Nov 28)
+
+New thread, subject "INDICATOR FOR NINJA":
+
+> Hi Mike,
+>
+> Where do i need to paste it? Is not letting me paste in any window.
+
+Attached: a screenshot of NinjaTrader 8's **New Indicator** window, open on
+its **General** page (Name and Description boxes; Back, Next, Generate and
+Cancel buttons).
+
+### The read
+
+- **Our page sent him there, and it skips a step.** With no packaged import
+  published, step 2 of the NinjaTrader section
+  (`frontend/components/PlotOnNinjaTrader.tsx`) says to open the NinjaScript
+  Editor, right-click Indicators → New Indicator, "paste in the downloaded
+  file", and press F5. New Indicator opens NinjaTrader's setup wizard, which is
+  his screenshot, and the wizard has no box for code. Clicking **Generate**
+  creates a starter file and opens it in the editor, and the code goes there.
+  The page never mentions Generate. The draft owns that in one line.
+- **"Not letting me paste in any window" points to a second gap.** "Paste in
+  the downloaded file" doesn't say to copy the text out of the file first.
+  Copying the file itself in File Explorer puts a file on the clipboard, not
+  its text, and a text box ignores it. That's a likely reading, not a certain
+  one, so the draft has him open it in Notepad and copy the text either way.
+- **The one-step import isn't an option.** `NT_PACKAGE_PATH` is null in
+  `frontend/core/ninjaTraderManifest.ts`, and the archive in
+  `assets/ninjatrader/` fails `scripts/verify-ninjatrader-package.py` today:
+  it holds an older build, named `EDQUANTGAMMA`. Don't send it by hand.
+  Paste-and-compile is the only current route.
+- **He's almost certainly on Pro.** The download only renders for Pro
+  (`useHasTierAccess('pro')`), and only Pro can generate an API key
+  (`frontend/app/api/account/api-keys/route.ts`). The check below confirms it.
+- **Name the file to match the code.** Typing `ZeroGexGammaLevels` in the
+  wizard gives the file the same name as the class inside it, so a later
+  update means opening the obvious file.
+- **Leave Symbol on AUTO.** That's the default, and it reads the chart's
+  instrument: ES gives ES levels, and MES maps to ES too (`ChartSymbol()` in
+  `frontend/public/ninjatrader/ZeroGexGammaLevels.cs`).
+- **A weekend install works.** The indicator fetches once as it loads, so on a
+  closed market it draws the last session's levels, and the info panel reads
+  "updated 1d ago" with no warning attached (`Age()` in the same file). The
+  draft says so, so a weekend setup doesn't read as broken.
+- **The page fix is on `claude/ninjatrader-paste-steps`:** the same steps as
+  the draft. Sending this reply doesn't depend on it.
+
+### Check first (10 seconds)
+
+```bash
+sudo sqlite3 -readonly /var/lib/zerogex/auth.db "SELECT email, tier, subscription_status, stripe_subscription_id FROM users WHERE lower(email) = 'joaquinr8@gmail.com';"
+```
+
+`tier` should read `pro`. If it doesn't, don't send the draft as is: below
+Pro he can't generate a key, so the indicator would install and then sit on
+"no API key set". Ask him whether he'd like Pro, and send the steps once he
+has it.
+
+### Draft
+
+Reply in the same thread.
+
+Hi Joaquin,
+
+Sorry about that, our instructions skip a step. That window doesn't take the code. It only names the indicator, and clicking Generate opens the window where the code goes. Here's the whole thing:
+
+1. Copy the code. Find the file you downloaded (its name starts with ZeroGexGammaLevels, probably in your Downloads folder). Right-click it, choose Open with, then Notepad. In Notepad, press Ctrl+A, then Ctrl+C. It has to be the text inside the file: copying the file itself won't paste anywhere.
+
+2. In the New Indicator window from your screenshot, type ZeroGexGammaLevels in the Name box (one word, no spaces) and click Generate. You can skip the other pages.
+
+3. A code window opens with some sample code in it. Click anywhere in that code, press Ctrl+A to select all of it, then Ctrl+V to paste ours over it.
+
+4. Press Ctrl+S to save, then F5 to compile. If no errors are listed at the bottom of the window, it's installed.
+
+5. On your ES chart, right-click and choose Indicators. Find "ZeroGEX Gamma Levels" in the list and add it. In its settings, paste your API key into the "API key (Bearer)" box, leave Symbol on AUTO (it reads ES from your chart), and click OK.
+
+If you don't have your API key yet, it's on your Account page under API Access: https://zerogex.io/account#api-access. Click Generate API Key and copy it right away, because it's only shown once.
+
+The levels then appear on your chart, with a small panel in the top right that says when they were last updated. From 9:30 AM to 4:00 PM ET they update themselves about every minute. Outside those hours they hold where they stood at the close, so if you set it up over the weekend you'll see Friday's levels until Monday at 9:30 AM ET.
+
+If anything looks off, send me a screenshot and I'll sort it out.
+
+Best,
+Michael
+Founder, ZeroGEX
+
+### If he replies
+
+- **Errors listed after F5.** NinjaTrader compiles every script on the
+  machine together, so one broken script, ours or anyone's, blocks them all.
+  The error list's File column names the culprit. If it's another vendor's
+  script, that script needs fixing or removing first. If it's
+  `ZeroGexGammaLevels`, ask for a screenshot of the list: this file isn't
+  compiled anywhere in our toolchain (`docs/ninjatrader-indicator.md`,
+  Limitations).
+- **"already contains a definition for 'ZeroGexGammaLevels'".** The code got
+  pasted into two files, say from a second try. He deletes the extra one from
+  the Indicators list in the NinjaScript Editor and presses F5 again.
+- **The wizard says the name is already in use.** An earlier try already
+  generated the file. He opens `ZeroGexGammaLevels` from the editor's
+  Indicators list instead and does steps 3 and 4 there.
+- **The panel says "no API key set" or "key rejected (HTTP 401)".** The key is
+  missing, mistyped, or retired: only one key is live per account, so
+  generating a new one retires the old one. He generates a key and pastes it
+  into the indicator's settings again.
+- **Nothing to download, or no API Access section on his Account page.** He
+  isn't on Pro after all. Same answer as a failed check above.
